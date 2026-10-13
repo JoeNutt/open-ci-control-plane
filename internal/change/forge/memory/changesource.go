@@ -22,9 +22,9 @@ type ChangeSource struct {
 func (source ChangeSource) PullRequestAt(
 	_ context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
-	change, recorded := source.Changes[locator]
-	if !recorded {
-		return domain.PullRequest{}, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+	change, err := source.changeAt(locator)
+	if err != nil {
+		return domain.PullRequest{}, err
 	}
 	return change.PullRequest, nil
 }
@@ -32,9 +32,17 @@ func (source ChangeSource) PullRequestAt(
 func (source ChangeSource) FilesChanged(
 	_ context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
-	change, recorded := source.Changes[locator]
-	if !recorded {
-		return nil, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+	change, err := source.changeAt(locator)
+	if err != nil {
+		return nil, err
 	}
 	return change.Files, nil
+}
+
+func (source ChangeSource) changeAt(locator domain.PullRequestLocator) (Change, error) {
+	change, recorded := source.Changes[locator]
+	if !recorded {
+		return Change{}, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+	}
+	return change, nil
 }
