@@ -24,7 +24,11 @@ func (source ChangeSource) FilesChanged(
 	if err != nil {
 		return nil, fmt.Errorf("changed files of %s: %w", locator, err)
 	}
-	return filesOf(listed), nil
+	files, err := filesOf(listed)
+	if err != nil {
+		return nil, fmt.Errorf("changed files of %s: %w", locator, err)
+	}
+	return files, nil
 }
 
 func (source ChangeSource) changedFilesAddress(locator domain.PullRequestLocator) string {
@@ -40,18 +44,22 @@ type changedFile struct {
 	Patch     string `json:"patch"`
 }
 
-func filesOf(listed []changedFile) []domain.File {
+func filesOf(listed []changedFile) ([]domain.File, error) {
 	files := make([]domain.File, 0, len(listed))
 	for _, listing := range listed {
+		action, err := domain.ParseFileAction(listing.Status)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", listing.Filename, err)
+		}
 		files = append(files, domain.File{
 			Path:       listing.Filename,
-			Action:     domain.FileAction(listing.Status),
+			Action:     action,
 			Additions:  listing.Additions,
 			Deletions:  listing.Deletions,
 			PatchBytes: len(listing.Patch),
 		})
 	}
-	return files
+	return files, nil
 }
 
 func jsonAt[Payload any](
