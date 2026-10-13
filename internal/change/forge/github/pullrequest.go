@@ -23,12 +23,14 @@ type pullRequest struct {
 	Head struct {
 		SHA string `json:"sha"`
 	} `json:"head"`
-	User struct {
-		Login string `json:"login"`
-		Type  string `json:"type"`
-	} `json:"user"`
+	User              account `json:"user"`
 	AuthorAssociation string  `json:"author_association"`
 	Labels            []label `json:"labels"`
+}
+
+type account struct {
+	Login string `json:"login"`
+	Type  string `json:"type"`
 }
 
 type label struct {
@@ -38,12 +40,7 @@ type label struct {
 func pullRequestOf(
 	stated pullRequest, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
-	isBot, classified := isBotByUserType[stated.User.Type]
-	if !classified {
-		return domain.PullRequest{}, fmt.Errorf("%w: %q opened by %q",
-			ErrUnknownUserType, stated.User.Type, stated.User.Login)
-	}
-	association, err := domain.ParseAuthorAssociation(stated.AuthorAssociation)
+	author, err := authorOf(stated.User, stated.AuthorAssociation)
 	if err != nil {
 		return domain.PullRequest{}, err
 	}
@@ -53,13 +50,22 @@ func pullRequestOf(
 		BaseRef:    stated.Base.Ref,
 		HeadSHA:    stated.Head.SHA,
 		Draft:      stated.Draft,
-		Author: domain.Author{
-			Login:       stated.User.Login,
-			Association: association,
-			IsBot:       isBot,
-		},
-		Labels: labelsOf(stated.Labels),
+		Author:     author,
+		Labels:     labelsOf(stated.Labels),
 	}, nil
+}
+
+func authorOf(opened account, association string) (domain.Author, error) {
+	isBot, classified := isBotByUserType[opened.Type]
+	if !classified {
+		return domain.Author{}, fmt.Errorf("%w: %q opened by %q",
+			ErrUnknownUserType, opened.Type, opened.Login)
+	}
+	declared, err := domain.ParseAuthorAssociation(association)
+	if err != nil {
+		return domain.Author{}, fmt.Errorf("the association of %q: %w", opened.Login, err)
+	}
+	return domain.Author{Login: opened.Login, Association: declared, IsBot: isBot}, nil
 }
 
 func labelsOf(worn []label) domain.Declared[string] {
