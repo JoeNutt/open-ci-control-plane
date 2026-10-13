@@ -72,6 +72,17 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	}
 }
 
+func TestFilesChangedReportsAForgeThatKnowsNoSuchPullRequest(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
+	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
+	}
+}
+
 func TestFilesChangedRefusesAStatusTheSchemaDoesNotDeclare(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "unchanged"}

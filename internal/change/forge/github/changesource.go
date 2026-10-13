@@ -79,6 +79,9 @@ func jsonAt[Payload any](
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	if response.StatusCode == http.StatusNotFound {
+		return payload, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, response.Status)
+	}
 	if response.StatusCode != http.StatusOK {
 		return payload, fmt.Errorf("%w: %s", ErrUnexpectedStatus, response.Status)
 	}
