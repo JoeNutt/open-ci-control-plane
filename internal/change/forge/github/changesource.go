@@ -31,6 +31,10 @@ func (source ChangeSource) PullRequestAt(
 		BaseRef:    stated.Base.Ref,
 		HeadSHA:    stated.Head.SHA,
 		Draft:      stated.Draft,
+		Author: domain.Author{
+			Login: stated.User.Login,
+			IsBot: stated.User.Type == botUserType,
+		},
 	}, nil
 }
 
@@ -53,6 +57,8 @@ func pullRequestEndpoint(locator domain.PullRequestLocator) string {
 		locator.Owner(), locator.Name(), locator.Number())
 }
 
+const botUserType = "Bot"
+
 type pullRequest struct {
 	Number int  `json:"number"`
 	Draft  bool `json:"draft"`
@@ -62,6 +68,10 @@ type pullRequest struct {
 	Head struct {
 		SHA string `json:"sha"`
 	} `json:"head"`
+	User struct {
+		Login string `json:"login"`
+		Type  string `json:"type"`
+	} `json:"user"`
 }
 
 const FilesPerPage = 100
