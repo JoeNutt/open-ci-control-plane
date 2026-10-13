@@ -23,33 +23,46 @@ func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLo
 	return locator
 }
 
-func serving(t *testing.T, path, body string) *httptest.Server {
+func forge(t *testing.T, answer http.HandlerFunc) *httptest.Server {
 	t.Helper()
 
-	server := httptest.NewTLSServer(http.HandlerFunc(
-		func(writer http.ResponseWriter, request *http.Request) {
-			if request.URL.Path != path {
-				t.Errorf("the adapter asked for %s, want %s", request.URL.Path, path)
-				writer.WriteHeader(http.StatusNotFound)
-				return
-			}
-			if _, written := writer.Write([]byte(body)); written != nil {
-				t.Errorf("write response: %v", written)
-			}
-		}))
+	server := httptest.NewTLSServer(answer)
 	t.Cleanup(server.Close)
 	return server
 }
 
+func serving(t *testing.T, path, body string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != path {
+			t.Errorf("the adapter asked for %s, want %s", request.URL.Path, path)
+			writer.WriteHeader(http.StatusNotFound)
+			return
+		}
+		write(t, writer, body)
+	})
+}
+
+func answering(t *testing.T, status int, body string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(status)
+		write(t, writer, body)
+	})
+}
+
+func write(t *testing.T, writer http.ResponseWriter, body string) {
+	t.Helper()
+
+	if _, written := writer.Write([]byte(body)); written != nil {
+		t.Errorf("write response: %v", written)
+	}
+}
+
 func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(
-		func(writer http.ResponseWriter, _ *http.Request) {
-			writer.WriteHeader(http.StatusInternalServerError)
-			if _, written := writer.Write([]byte(`[]`)); written != nil {
-				t.Errorf("write response: %v", written)
-			}
-		}))
-	t.Cleanup(server.Close)
+	server := answering(t, http.StatusInternalServerError, `[]`)
 	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
