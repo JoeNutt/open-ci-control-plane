@@ -26,10 +26,11 @@ func (source ChangeSource) PullRequestAt(
 		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
 	return domain.PullRequest{
-		Number:  stated.Number,
-		BaseRef: stated.Base.Ref,
-		HeadSHA: stated.Head.SHA,
-		Draft:   stated.Draft,
+		Number:     stated.Number,
+		Repository: locator.Repository(),
+		BaseRef:    stated.Base.Ref,
+		HeadSHA:    stated.Head.SHA,
+		Draft:      stated.Draft,
 	}, nil
 }
 

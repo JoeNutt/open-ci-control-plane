@@ -116,7 +116,12 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pull request at: %v", err)
 	}
-	want := domain.PullRequest{Number: 412, BaseRef: "main", HeadSHA: "9f1c8d2e4b7a"}
+	want := domain.PullRequest{
+		Number:     412,
+		Repository: "acme/payments",
+		BaseRef:    "main",
+		HeadSHA:    "9f1c8d2e4b7a",
+	}
 	if !reflect.DeepEqual(pullRequest, want) {
 		t.Fatalf("pull request is %+v, want %+v", pullRequest, want)
 	}

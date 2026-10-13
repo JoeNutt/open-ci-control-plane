@@ -54,6 +54,10 @@ func (locator PullRequestLocator) String() string {
 		locator.owner, repositorySeparator, locator.name, locator.number)
 }
 
+func (locator PullRequestLocator) Repository() string {
+	return locator.owner + repositorySeparator + locator.name
+}
+
 func (locator PullRequestLocator) Owner() string { return locator.owner }
 
 func (locator PullRequestLocator) Name() string { return locator.name }
