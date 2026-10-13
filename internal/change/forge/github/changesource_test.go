@@ -135,6 +135,34 @@ func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
 	}
 }
 
+func TestPullRequestAtDropsAnApprovalItsReviewerWithdrew(t *testing.T) {
+	server := servingEach(t, map[string]string{
+		"/repos/acme/payments/pulls/412": `{
+			"number": 412,
+			"user": {"login": "jo", "type": "User"},
+			"author_association": "MEMBER"
+		}`,
+		"/repos/acme/payments/pulls/412/reviews": `[
+			{"user": {"login": "sam", "type": "User"}, "state": "APPROVED"},
+			{"user": {"login": "sam", "type": "User"}, "state": "CHANGES_REQUESTED"},
+			{"user": {"login": "kim", "type": "User"}, "state": "APPROVED"},
+			{"user": {"login": "kim", "type": "User"}, "state": "COMMENTED"}
+		]`,
+	})
+	source := sourceAt(server)
+
+	pullRequest, err := source.PullRequestAt(
+		context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("pull request at: %v", err)
+	}
+	want := domain.Declared[domain.Approval]{{Login: "kim"}}
+	if !reflect.DeepEqual(pullRequest.Approvals, want) {
+		t.Fatalf("approvals are %+v, want %+v", pullRequest.Approvals, want)
+	}
+}
+
 func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 	server := servingEach(t, map[string]string{
 		"/repos/acme/payments/pulls/412": `{

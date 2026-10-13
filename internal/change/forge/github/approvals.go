@@ -43,15 +43,37 @@ type review struct {
 }
 
 func approvalsIn(reviewed []review, author string) domain.Declared[domain.Approval] {
-	approvals := make(domain.Declared[domain.Approval], 0, len(reviewed))
+	standing := make(map[string]string, len(reviewed))
+	var reviewers []string
 	for _, reviewing := range reviewed {
-		if reviewing.State != approvedReviewState {
+		if !decidesApproval[reviewing.State] {
+			continue
+		}
+		if _, reviewed := standing[reviewing.User.Login]; !reviewed {
+			reviewers = append(reviewers, reviewing.User.Login)
+		}
+		standing[reviewing.User.Login] = reviewing.State
+	}
+	approvals := make(domain.Declared[domain.Approval], 0, len(reviewers))
+	for _, reviewer := range reviewers {
+		if standing[reviewer] != approvedReviewState {
 			continue
 		}
 		approvals = append(approvals, domain.Approval{
-			Login:    reviewing.User.Login,
-			IsAuthor: reviewing.User.Login == author,
+			Login:    reviewer,
+			IsAuthor: reviewer == author,
 		})
 	}
 	return approvals
+}
+
+// A review of COMMENTED or PENDING leaves a reviewer's earlier approval or request
+// for changes standing; the other states replace it:
+// https://docs.github.com/en/rest/pulls/reviews
+var decidesApproval = map[string]bool{
+	"APPROVED":          true,
+	"CHANGES_REQUESTED": true,
+	"DISMISSED":         true,
+	"COMMENTED":         false,
+	"PENDING":           false,
 }
