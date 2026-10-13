@@ -100,25 +100,11 @@ func outwardImportsIn(t *testing.T, dir, module string) []string {
 func sourceFilesIn(t *testing.T, dir string) []string {
 	t.Helper()
 
-	var files []string
-	walked := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return err
-		case entry.IsDir() && entry.Name() == "testdata":
-			return fs.SkipDir
-		case entry.IsDir() || !strings.HasSuffix(path, ".go"):
-			return nil
-		case strings.HasSuffix(path, "_test.go"):
-			return nil
-		}
-		files = append(files, path)
-		return nil
+	return pathsUnder(t, dir, func(path string, entry fs.DirEntry) bool {
+		return !entry.IsDir() &&
+			strings.HasSuffix(path, ".go") &&
+			!strings.HasSuffix(path, "_test.go")
 	})
-	if walked != nil {
-		t.Fatalf("walk %s: %v", dir, walked)
-	}
-	return files
 }
 
 func importsOf(t *testing.T, file string) []string {
@@ -158,22 +144,28 @@ func isDomainPackage(imported, module string) bool {
 func domainDirsIn(t *testing.T, tree string) []string {
 	t.Helper()
 
-	var dirs []string
+	return pathsUnder(t, tree, func(_ string, entry fs.DirEntry) bool {
+		return entry.IsDir() && entry.Name() == "domain"
+	})
+}
+
+func pathsUnder(t *testing.T, tree string, selected func(string, fs.DirEntry) bool) []string {
+	t.Helper()
+
+	var paths []string
 	walked := filepath.WalkDir(tree, func(path string, entry fs.DirEntry, err error) error {
 		switch {
 		case err != nil:
 			return err
-		case !entry.IsDir():
-			return nil
-		case entry.Name() == "testdata":
+		case entry.IsDir() && entry.Name() == "testdata":
 			return fs.SkipDir
-		case entry.Name() == "domain":
-			dirs = append(dirs, path)
+		case selected(path, entry):
+			paths = append(paths, path)
 		}
 		return nil
 	})
 	if walked != nil {
 		t.Fatalf("walk %s: %v", tree, walked)
 	}
-	return dirs
+	return paths
 }
