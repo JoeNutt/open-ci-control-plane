@@ -11,7 +11,14 @@ import (
 )
 
 type ChangeSource struct {
-	Files map[domain.PullRequestLocator][]domain.File
+	PullRequests map[domain.PullRequestLocator]domain.PullRequest
+	Files        map[domain.PullRequestLocator][]domain.File
+}
+
+func (source ChangeSource) PullRequestAt(
+	_ context.Context, locator domain.PullRequestLocator,
+) (domain.PullRequest, error) {
+	return source.PullRequests[locator], nil
 }
 
 func (source ChangeSource) FilesChanged(

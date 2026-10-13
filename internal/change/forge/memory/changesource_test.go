@@ -5,6 +5,7 @@ package memory_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -38,6 +39,30 @@ func TestChangeSourceReportsTheFilesRecordedForAPullRequest(t *testing.T) {
 	}
 	if !slices.Equal(changed, files) {
 		t.Fatalf("files are %+v, want %+v", changed, files)
+	}
+}
+
+func TestChangeSourceReportsThePullRequestRecordedForALocator(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	pullRequest := domain.PullRequest{
+		Number:     412,
+		Repository: "acme/payments",
+		BaseRef:    "main",
+		HeadSHA:    "9f1c8d2e",
+		Author:     domain.Author{Login: "jo", Association: "MEMBER"},
+		Labels:     domain.Declared[string]{"backend"},
+	}
+	source := memory.ChangeSource{
+		PullRequests: map[domain.PullRequestLocator]domain.PullRequest{locator: pullRequest},
+	}
+
+	reported, err := source.PullRequestAt(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("pull request at %s: %v", locator, err)
+	}
+	if !reflect.DeepEqual(reported, pullRequest) {
+		t.Fatalf("pull request is %+v, want %+v", reported, pullRequest)
 	}
 }
 
