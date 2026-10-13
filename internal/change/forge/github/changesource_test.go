@@ -129,6 +129,21 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 	}
 }
 
+func TestPullRequestAtRefusesAnAccountTypeItCannotClassify(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/pulls/412", `{
+		"number": 412,
+		"user": {"login": "jo", "type": "Golem"}
+	}`)
+	source := sourceAt(server)
+
+	_, err := source.PullRequestAt(
+		context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrUnknownUserType) {
+		t.Fatalf("error is %v, want %v", err, github.ErrUnknownUserType)
+	}
+}
+
 func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "modified"}

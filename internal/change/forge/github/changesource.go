@@ -25,7 +25,7 @@ func (source ChangeSource) PullRequestAt(
 	if err != nil {
 		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
-	return pullRequestOf(stated, locator), nil
+	return pullRequestOf(stated, locator)
 }
 
 func (source ChangeSource) FilesChanged(
@@ -49,7 +49,12 @@ func pullRequestEndpoint(locator domain.PullRequestLocator) string {
 
 func pullRequestOf(
 	stated pullRequest, locator domain.PullRequestLocator,
-) domain.PullRequest {
+) (domain.PullRequest, error) {
+	isBot, classified := isBotByUserType[stated.User.Type]
+	if !classified {
+		return domain.PullRequest{}, fmt.Errorf("%w: %q opened by %q",
+			ErrUnknownUserType, stated.User.Type, stated.User.Login)
+	}
 	return domain.PullRequest{
 		Number:     stated.Number,
 		Repository: locator.Repository(),
@@ -58,12 +63,18 @@ func pullRequestOf(
 		Draft:      stated.Draft,
 		Author: domain.Author{
 			Login: stated.User.Login,
-			IsBot: stated.User.Type == botUserType,
+			IsBot: isBot,
 		},
-	}
+	}, nil
 }
 
-const botUserType = "Bot"
+var ErrUnknownUserType = errors.New("the forge names an account type with no bot classification")
+
+var isBotByUserType = map[string]bool{
+	"User":         false,
+	"Bot":          true,
+	"Organization": false,
+}
 
 type pullRequest struct {
 	Number int  `json:"number"`
