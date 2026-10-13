@@ -38,9 +38,17 @@ func forge(t *testing.T, answer http.HandlerFunc) *httptest.Server {
 func serving(t *testing.T, path, body string) *httptest.Server {
 	t.Helper()
 
+	return servingEach(t, map[string]string{path: body})
+}
+
+func servingEach(t *testing.T, bodies map[string]string) *httptest.Server {
+	t.Helper()
+
 	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != path {
-			t.Errorf("the adapter asked for %s, want %s", request.URL.Path, path)
+		body, served := bodies[request.URL.Path]
+		if !served {
+			t.Errorf("the adapter asked for %s, which this forge does not serve",
+				request.URL.Path)
 			writer.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -101,16 +109,45 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 	return "[" + strings.Join(listings, ",") + "]"
 }
 
+func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
+	server := servingEach(t, map[string]string{
+		"/repos/acme/payments/pulls/412": `{
+			"number": 412,
+			"user": {"login": "jo", "type": "User"},
+			"author_association": "MEMBER"
+		}`,
+		"/repos/acme/payments/pulls/412/reviews": `[
+			{"user": {"login": "sam", "type": "User"}, "state": "APPROVED"},
+			{"user": {"login": "kim", "type": "User"}, "state": "COMMENTED"}
+		]`,
+	})
+	source := sourceAt(server)
+
+	pullRequest, err := source.PullRequestAt(
+		context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("pull request at: %v", err)
+	}
+	want := domain.Declared[domain.Approval]{{Login: "sam"}}
+	if !reflect.DeepEqual(pullRequest.Approvals, want) {
+		t.Fatalf("approvals are %+v, want %+v", pullRequest.Approvals, want)
+	}
+}
+
 func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
-	server := serving(t, "/repos/acme/payments/pulls/412", `{
-		"number": 412,
-		"draft": false,
-		"base": {"ref": "main"},
-		"head": {"sha": "9f1c8d2e4b7a"},
-		"user": {"login": "jo", "type": "User"},
-		"author_association": "MEMBER",
-		"labels": [{"name": "backend"}, {"name": "needs-review"}]
-	}`)
+	server := servingEach(t, map[string]string{
+		"/repos/acme/payments/pulls/412": `{
+			"number": 412,
+			"draft": false,
+			"base": {"ref": "main"},
+			"head": {"sha": "9f1c8d2e4b7a"},
+			"user": {"login": "jo", "type": "User"},
+			"author_association": "MEMBER",
+			"labels": [{"name": "backend"}, {"name": "needs-review"}]
+		}`,
+		"/repos/acme/payments/pulls/412/reviews": `[]`,
+	})
 	source := sourceAt(server)
 
 	pullRequest, err := source.PullRequestAt(
@@ -128,7 +165,8 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 			Login:       "jo",
 			Association: domain.AuthorAssociationMember,
 		},
-		Labels: domain.Declared[string]{"backend", "needs-review"},
+		Labels:    domain.Declared[string]{"backend", "needs-review"},
+		Approvals: domain.Declared[domain.Approval]{},
 	}
 	if !reflect.DeepEqual(pullRequest, want) {
 		t.Fatalf("pull request is %+v, want %+v", pullRequest, want)

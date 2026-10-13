@@ -24,7 +24,15 @@ func (source ChangeSource) PullRequestAt(
 	if err != nil {
 		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
-	return pullRequestOf(stated, locator)
+	reported, err := pullRequestOf(stated, locator)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	reported.Approvals, err = source.approvalsOf(ctx, locator, reported.Author.Login)
+	if err != nil {
+		return domain.PullRequest{}, fmt.Errorf("read the reviews of %s: %w", locator, err)
+	}
+	return reported, nil
 }
 
 func (source ChangeSource) FilesChanged(
