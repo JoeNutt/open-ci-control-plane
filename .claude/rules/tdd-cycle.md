@@ -93,25 +93,35 @@ nothing drifts into it by accident.
 
 ---
 
-## You may not end a turn without a refactor verdict
+## Every cycle ends with a refactor verdict, in that cycle's commit
 
-State exactly one of these lines. It is checked mechanically, so the wording matters:
-
-```
-Refactored: <what changed and why>
-```
+Once per cycle, in the commit message, attached to the diff it describes. Not once per turn:
+a single verdict covering several cycles is a verdict about none of them. State one of:
 
 ```
-No refactor needed: checked <which questions>, none fired.
+Refactored: <what changed, and which entry demanded it>
 ```
 
-The second is legitimate and common. **Producing neither is not**, and a `Stop` hook will
-refuse to let the turn end until one is present.
+```
+No refactor needed: checked <all five, each naming the entry read and what it says>, none fired.
+```
 
-**Name the questions you checked. Do not count them.** "Five questions checked, none fired"
-is not a verdict — it is a claim that a checklist was consulted, with no evidence of what was
-looked at. `No refactor needed: checked duplication, routine size, nesting, naming, boundaries
-— none fired` is a verdict, because a reviewer can disagree with it.
+**Cite the entry and what it says. A verdict naming only a topic is not a check.** "boundaries
+unchanged" is unfalsifiable — a conclusion with no evidence that anything was read, which is
+exactly what a verdict written from memory looks like. A real one reads: *coupling.md says a
+Bounded can only exist after bounds passed and that Evaluate cannot be called with Raw;
+ParseDocument takes a raw []File, so it does not have that shape.* A reader can open the file
+and disagree with that.
+
+**Name the five questions by their own names** — design pattern, architectural boundaries,
+clean code, hexagonal, OWASP. Naming five items from inside one of them is one check wearing
+five hats: duplication, routine size, nesting, naming and comments all belong to question 3,
+and a verdict listing those leaves patterns, boundaries and OWASP unexamined.
+
+**Answering from memory is the failure this step exists to prevent.** The entries are the
+specification; your recollection of them is not, and the reason they were written down is that
+recollection produces plausible code the standards reject. If a verdict did not involve opening
+a file, it did not happen.
 
 ## Also non-negotiable
 
@@ -120,8 +130,10 @@ looked at. `No refactor needed: checked duplication, routine size, nesting, nami
 - **Never delete or skip a failing test to get green.** Report it.
 - **Test the denial, not just the success.** Every control needs a test proving it refuses.
 - Not refactoring, and not allowed in this step: adding a case, fixing a noticed bug,
-  optimising for speed. The first two are the next RED; tuning comes after correctness, with a
-  measurement.
+  optimising for speed. A bug or missing case noticed here becomes **the next RED — the one
+  immediately after this cycle, not a later one.** Deferring it to "a future cycle" and
+  starting unrelated work is how a security finding stays open across three cycles while every
+  verdict faithfully reports it as known. Tuning comes after correctness, with a measurement.
 - **Strip the comments you wrote during red and green.** Green permits anything, comments
   included — so scratch notes, narration and reminders are expected to exist by the time you
   get here, and removing them is part of this step. What survives: a doc comment on each
