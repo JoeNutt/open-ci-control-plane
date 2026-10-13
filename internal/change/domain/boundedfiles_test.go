@@ -4,24 +4,15 @@ package domain_test
 
 import (
 	"errors"
-	"math"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var noBoundBinds = domain.Limits{
-	MaxChangedFiles:      math.MaxInt,
-	MaxPatchBytesPerFile: math.MaxInt,
-	MaxTotalPatchBytes:   math.MaxInt,
-	MaxPathBytes:         math.MaxInt,
-	MaxPathSegments:      math.MaxInt,
-}
-
 func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
 	t.Helper()
 
-	bounded, err := domain.ParseBoundedFiles(files, noBoundBinds)
+	bounded, err := domain.ParseBoundedFiles(files, domain.DeclaredLimits())
 	if err != nil {
 		t.Fatalf("parse bounded files: %v", err)
 	}
@@ -34,7 +25,7 @@ func TestParseBoundedFilesRefusesMoreChangedFilesThanTheLimitAllows(t *testing.T
 		{Path: "internal/http/routes.go", Action: domain.FileActionModified},
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	}
-	limits := noBoundBinds
+	limits := domain.DeclaredLimits()
 	limits.MaxChangedFiles = len(files) - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
@@ -49,7 +40,7 @@ func TestParseBoundedFilesRefusesAFilePatchLargerThanTheLimitAllows(t *testing.T
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
 			PatchBytes: 1840},
 	}
-	limits := noBoundBinds
+	limits := domain.DeclaredLimits()
 	limits.MaxPatchBytesPerFile = files[0].PatchBytes - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
@@ -65,7 +56,7 @@ func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing
 			PatchBytes: 1840},
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 7280},
 	}
-	limits := noBoundBinds
+	limits := domain.DeclaredLimits()
 	limits.MaxTotalPatchBytes = files[0].PatchBytes + files[1].PatchBytes - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
@@ -77,7 +68,7 @@ func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing
 
 func TestParseBoundedFilesRefusesAPathLongerThanTheLimitAllows(t *testing.T) {
 	path := "internal/auth/middleware.go"
-	limits := noBoundBinds
+	limits := domain.DeclaredLimits()
 	limits.MaxPathBytes = len(path) - 1
 	files := []domain.File{{Path: path, Action: domain.FileActionModified}}
 
@@ -89,7 +80,7 @@ func TestParseBoundedFilesRefusesAPathLongerThanTheLimitAllows(t *testing.T) {
 }
 
 func TestParseBoundedFilesRefusesAPathDeeperThanTheLimitAllows(t *testing.T) {
-	limits := noBoundBinds
+	limits := domain.DeclaredLimits()
 	limits.MaxPathSegments = 3
 	files := []domain.File{
 		{Path: "internal/change/domain/boundedfiles.go", Action: domain.FileActionAdded},
@@ -103,9 +94,9 @@ func TestParseBoundedFilesRefusesAPathDeeperThanTheLimitAllows(t *testing.T) {
 }
 
 func TestParseBoundedFilesRefusesOneFileMoreThanTheDeclaredBoundAdmits(t *testing.T) {
-	files := make([]domain.File, domain.DeclaredLimits.MaxChangedFiles+1)
+	files := make([]domain.File, domain.DeclaredLimits().MaxChangedFiles+1)
 
-	_, err := domain.ParseBoundedFiles(files, domain.DeclaredLimits)
+	_, err := domain.ParseBoundedFiles(files, domain.DeclaredLimits())
 
 	if !errors.Is(err, domain.ErrTooManyChangedFiles) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyChangedFiles)

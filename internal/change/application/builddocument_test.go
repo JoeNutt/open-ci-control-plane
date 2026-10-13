@@ -4,21 +4,12 @@ package application_test
 
 import (
 	"context"
-	"math"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
-
-var noBoundBinds = domain.Limits{
-	MaxChangedFiles:      math.MaxInt,
-	MaxPatchBytesPerFile: math.MaxInt,
-	MaxTotalPatchBytes:   math.MaxInt,
-	MaxPathBytes:         math.MaxInt,
-	MaxPathSegments:      math.MaxInt,
-}
 
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
@@ -46,7 +37,7 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		},
 	}
 
-	useCase := application.BuildDocument{Source: source, Limits: noBoundBinds}
+	useCase := application.BuildDocument{Source: source, Limits: domain.DeclaredLimits()}
 
 	document, err := useCase.Execute(context.Background(), locator)
 
