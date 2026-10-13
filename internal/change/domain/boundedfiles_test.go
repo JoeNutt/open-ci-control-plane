@@ -4,20 +4,21 @@ package domain_test
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var noBoundBinds = domain.Limits{
+	MaxChangedFiles:      math.MaxInt,
+	MaxPatchBytesPerFile: math.MaxInt,
+}
+
 func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
 	t.Helper()
 
-	limits := domain.Limits{MaxChangedFiles: len(files)}
-	for _, file := range files {
-		limits.MaxPatchBytesPerFile = max(limits.MaxPatchBytesPerFile, file.PatchBytes)
-	}
-
-	bounded, err := domain.ParseBoundedFiles(files, limits)
+	bounded, err := domain.ParseBoundedFiles(files, noBoundBinds)
 	if err != nil {
 		t.Fatalf("parse bounded files: %v", err)
 	}
