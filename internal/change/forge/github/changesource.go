@@ -40,23 +40,32 @@ type ChangeSource struct {
 func (source ChangeSource) FilesChanged(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
-	var listed []changedFile
-	for page := 1; ; page++ {
-		onPage, err := jsonAt[[]changedFile](
-			ctx, source.Client, source.changedFilesAddress(locator, page))
-		if err != nil {
-			return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
-		}
-		listed = append(listed, onPage...)
-		if len(onPage) < FilesPerPage {
-			break
-		}
+	listed, err := source.changedFilesAcrossPages(ctx, locator)
+	if err != nil {
+		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
 	}
 	files, err := filesOf(listed)
 	if err != nil {
 		return nil, fmt.Errorf("read the changed files of %s: %w", locator, err)
 	}
 	return files, nil
+}
+
+func (source ChangeSource) changedFilesAcrossPages(
+	ctx context.Context, locator domain.PullRequestLocator,
+) ([]changedFile, error) {
+	var listed []changedFile
+	for page := 1; ; page++ {
+		onPage, err := jsonAt[[]changedFile](
+			ctx, source.Client, source.changedFilesAddress(locator, page))
+		if err != nil {
+			return nil, err
+		}
+		listed = append(listed, onPage...)
+		if len(onPage) < FilesPerPage {
+			return listed, nil
+		}
+	}
 }
 
 func (source ChangeSource) changedFilesAddress(
