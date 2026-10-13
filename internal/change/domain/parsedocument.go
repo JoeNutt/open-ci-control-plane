@@ -2,10 +2,12 @@
 
 package domain
 
+import "slices"
+
 func ParseDocument(pullRequest PullRequest, files []File) (Document, error) {
 	return Document{PR: pullRequest, Diff: Diff{
 		Paths:  pathsOf(files),
-		Files:  Declared[File](files),
+		Files:  Declared[File](slices.Clone(files)),
 		Totals: totalsOf(files),
 	}}, nil
 }

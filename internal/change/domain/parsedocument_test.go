@@ -44,6 +44,23 @@ func TestParseDocumentCarriesEveryChangedFileRecord(t *testing.T) {
 	}
 }
 
+func TestParseDocumentDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
+	files := []domain.File{
+		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			PatchBytes: 1840},
+	}
+
+	document, err := domain.ParseDocument(domain.PullRequest{}, files)
+	if err != nil {
+		t.Fatalf("parse document: %v", err)
+	}
+	files[0] = domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded}
+
+	if document.Diff.Files[0].Path != "internal/auth/middleware.go" {
+		t.Fatalf("the document followed a later write to its input: %+v", document.Diff.Files[0])
+	}
+}
+
 func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/http/routes.go", Action: domain.FileActionModified},
