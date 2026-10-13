@@ -61,6 +61,10 @@ standards.
   tenant's own data document and in opt-in example packs, never in the engine.
 - **Policy lives outside the repository it governs.** Nothing read for a decision may come
   from the repository being decided about.
+- **Never commit in a working tree an agent is live in.** Spawn agents with
+  `isolation: "worktree"` so they get their own checkout. Two writers in one tree is a
+  concurrency bug: the branch moves under you, and a stray file in the repo root breaks
+  `go test ./...` module-wide for whoever else is working there. Both have already happened.
 
 ## The cycle is enforced, not suggested
 
@@ -69,8 +73,12 @@ three steps in full. Two hooks make it mechanical rather than advisory:
 
 | Hook | Event | Refuses |
 |---|---|---|
-| `refactor-verdict.sh` | `Stop`, `SubagentStop` | Ending a turn that edited source without stating a refactor verdict |
-| `pre-commit-gate.sh` | `PreToolUse` on `Bash(git commit *)` | `--no-verify`; production Go staged with no test staged; unformatted files; `go vet` failures; a red suite |
+| `.claude/hooks/refactor-verdict.sh` | `Stop`, `SubagentStop` | Ending a turn that edited source without stating a refactor verdict |
+| `.githooks/pre-commit` | `git commit` | Production Go staged with no test staged; unformatted files; `go vet` failures; a red suite |
+
+The second is an ordinary git hook, wired by `core.hooksPath`, so it binds humans as well as
+agents. Only the first has to be a Claude hook — it reads assistant output, which nothing else
+can see.
 
 The verdict wording is checked mechanically. Exactly one of:
 

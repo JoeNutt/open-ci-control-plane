@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Refuses a commit that cannot be verified. Binds everyone, not just agents.
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+fail() { printf '\npre-commit: %s\n\n' "$1" >&2; exit 1; }
+
+staged="$(git diff --cached --name-only --diff-filter=ACM)" || exit 0
+[ -n "$staged" ] || exit 0
+
+prod_go="$(printf '%s\n' "$staged" | grep -E '\.go$' | grep -vE '_test\.go$' || true)"
+test_go="$(printf '%s\n' "$staged" | grep -E '_test\.go$' || true)"
+if [ -n "$prod_go" ] && [ -z "$test_go" ]; then
+    fail "production Go staged with no test staged:
+$(printf '%s\n' "$prod_go" | sed 's/^/  - /')
+
+Red comes first. Stage the test that drove this change, or say why the code is untestable."
+fi
+
+[ -f go.mod ] || exit 0
+
+if command -v go >/dev/null 2>&1; then
+    run() { bash -c "$1" 2>&1; }
+elif [ -f flake.nix ] && command -v nix >/dev/null 2>&1; then
+    run() { nix develop --command bash -c "$1" 2>&1; }
+else
+    fail "go.mod is present but neither the go toolchain nor nix is available."
+fi
+
+unformatted="$(run 'gofmt -l .' | grep -E '\.go$' || true)"
+[ -n "$unformatted" ] && fail "gofmt reports unformatted files:
+$(printf '%s\n' "$unformatted" | sed 's/^/  - /')"
+
+vet_out="$(run 'go vet ./...')" || fail "go vet failed:
+
+$(printf '%s' "$vet_out" | tail -40)"
+
+test_out="$(run 'go test ./...')" || fail "tests are not green, so there is nothing to commit:
+
+$(printf '%s' "$test_out" | tail -40)"
+
+exit 0

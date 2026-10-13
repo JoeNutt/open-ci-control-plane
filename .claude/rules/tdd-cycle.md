@@ -75,8 +75,9 @@ Work comes from the board: https://github.com/users/JoeNutt/projects/2
 
 You are an engineer, not a queue. **Hold exactly one card in In Progress.** Claim it by
 setting both the `Agent` and `Status` fields in the same call, work it through the cycle, and
-move it to `Review` or `Blocked` before claiming another. A `PreToolUse` hook refuses a second
-claim and names the card you already hold.
+move it to `Review` or `Blocked` before claiming another.
+
+Nothing enforces this. It is a convention, and a breach is visible on the board.
 
 `Won't` cards are not work. They are the record of what is deliberately not being built, so
 nothing drifts into it by accident.
@@ -114,4 +115,7 @@ refuse to let the turn end until one is present.
   constraint whose reason lives outside the code, with its reference; and the
   `// SPDX-License-Identifier: GPL-3.0-or-later` first line, which is a legal marker and is
   never stripped. Nothing else.
+- **Commit and the tests must be green.** A `.githooks/pre-commit` hook refuses a red suite,
+  unformatted files, `go vet` failures, and production Go staged with no test staged. It binds
+  everyone, not only agents.
   Self-justification is a defect, not a courtesy: `knowledge-base/engineering/comments.md`.
