@@ -5,6 +5,7 @@ package domain
 func ParseDocument(pullRequest PullRequest, files []File) (Document, error) {
 	return Document{PR: pullRequest, Diff: Diff{
 		Paths:  pathsOf(files),
+		Files:  Declared[File](files),
 		Totals: totalsOf(files),
 	}}, nil
 }

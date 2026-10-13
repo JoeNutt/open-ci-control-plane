@@ -28,6 +28,22 @@ func TestParseDocumentAggregatesTotalsOverChangedFiles(t *testing.T) {
 	}
 }
 
+func TestParseDocumentCarriesEveryChangedFileRecord(t *testing.T) {
+	files := []domain.File{
+		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			Additions: 12, Deletions: 3, PatchBytes: 1840},
+	}
+
+	document, err := domain.ParseDocument(domain.PullRequest{}, files)
+
+	if err != nil {
+		t.Fatalf("parse document: %v", err)
+	}
+	if !slices.Equal(document.Diff.Files, domain.Declared[domain.File](files)) {
+		t.Fatalf("files are %+v, want %+v", document.Diff.Files, files)
+	}
+}
+
 func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/http/routes.go", Action: domain.FileActionModified},
