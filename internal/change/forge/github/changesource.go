@@ -25,17 +25,7 @@ func (source ChangeSource) PullRequestAt(
 	if err != nil {
 		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
-	return domain.PullRequest{
-		Number:     stated.Number,
-		Repository: locator.Repository(),
-		BaseRef:    stated.Base.Ref,
-		HeadSHA:    stated.Head.SHA,
-		Draft:      stated.Draft,
-		Author: domain.Author{
-			Login: stated.User.Login,
-			IsBot: stated.User.Type == botUserType,
-		},
-	}, nil
+	return pullRequestOf(stated, locator), nil
 }
 
 func (source ChangeSource) FilesChanged(
@@ -55,6 +45,22 @@ func (source ChangeSource) FilesChanged(
 func pullRequestEndpoint(locator domain.PullRequestLocator) string {
 	return fmt.Sprintf("/repos/%s/%s/pulls/%d",
 		locator.Owner(), locator.Name(), locator.Number())
+}
+
+func pullRequestOf(
+	stated pullRequest, locator domain.PullRequestLocator,
+) domain.PullRequest {
+	return domain.PullRequest{
+		Number:     stated.Number,
+		Repository: locator.Repository(),
+		BaseRef:    stated.Base.Ref,
+		HeadSHA:    stated.Head.SHA,
+		Draft:      stated.Draft,
+		Author: domain.Author{
+			Login: stated.User.Login,
+			IsBot: stated.User.Type == botUserType,
+		},
+	}
 }
 
 const botUserType = "Bot"
