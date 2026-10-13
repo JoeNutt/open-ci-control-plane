@@ -21,12 +21,10 @@ func jsonAt[Payload any](
 	ctx context.Context, source ChangeSource, endpoint string,
 ) (Payload, error) {
 	var payload Payload
-	request, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, source.BaseURL+endpoint, nil)
+	request, err := requestFor(ctx, source, endpoint)
 	if err != nil {
-		return payload, fmt.Errorf("request: %w", err)
+		return payload, err
 	}
-	request.Header.Set("Authorization", "Bearer "+source.Token)
 	response, err := source.Client.Do(request)
 	if err != nil {
 		return payload, fmt.Errorf("read: %w", err)
@@ -44,6 +42,18 @@ func jsonAt[Payload any](
 		return payload, fmt.Errorf("decode: %w", err)
 	}
 	return payload, nil
+}
+
+func requestFor(
+	ctx context.Context, source ChangeSource, endpoint string,
+) (*http.Request, error) {
+	request, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, source.BaseURL+endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request %s: %w", endpoint, err)
+	}
+	request.Header.Set("Authorization", "Bearer "+source.Token)
+	return request, nil
 }
 
 var reportedByStatus = map[int]error{
