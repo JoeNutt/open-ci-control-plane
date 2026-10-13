@@ -14,6 +14,7 @@ var noBoundBinds = domain.Limits{
 	MaxChangedFiles:      math.MaxInt,
 	MaxPatchBytesPerFile: math.MaxInt,
 	MaxTotalPatchBytes:   math.MaxInt,
+	MaxPathBytes:         math.MaxInt,
 }
 
 func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
@@ -71,6 +72,19 @@ func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing
 
 	if !errors.Is(err, domain.ErrChangePatchTooLarge) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrChangePatchTooLarge)
+	}
+}
+
+func TestParseBoundedFilesRefusesAPathLongerThanTheLimitAllows(t *testing.T) {
+	path := "internal/auth/middleware.go"
+	limits := noBoundBinds
+	limits.MaxPathBytes = len(path) - 1
+	files := []domain.File{{Path: path, Action: domain.FileActionModified}}
+
+	_, err := domain.ParseBoundedFiles(files, limits)
+
+	if !errors.Is(err, domain.ErrPathTooLong) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPathTooLong)
 	}
 }
 

@@ -12,6 +12,7 @@ type Limits struct {
 	MaxChangedFiles      int
 	MaxPatchBytesPerFile int
 	MaxTotalPatchBytes   int
+	MaxPathBytes         int
 }
 
 type BoundedFiles struct {
@@ -24,10 +25,13 @@ var ErrFilePatchTooLarge = errors.New("file exceeds the patch byte bound")
 
 var ErrChangePatchTooLarge = errors.New("change exceeds the total patch byte bound")
 
+var ErrPathTooLong = errors.New("path exceeds the path byte bound")
+
 var boundsOfAChange = []func([]File, Limits) error{
 	changedFileCountBreachIn,
 	filePatchBreachIn,
 	totalPatchBreachIn,
+	pathLengthBreachIn,
 }
 
 func ParseBoundedFiles(files []File, limits Limits) (BoundedFiles, error) {
@@ -52,6 +56,16 @@ func filePatchBreachIn(files []File, limits Limits) error {
 		if file.PatchBytes > limits.MaxPatchBytesPerFile {
 			return fmt.Errorf("%w: %q carries %d, which exceeds %d",
 				ErrFilePatchTooLarge, file.Path, file.PatchBytes, limits.MaxPatchBytesPerFile)
+		}
+	}
+	return nil
+}
+
+func pathLengthBreachIn(files []File, limits Limits) error {
+	for _, file := range files {
+		if len(file.Path) > limits.MaxPathBytes {
+			return fmt.Errorf("%w: %q is %d bytes, which exceeds %d",
+				ErrPathTooLong, file.Path, len(file.Path), limits.MaxPathBytes)
 		}
 	}
 	return nil
