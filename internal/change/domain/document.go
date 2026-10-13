@@ -18,7 +18,16 @@ const CurrentSchemaMajor SchemaMajor = 1
 
 // Document is the change document for one change, published to policy as ci.diff/v1.
 type Document struct {
-	Diff Diff `json:"diff"`
+	PR   PullRequest `json:"pr"`
+	Diff Diff        `json:"diff"`
+}
+
+// PullRequest is the context of a change: who proposed it, where, and against what.
+type PullRequest struct {
+	Number     int    `json:"number"`
+	Repository string `json:"repository"`
+	BaseRef    string `json:"base_ref"`
+	HeadSHA    string `json:"head_sha"`
 }
 
 // MarshalJSON encodes the document, stamping it with the major version this release

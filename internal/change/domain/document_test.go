@@ -40,6 +40,43 @@ func TestDocumentDeclaresSchemaVersion(t *testing.T) {
 	}
 }
 
+func TestPullRequestContextIsSiblingOfDiff(t *testing.T) {
+	document := domain.Document{PR: domain.PullRequest{
+		Number:     412,
+		Repository: "acme/payments",
+		BaseRef:    "main",
+		HeadSHA:    "9f1c",
+	}}
+
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal document: %v", err)
+	}
+
+	var decoded struct {
+		Diff *json.RawMessage `json:"diff"`
+		PR   *struct {
+			Number     int    `json:"number"`
+			Repository string `json:"repository"`
+			BaseRef    string `json:"base_ref"`
+			HeadSHA    string `json:"head_sha"`
+		} `json:"pr"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+	if decoded.Diff == nil {
+		t.Fatalf("diff absent from %s", encoded)
+	}
+	if decoded.PR == nil {
+		t.Fatalf("pr absent from %s, so it is not a sibling of diff", encoded)
+	}
+	if decoded.PR.Number != 412 || decoded.PR.Repository != "acme/payments" ||
+		decoded.PR.BaseRef != "main" || decoded.PR.HeadSHA != "9f1c" {
+		t.Fatalf("pr carries %+v, want the supplied context", *decoded.PR)
+	}
+}
+
 func TestPathsEmitLexicographicallySorted(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Paths: domain.Paths{
 		"internal/http/routes.go",
