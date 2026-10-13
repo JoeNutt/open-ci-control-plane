@@ -111,6 +111,41 @@ func TestZeroDocumentPopulatesEveryPullRequestField(t *testing.T) {
 	}
 }
 
+func TestZeroDocumentPopulatesEveryClassificationBucket(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		Diff struct {
+			Kinds map[string]*[]string `json:"kinds"`
+		} `json:"diff"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+
+	declared := []string{
+		"authz", "ci_config", "generated", "iac", "lockfile",
+		"migration", "policy_config", "route", "test",
+	}
+	for _, bucket := range declared {
+		paths, present := decoded.Diff.Kinds[bucket]
+		if !present || paths == nil {
+			t.Errorf("kinds omits %q in %s", bucket, encoded)
+			continue
+		}
+		if len(*paths) != 0 {
+			t.Errorf("kinds %q is not empty in %s", bucket, encoded)
+		}
+	}
+	if len(decoded.Diff.Kinds) != len(declared) {
+		t.Errorf("kinds carries %d buckets, want %d: %s",
+			len(decoded.Diff.Kinds), len(declared), encoded)
+	}
+}
+
 func TestFileEntryCarriesItsPathActionAndSizes(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Files: domain.Declared[domain.File]{{
 		Path:       "internal/auth/middleware.go",
