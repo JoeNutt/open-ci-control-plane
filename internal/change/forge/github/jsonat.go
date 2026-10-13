@@ -52,7 +52,7 @@ func requestFor(
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", endpoint, err)
 	}
-	request.Header.Set("Authorization", "Bearer "+source.Token)
+	request.Header.Set("Authorization", "Bearer "+string(source.Token))
 	return request, nil
 }
 

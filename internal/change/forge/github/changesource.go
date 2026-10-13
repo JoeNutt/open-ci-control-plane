@@ -13,10 +13,14 @@ import (
 
 type ChangeSource struct {
 	BaseURL          string
-	Token            string
+	Token            Credential
 	Client           *http.Client
 	MaxResponseBytes int
 }
+
+type Credential string
+
+func (credential Credential) String() string { return "[redacted]" }
 
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,

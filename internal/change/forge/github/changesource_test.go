@@ -109,6 +109,16 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 	return "[" + strings.Join(listings, ",") + "]"
 }
 
+func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
+	source := github.ChangeSource{BaseURL: "https://api.example", Token: "s3cret"}
+
+	printed := fmt.Sprintf("%v %+v %s %q", source, source, source.Token, source.Token)
+
+	if strings.Contains(printed, "s3cret") {
+		t.Fatalf("a formatted source revealed its credential: %s", printed)
+	}
+}
+
 func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		presented := request.Header.Get("Authorization")
