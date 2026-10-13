@@ -19,8 +19,7 @@ func (source ChangeSource) FilesChanged(
 ) ([]domain.File, error) {
 	files, recorded := source.Files[locator]
 	if !recorded {
-		return nil, fmt.Errorf("%w: %s/%s#%d", domain.ErrNoSuchPullRequest,
-			locator.Owner(), locator.Name(), locator.Number())
+		return nil, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
 	}
 	return files, nil
 }

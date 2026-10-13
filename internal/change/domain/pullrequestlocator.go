@@ -49,6 +49,11 @@ func ParsePullRequestLocator(repository string, number int) (PullRequestLocator,
 	return PullRequestLocator{owner: owner, name: name, number: number}, nil
 }
 
+func (locator PullRequestLocator) String() string {
+	return fmt.Sprintf("%s%s%s#%d",
+		locator.owner, repositorySeparator, locator.name, locator.number)
+}
+
 func (locator PullRequestLocator) Owner() string { return locator.owner }
 
 func (locator PullRequestLocator) Name() string { return locator.name }
