@@ -23,6 +23,24 @@ func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLo
 	return locator
 }
 
+func TestChangeSourceStandsInWhereeverTheDomainAsksForAForge(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	var source domain.ChangeSource = memory.ChangeSource{
+		Changes: map[domain.PullRequestLocator]memory.Change{
+			locator: {PullRequest: domain.PullRequest{Number: 412}},
+		},
+	}
+
+	pullRequest, err := source.PullRequestAt(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("pull request at %s: %v", locator, err)
+	}
+	if pullRequest.Number != 412 {
+		t.Fatalf("pull request number is %d, want 412", pullRequest.Number)
+	}
+}
+
 func TestChangeSourceReportsTheFilesRecordedForAPullRequest(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	files := []domain.File{
