@@ -5,6 +5,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 type Limits struct {
@@ -22,5 +23,5 @@ func ParseBoundedFiles(files []File, limits Limits) (BoundedFiles, error) {
 		return BoundedFiles{}, fmt.Errorf("%w: %d exceeds %d",
 			ErrTooManyChangedFiles, len(files), limits.MaxChangedFiles)
 	}
-	return BoundedFiles{files: files}, nil
+	return BoundedFiles{files: slices.Clone(files)}, nil
 }
