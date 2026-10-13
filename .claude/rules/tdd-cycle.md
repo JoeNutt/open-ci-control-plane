@@ -20,6 +20,15 @@ code written under it is by definition not code to keep.
 
 - Write **one** test for the next small piece of behaviour. Not a suite. Never write a second
   while the first is red.
+- **The size test, because "one test" gets stretched:** if the test cannot compile until more
+  than **one** new named thing exists, the increment is too big. Split it and start with
+  whichever piece can be tested alone.
+
+  `RED: the port, the assembler and the fake` is three cycles announced as one. So is any RED
+  that introduces an interface and an implementation together. Find the piece that is a pure
+  function over values you already have, and start there.
+- **One commit at green introduces one new named thing.** That is how the increment size is
+  reviewable after the fact, and it is checked by reading the diff.
 - **Run it. Watch it fail.** Confirm the failure message is the one you expected. Failing to
   compile counts as failing. A test never observed failing proves nothing — it may assert
   nothing, or pass for an unrelated reason.
@@ -98,6 +107,11 @@ No refactor needed: checked <which questions>, none fired.
 
 The second is legitimate and common. **Producing neither is not**, and a `Stop` hook will
 refuse to let the turn end until one is present.
+
+**Name the questions you checked. Do not count them.** "Five questions checked, none fired"
+is not a verdict — it is a claim that a checklist was consulted, with no evidence of what was
+looked at. `No refactor needed: checked duplication, routine size, nesting, naming, boundaries
+— none fired` is a verdict, because a reviewer can disagree with it.
 
 ## Also non-negotiable
 
