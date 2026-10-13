@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -37,5 +38,15 @@ func TestChangeSourceReportsTheFilesRecordedForAPullRequest(t *testing.T) {
 	}
 	if !slices.Equal(changed, files) {
 		t.Fatalf("files are %+v, want %+v", changed, files)
+	}
+}
+
+func TestChangeSourceRefusesAPullRequestItHoldsNoFilesFor(t *testing.T) {
+	source := memory.ChangeSource{}
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
 	}
 }

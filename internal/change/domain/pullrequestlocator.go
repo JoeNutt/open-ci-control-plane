@@ -26,6 +26,8 @@ var ErrMalformedRepository = errors.New("repository is not an owner/name pair")
 
 var ErrMalformedPullRequestNumber = errors.New("pull request number is not positive")
 
+var ErrNoSuchPullRequest = errors.New("the forge reports no such pull request")
+
 type PullRequestLocator struct {
 	owner  string
 	name   string

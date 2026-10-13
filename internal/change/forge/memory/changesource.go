@@ -5,6 +5,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -16,5 +17,10 @@ type ChangeSource struct {
 func (source ChangeSource) FilesChanged(
 	_ context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
-	return source.Files[locator], nil
+	files, recorded := source.Files[locator]
+	if !recorded {
+		return nil, fmt.Errorf("%w: %s/%s#%d", domain.ErrNoSuchPullRequest,
+			locator.Owner(), locator.Name(), locator.Number())
+	}
+	return files, nil
 }
