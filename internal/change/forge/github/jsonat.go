@@ -25,7 +25,7 @@ func jsonAt[Payload any](
 	if err != nil {
 		return payload, err
 	}
-	response, err := source.client.Do(request)
+	response, err := source.settings.Client.Do(request)
 	if err != nil {
 		return payload, fmt.Errorf("read: %w", err)
 	}
@@ -34,7 +34,7 @@ func jsonAt[Payload any](
 	if failure := failureIn(response); failure != nil {
 		return payload, failure
 	}
-	body, err := bodyWithinBound(response.Body, source.maxResponseBytes)
+	body, err := bodyWithinBound(response.Body, source.settings.MaxResponseBytes)
 	if err != nil {
 		return payload, err
 	}
@@ -48,11 +48,11 @@ func requestFor(
 	ctx context.Context, source ChangeSource, endpoint string,
 ) (*http.Request, error) {
 	request, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, source.baseURL+endpoint, nil)
+		ctx, http.MethodGet, source.settings.BaseURL+endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", endpoint, err)
 	}
-	request.Header.Set("Authorization", "Bearer "+string(source.token))
+	request.Header.Set("Authorization", "Bearer "+string(source.settings.Token))
 	return request, nil
 }
 

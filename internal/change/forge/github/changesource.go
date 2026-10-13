@@ -6,23 +6,17 @@ package github
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type ChangeSource struct {
-	baseURL          string
-	token            Credential
-	client           *http.Client
-	maxResponseBytes int
+	settings Settings
 }
 
-func (source ChangeSource) String() string { return "the forge at " + source.baseURL }
-
-type Credential string
-
-func (credential Credential) String() string { return "[redacted]" }
+func (source ChangeSource) String() string {
+	return "the forge at " + source.settings.BaseURL
+}
 
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,

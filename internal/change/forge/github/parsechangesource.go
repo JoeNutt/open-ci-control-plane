@@ -20,10 +20,5 @@ func ParseChangeSource(settings Settings) (ChangeSource, error) {
 	if settings.Token == "" {
 		return ChangeSource{}, ErrNoCredential
 	}
-	return ChangeSource{
-		baseURL:          settings.BaseURL,
-		token:            settings.Token,
-		client:           settings.Client,
-		maxResponseBytes: settings.MaxResponseBytes,
-	}, nil
+	return ChangeSource{settings: settings}, nil
 }
