@@ -26,27 +26,32 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 }
 
 func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
-	credential := github.Credential("s3cret")
 	settings := github.Settings{
 		BaseURL:          "https://api.example",
-		Token:            credential,
+		Token:            forgeCredential,
 		Client:           http.DefaultClient,
 		MaxResponseBytes: 1 << 20,
 	}
-	source := sourceWith(t, settings)
+	holders := map[string]any{
+		"credential": forgeCredential,
+		"settings":   settings,
+		"source":     sourceWith(t, settings),
+	}
 
-	printed := fmt.Sprintf("%v %+v %#v %v %+v %#v %s %q %#v",
-		source, source, source, settings, settings, settings, credential, credential, credential)
-
-	if strings.Contains(printed, "s3cret") {
-		t.Fatalf("a formatted source revealed its credential: %s", printed)
+	for name, holder := range holders {
+		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
+			printed := fmt.Sprintf(verb, holder)
+			if strings.Contains(printed, string(forgeCredential)) {
+				t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
+			}
+		}
 	}
 }
 
 func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		presented := request.Header.Get("Authorization")
-		if presented != "Bearer s3cret" {
+		if presented != "Bearer "+string(forgeCredential) {
 			t.Errorf("the adapter presented %q", presented)
 			writer.WriteHeader(http.StatusUnauthorized)
 			return
@@ -55,7 +60,7 @@ func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 	})
 	source := sourceWith(t, github.Settings{
 		BaseURL:          server.URL,
-		Token:            "s3cret",
+		Token:            forgeCredential,
 		Client:           server.Client(),
 		MaxResponseBytes: 1 << 20,
 	})
@@ -73,7 +78,7 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	]`)
 	source := sourceWith(t, github.Settings{
 		BaseURL:          server.URL,
-		Token:            "s3cret",
+		Token:            forgeCredential,
 		Client:           server.Client(),
 		MaxResponseBytes: 8,
 	})

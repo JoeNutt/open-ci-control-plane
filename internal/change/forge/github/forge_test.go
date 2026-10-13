@@ -14,6 +14,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
+const forgeCredential github.Credential = "s3cret"
+
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
 
@@ -75,7 +77,7 @@ func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
 
 	return sourceWith(t, github.Settings{
 		BaseURL:          server.URL,
-		Token:            "s3cret",
+		Token:            forgeCredential,
 		Client:           server.Client(),
 		MaxResponseBytes: 1 << 20,
 	})
