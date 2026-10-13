@@ -15,7 +15,13 @@ import (
 
 const FilesPerPage = 100
 
+// The files endpoint of a pull request serves at most 3,000 files, so 30 pages of
+// FilesPerPage is every page it can offer: https://docs.github.com/en/rest/pulls/pulls
+const maxFilePages = 30
+
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
+
+var ErrTooManyPages = errors.New("the forge offered more pages than it can hold files")
 
 var reportedByStatus = map[int]error{
 	http.StatusNotFound: domain.ErrNoSuchPullRequest,
@@ -55,7 +61,7 @@ func (source ChangeSource) changedFilesAcrossPages(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]changedFile, error) {
 	var listed []changedFile
-	for page := 1; ; page++ {
+	for page := 1; page <= maxFilePages; page++ {
 		onPage, err := jsonAt[[]changedFile](
 			ctx, source.Client, source.changedFilesAddress(locator, page))
 		if err != nil {
@@ -66,6 +72,7 @@ func (source ChangeSource) changedFilesAcrossPages(
 			return listed, nil
 		}
 	}
+	return nil, fmt.Errorf("%w: %d pages of %d", ErrTooManyPages, maxFilePages, FilesPerPage)
 }
 
 func (source ChangeSource) changedFilesAddress(

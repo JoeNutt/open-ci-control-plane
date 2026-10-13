@@ -74,18 +74,39 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	}
 }
 
-func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
-	firstPage := make([]string, 0, github.FilesPerPage)
+func fullPage(t *testing.T) string {
+	t.Helper()
+
+	listings := make([]string, 0, github.FilesPerPage)
 	for position := range github.FilesPerPage {
-		firstPage = append(firstPage,
+		listings = append(listings,
 			fmt.Sprintf(`{"filename": "internal/%d.go", "status": "added"}`, position))
 	}
+	return "[" + strings.Join(listings, ",") + "]"
+}
+
+func TestFilesChangedRefusesAForgeThatNeverRunsOutOfPages(t *testing.T) {
+	page := fullPage(t)
+	server := forge(t, func(writer http.ResponseWriter, _ *http.Request) {
+		write(t, writer, page)
+	})
+	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrTooManyPages) {
+		t.Fatalf("error is %v, want %v", err, github.ErrTooManyPages)
+	}
+}
+
+func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
+	first := fullPage(t)
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Query().Get("page") == "2" {
 			write(t, writer, `[{"filename": "infra/iam.tf", "status": "added"}]`)
 			return
 		}
-		write(t, writer, "["+strings.Join(firstPage, ",")+"]")
+		write(t, writer, first)
 	})
 	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
 
