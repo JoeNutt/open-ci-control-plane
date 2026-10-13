@@ -27,7 +27,8 @@ type pullRequest struct {
 		Login string `json:"login"`
 		Type  string `json:"type"`
 	} `json:"user"`
-	Labels []label `json:"labels"`
+	AuthorAssociation string  `json:"author_association"`
+	Labels            []label `json:"labels"`
 }
 
 type label struct {
@@ -42,6 +43,10 @@ func pullRequestOf(
 		return domain.PullRequest{}, fmt.Errorf("%w: %q opened by %q",
 			ErrUnknownUserType, stated.User.Type, stated.User.Login)
 	}
+	association, err := domain.ParseAuthorAssociation(stated.AuthorAssociation)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
 	return domain.PullRequest{
 		Number:     stated.Number,
 		Repository: locator.Repository(),
@@ -49,8 +54,9 @@ func pullRequestOf(
 		HeadSHA:    stated.Head.SHA,
 		Draft:      stated.Draft,
 		Author: domain.Author{
-			Login: stated.User.Login,
-			IsBot: isBot,
+			Login:       stated.User.Login,
+			Association: association,
+			IsBot:       isBot,
 		},
 		Labels: labelsOf(stated.Labels),
 	}, nil
