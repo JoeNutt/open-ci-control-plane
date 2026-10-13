@@ -38,6 +38,18 @@ func TestParseChangeSourceRefusesAnAddressThatIsNotAnHTTPSOrigin(t *testing.T) {
 	}
 }
 
+func TestParseChangeSourceRefusesASourceWithNoClient(t *testing.T) {
+	_, err := github.ParseChangeSource(github.Settings{
+		BaseURL:          "https://api.example",
+		Token:            forgeCredential,
+		MaxResponseBytes: 1 << 20,
+	})
+
+	if !errors.Is(err, github.ErrNoClient) {
+		t.Fatalf("error is %v, want %v", err, github.ErrNoClient)
+	}
+}
+
 func TestParseChangeSourceRefusesASourceWithNoCredential(t *testing.T) {
 	_, err := github.ParseChangeSource(github.Settings{
 		BaseURL:          "https://api.example",

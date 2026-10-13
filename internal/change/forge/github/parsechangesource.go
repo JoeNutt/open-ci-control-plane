@@ -21,9 +21,14 @@ var ErrNoCredential = errors.New("a change source is given no forge credential")
 
 var ErrMalformedBaseURL = errors.New("the forge address is not an https origin")
 
+var ErrNoClient = errors.New("a change source is given no http client")
+
 func ParseChangeSource(settings Settings) (ChangeSource, error) {
 	if settings.Token == "" {
 		return ChangeSource{}, ErrNoCredential
+	}
+	if settings.Client == nil {
+		return ChangeSource{}, ErrNoClient
 	}
 	if err := checkBaseURL(settings.BaseURL); err != nil {
 		return ChangeSource{}, err
