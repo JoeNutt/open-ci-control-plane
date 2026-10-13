@@ -1,0 +1,877 @@
+openapi: 3.0.3
+
+info:
+  title: Open CI Control Plane
+  version: 1.0.0
+  description: |
+    HTTP surface of the control plane. Resource-oriented JSON with correct method
+    semantics and no hypermedia controls — Richardson level 2, not REST in Fielding's
+    sense. See decision D-21 in the specification.
+
+    Two endpoints sit outside the resource model deliberately and are named as such:
+    the forge event sink, whose shape the forge dictates, and the status singleton.
+
+    Not described here, because none of them are HTTP payloads:
+      - the change document (ci.diff/v1), which is the policy input contract and
+        carries its own JSON Schema for compile-time policy checking
+      - the decision document a policy returns (data.ci.<family>.decision)
+      - the test plan event (ci.testplan/v1), delivered by repository dispatch
+    Generating Go types for those from this file would create a second owner for a
+    contract that already has one.
+  license:
+    name: GPL-3.0-or-later
+    url: https://www.gnu.org/licenses/gpl-3.0.txt
+
+servers:
+  - url: https://{host}
+    description: Self-hosted. One instance per adopting organisation.
+    variables:
+      host:
+        default: controlplane.internal
+
+tags:
+  - name: ingest
+    description: Forge events entering the control plane.
+  - name: analysis
+    description: Findings and coverage submitted by CI.
+  - name: policy
+    description: Binding policy to repositories.
+  - name: audit
+    description: Decisions, break-glass and telemetry.
+  - name: operations
+    description: Enforcement state.
+
+security:
+  - operatorToken: []
+
+paths:
+  /v1/forge/github/events:
+    post:
+      operationId: receiveGitHubEvent
+      tags: [ingest]
+      summary: Accept a pull-request event and start a decision
+      description: |
+        The signature is verified over the raw body **before the body is parsed**. An
+        unsigned or mis-signed request is indistinguishable from a forged one and is
+        treated as one. The verdict is delivered as a check run, not in this response.
+      security:
+        - forgeSignature: []
+      parameters:
+        - { $ref: '#/components/parameters/GitHubEvent' }
+        - { $ref: '#/components/parameters/GitHubDelivery' }
+      requestBody:
+        required: true
+        description: The forge's own event payload. Never passed to policy.
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '202':
+          description: Accepted for evaluation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventAccepted' }
+        '204':
+          description: Event type carries no decision. Recorded, not evaluated.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: |
+            No installation matches. Returned rather than 403 deliberately: an
+            unauthenticated caller must not learn which installations exist.
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503':
+          description: Evaluation queue full. The forge retries; the event is not lost.
+          headers:
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+
+  /v1/repositories/{owner}/{repo}/commits/{headSha}/findings:
+    post:
+      operationId: submitFindings
+      tags: [analysis]
+      summary: Submit stage-one analyzer findings for one commit
+      description: |
+        The repository and commit identify the resource and travel in the path, so a
+        submission that disagrees with its own URI cannot be constructed.
+      security:
+        - workloadToken: []
+      parameters:
+        - { $ref: '#/components/parameters/Owner' }
+        - { $ref: '#/components/parameters/Repo' }
+        - { $ref: '#/components/parameters/HeadSha' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FindingSubmission' }
+      responses:
+        '201':
+          description: Findings stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubmissionAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: |
+            Token valid but scoped to a different repository or commit. 403 rather than
+            404 here: the caller already knows the repository exists, because it is
+            running in it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422':
+          description: headSha is not a commit on an open pull request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/repositories/{owner}/{repo}/coverage/{suite}:
+    put:
+      operationId: replaceCoverage
+      tags: [analysis]
+      summary: Replace the coverage map for one suite
+      description: |
+        PUT rather than POST: the coverage map for one suite is a single addressable
+        resource that this call replaces wholesale, so the operation is idempotent by
+        method and not only by header.
+
+        Parsing is all or nothing. A malformed, truncated or over-limit artifact is
+        rejected whole, stores nothing, and leaves the previously accepted map serving
+        plans. A partially parsed coverage map is the worst possible input to a feature
+        whose job is deciding what not to run.
+      security:
+        - workloadToken: []
+      parameters:
+        - { $ref: '#/components/parameters/Owner' }
+        - { $ref: '#/components/parameters/Repo' }
+        - name: suite
+          in: path
+          required: true
+          description: Suite name the artifact's coverage is attributed to.
+          schema: { type: string, maxLength: 200 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [format, artifact]
+              properties:
+                format:
+                  type: string
+                  enum: [cobertura, lcov, depgraph]
+                artifact:
+                  type: string
+                  format: binary
+                  description: The coverage artifact, optionally gzipped.
+      responses:
+        '201':
+          description: Coverage map accepted and now serving plans.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverageAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Token scoped to a different repository.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/bindings/{bindingId}:
+    put:
+      operationId: replaceBinding
+      tags: [policy]
+      summary: Bind one policy to many repositories
+      description: |
+        bindingId is caller-chosen, making the write idempotent by construction. A
+        repeat with an identical body returns 200 and changes nothing; a different body
+        replaces the binding and bumps its version.
+      parameters:
+        - { $ref: '#/components/parameters/BindingId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Binding' }
+      responses:
+        '200':
+          description: Binding replaced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BindingResult' }
+        '201':
+          description: Binding created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BindingResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: |
+            Token lacks policy:bind, or the request would reduce enforcement for the
+            repository the token belongs to. The second case returns a fixed reason and
+            is recorded as an integrity event — not 404, because a self-exemption
+            attempt must be attributable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: |
+            policyId unknown, or belongs to another installation. The two are
+            indistinguishable by design.
+        '409':
+          description: Selector overlaps a binding whose policy declares overlapping bundle roots.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ParameterSchemaViolation' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/constraints/{constraintId}:
+    put:
+      operationId: replaceConstraint
+      tags: [policy]
+      summary: Bind a rule by supplying parameters rather than policy source
+      description: |
+        The template holds the rule; the constraint is an instance of it. This is the
+        authoring tier most adopters stay in — no Rego is written.
+      parameters:
+        - name: constraintId
+          in: path
+          required: true
+          description: Caller-chosen, so the write is idempotent by construction.
+          schema: { $ref: '#/components/schemas/Identifier' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Constraint' }
+      responses:
+        '200':
+          description: Constraint replaced.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConstraintResult' }
+        '201':
+          description: Constraint created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConstraintResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Token lacks policy:bind, or the request would reduce enforcement for its own repository.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: templateId unknown, or belongs to another installation.
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ParameterSchemaViolation' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/breakglass-grants:
+    post:
+      operationId: createBreakGlassGrant
+      tags: [audit]
+      summary: Admit one change when the control plane cannot decide
+      description: |
+        Runs on a separate credential on a separate listener, outside the enforcement
+        path. The enforcement path's own credential cannot call this, and neither can
+        any repository-scoped token.
+
+        A grant's expiry can never be extended, only replaced by a new grant with its
+        own record.
+      security:
+        - breakGlassToken: []
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BreakGlassRequest' }
+      responses:
+        '201':
+          description: Grant recorded, before this response was written.
+          headers:
+            Location:
+              description: The created grant.
+              schema: { type: string, format: uri-reference }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreakGlassGrant' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: |
+            Credential is valid but is not a break-glass credential — including the case
+            where it is the enforcement path's own. Recorded as an integrity event.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: A live grant already covers this pull request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: |
+            Live-grant ceiling reached. Deliberately a hard ceiling: break-glass that is
+            always available is not break-glass.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    get:
+      operationId: listBreakGlassGrants
+      tags: [audit]
+      summary: List live grants
+      security:
+        - breakGlassToken: []
+      responses:
+        '200':
+          description: Live grants.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BreakGlassGrant' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/breakglass-grants/{grantId}:
+    get:
+      operationId: getBreakGlassGrant
+      tags: [audit]
+      summary: Retrieve one grant
+      security:
+        - breakGlassToken: []
+      parameters:
+        - name: grantId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Identifier' }
+      responses:
+        '200':
+          description: The grant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreakGlassGrant' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { description: No such grant. }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/decisions/{decisionId}:
+    get:
+      operationId: getDecision
+      tags: [audit]
+      summary: Answer why a change was admitted or refused
+      description: |
+        redactedPointers names every field that was removed, so a redacted record is
+        still trustworthy. maskedInput is omitted once the retention window has passed,
+        and the response says so rather than returning an empty object.
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Identifier' }
+      responses:
+        '200':
+          description: The decision record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecisionRecord' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: |
+            Does not exist, or the caller may not read its repository. Deliberately
+            indistinguishable: a decision identifier appears in a check run, so
+            identifiers leak between people, and a 403 would confirm that a given
+            repository exists and had a policy decision.
+        '410':
+          description: Decision existed and has passed its retention period.
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/repositories/{owner}/{repo}/telemetry:
+    get:
+      operationId: getTelemetry
+      tags: [audit]
+      summary: Figures an external developer platform renders
+      description: |
+        minutesAvoided.basis is always "modelled" and derivation is always present — the
+        field cannot be served without its method, so a consumer cannot render it as a
+        measurement by omission. shadowMinutesAvoided is separate and is never summed
+        into the first.
+      parameters:
+        - { $ref: '#/components/parameters/Owner' }
+        - { $ref: '#/components/parameters/Repo' }
+        - name: period
+          in: query
+          required: true
+          description: ISO-8601 interval.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Aggregate figures for the period.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Telemetry' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: |
+            Repository unknown, or the caller may not read it. Indistinguishable by
+            design.
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/status:
+    get:
+      operationId: getEnforcementStatus
+      tags: [operations]
+      summary: Which policy revision is enforcing, right now
+      description: |
+        A singleton resource at a fixed URI. Unauthenticated callers receive 404 so the
+        endpoint's existence is not advertised.
+      responses:
+        '200':
+          description: Current enforcement state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnforcementStatus' }
+        '404': { description: Token absent or invalid. }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+components:
+  securitySchemes:
+    operatorToken:
+      type: http
+      scheme: bearer
+      description: Operator bearer token. Scopes are checked per operation.
+    workloadToken:
+      type: http
+      scheme: bearer
+      description: |
+        Workload identity token issued to a CI job, scoped to one repository and, for
+        findings, one commit.
+    breakGlassToken:
+      type: http
+      scheme: bearer
+      description: |
+        A separate credential on a separate listener, held by named release owners. The
+        enforcement path's credential is rejected here.
+    forgeSignature:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: |
+        HMAC-SHA256 over the raw request body, verified before the body is parsed. Not a
+        bearer token: there is no identity, only an integrity proof.
+
+  parameters:
+    Owner:
+      name: owner
+      in: path
+      required: true
+      description: |
+        Repository owner. Owner and repo are separate path segments because a full name
+        contains a slash and cannot be one segment.
+      schema: { $ref: '#/components/schemas/PathName' }
+    Repo:
+      name: repo
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PathName' }
+    HeadSha:
+      name: headSha
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[0-9a-f]{40}$' }
+    BindingId:
+      name: bindingId
+      in: path
+      required: true
+      description: Caller-chosen, making the write idempotent by construction.
+      schema: { $ref: '#/components/schemas/Identifier' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 200 }
+    GitHubEvent:
+      name: X-GitHub-Event
+      in: header
+      required: true
+      schema: { type: string, maxLength: 100 }
+    GitHubDelivery:
+      name: X-GitHub-Delivery
+      in: header
+      required: true
+      description: Used as the idempotency key. Stored for 24 hours.
+      schema: { type: string, maxLength: 200 }
+
+  headers:
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema: { type: integer, format: int32 }
+
+  responses:
+    BadRequest:
+      description: Malformed request. The offending field is named.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthenticated:
+      description: Credential absent or does not verify. The body carries no detail.
+    PayloadTooLarge:
+      description: A declared limit was exceeded. The limit is named.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    IdempotencyConflict:
+      description: Idempotency key reused with a different body.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ParameterSchemaViolation:
+      description: |
+        Parameters fail the policy's parameter schema. The offending field is named and
+        nothing is stored — a binding that fails to bind must never degrade to a silent
+        no-op.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Identifier:
+      type: string
+      minLength: 1
+      maxLength: 200
+      pattern: '^[A-Za-z0-9._-]+$'
+
+    FullName:
+      type: string
+      description: |
+        owner/name. Legal in a body; split into {owner} and {repo} in a path,
+        because a full name contains a slash and cannot be one path segment.
+      minLength: 3
+      maxLength: 201
+      pattern: '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'
+
+    PathName:
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: '^[A-Za-z0-9._-]+$'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable. Never a message to match on.
+        message:
+          type: string
+          description: Actionable for the caller. Never internal structure or a stack trace.
+        field:
+          type: string
+          description: The offending field, where one can be named.
+        limit:
+          type: string
+          description: The limit that was breached, where one applies.
+
+    EventAccepted:
+      type: object
+      required: [deliveryId, decisionId, accepted]
+      properties:
+        deliveryId: { type: string }
+        decisionId: { $ref: '#/components/schemas/Identifier' }
+        accepted: { type: boolean }
+
+    Severity:
+      type: string
+      enum: [info, low, medium, high, critical]
+
+    EnforcementPoint:
+      type: string
+      enum: [pull_request, audit]
+
+    EnforcementAction:
+      type: string
+      enum: [deny, warn, dryrun]
+
+    PolicyFamily:
+      type: string
+      enum: [structural, security, quality, routing, selection]
+
+    Finding:
+      type: object
+      required: [rule_id, severity, path]
+      properties:
+        rule_id: { type: string, maxLength: 200 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        path: { type: string, maxLength: 4096 }
+        line: { type: integer, format: int32, minimum: 0 }
+        sensitive:
+          type: boolean
+          description: When true the finding's content is masked in the decision record.
+
+    FindingSubmission:
+      type: object
+      required: [analyzer, findings]
+      properties:
+        analyzer: { type: string, maxLength: 100 }
+        findings:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/Finding' }
+
+    SubmissionAccepted:
+      type: object
+      required: [submissionId, findingCount]
+      properties:
+        submissionId: { $ref: '#/components/schemas/Identifier' }
+        findingCount: { type: integer, format: int32 }
+
+    CoverageAccepted:
+      type: object
+      required: [artifactId, mapId, fileEntryCount, suiteCount, freshnessDeadline]
+      properties:
+        artifactId: { $ref: '#/components/schemas/Identifier' }
+        mapId: { $ref: '#/components/schemas/Identifier' }
+        fileEntryCount: { type: integer, format: int64 }
+        suiteCount: { type: integer, format: int32 }
+        freshnessDeadline: { type: string, format: date-time }
+
+    Selector:
+      type: object
+      properties:
+        include:
+          type: array
+          maxItems: 64
+          items: { type: string, maxLength: 400 }
+        exclude:
+          type: array
+          maxItems: 64
+          items: { type: string, maxLength: 400 }
+
+    ActionBinding:
+      type: object
+      required: [enforcement_point, action]
+      properties:
+        enforcement_point: { $ref: '#/components/schemas/EnforcementPoint' }
+        action: { $ref: '#/components/schemas/EnforcementAction' }
+
+    Binding:
+      type: object
+      required: [policyId, selector, actions]
+      properties:
+        policyId: { $ref: '#/components/schemas/Identifier' }
+        selector: { $ref: '#/components/schemas/Selector' }
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Validated against the policy's parameter schema before storage.
+        actions:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ActionBinding' }
+
+    BindingResult:
+      type: object
+      required: [bindingId, version, matchedRepositoryCount]
+      properties:
+        bindingId: { $ref: '#/components/schemas/Identifier' }
+        version: { type: integer, format: int64 }
+        matchedRepositoryCount: { type: integer, format: int32 }
+
+    Constraint:
+      type: object
+      required: [templateId, selector, actions]
+      properties:
+        templateId: { $ref: '#/components/schemas/Identifier' }
+        selector: { $ref: '#/components/schemas/Selector' }
+        parameters:
+          type: object
+          additionalProperties: true
+        actions:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ActionBinding' }
+
+    ConstraintResult:
+      type: object
+      required: [constraintId, templateRevision, matchedRepositoryCount]
+      properties:
+        constraintId: { $ref: '#/components/schemas/Identifier' }
+        templateRevision: { type: string }
+        matchedRepositoryCount: { type: integer, format: int32 }
+
+    BreakGlassRequest:
+      type: object
+      required: [repository, pullRequestNumber, reason]
+      properties:
+        repository: { $ref: '#/components/schemas/FullName' }
+        pullRequestNumber: { type: integer, format: int32, minimum: 1 }
+        reason:
+          type: string
+          minLength: 20
+          maxLength: 500
+          description: |
+            Mandatory, and not validated beyond length: the point is attribution, not
+            classification.
+        expiresInSeconds:
+          type: integer
+          format: int32
+          minimum: 60
+          maximum: 3600
+          default: 900
+
+    BreakGlassGrant:
+      type: object
+      required: [grantId, actor, expiresAt]
+      properties:
+        grantId: { $ref: '#/components/schemas/Identifier' }
+        actor: { type: string }
+        reason: { type: string }
+        expiresAt: { type: string, format: date-time }
+
+    Violation:
+      type: object
+      required: [rule_id, message, severity]
+      properties:
+        rule_id: { type: string }
+        message: { type: string }
+        severity: { $ref: '#/components/schemas/EnforcementAction' }
+        owning_team: { type: string }
+        docs_url: { type: string, format: uri }
+
+    OutcomeClass:
+      type: string
+      enum: [decided, undecided, policy_error, deadline_exceeded, unreachable]
+      description: |
+        Undecided is a third state and is never an admit. policy_error is reported
+        against the owning team, never as a rule violation.
+
+    DecisionRecord:
+      type: object
+      required:
+        [decisionId, repository, pullRequestNumber, family, bundleRevision,
+         outcomeClass, verdict, violations, evaluatedAt, durationNs, redactedPointers]
+      properties:
+        decisionId: { $ref: '#/components/schemas/Identifier' }
+        repository: { $ref: '#/components/schemas/FullName' }
+        pullRequestNumber: { type: integer, format: int32 }
+        family: { $ref: '#/components/schemas/PolicyFamily' }
+        bundleRevision: { type: string }
+        outcomeClass: { $ref: '#/components/schemas/OutcomeClass' }
+        verdict: { type: string, enum: [admit, refuse, review] }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/Violation' }
+        evaluatedAt: { type: string, format: date-time }
+        durationNs: { type: integer, format: int64 }
+        maskedInput:
+          type: object
+          additionalProperties: true
+          description: Omitted once the retention window has passed.
+        inputRetained:
+          type: boolean
+          description: False when maskedInput was dropped for retention rather than never stored.
+        redactedPointers:
+          type: array
+          items: { type: string }
+          description: JSON Pointers removed from maskedInput, so a redacted record stays trustworthy.
+
+    ModelledMinutes:
+      type: object
+      required: [value, basis, derivation]
+      properties:
+        value: { type: integer, format: int64 }
+        basis:
+          type: string
+          enum: [modelled]
+          description: Always modelled. The field cannot be served without its method.
+        derivation: { type: string }
+        duration_window: { type: string }
+        shadow_only: { type: boolean }
+
+    Telemetry:
+      type: object
+      required:
+        [repository, period, decision_count, rejection_rate_by_family,
+         processing_time_ms, minutes_avoided, shadow_minutes_avoided, keys]
+      properties:
+        repository: { $ref: '#/components/schemas/FullName' }
+        period: { type: string }
+        decision_count: { type: integer, format: int64 }
+        rejection_rate_by_family:
+          type: object
+          additionalProperties: { type: number, format: double }
+        processing_time_ms:
+          type: object
+          required: [p50, p99]
+          properties:
+            p50: { type: integer, format: int32 }
+            p99: { type: integer, format: int32 }
+        minutes_avoided: { $ref: '#/components/schemas/ModelledMinutes' }
+        shadow_minutes_avoided: { $ref: '#/components/schemas/ModelledMinutes' }
+        keys:
+          type: object
+          description: Identifiers stable across releases, so a portal can join on them.
+          properties:
+            repository_key: { type: string }
+            family_keys:
+              type: array
+              items: { type: string }
+
+    FamilyStatus:
+      type: object
+      required: [family, revision, activated_at, source, stale_seconds]
+      properties:
+        family: { $ref: '#/components/schemas/PolicyFamily' }
+        revision: { type: string }
+        activated_at: { type: string, format: date-time }
+        source: { type: string, enum: [registry, bundle_service, persisted_disk, filesystem] }
+        stale_seconds: { type: integer, format: int64 }
+        last_activation_failure:
+          nullable: true
+          type: object
+          required: [at, reason]
+          properties:
+            at: { type: string, format: date-time }
+            reason: { type: string }
+
+    EnforcementStatus:
+      type: object
+      required:
+        [ready, families, capability_allowlist_digest, evaluations_in_flight, queue_depth]
+      properties:
+        ready:
+          type: boolean
+          description: False with a reason while no bundle has ever activated.
+        not_ready_reason: { type: string }
+        families:
+          type: array
+          items: { $ref: '#/components/schemas/FamilyStatus' }
+        capability_allowlist_digest: { type: string }
+        evaluations_in_flight: { type: integer, format: int32 }
+        queue_depth: { type: integer, format: int32 }
