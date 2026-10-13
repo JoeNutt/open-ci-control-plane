@@ -60,6 +60,7 @@ type Diff struct {
 	Files Declared[File] `json:"files"`
 }
 
+// File is one changed file: what the change did to it, and how much of it moved.
 type File struct {
 	Path       string     `json:"path"`
 	Action     FileAction `json:"action"`
@@ -68,6 +69,8 @@ type File struct {
 	PatchBytes int        `json:"patch_bytes"`
 }
 
+// FileAction is what a change did to one file. The set is closed.
 type FileAction string
 
+// FileActionModified is the action of a file whose contents changed in place.
 const FileActionModified FileAction = "modified"
