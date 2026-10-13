@@ -3,7 +3,14 @@
 package domain
 
 func ParseDocument(pullRequest PullRequest, files []File) (Document, error) {
-	return Document{PR: pullRequest, Diff: Diff{Totals: totalsOf(files)}}, nil
+	paths := Paths{}
+	for _, file := range files {
+		paths = append(paths, file.Path)
+	}
+	return Document{PR: pullRequest, Diff: Diff{
+		Paths:  paths,
+		Totals: totalsOf(files),
+	}}, nil
 }
 
 func totalsOf(files []File) Totals {
