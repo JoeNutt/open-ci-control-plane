@@ -107,7 +107,8 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		"draft": false,
 		"base": {"ref": "main"},
 		"head": {"sha": "9f1c8d2e4b7a"},
-		"user": {"login": "jo", "type": "User"}
+		"user": {"login": "jo", "type": "User"},
+		"labels": [{"name": "backend"}, {"name": "needs-review"}]
 	}`)
 	source := sourceAt(server)
 
@@ -123,6 +124,7 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		BaseRef:    "main",
 		HeadSHA:    "9f1c8d2e4b7a",
 		Author:     domain.Author{Login: "jo"},
+		Labels:     domain.Declared[string]{"backend", "needs-review"},
 	}
 	if !reflect.DeepEqual(pullRequest, want) {
 		t.Fatalf("pull request is %+v, want %+v", pullRequest, want)

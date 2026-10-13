@@ -27,6 +27,9 @@ type pullRequest struct {
 		Login string `json:"login"`
 		Type  string `json:"type"`
 	} `json:"user"`
+	Labels []struct {
+		Name string `json:"name"`
+	} `json:"labels"`
 }
 
 func pullRequestOf(
@@ -47,7 +50,16 @@ func pullRequestOf(
 			Login: stated.User.Login,
 			IsBot: isBot,
 		},
+		Labels: labelsOf(stated),
 	}, nil
+}
+
+func labelsOf(stated pullRequest) domain.Declared[string] {
+	labels := make(domain.Declared[string], 0, len(stated.Labels))
+	for _, label := range stated.Labels {
+		labels = append(labels, label.Name)
+	}
+	return labels
 }
 
 var ErrUnknownUserType = errors.New("the forge names an account type with no bot classification")
