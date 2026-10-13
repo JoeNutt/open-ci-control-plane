@@ -39,7 +39,7 @@ func TestParseDocumentCarriesEveryChangedFileRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse document: %v", err)
 	}
-	if !slices.Equal(document.Diff.Files, domain.Declared[domain.File](files)) {
+	if !slices.Equal(document.Diff.Files, files) {
 		t.Fatalf("files are %+v, want %+v", document.Diff.Files, files)
 	}
 }
