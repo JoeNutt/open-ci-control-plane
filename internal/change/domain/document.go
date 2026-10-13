@@ -68,9 +68,3 @@ type File struct {
 	Deletions  int        `json:"deletions"`
 	PatchBytes int        `json:"patch_bytes"`
 }
-
-// FileAction is what a change did to one file. The set is closed.
-type FileAction string
-
-// FileActionModified is the action of a file whose contents changed in place.
-const FileActionModified FileAction = "modified"
