@@ -22,7 +22,11 @@ type ChangeSource struct {
 func (source ChangeSource) PullRequestAt(
 	_ context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
-	return source.Changes[locator].PullRequest, nil
+	change, recorded := source.Changes[locator]
+	if !recorded {
+		return domain.PullRequest{}, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+	}
+	return change.PullRequest, nil
 }
 
 func (source ChangeSource) FilesChanged(

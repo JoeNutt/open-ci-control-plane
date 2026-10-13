@@ -68,6 +68,16 @@ func TestChangeSourceReportsThePullRequestRecordedForALocator(t *testing.T) {
 	}
 }
 
+func TestChangeSourceRefusesAPullRequestItHoldsNoContextFor(t *testing.T) {
+	source := memory.ChangeSource{}
+
+	_, err := source.PullRequestAt(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
+	}
+}
+
 func TestChangeSourceRefusesAPullRequestItHoldsNoFilesFor(t *testing.T) {
 	source := memory.ChangeSource{}
 
