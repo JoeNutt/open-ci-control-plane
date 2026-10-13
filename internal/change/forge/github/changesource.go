@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -20,6 +21,8 @@ const FilesPerPage = 100
 const maxFilePages = 30
 
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
+
+var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
 
 var ErrTooManyPages = errors.New("the forge offered more pages than its file listing can serve")
 
@@ -39,8 +42,9 @@ func failureIn(response *http.Response) error {
 }
 
 type ChangeSource struct {
-	BaseURL string
-	Client  *http.Client
+	BaseURL          string
+	Client           *http.Client
+	MaxResponseBytes int
 }
 
 func (source ChangeSource) FilesChanged(
@@ -63,7 +67,7 @@ func (source ChangeSource) changedFilesAcrossPages(
 	var listed []changedFile
 	for page := 1; page <= maxFilePages; page++ {
 		onPage, err := jsonAt[[]changedFile](
-			ctx, source.Client, source.changedFilesAddress(locator, page))
+			ctx, source.Client, source.changedFilesAddress(locator, page), source.MaxResponseBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +113,7 @@ func filesOf(listed []changedFile) ([]domain.File, error) {
 }
 
 func jsonAt[Payload any](
-	ctx context.Context, client *http.Client, address string,
+	ctx context.Context, client *http.Client, address string, maxBytes int,
 ) (Payload, error) {
 	var payload Payload
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
@@ -125,7 +129,14 @@ func jsonAt[Payload any](
 	if failure := failureIn(response); failure != nil {
 		return payload, failure
 	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	body, err := io.ReadAll(io.LimitReader(response.Body, int64(maxBytes)+1))
+	if err != nil {
+		return payload, fmt.Errorf("read: %w", err)
+	}
+	if len(body) > maxBytes {
+		return payload, fmt.Errorf("%w: more than %d bytes", ErrResponseTooLarge, maxBytes)
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return payload, fmt.Errorf("decode: %w", err)
 	}
 	return payload, nil

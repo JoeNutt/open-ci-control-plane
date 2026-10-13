@@ -66,12 +66,20 @@ func write(t *testing.T, writer http.ResponseWriter, body string) {
 
 func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	server := answering(t, http.StatusInternalServerError, `[]`)
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
 	if !errors.Is(err, github.ErrUnexpectedStatus) {
 		t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+	}
+}
+
+func sourceAt(server *httptest.Server) github.ChangeSource {
+	return github.ChangeSource{
+		BaseURL:          server.URL,
+		Client:           server.Client(),
+		MaxResponseBytes: 1 << 20,
 	}
 }
 
@@ -92,11 +100,28 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 	return "[" + strings.Join(listings, ",") + "]"
 }
 
+func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
+		{"filename": "internal/auth/middleware.go", "status": "modified"}
+	]`)
+	source := github.ChangeSource{
+		BaseURL:          server.URL,
+		Client:           server.Client(),
+		MaxResponseBytes: 8,
+	}
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrResponseTooLarge) {
+		t.Fatalf("error is %v, want %v", err, github.ErrResponseTooLarge)
+	}
+}
+
 func TestFilesChangedRefusesAForgeThatNeverRunsOutOfPages(t *testing.T) {
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		write(t, writer, pageAsLongAsAsked(t, request))
 	})
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -113,7 +138,7 @@ func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
 		}
 		write(t, writer, pageAsLongAsAsked(t, request))
 	})
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -130,7 +155,7 @@ func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
 
 func TestFilesChangedReportsAForgeThatKnowsNoSuchPullRequest(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -143,7 +168,7 @@ func TestFilesChangedRefusesAStatusTheSchemaDoesNotDeclare(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "unchanged"}
 	]`)
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -157,7 +182,7 @@ func TestFilesChangedReportsEveryFileTheForgeLists(t *testing.T) {
 		{"filename": "internal/auth/middleware.go", "status": "modified",
 		 "additions": 12, "deletions": 3, "patch": "@@ -1,3 +1,12 @@"}
 	]`)
-	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+	source := sourceAt(server)
 
 	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
