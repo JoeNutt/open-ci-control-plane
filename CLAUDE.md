@@ -89,5 +89,13 @@ No refactor needed: checked <which questions>, none fired.
 
 ## Commands
 
-No Go module yet. Add build, test and lint commands here when they exist. Until `go.mod`
-exists the commit gate skips the Go checks and still enforces the test-alongside-code rule.
+Module `github.com/JoeNutt/open-ci-control-plane`, Go 1.26 — the floor OPA v1.21.2 declares.
+**`go` is not on the bare PATH**: it comes from the flake, so every Go command runs in the
+dev shell. Batch them, because the shell is slow to start.
+
+```
+nix develop --command bash -c 'gofmt -l . && go vet ./... && go test ./...'
+nix develop --command bash -c 'golangci-lint run ./...'
+```
+
+The commit gate runs `gofmt`, `go vet` and `go test` itself, inside the flake.
