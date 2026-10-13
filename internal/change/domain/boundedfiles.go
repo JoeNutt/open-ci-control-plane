@@ -6,13 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
+
+const pathSeparator = "/"
 
 type Limits struct {
 	MaxChangedFiles      int
 	MaxPatchBytesPerFile int
 	MaxTotalPatchBytes   int
 	MaxPathBytes         int
+	MaxPathSegments      int
 }
 
 type BoundedFiles struct {
@@ -27,11 +31,14 @@ var ErrChangePatchTooLarge = errors.New("change exceeds the total patch byte bou
 
 var ErrPathTooLong = errors.New("path exceeds the path byte bound")
 
+var ErrPathTooDeep = errors.New("path exceeds the path segment bound")
+
 var boundsOfAChange = []func([]File, Limits) error{
 	changedFileCountBreachIn,
 	filePatchBreachIn,
 	totalPatchBreachIn,
 	pathLengthBreachIn,
+	pathDepthBreachIn,
 }
 
 func ParseBoundedFiles(files []File, limits Limits) (BoundedFiles, error) {
@@ -66,6 +73,17 @@ func pathLengthBreachIn(files []File, limits Limits) error {
 		if len(file.Path) > limits.MaxPathBytes {
 			return fmt.Errorf("%w: %q is %d bytes, which exceeds %d",
 				ErrPathTooLong, file.Path, len(file.Path), limits.MaxPathBytes)
+		}
+	}
+	return nil
+}
+
+func pathDepthBreachIn(files []File, limits Limits) error {
+	for _, file := range files {
+		segments := strings.Count(file.Path, pathSeparator) + 1
+		if segments > limits.MaxPathSegments {
+			return fmt.Errorf("%w: %q is %d segments, which exceeds %d",
+				ErrPathTooDeep, file.Path, segments, limits.MaxPathSegments)
 		}
 	}
 	return nil

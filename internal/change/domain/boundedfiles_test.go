@@ -15,6 +15,7 @@ var noBoundBinds = domain.Limits{
 	MaxPatchBytesPerFile: math.MaxInt,
 	MaxTotalPatchBytes:   math.MaxInt,
 	MaxPathBytes:         math.MaxInt,
+	MaxPathSegments:      math.MaxInt,
 }
 
 func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
@@ -84,6 +85,20 @@ func TestParseBoundedFilesRefusesAPathLongerThanTheLimitAllows(t *testing.T) {
 
 	if !errors.Is(err, domain.ErrPathTooLong) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrPathTooLong)
+	}
+}
+
+func TestParseBoundedFilesRefusesAPathDeeperThanTheLimitAllows(t *testing.T) {
+	limits := noBoundBinds
+	limits.MaxPathSegments = 3
+	files := []domain.File{
+		{Path: "internal/change/domain/boundedfiles.go", Action: domain.FileActionAdded},
+	}
+
+	_, err := domain.ParseBoundedFiles(files, limits)
+
+	if !errors.Is(err, domain.ErrPathTooDeep) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPathTooDeep)
 	}
 }
 
