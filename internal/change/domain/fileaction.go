@@ -8,7 +8,6 @@ import (
 	"slices"
 )
 
-// FileAction is what a change did to one file. The set is closed.
 type FileAction string
 
 const (
@@ -31,8 +30,6 @@ var declaredFileActions = []FileAction{
 
 var ErrUnknownFileAction = errors.New("unknown file action")
 
-// ParseFileAction converts a forge's file action into the declared FileAction it names. It
-// returns ErrUnknownFileAction, naming the value, when the schema declares no such action.
 func ParseFileAction(name string) (FileAction, error) {
 	action := FileAction(name)
 	if slices.Contains(declaredFileActions, action) {

@@ -5,14 +5,13 @@ package domain
 
 import "encoding/json"
 
-// Document is the change document for one change, published to policy as ci.diff/v1.
+const SchemaID = "ci.diff/v1"
+
 type Document struct {
 	PR   PullRequest `json:"pr"`
 	Diff Diff        `json:"diff"`
 }
 
-// MarshalJSON encodes the document, stamping it with the major version this release
-// publishes rather than one the caller supplies.
 func (d Document) MarshalJSON() ([]byte, error) {
 	type fields Document
 	return json.Marshal(struct {
@@ -57,7 +56,6 @@ type Totals struct {
 	PatchBytes int `json:"patch_bytes"`
 }
 
-// Kinds holds the changed paths of one kind per bucket. Every bucket is always published.
 type Kinds struct {
 	Test         Paths `json:"test"`
 	Authz        Paths `json:"authz"`

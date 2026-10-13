@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package outward is the architecture test's denial fixture. It lives under testdata, so the
-// Go tool never builds it and these modules are never required.
+// Package outward is the architecture test's denial fixture. Under testdata, so never built.
 package outward
 
 import (
