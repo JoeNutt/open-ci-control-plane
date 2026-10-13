@@ -5,60 +5,17 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const FilesPerPage = 100
-
-// The files endpoint of a pull request serves at most 3,000 files, so 30 pages of
-// FilesPerPage is every page it can offer: https://docs.github.com/en/rest/pulls/pulls
-const maxFilePages = 30
-
-var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
-
-var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
-
-var ErrTooManyPages = errors.New("the forge offered more pages than its file listing can serve")
-
-var reportedByStatus = map[int]error{
-	http.StatusNotFound: domain.ErrNoSuchPullRequest,
-}
-
-func failureIn(response *http.Response) error {
-	if response.StatusCode == http.StatusOK {
-		return nil
-	}
-	reported, mapped := reportedByStatus[response.StatusCode]
-	if !mapped {
-		reported = ErrUnexpectedStatus
-	}
-	return fmt.Errorf("%w: %s", reported, response.Status)
-}
-
 type ChangeSource struct {
 	BaseURL          string
 	Client           *http.Client
 	MaxResponseBytes int
-}
-
-func (source ChangeSource) FilesChanged(
-	ctx context.Context, locator domain.PullRequestLocator,
-) ([]domain.File, error) {
-	listed, err := source.changedFilesAcrossPages(ctx, locator)
-	if err != nil {
-		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
-	}
-	files, err := filesOf(listed)
-	if err != nil {
-		return nil, fmt.Errorf("read the changed files of %s: %w", locator, err)
-	}
-	return files, nil
 }
 
 func (source ChangeSource) PullRequestAt(
@@ -76,6 +33,20 @@ func (source ChangeSource) PullRequestAt(
 	}, nil
 }
 
+func (source ChangeSource) FilesChanged(
+	ctx context.Context, locator domain.PullRequestLocator,
+) ([]domain.File, error) {
+	listed, err := source.changedFilesAcrossPages(ctx, locator)
+	if err != nil {
+		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
+	}
+	files, err := filesOf(listed)
+	if err != nil {
+		return nil, fmt.Errorf("read the changed files of %s: %w", locator, err)
+	}
+	return files, nil
+}
+
 func pullRequestEndpoint(locator domain.PullRequestLocator) string {
 	return fmt.Sprintf("/repos/%s/%s/pulls/%d",
 		locator.Owner(), locator.Name(), locator.Number())
@@ -91,6 +62,14 @@ type pullRequest struct {
 		SHA string `json:"sha"`
 	} `json:"head"`
 }
+
+const FilesPerPage = 100
+
+// The files endpoint of a pull request serves at most 3,000 files, so 30 pages of
+// FilesPerPage is every page it can offer: https://docs.github.com/en/rest/pulls/pulls
+const maxFilePages = 30
+
+var ErrTooManyPages = errors.New("the forge offered more pages than its file listing can serve")
 
 func (source ChangeSource) changedFilesAcrossPages(
 	ctx context.Context, locator domain.PullRequestLocator,
@@ -139,43 +118,4 @@ func filesOf(listed []changedFile) ([]domain.File, error) {
 		})
 	}
 	return files, nil
-}
-
-func jsonAt[Payload any](
-	ctx context.Context, source ChangeSource, endpoint string,
-) (Payload, error) {
-	var payload Payload
-	request, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, source.BaseURL+endpoint, nil)
-	if err != nil {
-		return payload, fmt.Errorf("request: %w", err)
-	}
-	response, err := source.Client.Do(request)
-	if err != nil {
-		return payload, fmt.Errorf("read: %w", err)
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	if failure := failureIn(response); failure != nil {
-		return payload, failure
-	}
-	body, err := bodyWithinBound(response.Body, source.MaxResponseBytes)
-	if err != nil {
-		return payload, err
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return payload, fmt.Errorf("decode: %w", err)
-	}
-	return payload, nil
-}
-
-func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
-	read, err := io.ReadAll(io.LimitReader(body, int64(maxBytes)+1))
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
-	if len(read) > maxBytes {
-		return nil, fmt.Errorf("%w: more than %d bytes", ErrResponseTooLarge, maxBytes)
-	}
-	return read, nil
 }
