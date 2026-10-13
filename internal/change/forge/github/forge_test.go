@@ -72,15 +72,22 @@ func write(t *testing.T, writer http.ResponseWriter, body string) {
 	}
 }
 
+func wellFormedSettings() github.Settings {
+	return github.Settings{
+		BaseURL:          "https://api.example",
+		Token:            forgeCredential,
+		Client:           http.DefaultClient,
+		MaxResponseBytes: 1 << 20,
+	}
+}
+
 func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
 	t.Helper()
 
-	return sourceWith(t, github.Settings{
-		BaseURL:          server.URL,
-		Token:            forgeCredential,
-		Client:           server.Client(),
-		MaxResponseBytes: 1 << 20,
-	})
+	settings := wellFormedSettings()
+	settings.BaseURL = server.URL
+	settings.Client = server.Client()
+	return sourceWith(t, settings)
 }
 
 func sourceWith(t *testing.T, settings github.Settings) github.ChangeSource {

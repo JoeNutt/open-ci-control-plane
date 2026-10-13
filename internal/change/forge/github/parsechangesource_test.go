@@ -4,7 +4,6 @@ package github_test
 
 import (
 	"errors"
-	"net/http"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -24,12 +23,10 @@ func TestParseChangeSourceRefusesAnAddressThatIsNotAnHTTPSOrigin(t *testing.T) {
 
 	for _, address := range malformed {
 		t.Run(address, func(t *testing.T) {
-			_, err := github.ParseChangeSource(github.Settings{
-				BaseURL:          address,
-				Token:            forgeCredential,
-				Client:           http.DefaultClient,
-				MaxResponseBytes: 1 << 20,
-			})
+			settings := wellFormedSettings()
+			settings.BaseURL = address
+
+			_, err := github.ParseChangeSource(settings)
 
 			if !errors.Is(err, github.ErrMalformedBaseURL) {
 				t.Fatalf("error is %v, want %v", err, github.ErrMalformedBaseURL)
@@ -39,11 +36,10 @@ func TestParseChangeSourceRefusesAnAddressThatIsNotAnHTTPSOrigin(t *testing.T) {
 }
 
 func TestParseChangeSourceRefusesASourceWithNoClient(t *testing.T) {
-	_, err := github.ParseChangeSource(github.Settings{
-		BaseURL:          "https://api.example",
-		Token:            forgeCredential,
-		MaxResponseBytes: 1 << 20,
-	})
+	settings := wellFormedSettings()
+	settings.Client = nil
+
+	_, err := github.ParseChangeSource(settings)
 
 	if !errors.Is(err, github.ErrNoClient) {
 		t.Fatalf("error is %v, want %v", err, github.ErrNoClient)
@@ -51,11 +47,10 @@ func TestParseChangeSourceRefusesASourceWithNoClient(t *testing.T) {
 }
 
 func TestParseChangeSourceRefusesASourceWithNoCredential(t *testing.T) {
-	_, err := github.ParseChangeSource(github.Settings{
-		BaseURL:          "https://api.example",
-		Client:           http.DefaultClient,
-		MaxResponseBytes: 1 << 20,
-	})
+	settings := wellFormedSettings()
+	settings.Token = ""
+
+	_, err := github.ParseChangeSource(settings)
 
 	if !errors.Is(err, github.ErrNoCredential) {
 		t.Fatalf("error is %v, want %v", err, github.ErrNoCredential)

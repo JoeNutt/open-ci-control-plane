@@ -26,12 +26,7 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 }
 
 func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
-	settings := github.Settings{
-		BaseURL:          "https://api.example",
-		Token:            forgeCredential,
-		Client:           http.DefaultClient,
-		MaxResponseBytes: 1 << 20,
-	}
+	settings := wellFormedSettings()
 	holders := map[string]any{
 		"credential": forgeCredential,
 		"settings":   settings,
@@ -58,12 +53,7 @@ func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 		}
 		write(t, writer, `[]`)
 	})
-	source := sourceWith(t, github.Settings{
-		BaseURL:          server.URL,
-		Token:            forgeCredential,
-		Client:           server.Client(),
-		MaxResponseBytes: 1 << 20,
-	})
+	source := sourceAt(t, server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -76,14 +66,13 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "modified"}
 	]`)
-	source := sourceWith(t, github.Settings{
-		BaseURL:          server.URL,
-		Token:            forgeCredential,
-		Client:           server.Client(),
-		MaxResponseBytes: 8,
-	})
+	settings := wellFormedSettings()
+	settings.BaseURL = server.URL
+	settings.Client = server.Client()
+	settings.MaxResponseBytes = 8
 
-	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+	_, err := sourceWith(t, settings).FilesChanged(
+		context.Background(), locatorOf(t, "acme/payments", 412))
 
 	if !errors.Is(err, github.ErrResponseTooLarge) {
 		t.Fatalf("error is %v, want %v", err, github.ErrResponseTooLarge)
