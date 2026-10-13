@@ -9,10 +9,17 @@ import (
 	"strings"
 )
 
-const maxRepositoryLength = 201
+const (
+	repositorySeparator  = "/"
+	maxRepositorySegment = 100
+	maxRepositoryLength  = 2*maxRepositorySegment + len(repositorySeparator)
+)
+
+var repositorySegmentPattern = fmt.Sprintf(
+	`[A-Za-z0-9][A-Za-z0-9._-]{0,%d}`, maxRepositorySegment-1)
 
 var repositoryPattern = regexp.MustCompile(
-	`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
+	"^" + repositorySegmentPattern + repositorySeparator + repositorySegmentPattern + "$")
 
 var ErrMalformedRepository = errors.New("repository is not an owner/name pair")
 
@@ -30,7 +37,7 @@ func ParsePullRequestLocator(repository string, number int) (PullRequestLocator,
 	if !repositoryPattern.MatchString(repository) {
 		return PullRequestLocator{}, fmt.Errorf("%w: %q", ErrMalformedRepository, repository)
 	}
-	owner, name, _ := strings.Cut(repository, "/")
+	owner, name, _ := strings.Cut(repository, repositorySeparator)
 	return PullRequestLocator{owner: owner, name: name, number: number}, nil
 }
 
