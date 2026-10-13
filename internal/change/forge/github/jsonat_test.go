@@ -27,14 +27,16 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 
 func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
 	credential := github.Credential("s3cret")
-	source := sourceWith(t, github.Settings{
+	settings := github.Settings{
 		BaseURL:          "https://api.example",
 		Token:            credential,
 		Client:           http.DefaultClient,
 		MaxResponseBytes: 1 << 20,
-	})
+	}
+	source := sourceWith(t, settings)
 
-	printed := fmt.Sprintf("%v %+v %s %q", source, source, credential, credential)
+	printed := fmt.Sprintf("%v %+v %#v %v %+v %#v %s %q %#v",
+		source, source, source, settings, settings, settings, credential, credential, credential)
 
 	if strings.Contains(printed, "s3cret") {
 		t.Fatalf("a formatted source revealed its credential: %s", printed)

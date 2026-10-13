@@ -18,6 +18,10 @@ func (source ChangeSource) String() string {
 	return "the forge at " + source.settings.BaseURL
 }
 
+func (source ChangeSource) GoString() string {
+	return fmt.Sprintf("github.ChangeSource{settings: %#v}", source.settings)
+}
+
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
