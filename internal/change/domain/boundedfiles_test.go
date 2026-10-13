@@ -13,6 +13,7 @@ import (
 var noBoundBinds = domain.Limits{
 	MaxChangedFiles:      math.MaxInt,
 	MaxPatchBytesPerFile: math.MaxInt,
+	MaxTotalPatchBytes:   math.MaxInt,
 }
 
 func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
@@ -51,6 +52,25 @@ func TestParseBoundedFilesRefusesAFilePatchLargerThanTheLimitAllows(t *testing.T
 
 	if !errors.Is(err, domain.ErrFilePatchTooLarge) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrFilePatchTooLarge)
+	}
+}
+
+func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing.T) {
+	limits := domain.Limits{
+		MaxChangedFiles:      2,
+		MaxPatchBytesPerFile: 7280,
+		MaxTotalPatchBytes:   9119,
+	}
+	files := []domain.File{
+		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			PatchBytes: 1840},
+		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 7280},
+	}
+
+	_, err := domain.ParseBoundedFiles(files, limits)
+
+	if !errors.Is(err, domain.ErrChangePatchTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrChangePatchTooLarge)
 	}
 }
 
