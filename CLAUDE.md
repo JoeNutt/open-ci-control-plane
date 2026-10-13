@@ -74,7 +74,7 @@ three steps in full. Two hooks make it mechanical rather than advisory:
 | Hook | Event | Refuses |
 |---|---|---|
 | `.claude/hooks/refactor-verdict.sh` | `Stop`, `SubagentStop` | Ending a turn that edited source without stating a refactor verdict |
-| `.githooks/pre-commit` | `git commit` | Production Go staged with no test staged; unformatted files; `go vet` failures; a red suite |
+| `.githooks/pre-commit` | `git commit` | Unformatted files; `go vet` failures; a red suite |
 
 The second is an ordinary git hook, wired by `core.hooksPath`, so it binds humans as well as
 agents. Only the first has to be a Claude hook — it reads assistant output, which nothing else

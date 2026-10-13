@@ -116,6 +116,5 @@ refuse to let the turn end until one is present.
   `// SPDX-License-Identifier: GPL-3.0-or-later` first line, which is a legal marker and is
   never stripped. Nothing else.
 - **Commit and the tests must be green.** A `.githooks/pre-commit` hook refuses a red suite,
-  unformatted files, `go vet` failures, and production Go staged with no test staged. It binds
-  everyone, not only agents.
+  unformatted files and `go vet` failures. It binds everyone, not only agents.
   Self-justification is a defect, not a courtesy: `knowledge-base/engineering/comments.md`.

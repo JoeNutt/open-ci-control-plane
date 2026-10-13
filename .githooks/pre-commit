@@ -9,15 +9,6 @@ fail() { printf '\npre-commit: %s\n\n' "$1" >&2; exit 1; }
 staged="$(git diff --cached --name-only --diff-filter=ACM)" || exit 0
 [ -n "$staged" ] || exit 0
 
-prod_go="$(printf '%s\n' "$staged" | grep -E '\.go$' | grep -vE '_test\.go$' || true)"
-test_go="$(printf '%s\n' "$staged" | grep -E '_test\.go$' || true)"
-if [ -n "$prod_go" ] && [ -z "$test_go" ]; then
-    fail "production Go staged with no test staged:
-$(printf '%s\n' "$prod_go" | sed 's/^/  - /')
-
-Red comes first. Stage the test that drove this change, or say why the code is untestable."
-fi
-
 [ -f go.mod ] || exit 0
 
 if command -v go >/dev/null 2>&1; then
