@@ -17,6 +17,21 @@ type ChangeSource struct {
 	Client  *http.Client
 }
 
+func (source ChangeSource) FilesChanged(
+	ctx context.Context, locator domain.PullRequestLocator,
+) ([]domain.File, error) {
+	listed, err := jsonAt[[]changedFile](ctx, source.Client, source.changedFilesAddress(locator))
+	if err != nil {
+		return nil, fmt.Errorf("changed files of %s: %w", locator, err)
+	}
+	return filesOf(listed), nil
+}
+
+func (source ChangeSource) changedFilesAddress(locator domain.PullRequestLocator) string {
+	return fmt.Sprintf("%s/repos/%s/%s/pulls/%d/files",
+		source.BaseURL, locator.Owner(), locator.Name(), locator.Number())
+}
+
 type changedFile struct {
 	Filename  string `json:"filename"`
 	Status    string `json:"status"`
@@ -25,34 +40,36 @@ type changedFile struct {
 	Patch     string `json:"patch"`
 }
 
-func (source ChangeSource) FilesChanged(
-	ctx context.Context, locator domain.PullRequestLocator,
-) ([]domain.File, error) {
-	address := fmt.Sprintf("%s/repos/%s/%s/pulls/%d/files",
-		source.BaseURL, locator.Owner(), locator.Name(), locator.Number())
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
-	if err != nil {
-		return nil, fmt.Errorf("request changed files of %s: %w", locator, err)
-	}
-	response, err := source.Client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("read changed files of %s: %w", locator, err)
-	}
-	defer response.Body.Close()
-
-	var listed []changedFile
-	if err := json.NewDecoder(response.Body).Decode(&listed); err != nil {
-		return nil, fmt.Errorf("decode changed files of %s: %w", locator, err)
-	}
+func filesOf(listed []changedFile) []domain.File {
 	files := make([]domain.File, 0, len(listed))
-	for _, file := range listed {
+	for _, listing := range listed {
 		files = append(files, domain.File{
-			Path:       file.Filename,
-			Action:     domain.FileAction(file.Status),
-			Additions:  file.Additions,
-			Deletions:  file.Deletions,
-			PatchBytes: len(file.Patch),
+			Path:       listing.Filename,
+			Action:     domain.FileAction(listing.Status),
+			Additions:  listing.Additions,
+			Deletions:  listing.Deletions,
+			PatchBytes: len(listing.Patch),
 		})
 	}
-	return files, nil
+	return files
+}
+
+func jsonAt[Payload any](
+	ctx context.Context, client *http.Client, address string,
+) (Payload, error) {
+	var payload Payload
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return payload, fmt.Errorf("request: %w", err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return payload, fmt.Errorf("read: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return payload, fmt.Errorf("decode: %w", err)
+	}
+	return payload, nil
 }
