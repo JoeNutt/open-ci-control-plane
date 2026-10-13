@@ -3,10 +3,22 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+func TestParseAuthorAssociationRefusesAnUnmappedValue(t *testing.T) {
+	association, err := domain.ParseAuthorAssociation("MAINTAINER")
+
+	if !errors.Is(err, domain.ErrUnknownAuthorAssociation) {
+		t.Fatalf("want ErrUnknownAuthorAssociation, got %v", err)
+	}
+	if association != "" {
+		t.Fatalf("want no association alongside the refusal, got %q", association)
+	}
+}
 
 func TestParseAuthorAssociationAcceptsEveryDeclaredAssociation(t *testing.T) {
 	declared := map[string]domain.AuthorAssociation{
