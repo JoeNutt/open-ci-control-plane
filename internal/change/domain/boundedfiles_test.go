@@ -28,12 +28,13 @@ func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
 }
 
 func TestParseBoundedFilesRefusesMoreChangedFilesThanTheLimitAllows(t *testing.T) {
-	limits := domain.Limits{MaxChangedFiles: 2}
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 		{Path: "internal/http/routes.go", Action: domain.FileActionModified},
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	}
+	limits := noBoundBinds
+	limits.MaxChangedFiles = len(files) - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
 
@@ -43,11 +44,12 @@ func TestParseBoundedFilesRefusesMoreChangedFilesThanTheLimitAllows(t *testing.T
 }
 
 func TestParseBoundedFilesRefusesAFilePatchLargerThanTheLimitAllows(t *testing.T) {
-	limits := domain.Limits{MaxChangedFiles: 1, MaxPatchBytesPerFile: 1840}
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-			PatchBytes: 1841},
+			PatchBytes: 1840},
 	}
+	limits := noBoundBinds
+	limits.MaxPatchBytesPerFile = files[0].PatchBytes - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
 
@@ -57,16 +59,13 @@ func TestParseBoundedFilesRefusesAFilePatchLargerThanTheLimitAllows(t *testing.T
 }
 
 func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing.T) {
-	limits := domain.Limits{
-		MaxChangedFiles:      2,
-		MaxPatchBytesPerFile: 7280,
-		MaxTotalPatchBytes:   9119,
-	}
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
 			PatchBytes: 1840},
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 7280},
 	}
+	limits := noBoundBinds
+	limits.MaxTotalPatchBytes = files[0].PatchBytes + files[1].PatchBytes - 1
 
 	_, err := domain.ParseBoundedFiles(files, limits)
 
