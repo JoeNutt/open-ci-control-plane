@@ -13,6 +13,7 @@ import (
 
 type ChangeSource struct {
 	BaseURL          string
+	Token            string
 	Client           *http.Client
 	MaxResponseBytes int
 }

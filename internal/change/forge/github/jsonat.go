@@ -26,6 +26,7 @@ func jsonAt[Payload any](
 	if err != nil {
 		return payload, fmt.Errorf("request: %w", err)
 	}
+	request.Header.Set("Authorization", "Bearer "+source.Token)
 	response, err := source.Client.Do(request)
 	if err != nil {
 		return payload, fmt.Errorf("read: %w", err)

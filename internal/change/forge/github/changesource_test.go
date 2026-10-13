@@ -109,6 +109,26 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 	return "[" + strings.Join(listings, ",") + "]"
 }
 
+func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		presented := request.Header.Get("Authorization")
+		if presented != "Bearer s3cret" {
+			t.Errorf("the adapter presented %q", presented)
+			writer.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		write(t, writer, `[]`)
+	})
+	source := sourceAt(server)
+	source.Token = "s3cret"
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("files changed: %v", err)
+	}
+}
+
 func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
 	server := servingEach(t, map[string]string{
 		"/repos/acme/payments/pulls/412": `{
