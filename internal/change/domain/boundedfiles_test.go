@@ -102,6 +102,16 @@ func TestParseBoundedFilesRefusesAPathDeeperThanTheLimitAllows(t *testing.T) {
 	}
 }
 
+func TestParseBoundedFilesRefusesOneFileMoreThanTheDeclaredBoundAdmits(t *testing.T) {
+	files := make([]domain.File, domain.DeclaredLimits.MaxChangedFiles+1)
+
+	_, err := domain.ParseBoundedFiles(files, domain.DeclaredLimits)
+
+	if !errors.Is(err, domain.ErrTooManyChangedFiles) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyChangedFiles)
+	}
+}
+
 func TestParseBoundedFilesDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},

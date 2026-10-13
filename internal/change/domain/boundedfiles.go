@@ -19,6 +19,14 @@ type Limits struct {
 	MaxPathSegments      int
 }
 
+var DeclaredLimits = Limits{
+	MaxChangedFiles:      1000,
+	MaxPatchBytesPerFile: 256 << 10,
+	MaxTotalPatchBytes:   8 << 20,
+	MaxPathBytes:         4096,
+	MaxPathSegments:      20,
+}
+
 type BoundedFiles struct {
 	files []File
 }
