@@ -13,6 +13,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const FilesPerPage = 100
+
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
 
 var reportedByStatus = map[int]error{
@@ -38,9 +40,17 @@ type ChangeSource struct {
 func (source ChangeSource) FilesChanged(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
-	listed, err := jsonAt[[]changedFile](ctx, source.Client, source.changedFilesAddress(locator))
-	if err != nil {
-		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
+	var listed []changedFile
+	for page := 1; ; page++ {
+		onPage, err := jsonAt[[]changedFile](
+			ctx, source.Client, source.changedFilesAddress(locator, page))
+		if err != nil {
+			return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
+		}
+		listed = append(listed, onPage...)
+		if len(onPage) < FilesPerPage {
+			break
+		}
 	}
 	files, err := filesOf(listed)
 	if err != nil {
@@ -49,9 +59,11 @@ func (source ChangeSource) FilesChanged(
 	return files, nil
 }
 
-func (source ChangeSource) changedFilesAddress(locator domain.PullRequestLocator) string {
-	return fmt.Sprintf("%s/repos/%s/%s/pulls/%d/files",
-		source.BaseURL, locator.Owner(), locator.Name(), locator.Number())
+func (source ChangeSource) changedFilesAddress(
+	locator domain.PullRequestLocator, page int,
+) string {
+	return fmt.Sprintf("%s/repos/%s/%s/pulls/%d/files?per_page=%d&page=%d",
+		source.BaseURL, locator.Owner(), locator.Name(), locator.Number(), FilesPerPage, page)
 }
 
 type changedFile struct {

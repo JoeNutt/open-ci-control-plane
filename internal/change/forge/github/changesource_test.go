@@ -5,8 +5,10 @@ package github_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -69,6 +71,34 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 
 	if !errors.Is(err, github.ErrUnexpectedStatus) {
 		t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+	}
+}
+
+func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
+	firstPage := make([]string, 0, github.FilesPerPage)
+	for position := range github.FilesPerPage {
+		firstPage = append(firstPage,
+			fmt.Sprintf(`{"filename": "internal/%d.go", "status": "added"}`, position))
+	}
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Query().Get("page") == "2" {
+			write(t, writer, `[{"filename": "infra/iam.tf", "status": "added"}]`)
+			return
+		}
+		write(t, writer, "["+strings.Join(firstPage, ",")+"]")
+	})
+	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+
+	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("files changed: %v", err)
+	}
+	if len(files) != github.FilesPerPage+1 {
+		t.Fatalf("read %d files, want %d", len(files), github.FilesPerPage+1)
+	}
+	if files[github.FilesPerPage].Path != "infra/iam.tf" {
+		t.Fatalf("the last file is %q, want infra/iam.tf", files[github.FilesPerPage].Path)
 	}
 }
 
