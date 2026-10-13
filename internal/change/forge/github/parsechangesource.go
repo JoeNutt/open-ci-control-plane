@@ -36,13 +36,20 @@ func checkBaseURL(address string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %q: %w", ErrMalformedBaseURL, address, err)
 	}
-	malformed := parsed.Scheme != "https" ||
-		parsed.Host == "" ||
-		strings.HasSuffix(parsed.Path, "/") ||
-		parsed.RawQuery != "" ||
-		parsed.Fragment != ""
-	if malformed {
-		return fmt.Errorf("%w: %q", ErrMalformedBaseURL, address)
+	faults := []struct {
+		reason string
+		holds  bool
+	}{
+		{"is not https", parsed.Scheme != "https"},
+		{"names no host", parsed.Host == ""},
+		{"ends in a slash", strings.HasSuffix(parsed.Path, "/")},
+		{"carries a query", parsed.RawQuery != ""},
+		{"carries a fragment", parsed.Fragment != ""},
+	}
+	for _, fault := range faults {
+		if fault.holds {
+			return fmt.Errorf("%w: %q %s", ErrMalformedBaseURL, address, fault.reason)
+		}
 	}
 	return nil
 }
