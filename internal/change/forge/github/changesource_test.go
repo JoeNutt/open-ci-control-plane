@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -98,6 +99,27 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 			fmt.Sprintf(`{"filename": "internal/%d.go", "status": "added"}`, position))
 	}
 	return "[" + strings.Join(listings, ",") + "]"
+}
+
+func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/pulls/412", `{
+		"number": 412,
+		"draft": false,
+		"base": {"ref": "main"},
+		"head": {"sha": "9f1c8d2e4b7a"}
+	}`)
+	source := sourceAt(server)
+
+	pullRequest, err := source.PullRequestAt(
+		context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("pull request at: %v", err)
+	}
+	want := domain.PullRequest{Number: 412, BaseRef: "main", HeadSHA: "9f1c8d2e4b7a"}
+	if !reflect.DeepEqual(pullRequest, want) {
+		t.Fatalf("pull request is %+v, want %+v", pullRequest, want)
+	}
 }
 
 func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {

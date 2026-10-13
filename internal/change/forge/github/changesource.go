@@ -61,6 +61,37 @@ func (source ChangeSource) FilesChanged(
 	return files, nil
 }
 
+func (source ChangeSource) PullRequestAt(
+	ctx context.Context, locator domain.PullRequestLocator,
+) (domain.PullRequest, error) {
+	stated, err := jsonAt[pullRequest](ctx, source, pullRequestEndpoint(locator))
+	if err != nil {
+		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
+	}
+	return domain.PullRequest{
+		Number:  stated.Number,
+		BaseRef: stated.Base.Ref,
+		HeadSHA: stated.Head.SHA,
+		Draft:   stated.Draft,
+	}, nil
+}
+
+func pullRequestEndpoint(locator domain.PullRequestLocator) string {
+	return fmt.Sprintf("/repos/%s/%s/pulls/%d",
+		locator.Owner(), locator.Name(), locator.Number())
+}
+
+type pullRequest struct {
+	Number int  `json:"number"`
+	Draft  bool `json:"draft"`
+	Base   struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
+	Head struct {
+		SHA string `json:"sha"`
+	} `json:"head"`
+}
+
 func (source ChangeSource) changedFilesAcrossPages(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]changedFile, error) {
