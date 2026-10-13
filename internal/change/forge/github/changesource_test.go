@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -74,11 +75,17 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	}
 }
 
-func fullPage(t *testing.T) string {
+func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 	t.Helper()
 
-	listings := make([]string, 0, github.FilesPerPage)
-	for position := range github.FilesPerPage {
+	asked := request.URL.Query().Get("per_page")
+	length, err := strconv.Atoi(asked)
+	if err != nil {
+		t.Errorf("the adapter asked for per_page=%q: %v", asked, err)
+		return "[]"
+	}
+	listings := make([]string, 0, length)
+	for position := range length {
 		listings = append(listings,
 			fmt.Sprintf(`{"filename": "internal/%d.go", "status": "added"}`, position))
 	}
@@ -86,9 +93,8 @@ func fullPage(t *testing.T) string {
 }
 
 func TestFilesChangedRefusesAForgeThatNeverRunsOutOfPages(t *testing.T) {
-	page := fullPage(t)
-	server := forge(t, func(writer http.ResponseWriter, _ *http.Request) {
-		write(t, writer, page)
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		write(t, writer, pageAsLongAsAsked(t, request))
 	})
 	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
 
@@ -100,13 +106,12 @@ func TestFilesChangedRefusesAForgeThatNeverRunsOutOfPages(t *testing.T) {
 }
 
 func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
-	first := fullPage(t)
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Query().Get("page") == "2" {
 			write(t, writer, `[{"filename": "infra/iam.tf", "status": "added"}]`)
 			return
 		}
-		write(t, writer, first)
+		write(t, writer, pageAsLongAsAsked(t, request))
 	})
 	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
 

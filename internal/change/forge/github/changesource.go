@@ -21,7 +21,7 @@ const maxFilePages = 30
 
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
 
-var ErrTooManyPages = errors.New("the forge offered more pages than it can hold files")
+var ErrTooManyPages = errors.New("the forge offered more pages than its file listing can serve")
 
 var reportedByStatus = map[int]error{
 	http.StatusNotFound: domain.ErrNoSuchPullRequest,
