@@ -14,6 +14,21 @@ import (
 	"testing"
 )
 
+func TestDomainImportsNothingOutward(t *testing.T) {
+	root := moduleRoot(t)
+	module := modulePath(t, root)
+
+	dirs := domainDirsIn(t, filepath.Join(root, "internal"))
+	if len(dirs) == 0 {
+		t.Fatal("found no domain package, so this test proves nothing")
+	}
+	for _, dir := range dirs {
+		for _, imported := range outwardImportsIn(t, dir, module) {
+			t.Errorf("%s imports %s, so the dependency points outward", dir, imported)
+		}
+	}
+}
+
 func TestOutwardImportIsDetected(t *testing.T) {
 	root := moduleRoot(t)
 	fixture := filepath.Join(root, "internal", "change", "domain", "testdata", "outward")
@@ -138,4 +153,27 @@ func isStandardLibrary(imported string) bool {
 
 func isDomainPackage(imported, module string) bool {
 	return strings.HasPrefix(imported, module+"/") && strings.Contains(imported, "/domain")
+}
+
+func domainDirsIn(t *testing.T, tree string) []string {
+	t.Helper()
+
+	var dirs []string
+	walked := filepath.WalkDir(tree, func(path string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case !entry.IsDir():
+			return nil
+		case entry.Name() == "testdata":
+			return fs.SkipDir
+		case entry.Name() == "domain":
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	if walked != nil {
+		t.Fatalf("walk %s: %v", tree, walked)
+	}
+	return dirs
 }
