@@ -22,11 +22,11 @@ func (source ChangeSource) FilesChanged(
 ) ([]domain.File, error) {
 	listed, err := jsonAt[[]changedFile](ctx, source.Client, source.changedFilesAddress(locator))
 	if err != nil {
-		return nil, fmt.Errorf("changed files of %s: %w", locator, err)
+		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)
 	}
 	files, err := filesOf(listed)
 	if err != nil {
-		return nil, fmt.Errorf("changed files of %s: %w", locator, err)
+		return nil, fmt.Errorf("read the changed files of %s: %w", locator, err)
 	}
 	return files, nil
 }
