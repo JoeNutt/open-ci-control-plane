@@ -70,12 +70,25 @@ func write(t *testing.T, writer http.ResponseWriter, body string) {
 	}
 }
 
-func sourceAt(server *httptest.Server) github.ChangeSource {
-	return github.ChangeSource{
+func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
+	t.Helper()
+
+	return sourceWith(t, github.Settings{
 		BaseURL:          server.URL,
+		Token:            "s3cret",
 		Client:           server.Client(),
 		MaxResponseBytes: 1 << 20,
+	})
+}
+
+func sourceWith(t *testing.T, settings github.Settings) github.ChangeSource {
+	t.Helper()
+
+	source, err := github.ParseChangeSource(settings)
+	if err != nil {
+		t.Fatalf("parse change source: %v", err)
 	}
+	return source
 }
 
 func pageAsLongAsAsked(t *testing.T, request *http.Request) string {

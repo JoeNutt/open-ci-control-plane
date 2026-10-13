@@ -16,7 +16,7 @@ func TestFilesChangedRefusesAForgeThatNeverRunsOutOfPages(t *testing.T) {
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		write(t, writer, pageAsLongAsAsked(t, request))
 	})
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -33,7 +33,7 @@ func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
 		}
 		write(t, writer, pageAsLongAsAsked(t, request))
 	})
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -52,7 +52,7 @@ func TestFilesChangedRefusesAStatusTheSchemaDoesNotDeclare(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "unchanged"}
 	]`)
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -66,7 +66,7 @@ func TestFilesChangedReportsEveryFileTheForgeLists(t *testing.T) {
 		{"filename": "internal/auth/middleware.go", "status": "modified",
 		 "additions": 12, "deletions": 3, "patch": "@@ -1,3 +1,12 @@"}
 	]`)
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 

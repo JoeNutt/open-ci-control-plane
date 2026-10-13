@@ -24,7 +24,7 @@ func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
 			{"user": {"login": "kim", "type": "User"}, "state": "COMMENTED"}
 		]`,
 	})
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	pullRequest, err := source.PullRequestAt(
 		context.Background(), locatorOf(t, "acme/payments", 412))
@@ -52,7 +52,7 @@ func TestPullRequestAtDropsAnApprovalItsReviewerWithdrew(t *testing.T) {
 			{"user": {"login": "kim", "type": "User"}, "state": "COMMENTED"}
 		]`,
 	})
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	pullRequest, err := source.PullRequestAt(
 		context.Background(), locatorOf(t, "acme/payments", 412))
@@ -79,7 +79,7 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		}`,
 		"/repos/acme/payments/pulls/412/reviews": `[]`,
 	})
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	pullRequest, err := source.PullRequestAt(
 		context.Background(), locatorOf(t, "acme/payments", 412))
@@ -109,7 +109,7 @@ func TestPullRequestAtRefusesAnAccountTypeItCannotClassify(t *testing.T) {
 		"number": 412,
 		"user": {"login": "jo", "type": "Golem"}
 	}`)
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	_, err := source.PullRequestAt(
 		context.Background(), locatorOf(t, "acme/payments", 412))

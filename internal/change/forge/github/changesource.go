@@ -12,11 +12,13 @@ import (
 )
 
 type ChangeSource struct {
-	BaseURL          string
-	Token            Credential
-	Client           *http.Client
-	MaxResponseBytes int
+	baseURL          string
+	token            Credential
+	client           *http.Client
+	maxResponseBytes int
 }
+
+func (source ChangeSource) String() string { return "the forge at " + source.baseURL }
 
 type Credential string
 

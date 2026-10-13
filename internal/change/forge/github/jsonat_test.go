@@ -16,7 +16,7 @@ import (
 
 func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	server := answering(t, http.StatusInternalServerError, `[]`)
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -26,9 +26,15 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 }
 
 func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
-	source := github.ChangeSource{BaseURL: "https://api.example", Token: "s3cret"}
+	credential := github.Credential("s3cret")
+	source := sourceWith(t, github.Settings{
+		BaseURL:          "https://api.example",
+		Token:            credential,
+		Client:           http.DefaultClient,
+		MaxResponseBytes: 1 << 20,
+	})
 
-	printed := fmt.Sprintf("%v %+v %s %q", source, source, source.Token, source.Token)
+	printed := fmt.Sprintf("%v %+v %s %q", source, source, credential, credential)
 
 	if strings.Contains(printed, "s3cret") {
 		t.Fatalf("a formatted source revealed its credential: %s", printed)
@@ -45,8 +51,12 @@ func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 		}
 		write(t, writer, `[]`)
 	})
-	source := sourceAt(server)
-	source.Token = "s3cret"
+	source := sourceWith(t, github.Settings{
+		BaseURL:          server.URL,
+		Token:            "s3cret",
+		Client:           server.Client(),
+		MaxResponseBytes: 1 << 20,
+	})
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -59,11 +69,12 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "modified"}
 	]`)
-	source := github.ChangeSource{
+	source := sourceWith(t, github.Settings{
 		BaseURL:          server.URL,
+		Token:            "s3cret",
 		Client:           server.Client(),
 		MaxResponseBytes: 8,
-	}
+	})
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -74,7 +85,7 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 
 func TestFilesChangedReportsAForgeThatKnowsNoSuchPullRequest(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
-	source := sourceAt(server)
+	source := sourceAt(t, server)
 
 	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
