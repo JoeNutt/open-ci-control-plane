@@ -72,30 +72,38 @@ func outwardImportsIn(t *testing.T, dir, module string) []string {
 	t.Helper()
 
 	var outward []string
-	walked := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if entry.Name() == "testdata" {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		for _, imported := range importsOf(t, path) {
+	for _, file := range sourceFilesIn(t, dir) {
+		for _, imported := range importsOf(t, file) {
 			if pointsOutward(imported, module) {
 				outward = append(outward, imported)
 			}
 		}
+	}
+	return outward
+}
+
+func sourceFilesIn(t *testing.T, dir string) []string {
+	t.Helper()
+
+	var files []string
+	walked := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case entry.IsDir() && entry.Name() == "testdata":
+			return fs.SkipDir
+		case entry.IsDir() || !strings.HasSuffix(path, ".go"):
+			return nil
+		case strings.HasSuffix(path, "_test.go"):
+			return nil
+		}
+		files = append(files, path)
 		return nil
 	})
 	if walked != nil {
 		t.Fatalf("walk %s: %v", dir, walked)
 	}
-	return outward
+	return files
 }
 
 func importsOf(t *testing.T, file string) []string {
