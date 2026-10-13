@@ -11,7 +11,6 @@ import (
 // FileAction is what a change did to one file. The set is closed.
 type FileAction string
 
-// The file actions the schema declares.
 const (
 	FileActionAdded    FileAction = "added"
 	FileActionModified FileAction = "modified"
@@ -30,12 +29,10 @@ var declaredFileActions = []FileAction{
 	FileActionChanged,
 }
 
-// ErrUnknownFileAction reports a file action the schema does not declare.
 var ErrUnknownFileAction = errors.New("unknown file action")
 
-// ParseFileAction converts a forge's file action into the declared FileAction it names.
-// It returns ErrUnknownFileAction, naming the value, when the schema declares no such
-// action.
+// ParseFileAction converts a forge's file action into the declared FileAction it names. It
+// returns ErrUnknownFileAction, naming the value, when the schema declares no such action.
 func ParseFileAction(name string) (FileAction, error) {
 	action := FileAction(name)
 	if slices.Contains(declaredFileActions, action) {

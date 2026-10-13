@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package domain holds the change document, the published contract that policy is
-// evaluated against.
+// Package domain holds the change document, the published contract policy is evaluated against.
 package domain
 
 import "encoding/json"
@@ -22,7 +21,6 @@ func (d Document) MarshalJSON() ([]byte, error) {
 	}{CurrentSchemaMajor, fields(d)})
 }
 
-// PullRequest is the context of a change: who proposed it, where, and against what.
 type PullRequest struct {
 	Number     int                `json:"number"`
 	Repository string             `json:"repository"`
@@ -34,20 +32,17 @@ type PullRequest struct {
 	Approvals  Declared[Approval] `json:"approvals"`
 }
 
-// Author is the account that proposed a change.
 type Author struct {
 	Login       string `json:"login"`
 	Association string `json:"association"`
 	IsBot       bool   `json:"is_bot"`
 }
 
-// Approval is one review approval recorded against a change.
 type Approval struct {
 	Login    string `json:"login"`
 	IsAuthor bool   `json:"is_author"`
 }
 
-// Diff is the artefact under decision: the paths a change touches and what it did to them.
 type Diff struct {
 	Paths  Paths          `json:"paths"`
 	Files  Declared[File] `json:"files"`
@@ -55,7 +50,6 @@ type Diff struct {
 	Totals Totals         `json:"totals"`
 }
 
-// Totals is the size of a change: how much of it there is, in files and in bytes.
 type Totals struct {
 	Files      int `json:"files"`
 	Additions  int `json:"additions"`
@@ -63,8 +57,7 @@ type Totals struct {
 	PatchBytes int `json:"patch_bytes"`
 }
 
-// Kinds holds the changed paths of one kind per bucket. Every bucket is published on every
-// evaluation, so a policy reading one never sees undefined.
+// Kinds holds the changed paths of one kind per bucket. Every bucket is always published.
 type Kinds struct {
 	Test         Paths `json:"test"`
 	Authz        Paths `json:"authz"`
@@ -77,7 +70,6 @@ type Kinds struct {
 	Generated    Paths `json:"generated"`
 }
 
-// File is one changed file: what the change did to it, and how much of it moved.
 type File struct {
 	Path       string     `json:"path"`
 	Action     FileAction `json:"action"`

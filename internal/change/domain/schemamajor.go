@@ -7,15 +7,12 @@ import (
 	"fmt"
 )
 
-// SchemaMajor is a major version of the change document contract. Fields are added within
-// a major version and never repurposed or renamed; a removal is a new major version.
+// SchemaMajor is a major version of the change document contract. Fields are added within a
+// major version and never repurposed or renamed; a removal is a new major version.
 type SchemaMajor int
 
-// CurrentSchemaMajor is the change document major version this release publishes.
 const CurrentSchemaMajor SchemaMajor = 1
 
-// ErrSchemaMajorMismatch reports a bundle written against another major version of the
-// change document.
 var ErrSchemaMajorMismatch = errors.New("bundle declares another change document major version")
 
 // AcceptBundleMajor converts the major version a bundle declares into the SchemaMajor it is
