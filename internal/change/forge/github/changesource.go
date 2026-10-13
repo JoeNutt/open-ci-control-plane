@@ -15,6 +15,21 @@ import (
 
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
 
+var reportedByStatus = map[int]error{
+	http.StatusNotFound: domain.ErrNoSuchPullRequest,
+}
+
+func failureIn(response *http.Response) error {
+	if response.StatusCode == http.StatusOK {
+		return nil
+	}
+	reported, mapped := reportedByStatus[response.StatusCode]
+	if !mapped {
+		reported = ErrUnexpectedStatus
+	}
+	return fmt.Errorf("%w: %s", reported, response.Status)
+}
+
 type ChangeSource struct {
 	BaseURL string
 	Client  *http.Client
@@ -79,11 +94,8 @@ func jsonAt[Payload any](
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode == http.StatusNotFound {
-		return payload, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, response.Status)
-	}
-	if response.StatusCode != http.StatusOK {
-		return payload, fmt.Errorf("%w: %s", ErrUnexpectedStatus, response.Status)
+	if failure := failureIn(response); failure != nil {
+		return payload, failure
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return payload, fmt.Errorf("decode: %w", err)
