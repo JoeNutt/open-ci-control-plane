@@ -23,7 +23,7 @@ func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLo
 	return locator
 }
 
-func TestChangeSourceStandsInWhereeverTheDomainAsksForAForge(t *testing.T) {
+func TestChangeSourceStandsInWhereverTheDomainAsksForAForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	var source domain.ChangeSource = memory.ChangeSource{
 		Changes: map[domain.PullRequestLocator]memory.Change{
