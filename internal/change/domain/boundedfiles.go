@@ -68,6 +68,18 @@ func filePatchBreachIn(files []File, limits Limits) error {
 	return nil
 }
 
+func totalPatchBreachIn(files []File, limits Limits) error {
+	total := 0
+	for _, file := range files {
+		total += file.PatchBytes
+	}
+	if total > limits.MaxTotalPatchBytes {
+		return fmt.Errorf("%w: %d exceeds %d",
+			ErrChangePatchTooLarge, total, limits.MaxTotalPatchBytes)
+	}
+	return nil
+}
+
 func pathLengthBreachIn(files []File, limits Limits) error {
 	for _, file := range files {
 		if len(file.Path) > limits.MaxPathBytes {
@@ -85,18 +97,6 @@ func pathDepthBreachIn(files []File, limits Limits) error {
 			return fmt.Errorf("%w: %q is %d segments, which exceeds %d",
 				ErrPathTooDeep, file.Path, segments, limits.MaxPathSegments)
 		}
-	}
-	return nil
-}
-
-func totalPatchBreachIn(files []File, limits Limits) error {
-	total := 0
-	for _, file := range files {
-		total += file.PatchBytes
-	}
-	if total > limits.MaxTotalPatchBytes {
-		return fmt.Errorf("%w: %d exceeds %d",
-			ErrChangePatchTooLarge, total, limits.MaxTotalPatchBytes)
 	}
 	return nil
 }
