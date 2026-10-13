@@ -56,9 +56,18 @@ type Approval struct {
 
 // Diff is the artefact under decision: the paths a change touches and what it did to them.
 type Diff struct {
-	Paths Paths          `json:"paths"`
-	Files Declared[File] `json:"files"`
-	Kinds Kinds          `json:"kinds"`
+	Paths  Paths          `json:"paths"`
+	Files  Declared[File] `json:"files"`
+	Kinds  Kinds          `json:"kinds"`
+	Totals Totals         `json:"totals"`
+}
+
+// Totals is the size of a change: how much of it there is, in files and in bytes.
+type Totals struct {
+	Files      int `json:"files"`
+	Additions  int `json:"additions"`
+	Deletions  int `json:"deletions"`
+	PatchBytes int `json:"patch_bytes"`
 }
 
 // Kinds holds the changed paths of one kind per bucket. Every bucket is published on every

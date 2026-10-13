@@ -111,6 +111,39 @@ func TestZeroDocumentPopulatesEveryPullRequestField(t *testing.T) {
 	}
 }
 
+func TestZeroDocumentPopulatesEveryDiffField(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		Diff struct {
+			Paths  *[]string          `json:"paths"`
+			Files  *[]json.RawMessage `json:"files"`
+			Kinds  *json.RawMessage   `json:"kinds"`
+			Totals *struct {
+				Files      *int `json:"files"`
+				Additions  *int `json:"additions"`
+				Deletions  *int `json:"deletions"`
+				PatchBytes *int `json:"patch_bytes"`
+			} `json:"totals"`
+		} `json:"diff"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+
+	diff := decoded.Diff
+	if diff.Paths == nil || diff.Files == nil || diff.Kinds == nil || diff.Totals == nil {
+		t.Fatalf("diff omits a declared field in %s", encoded)
+	}
+	if diff.Totals.Files == nil || diff.Totals.Additions == nil ||
+		diff.Totals.Deletions == nil || diff.Totals.PatchBytes == nil {
+		t.Fatalf("diff.totals omits a declared counter in %s", encoded)
+	}
+}
+
 func TestZeroDocumentPopulatesEveryClassificationBucket(t *testing.T) {
 	encoded, err := json.Marshal(domain.Document{})
 	if err != nil {
