@@ -14,6 +14,14 @@ type Document struct {
 	Diff Diff `json:"diff"`
 }
 
+func (d Document) MarshalJSON() ([]byte, error) {
+	type fields Document
+	return json.Marshal(struct {
+		SchemaVersion int `json:"schema_version"`
+		fields
+	}{1, fields(d)})
+}
+
 // Diff is the artefact under decision: the paths a change touches and what it did to them.
 type Diff struct {
 	Paths Paths `json:"paths"`

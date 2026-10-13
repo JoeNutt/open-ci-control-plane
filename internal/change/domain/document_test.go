@@ -20,6 +20,26 @@ func TestZeroDocumentEmitsEmptyPathsAsList(t *testing.T) {
 	}
 }
 
+func TestDocumentDeclaresSchemaVersion(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		SchemaVersion *int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+	if decoded.SchemaVersion == nil {
+		t.Fatalf("schema_version absent from %s", encoded)
+	}
+	if *decoded.SchemaVersion != 1 {
+		t.Fatalf("schema_version is %d, want 1", *decoded.SchemaVersion)
+	}
+}
+
 func TestPathsEmitLexicographicallySorted(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Paths: domain.Paths{
 		"internal/http/routes.go",
