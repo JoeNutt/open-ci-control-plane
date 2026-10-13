@@ -67,7 +67,7 @@ func (source ChangeSource) changedFilesAcrossPages(
 	var listed []changedFile
 	for page := 1; page <= maxFilePages; page++ {
 		onPage, err := jsonAt[[]changedFile](
-			ctx, source.Client, source.changedFilesAddress(locator, page), source.MaxResponseBytes)
+			ctx, source, changedFilesEndpoint(locator, page))
 		if err != nil {
 			return nil, err
 		}
@@ -79,11 +79,9 @@ func (source ChangeSource) changedFilesAcrossPages(
 	return nil, fmt.Errorf("%w: %d pages of %d", ErrTooManyPages, maxFilePages, FilesPerPage)
 }
 
-func (source ChangeSource) changedFilesAddress(
-	locator domain.PullRequestLocator, page int,
-) string {
-	return fmt.Sprintf("%s/repos/%s/%s/pulls/%d/files?per_page=%d&page=%d",
-		source.BaseURL, locator.Owner(), locator.Name(), locator.Number(), FilesPerPage, page)
+func changedFilesEndpoint(locator domain.PullRequestLocator, page int) string {
+	return fmt.Sprintf("/repos/%s/%s/pulls/%d/files?per_page=%d&page=%d",
+		locator.Owner(), locator.Name(), locator.Number(), FilesPerPage, page)
 }
 
 type changedFile struct {
@@ -113,14 +111,15 @@ func filesOf(listed []changedFile) ([]domain.File, error) {
 }
 
 func jsonAt[Payload any](
-	ctx context.Context, client *http.Client, address string, maxBytes int,
+	ctx context.Context, source ChangeSource, endpoint string,
 ) (Payload, error) {
 	var payload Payload
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	request, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, source.BaseURL+endpoint, nil)
 	if err != nil {
 		return payload, fmt.Errorf("request: %w", err)
 	}
-	response, err := client.Do(request)
+	response, err := source.Client.Do(request)
 	if err != nil {
 		return payload, fmt.Errorf("read: %w", err)
 	}
@@ -129,15 +128,23 @@ func jsonAt[Payload any](
 	if failure := failureIn(response); failure != nil {
 		return payload, failure
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, int64(maxBytes)+1))
+	body, err := bodyWithinBound(response.Body, source.MaxResponseBytes)
 	if err != nil {
-		return payload, fmt.Errorf("read: %w", err)
-	}
-	if len(body) > maxBytes {
-		return payload, fmt.Errorf("%w: more than %d bytes", ErrResponseTooLarge, maxBytes)
+		return payload, err
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return payload, fmt.Errorf("decode: %w", err)
 	}
 	return payload, nil
+}
+
+func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
+	read, err := io.ReadAll(io.LimitReader(body, int64(maxBytes)+1))
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	if len(read) > maxBytes {
+		return nil, fmt.Errorf("%w: more than %d bytes", ErrResponseTooLarge, maxBytes)
+	}
+	return read, nil
 }
