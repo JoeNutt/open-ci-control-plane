@@ -46,8 +46,9 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		},
 	}
 
-	document, err := application.BuildDocument(
-		context.Background(), source, locator, noBoundBinds)
+	useCase := application.BuildDocument{Source: source, Limits: noBoundBinds}
+
+	document, err := useCase.Execute(context.Background(), locator)
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
