@@ -24,10 +24,43 @@ type Document struct {
 
 // PullRequest is the context of a change: who proposed it, where, and against what.
 type PullRequest struct {
-	Number     int    `json:"number"`
-	Repository string `json:"repository"`
-	BaseRef    string `json:"base_ref"`
-	HeadSHA    string `json:"head_sha"`
+	Number     int       `json:"number"`
+	Repository string    `json:"repository"`
+	BaseRef    string    `json:"base_ref"`
+	HeadSHA    string    `json:"head_sha"`
+	Draft      bool      `json:"draft"`
+	Author     Author    `json:"author"`
+	Labels     Labels    `json:"labels"`
+	Approvals  Approvals `json:"approvals"`
+}
+
+type Author struct {
+	Login       string `json:"login"`
+	Association string `json:"association"`
+	IsBot       bool   `json:"is_bot"`
+}
+
+type Labels []string
+
+func (l Labels) MarshalJSON() ([]byte, error) {
+	if len(l) == 0 {
+		return []byte("[]"), nil
+	}
+	return json.Marshal([]string(l))
+}
+
+type Approval struct {
+	Login    string `json:"login"`
+	IsAuthor bool   `json:"is_author"`
+}
+
+type Approvals []Approval
+
+func (a Approvals) MarshalJSON() ([]byte, error) {
+	if len(a) == 0 {
+		return []byte("[]"), nil
+	}
+	return json.Marshal([]Approval(a))
 }
 
 // MarshalJSON encodes the document, stamping it with the major version this release

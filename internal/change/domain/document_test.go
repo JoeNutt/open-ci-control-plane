@@ -77,6 +77,40 @@ func TestPullRequestContextIsSiblingOfDiff(t *testing.T) {
 	}
 }
 
+func TestZeroDocumentPopulatesEveryPullRequestField(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		PR struct {
+			Draft     *bool              `json:"draft"`
+			Labels    *[]string          `json:"labels"`
+			Approvals *[]json.RawMessage `json:"approvals"`
+			Author    *struct {
+				Login       *string `json:"login"`
+				Association *string `json:"association"`
+				IsBot       *bool   `json:"is_bot"`
+			} `json:"author"`
+		} `json:"pr"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+
+	pr := decoded.PR
+	if pr.Draft == nil || pr.Labels == nil || pr.Approvals == nil || pr.Author == nil {
+		t.Fatalf("pr omits a declared field in %s", encoded)
+	}
+	if len(*pr.Labels) != 0 || len(*pr.Approvals) != 0 {
+		t.Fatalf("pr lists are not empty in %s", encoded)
+	}
+	if pr.Author.Login == nil || pr.Author.Association == nil || pr.Author.IsBot == nil {
+		t.Fatalf("pr.author omits a declared field in %s", encoded)
+	}
+}
+
 func TestPathsEmitLexicographicallySorted(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Paths: domain.Paths{
 		"internal/http/routes.go",
