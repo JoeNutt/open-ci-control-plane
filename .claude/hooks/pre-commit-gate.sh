@@ -39,25 +39,34 @@ $(printf '%s\n' "$prod_go" | sed 's/^/  - /')
 Red comes first. Either stage the test that drove this change, or state why the code is untestable."
 fi
 
-# A missing toolchain is reported as such, never as a failing check.
+# The toolchain comes from the flake, so run the Go gates inside it when go is
+# not already on PATH. A missing toolchain is reported as such, never as a
+# failing check.
 if [ -f go.mod ]; then
-    if ! command -v go >/dev/null 2>&1; then
-        deny "go.mod is present but the go toolchain is not on PATH, so the commit gate cannot verify this change. Install Go or remove go.mod."
+    if command -v go >/dev/null 2>&1; then
+        run() { bash -c "$1" 2>&1; }
+    elif [ -f flake.nix ] && command -v nix >/dev/null 2>&1; then
+        run() { nix develop --command bash -c "$1" 2>&1; }
+    else
+        deny "go.mod is present but neither the go toolchain nor nix is available, so the commit gate cannot verify this change."
     fi
 
-    if command -v gofmt >/dev/null 2>&1; then
-        unformatted="$(gofmt -l . 2>/dev/null | grep -v '^$' || true)"
-        [ -n "$unformatted" ] && deny "gofmt reports unformatted files:
+    if ! unformatted="$(run 'gofmt -l .')"; then
+        deny "gofmt could not run:
+
+$unformatted"
+    fi
+    unformatted="$(printf '%s\n' "$unformatted" | grep -E '\.go$' || true)"
+    [ -n "$unformatted" ] && deny "gofmt reports unformatted files:
 $(printf '%s\n' "$unformatted" | sed 's/^/  - /')"
-    fi
 
-    if ! vet_out="$(go vet ./... 2>&1)"; then
+    if ! vet_out="$(run 'go vet ./...')"; then
         deny "go vet failed:
 
-$vet_out"
+$(printf '%s' "$vet_out" | tail -40)"
     fi
 
-    if ! test_out="$(go test ./... 2>&1)"; then
+    if ! test_out="$(run 'go test ./...')"; then
         deny "Tests are not green, so there is nothing to commit:
 
 $(printf '%s' "$test_out" | tail -40)"
