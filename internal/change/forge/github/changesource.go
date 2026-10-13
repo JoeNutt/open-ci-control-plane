@@ -6,11 +6,14 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
 
 type ChangeSource struct {
 	BaseURL string
@@ -76,6 +79,9 @@ func jsonAt[Payload any](
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	if response.StatusCode != http.StatusOK {
+		return payload, fmt.Errorf("%w: %s", ErrUnexpectedStatus, response.Status)
+	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return payload, fmt.Errorf("decode: %w", err)
 	}

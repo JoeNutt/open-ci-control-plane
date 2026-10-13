@@ -41,6 +41,24 @@ func serving(t *testing.T, path, body string) *httptest.Server {
 	return server
 }
 
+func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, _ *http.Request) {
+			writer.WriteHeader(http.StatusInternalServerError)
+			if _, written := writer.Write([]byte(`[]`)); written != nil {
+				t.Errorf("write response: %v", written)
+			}
+		}))
+	t.Cleanup(server.Close)
+	source := github.ChangeSource{BaseURL: server.URL, Client: server.Client()}
+
+	_, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrUnexpectedStatus) {
+		t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+	}
+}
+
 func TestFilesChangedRefusesAStatusTheSchemaDoesNotDeclare(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "unchanged"}
