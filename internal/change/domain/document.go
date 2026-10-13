@@ -6,13 +6,6 @@ package domain
 
 import "encoding/json"
 
-// SchemaMajor is a major version of the change document contract. Fields are added within
-// a major version and never repurposed or renamed; a removal is a new major version.
-type SchemaMajor int
-
-// CurrentSchemaMajor is the change document major version this release publishes.
-const CurrentSchemaMajor SchemaMajor = 1
-
 // Document is the change document for one change, published to policy as ci.diff/v1.
 type Document struct {
 	PR   PullRequest `json:"pr"`
