@@ -61,6 +61,28 @@ func TestParseDocumentDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 	}
 }
 
+func TestParseDocumentDoesNotAliasTheSuppliedPullRequest(t *testing.T) {
+	pullRequest := domain.PullRequest{
+		Number:    412,
+		Labels:    domain.Declared[string]{"backend"},
+		Approvals: domain.Declared[domain.Approval]{{Login: "sam"}},
+	}
+
+	document, err := domain.ParseDocument(pullRequest, nil)
+	if err != nil {
+		t.Fatalf("parse document: %v", err)
+	}
+	pullRequest.Labels[0] = "frontend"
+	pullRequest.Approvals[0] = domain.Approval{Login: "jo", IsAuthor: true}
+
+	if document.PR.Labels[0] != "backend" {
+		t.Errorf("the labels followed a later write to the input: %v", document.PR.Labels)
+	}
+	if document.PR.Approvals[0] != (domain.Approval{Login: "sam"}) {
+		t.Errorf("the approvals followed a later write to the input: %v", document.PR.Approvals)
+	}
+}
+
 func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/http/routes.go", Action: domain.FileActionModified},

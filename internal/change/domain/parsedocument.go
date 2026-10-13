@@ -5,6 +5,8 @@ package domain
 import "slices"
 
 func ParseDocument(pullRequest PullRequest, files []File) (Document, error) {
+	pullRequest.Labels = slices.Clone(pullRequest.Labels)
+	pullRequest.Approvals = slices.Clone(pullRequest.Approvals)
 	return Document{PR: pullRequest, Diff: Diff{
 		Paths:  pathsOf(files),
 		Files:  slices.Clone(files),
