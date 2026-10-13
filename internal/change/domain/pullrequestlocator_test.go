@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,6 +47,21 @@ func TestParsePullRequestLocatorRefusesAMalformedRepository(t *testing.T) {
 
 			if !errors.Is(err, domain.ErrMalformedRepository) {
 				t.Fatalf("want ErrMalformedRepository for %q, got %v", repository, err)
+			}
+			if locator != (domain.PullRequestLocator{}) {
+				t.Fatalf("want no locator alongside the refusal, got %+v", locator)
+			}
+		})
+	}
+}
+
+func TestParsePullRequestLocatorRefusesANumberNoForgeIssues(t *testing.T) {
+	for _, number := range []int{0, -1} {
+		t.Run(strconv.Itoa(number), func(t *testing.T) {
+			locator, err := domain.ParsePullRequestLocator("acme/payments", number)
+
+			if !errors.Is(err, domain.ErrMalformedPullRequestNumber) {
+				t.Fatalf("want ErrMalformedPullRequestNumber for %d, got %v", number, err)
 			}
 			if locator != (domain.PullRequestLocator{}) {
 				t.Fatalf("want no locator alongside the refusal, got %+v", locator)

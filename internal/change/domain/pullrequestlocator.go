@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	repositorySeparator  = "/"
-	maxRepositorySegment = 100
-	maxRepositoryLength  = 2*maxRepositorySegment + len(repositorySeparator)
+	repositorySeparator    = "/"
+	maxRepositorySegment   = 100
+	firstPullRequestNumber = 1
+	maxRepositoryLength    = 2*maxRepositorySegment + len(repositorySeparator)
 )
 
 var repositorySegmentPattern = fmt.Sprintf(
@@ -22,6 +23,8 @@ var repositoryPattern = regexp.MustCompile(
 	"^" + repositorySegmentPattern + repositorySeparator + repositorySegmentPattern + "$")
 
 var ErrMalformedRepository = errors.New("repository is not an owner/name pair")
+
+var ErrMalformedPullRequestNumber = errors.New("pull request number is not positive")
 
 type PullRequestLocator struct {
 	owner  string
@@ -36,6 +39,9 @@ func ParsePullRequestLocator(repository string, number int) (PullRequestLocator,
 	}
 	if !repositoryPattern.MatchString(repository) {
 		return PullRequestLocator{}, fmt.Errorf("%w: %q", ErrMalformedRepository, repository)
+	}
+	if number < firstPullRequestNumber {
+		return PullRequestLocator{}, fmt.Errorf("%w: %d", ErrMalformedPullRequestNumber, number)
 	}
 	owner, name, _ := strings.Cut(repository, repositorySeparator)
 	return PullRequestLocator{owner: owner, name: name, number: number}, nil
