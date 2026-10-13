@@ -1,0 +1,38 @@
+{
+  "projectId": "PVT_kwHOAmUY7M4Bm36f",
+  "projectNumber": 2,
+  "wipLimitPerAgent": 1,
+  "fields": {
+    "status": {
+      "id": "PVTSSF_lAHOAmUY7M4Bm36fzhlfGTE",
+      "options": {
+        "Backlog": "771ed8e4",
+        "Ready": "dc352338",
+        "In Progress": "dc1ef89e",
+        "Review": "3c00f4cc",
+        "Blocked": "86ae26cb",
+        "Done": "16ce0e58"
+      }
+    },
+    "agent": {
+      "id": "PVTSSF_lAHOAmUY7M4Bm36fzhlfGrU",
+      "options": {
+        "unassigned": "1e98277e",
+        "agent-1": "76b46d33",
+        "agent-2": "ce5ede94",
+        "agent-3": "65ac1695",
+        "agent-4": "f7c96dd8",
+        "human": "b6cd2160"
+      }
+    },
+    "priority": {
+      "id": "PVTSSF_lAHOAmUY7M4Bm36fzhlfGqM",
+      "options": {
+        "Must": "9f95fd39",
+        "Should": "736bf37b",
+        "Could": "00f011fb",
+        "Won't": "3649517a"
+      }
+    }
+  }
+}

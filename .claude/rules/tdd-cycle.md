@@ -69,6 +69,20 @@ Then **commit again.** Two clean commits beat one mixed one.
 
 ---
 
+## One card at a time
+
+Work comes from the board: https://github.com/users/JoeNutt/projects/2
+
+You are an engineer, not a queue. **Hold exactly one card in In Progress.** Claim it by
+setting both the `Agent` and `Status` fields in the same call, work it through the cycle, and
+move it to `Review` or `Blocked` before claiming another. A `PreToolUse` hook refuses a second
+claim and names the card you already hold.
+
+`Won't` cards are not work. They are the record of what is deliberately not being built, so
+nothing drifts into it by accident.
+
+---
+
 ## You may not end a turn without a refactor verdict
 
 State exactly one of these lines. It is checked mechanically, so the wording matters:

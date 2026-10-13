@@ -44,6 +44,14 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(gh *)",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/wip-limit.sh",
+            "args": [],
+            "timeout": 30,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
             "if": "Bash(git commit *)",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-commit-gate.sh",
             "args": [],
