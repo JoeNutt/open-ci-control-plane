@@ -9,6 +9,16 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
+	t.Helper()
+
+	bounded, err := domain.ParseBoundedFiles(files, domain.Limits{MaxChangedFiles: len(files)})
+	if err != nil {
+		t.Fatalf("parse bounded files: %v", err)
+	}
+	return bounded
+}
+
 func TestParseBoundedFilesRefusesMoreChangedFilesThanTheLimitAllows(t *testing.T) {
 	limits := domain.Limits{MaxChangedFiles: 2}
 	files := []domain.File{
@@ -29,10 +39,7 @@ func TestParseBoundedFilesDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 	}
 
-	bounded, err := domain.ParseBoundedFiles(files, domain.Limits{MaxChangedFiles: 1})
-	if err != nil {
-		t.Fatalf("parse bounded files: %v", err)
-	}
+	bounded := withinBounds(t, files...)
 	files[0] = domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded}
 
 	document := domain.ParseDocument(domain.PullRequest{}, bounded)

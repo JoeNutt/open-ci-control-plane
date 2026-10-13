@@ -9,16 +9,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
-	t.Helper()
-
-	bounded, err := domain.ParseBoundedFiles(files, domain.Limits{MaxChangedFiles: len(files)})
-	if err != nil {
-		t.Fatalf("parse bounded files: %v", err)
-	}
-	return bounded
-}
-
 func TestParseDocumentAggregatesTotalsOverChangedFiles(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
