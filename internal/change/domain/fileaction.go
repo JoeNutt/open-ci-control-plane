@@ -2,11 +2,7 @@
 
 package domain
 
-import (
-	"errors"
-	"fmt"
-	"slices"
-)
+import "errors"
 
 type FileAction string
 
@@ -31,9 +27,5 @@ var declaredFileActions = []FileAction{
 var ErrUnknownFileAction = errors.New("unknown file action")
 
 func ParseFileAction(name string) (FileAction, error) {
-	action := FileAction(name)
-	if slices.Contains(declaredFileActions, action) {
-		return action, nil
-	}
-	return "", fmt.Errorf("%w: %q", ErrUnknownFileAction, name)
+	return parseDeclaration(name, declaredFileActions, ErrUnknownFileAction)
 }

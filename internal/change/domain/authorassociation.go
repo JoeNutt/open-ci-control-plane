@@ -2,11 +2,7 @@
 
 package domain
 
-import (
-	"errors"
-	"fmt"
-	"slices"
-)
+import "errors"
 
 type AuthorAssociation string
 
@@ -35,9 +31,5 @@ var declaredAuthorAssociations = []AuthorAssociation{
 var ErrUnknownAuthorAssociation = errors.New("unknown author association")
 
 func ParseAuthorAssociation(name string) (AuthorAssociation, error) {
-	association := AuthorAssociation(name)
-	if slices.Contains(declaredAuthorAssociations, association) {
-		return association, nil
-	}
-	return "", fmt.Errorf("%w: %q", ErrUnknownAuthorAssociation, name)
+	return parseDeclaration(name, declaredAuthorAssociations, ErrUnknownAuthorAssociation)
 }
