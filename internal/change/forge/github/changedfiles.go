@@ -4,7 +4,6 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -16,24 +15,14 @@ const FilesPerPage = 100
 // FilesPerPage is every page it can offer: https://docs.github.com/en/rest/pulls/pulls
 const maxFilePages = 30
 
-var ErrTooManyPages = errors.New("the forge offered more pages than its file listing can serve")
-
 func (source ChangeSource) changedFilesAcrossPages(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]changedFile, error) {
-	var listed []changedFile
-	for page := 1; page <= maxFilePages; page++ {
-		onPage, err := jsonAt[[]changedFile](
-			ctx, source, changedFilesEndpoint(locator, page))
-		if err != nil {
-			return nil, err
-		}
-		listed = append(listed, onPage...)
-		if len(onPage) < FilesPerPage {
-			return listed, nil
-		}
-	}
-	return nil, fmt.Errorf("%w: %d pages of %d", ErrTooManyPages, maxFilePages, FilesPerPage)
+	return acrossPages[changedFile](ctx, source, paging{
+		endpointAt: func(page int) string { return changedFilesEndpoint(locator, page) },
+		perPage:    FilesPerPage,
+		maxPages:   maxFilePages,
+	})
 }
 
 func changedFilesEndpoint(locator domain.PullRequestLocator, page int) string {

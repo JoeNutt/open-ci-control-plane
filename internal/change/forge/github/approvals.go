@@ -4,7 +4,6 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -17,26 +16,20 @@ const ReviewsPerPage = 100
 // NFR-5's bounds can have attracted.
 const maxReviewPages = 100
 
-var ErrTooManyReviewPages = errors.New("the forge offered more pages of reviews than the bound allows")
-
 const approvedReviewState = "APPROVED"
 
 func (source ChangeSource) approvalsOf(
 	ctx context.Context, locator domain.PullRequestLocator, author string,
 ) (domain.Declared[domain.Approval], error) {
-	var reviewed []review
-	for page := 1; page <= maxReviewPages; page++ {
-		onPage, err := jsonAt[[]review](ctx, source, reviewsEndpoint(locator, page))
-		if err != nil {
-			return nil, err
-		}
-		reviewed = append(reviewed, onPage...)
-		if len(onPage) < ReviewsPerPage {
-			return approvalsIn(reviewed, author), nil
-		}
+	reviewed, err := acrossPages[review](ctx, source, paging{
+		endpointAt: func(page int) string { return reviewsEndpoint(locator, page) },
+		perPage:    ReviewsPerPage,
+		maxPages:   maxReviewPages,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("%w: %d pages of %d",
-		ErrTooManyReviewPages, maxReviewPages, ReviewsPerPage)
+	return approvalsIn(reviewed, author), nil
 }
 
 func reviewsEndpoint(locator domain.PullRequestLocator, page int) string {
