@@ -29,7 +29,7 @@ func TestChangeSourceReportsTheFilesRecordedForAPullRequest(t *testing.T) {
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 	}
 	source := memory.ChangeSource{
-		Files: map[domain.PullRequestLocator][]domain.File{locator: files},
+		Changes: map[domain.PullRequestLocator]memory.Change{locator: {Files: files}},
 	}
 
 	changed, err := source.FilesChanged(context.Background(), locator)
@@ -53,7 +53,9 @@ func TestChangeSourceReportsThePullRequestRecordedForALocator(t *testing.T) {
 		Labels:     domain.Declared[string]{"backend"},
 	}
 	source := memory.ChangeSource{
-		PullRequests: map[domain.PullRequestLocator]domain.PullRequest{locator: pullRequest},
+		Changes: map[domain.PullRequestLocator]memory.Change{
+			locator: {PullRequest: pullRequest},
+		},
 	}
 
 	reported, err := source.PullRequestAt(context.Background(), locator)

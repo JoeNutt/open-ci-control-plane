@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package memory answers for a forge from values a test recorded.
+// Package memory answers for a forge from changes a test recorded.
 package memory
 
 import (
@@ -10,23 +10,27 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+type Change struct {
+	PullRequest domain.PullRequest
+	Files       []domain.File
+}
+
 type ChangeSource struct {
-	PullRequests map[domain.PullRequestLocator]domain.PullRequest
-	Files        map[domain.PullRequestLocator][]domain.File
+	Changes map[domain.PullRequestLocator]Change
 }
 
 func (source ChangeSource) PullRequestAt(
 	_ context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
-	return source.PullRequests[locator], nil
+	return source.Changes[locator].PullRequest, nil
 }
 
 func (source ChangeSource) FilesChanged(
 	_ context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
-	files, recorded := source.Files[locator]
+	change, recorded := source.Changes[locator]
 	if !recorded {
 		return nil, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
 	}
-	return files, nil
+	return change.Files, nil
 }
