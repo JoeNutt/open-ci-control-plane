@@ -179,7 +179,7 @@ func TestZeroDocumentPopulatesEveryClassificationBucket(t *testing.T) {
 	}
 }
 
-func TestFileEntryCarriesItsPathActionAndSizes(t *testing.T) {
+func TestFileCarriesPathActionAndSizes(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Files: domain.Declared[domain.File]{{
 		Path:       "internal/auth/middleware.go",
 		Action:     domain.FileActionModified,

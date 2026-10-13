@@ -13,7 +13,7 @@ const CurrentSchemaMajor SchemaMajor = 1
 
 var ErrSchemaMajorMismatch = errors.New("bundle declares another change document major version")
 
-func AcceptBundleMajor(declared int) (SchemaMajor, error) {
+func ParseSchemaMajor(declared int) (SchemaMajor, error) {
 	if declared != int(CurrentSchemaMajor) {
 		return 0, fmt.Errorf("%w: bundle declares %d, this release publishes %d",
 			ErrSchemaMajorMismatch, declared, CurrentSchemaMajor)

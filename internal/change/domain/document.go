@@ -12,12 +12,12 @@ type Document struct {
 	Diff Diff        `json:"diff"`
 }
 
-func (d Document) MarshalJSON() ([]byte, error) {
-	type fields Document
+func (document Document) MarshalJSON() ([]byte, error) {
+	type withoutMarshaller Document
 	return json.Marshal(struct {
 		SchemaVersion SchemaMajor `json:"schema_version"`
-		fields
-	}{CurrentSchemaMajor, fields(d)})
+		withoutMarshaller
+	}{CurrentSchemaMajor, withoutMarshaller(document)})
 }
 
 type PullRequest struct {

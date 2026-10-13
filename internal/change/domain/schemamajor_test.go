@@ -9,8 +9,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestBundleDeclaringTheCurrentMajorIsAccepted(t *testing.T) {
-	major, err := domain.AcceptBundleMajor(int(domain.CurrentSchemaMajor))
+func TestParseSchemaMajorAcceptsCurrent(t *testing.T) {
+	major, err := domain.ParseSchemaMajor(int(domain.CurrentSchemaMajor))
 
 	if err != nil {
 		t.Fatalf("accept major %d: %v", domain.CurrentSchemaMajor, err)
@@ -20,10 +20,10 @@ func TestBundleDeclaringTheCurrentMajorIsAccepted(t *testing.T) {
 	}
 }
 
-func TestBundleDeclaringAnotherMajorIsRefused(t *testing.T) {
+func TestParseSchemaMajorRefusesOther(t *testing.T) {
 	declared := int(domain.CurrentSchemaMajor) + 1
 
-	major, err := domain.AcceptBundleMajor(declared)
+	major, err := domain.ParseSchemaMajor(declared)
 
 	if !errors.Is(err, domain.ErrSchemaMajorMismatch) {
 		t.Fatalf("want ErrSchemaMajorMismatch for major %d, got %v", declared, err)

@@ -7,19 +7,19 @@ import (
 	"slices"
 )
 
-type Declared[E any] []E
+type Declared[Element any] []Element
 
-func (d Declared[E]) MarshalJSON() ([]byte, error) {
-	if len(d) == 0 {
+func (declared Declared[Element]) MarshalJSON() ([]byte, error) {
+	if len(declared) == 0 {
 		return []byte("[]"), nil
 	}
-	return json.Marshal([]E(d))
+	return json.Marshal([]Element(declared))
 }
 
 type Paths []string
 
-func (p Paths) MarshalJSON() ([]byte, error) {
-	sorted := slices.Clone(p)
+func (paths Paths) MarshalJSON() ([]byte, error) {
+	sorted := slices.Clone(paths)
 	slices.Sort(sorted)
 	return Declared[string](sorted).MarshalJSON()
 }
