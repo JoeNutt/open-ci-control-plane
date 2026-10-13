@@ -56,5 +56,18 @@ type Approval struct {
 
 // Diff is the artefact under decision: the paths a change touches and what it did to them.
 type Diff struct {
-	Paths Paths `json:"paths"`
+	Paths Paths          `json:"paths"`
+	Files Declared[File] `json:"files"`
 }
+
+type File struct {
+	Path       string     `json:"path"`
+	Action     FileAction `json:"action"`
+	Additions  int        `json:"additions"`
+	Deletions  int        `json:"deletions"`
+	PatchBytes int        `json:"patch_bytes"`
+}
+
+type FileAction string
+
+const FileActionModified FileAction = "modified"

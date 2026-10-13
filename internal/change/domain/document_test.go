@@ -111,6 +111,27 @@ func TestZeroDocumentPopulatesEveryPullRequestField(t *testing.T) {
 	}
 }
 
+func TestFileEntryCarriesItsPathActionAndSizes(t *testing.T) {
+	document := domain.Document{Diff: domain.Diff{Files: domain.Declared[domain.File]{{
+		Path:       "internal/auth/middleware.go",
+		Action:     domain.FileActionModified,
+		Additions:  12,
+		Deletions:  3,
+		PatchBytes: 1840,
+	}}}}
+
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal document: %v", err)
+	}
+
+	want := `"files":[{"path":"internal/auth/middleware.go","action":"modified",` +
+		`"additions":12,"deletions":3,"patch_bytes":1840}]`
+	if !strings.Contains(string(encoded), want) {
+		t.Fatalf("want %s in %s", want, encoded)
+	}
+}
+
 func TestPathsEmitLexicographicallySorted(t *testing.T) {
 	document := domain.Document{Diff: domain.Diff{Paths: domain.Paths{
 		"internal/http/routes.go",
