@@ -43,28 +43,44 @@ type review struct {
 }
 
 func approvalsIn(reviewed []review, author string) domain.Declared[domain.Approval] {
-	standing := make(map[string]string, len(reviewed))
-	var reviewers []string
+	standing := standingReviewsIn(reviewed)
+	approvals := make(domain.Declared[domain.Approval], 0, len(standing))
+	for _, held := range standing {
+		if held.state != approvedReviewState {
+			continue
+		}
+		approvals = append(approvals, domain.Approval{
+			Login:    held.reviewer,
+			IsAuthor: held.reviewer == author,
+		})
+	}
+	return approvals
+}
+
+type standingReview struct {
+	reviewer string
+	state    string
+}
+
+func standingReviewsIn(reviewed []review) []standingReview {
+	positionOf := make(map[string]int, len(reviewed))
+	var standing []standingReview
 	for _, reviewing := range reviewed {
 		if !decidesApproval[reviewing.State] {
 			continue
 		}
-		if _, reviewed := standing[reviewing.User.Login]; !reviewed {
-			reviewers = append(reviewers, reviewing.User.Login)
-		}
-		standing[reviewing.User.Login] = reviewing.State
-	}
-	approvals := make(domain.Declared[domain.Approval], 0, len(reviewers))
-	for _, reviewer := range reviewers {
-		if standing[reviewer] != approvedReviewState {
+		position, reviewedBefore := positionOf[reviewing.User.Login]
+		if !reviewedBefore {
+			positionOf[reviewing.User.Login] = len(standing)
+			standing = append(standing, standingReview{
+				reviewer: reviewing.User.Login,
+				state:    reviewing.State,
+			})
 			continue
 		}
-		approvals = append(approvals, domain.Approval{
-			Login:    reviewer,
-			IsAuthor: reviewer == author,
-		})
+		standing[position].state = reviewing.State
 	}
-	return approvals
+	return standing
 }
 
 // A review of COMMENTED or PENDING leaves a reviewer's earlier approval or request
