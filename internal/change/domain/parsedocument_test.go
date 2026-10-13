@@ -9,6 +9,16 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func withinBounds(t *testing.T, files ...domain.File) domain.BoundedFiles {
+	t.Helper()
+
+	bounded, err := domain.ParseBoundedFiles(files, domain.Limits{MaxChangedFiles: len(files)})
+	if err != nil {
+		t.Fatalf("parse bounded files: %v", err)
+	}
+	return bounded
+}
+
 func TestParseDocumentAggregatesTotalsOverChangedFiles(t *testing.T) {
 	files := []domain.File{
 		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
@@ -17,11 +27,8 @@ func TestParseDocumentAggregatesTotalsOverChangedFiles(t *testing.T) {
 			Additions: 35, Deletions: 0, PatchBytes: 7280},
 	}
 
-	document, err := domain.ParseDocument(domain.PullRequest{}, files)
+	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...))
 
-	if err != nil {
-		t.Fatalf("parse document: %v", err)
-	}
 	want := domain.Totals{Files: 2, Additions: 47, Deletions: 3, PatchBytes: 9120}
 	if document.Diff.Totals != want {
 		t.Fatalf("totals are %+v, want %+v", document.Diff.Totals, want)
@@ -34,11 +41,8 @@ func TestParseDocumentCarriesEveryChangedFileRecord(t *testing.T) {
 			Additions: 12, Deletions: 3, PatchBytes: 1840},
 	}
 
-	document, err := domain.ParseDocument(domain.PullRequest{}, files)
+	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...))
 
-	if err != nil {
-		t.Fatalf("parse document: %v", err)
-	}
 	if !slices.Equal(document.Diff.Files, files) {
 		t.Fatalf("files are %+v, want %+v", document.Diff.Files, files)
 	}
@@ -50,10 +54,7 @@ func TestParseDocumentDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 			PatchBytes: 1840},
 	}
 
-	document, err := domain.ParseDocument(domain.PullRequest{}, files)
-	if err != nil {
-		t.Fatalf("parse document: %v", err)
-	}
+	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...))
 	files[0] = domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded}
 
 	if document.Diff.Files[0].Path != "internal/auth/middleware.go" {
@@ -68,10 +69,8 @@ func TestParseDocumentDoesNotAliasTheSuppliedPullRequest(t *testing.T) {
 		Approvals: domain.Declared[domain.Approval]{{Login: "sam"}},
 	}
 
-	document, err := domain.ParseDocument(pullRequest, nil)
-	if err != nil {
-		t.Fatalf("parse document: %v", err)
-	}
+	document := domain.ParseDocument(pullRequest, withinBounds(t))
+
 	pullRequest.Labels[0] = "frontend"
 	pullRequest.Approvals[0] = domain.Approval{Login: "jo", IsAuthor: true}
 
@@ -89,11 +88,8 @@ func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	}
 
-	document, err := domain.ParseDocument(domain.PullRequest{}, files)
+	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...))
 
-	if err != nil {
-		t.Fatalf("parse document: %v", err)
-	}
 	want := domain.Paths{"infra/iam.tf", "internal/http/routes.go"}
 	if !slices.Equal(slices.Sorted(slices.Values(document.Diff.Paths)), want) {
 		t.Fatalf("paths are %v, want %v", document.Diff.Paths, want)

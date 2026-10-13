@@ -4,18 +4,22 @@ package domain
 
 import "slices"
 
-func ParseDocument(pullRequest PullRequest, files []File) (Document, error) {
-	return Document{PR: cloneOf(pullRequest), Diff: Diff{
-		Paths:  pathsOf(files),
-		Files:  slices.Clone(files),
-		Totals: totalsOf(files),
-	}}, nil
+func ParseDocument(pullRequest PullRequest, bounded BoundedFiles) Document {
+	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded)}
 }
 
 func cloneOf(pullRequest PullRequest) PullRequest {
 	pullRequest.Labels = slices.Clone(pullRequest.Labels)
 	pullRequest.Approvals = slices.Clone(pullRequest.Approvals)
 	return pullRequest
+}
+
+func diffOf(bounded BoundedFiles) Diff {
+	return Diff{
+		Paths:  pathsOf(bounded.files),
+		Files:  slices.Clone(bounded.files),
+		Totals: totalsOf(bounded.files),
+	}
 }
 
 func pathsOf(files []File) Paths {
