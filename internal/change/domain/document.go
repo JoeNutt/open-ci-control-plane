@@ -4,6 +4,11 @@
 // evaluated against.
 package domain
 
+import (
+	"encoding/json"
+	"slices"
+)
+
 // Document is the change document for one change, published to policy as ci.diff/v1.
 type Document struct {
 	Diff Diff `json:"diff"`
@@ -24,5 +29,7 @@ func (p Paths) MarshalJSON() ([]byte, error) {
 	if len(p) == 0 {
 		return []byte("[]"), nil
 	}
-	return []byte(`["x"]`), nil
+	sorted := slices.Clone(p)
+	slices.Sort(sorted)
+	return json.Marshal([]string(sorted))
 }
