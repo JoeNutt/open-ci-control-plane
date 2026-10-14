@@ -4,10 +4,26 @@ package github_test
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
+
+func TestFormattingCheckRunsDoesNotRevealItsCredential(t *testing.T) {
+	runs, err := github.ParseCheckRuns(wellFormedSettings())
+	if err != nil {
+		t.Fatalf("parse check runs: %v", err)
+	}
+
+	for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
+		printed := fmt.Sprintf(verb, runs)
+		if strings.Contains(printed, string(forgeCredential)) {
+			t.Errorf("check runs under %s revealed the credential: %s", verb, printed)
+		}
+	}
+}
 
 func TestParseCheckRunsRefusesWhatAChangeSourceRefuses(t *testing.T) {
 	refusals := map[string]struct {

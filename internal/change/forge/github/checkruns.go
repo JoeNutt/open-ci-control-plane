@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -20,6 +21,14 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 		return CheckRuns{}, err
 	}
 	return CheckRuns{forge: forge}, nil
+}
+
+func (runs CheckRuns) String() string {
+	return "the check runs at " + runs.forge.settings.BaseURL
+}
+
+func (runs CheckRuns) GoString() string {
+	return fmt.Sprintf("github.CheckRuns{settings: %#v}", runs.forge.settings)
 }
 
 func (runs CheckRuns) PublishCheckRun(
