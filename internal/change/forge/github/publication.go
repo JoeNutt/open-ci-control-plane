@@ -56,7 +56,7 @@ func isAllUTF8(texts ...string) bool {
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
-	existing, err := listed.consistentRuns()
+	existing, err := listed.soundRuns()
 	if err != nil {
 		return exchange{}, err
 	}

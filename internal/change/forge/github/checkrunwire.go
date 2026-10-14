@@ -25,15 +25,14 @@ type checkRunListing struct {
 	CheckRuns  []listedCheckRun `json:"check_runs"`
 }
 
-func (listed checkRunListing) consistentRuns() ([]listedCheckRun, error) {
+func (listed checkRunListing) soundRuns() ([]listedCheckRun, error) {
 	if listed.TotalCount != len(listed.CheckRuns) {
 		return nil, fmt.Errorf("%w: a count of %d beside %d runs",
 			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
 	}
-	for _, run := range listed.CheckRuns {
-		if run.ID <= 0 {
-			return nil, fmt.Errorf("%w: id %d", ErrMalformedListedRun, run.ID)
-		}
+	hasNoID := func(run listedCheckRun) bool { return run.ID <= 0 }
+	if malformed := slices.IndexFunc(listed.CheckRuns, hasNoID); malformed >= 0 {
+		return nil, fmt.Errorf("%w: id %d", ErrMalformedListedRun, listed.CheckRuns[malformed].ID)
 	}
 	return listed.CheckRuns, nil
 }
