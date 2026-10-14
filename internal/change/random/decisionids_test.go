@@ -23,19 +23,17 @@ func mintedDecisionID(t *testing.T) domain.DecisionID {
 	return minted
 }
 
-func TestDecisionIDsStandsInWhereverTheDomainAsksForADecisionIDSource(t *testing.T) {
-	var source domain.DecisionIDSource = random.DecisionIDs{}
+var _ domain.DecisionIDSource = random.DecisionIDs{}
 
-	if _, err := source.NextDecisionID(); err != nil {
-		t.Fatalf("mint decision identifier through the domain port: %v", err)
-	}
-}
-
-func TestNextDecisionIDMintsAWellFormedIdentifier(t *testing.T) {
+func TestAMintedIdentifierParsesBackToItself(t *testing.T) {
 	minted := mintedDecisionID(t)
 
-	if _, err := domain.ParseDecisionID(minted.String()); err != nil {
-		t.Errorf("minted %q, which does not parse: %v", minted.String(), err)
+	parsed, err := domain.ParseDecisionID(minted.String())
+	if err != nil {
+		t.Fatalf("minted %q, which does not parse: %v", minted.String(), err)
+	}
+	if parsed != minted {
+		t.Errorf("minted %q parsed back as %q", minted.String(), parsed.String())
 	}
 }
 
