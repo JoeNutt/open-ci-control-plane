@@ -10,19 +10,28 @@ import (
 
 // CommonMark 0.31.2 section 6.1: "A code span begins with a backtick string and
 // ends with a backtick string of equal length", "backslash escapes do not work in
-// code spans", and if the content "both begins and ends with a space character ...
-// a single space character is removed from the front and back". Section 2.5:
+// code spans", and "If the resulting string both begins and ends with a space
+// character, but does not consist entirely of space characters, a single space
+// character is removed from the front and back". Section 2.5:
 // "Entity and character references are not recognized in code blocks and code
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
 	fenceable := markdownFenceableTextOf(markdownVisibleTextOf(markdownSingleLineOf(value)))
+	shown := markdownNonBlankTextOf(fenceable)
+	fence := strings.Repeat("`", markdownLongestBacktickRunIn(shown)+1)
+	return fence + " " + shown + " " + fence
+}
+
+const markdownEmptyMarker = "<empty>"
+
+func markdownNonBlankTextOf(fenceable string) string {
 	if fenceable == "" {
-		fenceable = "<empty>"
-	} else if strings.Trim(fenceable, " ") == "" {
-		fenceable = strings.ReplaceAll(fenceable, " ", "<U+0020>")
+		return markdownEmptyMarker
 	}
-	fence := strings.Repeat("`", markdownLongestBacktickRunIn(fenceable)+1)
-	return fence + " " + fenceable + " " + fence
+	if strings.Trim(fenceable, " ") != "" {
+		return fenceable
+	}
+	return strings.ReplaceAll(fenceable, " ", fmt.Sprintf(markdownHiddenCharacterMarker, ' '))
 }
 
 // cmark-gfm 0.29.0.gfm.13 (the renderer GitHub's Markdown descends from) never
