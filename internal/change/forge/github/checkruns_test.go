@@ -311,6 +311,52 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 	held.mustHoldOnly(heldAs(1, run))
 }
 
+func failingOn(t *testing.T, method, listing string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == method {
+			writer.WriteHeader(http.StatusUnprocessableEntity)
+			write(t, writer, `{"message": "`+request.Header.Get("Authorization")+`"}`)
+			return
+		}
+		write(t, writer, listing)
+	})
+}
+
+func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(t *testing.T) {
+	const (
+		noRuns = `{"total_count": 0, "check_runs": []}`
+		oneRun = `{"total_count": 1, "check_runs": [{"id": 7}]}`
+	)
+	failing := map[string]*httptest.Server{
+		"listing": failingOn(t, http.MethodGet, noRuns),
+		"create":  failingOn(t, http.MethodPost, noRuns),
+		"update":  failingOn(t, http.MethodPatch, oneRun),
+	}
+
+	for step, server := range failing {
+		t.Run(step, func(t *testing.T) {
+			run := securityRun()
+
+			err := checkRunsAt(t, server).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+			if !errors.Is(err, github.ErrUnexpectedStatus) {
+				t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+			}
+			for _, context := range []string{run.Name, "acme/payments#412", headSHA} {
+				if !strings.Contains(err.Error(), context) {
+					t.Errorf("error %q does not name %q", err, context)
+				}
+			}
+			if strings.Contains(err.Error(), string(forgeCredential)) {
+				t.Errorf("error %q reveals the credential", err)
+			}
+		})
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 
