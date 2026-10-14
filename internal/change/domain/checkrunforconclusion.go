@@ -4,12 +4,6 @@ package domain
 
 import "slices"
 
-var conclusionByPosture = map[FailurePosture]Conclusion{
-	FailurePostureOpen:              ConclusionNeutral,
-	FailurePostureClosed:            ConclusionFailure,
-	FailurePostureDeclaredPerPolicy: ConclusionFailure,
-}
-
 var conclusionByEffect = map[Effect]Conclusion{
 	EffectBlock:  ConclusionFailure,
 	EffectAllow:  ConclusionSuccess,

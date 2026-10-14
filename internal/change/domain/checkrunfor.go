@@ -35,19 +35,36 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	}
 }
 
+var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
+	FailurePostureOpen:              admittedWithoutDecisionCheckRun,
+	FailurePostureClosed:            refusedWithoutDecisionCheckRun,
+	FailurePostureDeclaredPerPolicy: refusedWithoutDecisionCheckRun,
+}
+
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	if decided.Family.FailurePosture() == FailurePostureOpen {
-		return CheckRun{
-			Name:       checkRunNameFor(decided.Family),
-			Conclusion: ConclusionNeutral,
-			Summary: "Policy " + markdownTextOf(string(decided.Family)) +
-				" could not be evaluated and this change was admitted without a decision.\n\n" +
-				decisionLineFor(id),
-		}
+	rendering, declared := undecidedRenderingByPosture[decided.Family.FailurePosture()]
+	if !declared {
+		return refusedWithoutDecisionCheckRun(decided, id)
 	}
+	return rendering(decided, id)
+}
+
+const admittedWithoutDecisionLayout = "Policy %s could not be evaluated and this change was " +
+	"admitted without a decision.\n\n%s"
+
+func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
-		Conclusion: conclusionIn(conclusionByPosture, decided.Family.FailurePosture()),
+		Conclusion: ConclusionNeutral,
+		Summary: fmt.Sprintf(admittedWithoutDecisionLayout,
+			markdownTextOf(string(decided.Family)), decisionLineFor(id)),
+	}
+}
+
+func refusedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+	return CheckRun{
+		Name:       checkRunNameFor(decided.Family),
+		Conclusion: ConclusionFailure,
 		Summary:    decisionLineFor(id),
 	}
 }
