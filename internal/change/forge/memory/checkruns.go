@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"maps"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -34,5 +35,5 @@ func (runs *CheckRuns) PublishCheckRun(
 func (runs *CheckRuns) PublishedOn(
 	locator domain.PullRequestLocator, headSHA string,
 ) map[string]domain.CheckRun {
-	return runs.published[commit{locator: locator, headSHA: headSHA}]
+	return maps.Clone(runs.published[commit{locator: locator, headSHA: headSHA}])
 }
