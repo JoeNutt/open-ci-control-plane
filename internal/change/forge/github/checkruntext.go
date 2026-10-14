@@ -2,7 +2,13 @@
 
 package github
 
-import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+import (
+	"errors"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+var checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
 
 type checkRunTextOutput struct {
 	title   string
@@ -11,5 +17,8 @@ type checkRunTextOutput struct {
 }
 
 func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, error) {
+	if run.DecisionID == (domain.DecisionID{}) {
+		return checkRunTextOutput{}, checkRunTextErrUnidentified
+	}
 	return checkRunTextOutput{title: run.Title}, nil
 }

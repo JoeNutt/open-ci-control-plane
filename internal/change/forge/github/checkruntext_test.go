@@ -3,6 +3,7 @@
 package github
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -18,6 +19,17 @@ func TestCheckRunTextCarriesTheTitle(t *testing.T) {
 
 	if output.title != "Blocked" {
 		t.Errorf("title is %q, want %q", output.title, "Blocked")
+	}
+}
+
+func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
+	unidentified := checkRunTextFixture(t)
+	unidentified.DecisionID = domain.DecisionID{}
+
+	_, err := checkRunTextFor(unidentified, checkRunTextTestCapacity)
+
+	if !errors.Is(err, checkRunTextErrUnidentified) {
+		t.Fatalf("got %v, want checkRunTextErrUnidentified", err)
 	}
 }
 
