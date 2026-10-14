@@ -165,3 +165,23 @@ func checkWith(
 	}
 	return checking
 }
+
+func TestABodyOverTheBoundIsRefusedBeforeItIsRead(t *testing.T) {
+	accepted := &acceptedDelivery{}
+	tally := &rejectionTally{}
+	checking := checkWith(t, accepted, tally)
+	answered := httptest.NewRecorder()
+
+	oversized := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events",
+		strings.NewReader(strings.Repeat("x", ingest.MaxDeliveryBytes+1)))
+	oversized.Header.Set("X-Hub-Signature-256", trueSignature)
+
+	checking.ServeHTTP(answered, oversized)
+
+	if answered.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
+	}
+	if accepted.served != 0 {
+		t.Errorf("an oversized delivery was served onward %d times", accepted.served)
+	}
+}

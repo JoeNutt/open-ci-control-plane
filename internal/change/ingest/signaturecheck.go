@@ -15,6 +15,8 @@ import (
 
 const signatureHeader = "X-Hub-Signature-256"
 
+const MaxDeliveryBytes = 8 << 20
+
 type RejectionCounter interface {
 	CountRejectedDelivery()
 }
@@ -73,10 +75,10 @@ func noCounterForRejections(settings Settings) string {
 }
 
 func (checking SignatureCheck) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	body, err := io.ReadAll(asked.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(answer, asked.Body, MaxDeliveryBytes))
 	if err != nil {
 		checking.rejections.CountRejectedDelivery()
-		answer.WriteHeader(http.StatusBadRequest)
+		answer.WriteHeader(statusForUnreadableBody(err))
 		return
 	}
 	delivered, err := domain.ParseSignedDelivery(
@@ -94,4 +96,12 @@ func carrying(asked *http.Request, delivered domain.SignedDelivery) *http.Reques
 	verified.Body = io.NopCloser(bytes.NewReader(delivered.Body()))
 	verified.ContentLength = int64(len(delivered.Body()))
 	return verified
+}
+
+func statusForUnreadableBody(err error) int {
+	var oversized *http.MaxBytesError
+	if errors.As(err, &oversized) {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
 }
