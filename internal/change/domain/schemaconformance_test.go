@@ -33,7 +33,7 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 					Additions: 12, Deletions: 3, PatchBytes: 1840},
 				domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded,
 					Additions: 35, PatchBytes: 7280},
-			)),
+			), domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {

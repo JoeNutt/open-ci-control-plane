@@ -7,8 +7,10 @@ import (
 	"slices"
 )
 
-func ParseDocument(pullRequest PullRequest, bounded BoundedFiles) Document {
-	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded)}
+func ParseDocument(
+	pullRequest PullRequest, bounded BoundedFiles, rules ClassificationRules,
+) Document {
+	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded, rules)}
 }
 
 func cloneOf(pullRequest PullRequest) PullRequest {
@@ -17,11 +19,13 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 	return pullRequest
 }
 
-func diffOf(bounded BoundedFiles) Diff {
+func diffOf(bounded BoundedFiles, rules ClassificationRules) Diff {
+	paths := pathsOf(bounded.files)
 	imports := importsOf(bounded.files)
 	resolution := importResolutionIn(imports)
 	return Diff{
-		Paths:                 pathsOf(bounded.files),
+		Paths:                 paths,
+		Kinds:                 rules.KindsOf(paths),
 		Files:                 slices.Clone(bounded.files),
 		Totals:                totalsOf(bounded.files),
 		ByDir:                 byDirOf(bounded.files),

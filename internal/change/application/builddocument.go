@@ -13,6 +13,7 @@ import (
 type BuildDocument struct {
 	Source domain.ChangeSource
 	Limits domain.Limits
+	Rules  domain.ClassificationRules
 }
 
 func (useCase BuildDocument) Execute(
@@ -30,5 +31,5 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	return domain.ParseDocument(pullRequest, bounded), nil
+	return domain.ParseDocument(pullRequest, bounded, useCase.Rules), nil
 }

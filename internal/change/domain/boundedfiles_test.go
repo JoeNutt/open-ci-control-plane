@@ -111,7 +111,7 @@ func TestParseBoundedFilesDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 	bounded := withinBounds(t, files...)
 	files[0] = domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded}
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
 	if document.Diff.Files[0].Path != "internal/auth/middleware.go" {
 		t.Fatalf("the bounded files followed a later write to their input: %+v",
 			document.Diff.Files[0])

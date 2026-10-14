@@ -78,3 +78,27 @@ func TestParseClassificationRulesAcceptsAKindAtTheBound(t *testing.T) {
 		t.Fatalf("a kind at the bound was refused: %v", err)
 	}
 }
+
+func TestParseDocumentClassifiesEveryChangedPath(t *testing.T) {
+	rules := rulesFor(t, map[domain.PathKind][]string{
+		domain.PathKindTest: {"**/*_test.go"},
+		domain.PathKindIaC:  {"infra/**"},
+	})
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/session_test.go", Action: domain.FileActionAdded},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+		domain.File{Path: "README.md", Action: domain.FileActionModified},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded, rules)
+
+	if len(document.Diff.Kinds.Test) != 1 {
+		t.Errorf("test kind is %v, want the test file", document.Diff.Kinds.Test)
+	}
+	if len(document.Diff.Kinds.IaC) != 1 {
+		t.Errorf("iac kind is %v, want the terraform file", document.Diff.Kinds.IaC)
+	}
+	if len(document.Diff.Kinds.Route) != 0 {
+		t.Errorf("route kind is %v, want nothing", document.Diff.Kinds.Route)
+	}
+}
