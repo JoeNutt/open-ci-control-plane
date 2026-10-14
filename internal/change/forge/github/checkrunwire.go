@@ -14,6 +14,8 @@ const (
 	filterLatest    = "latest"
 )
 
+var ErrMalformedListing = errors.New("the forge's check run listing does not state its count and runs")
+
 var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
 
 var ErrMalformedListedRun = errors.New("the forge listed a check run without a positive id")
@@ -21,20 +23,24 @@ var ErrMalformedListedRun = errors.New("the forge listed a check run without a p
 type checkRunID int64
 
 type checkRunListing struct {
-	TotalCount int              `json:"total_count"`
-	CheckRuns  []listedCheckRun `json:"check_runs"`
+	TotalCount *int              `json:"total_count"`
+	CheckRuns  *[]listedCheckRun `json:"check_runs"`
 }
 
 func (listed checkRunListing) soundRuns() ([]listedCheckRun, error) {
-	if listed.TotalCount != len(listed.CheckRuns) {
+	if listed.TotalCount == nil || listed.CheckRuns == nil {
+		return nil, ErrMalformedListing
+	}
+	runs := *listed.CheckRuns
+	if *listed.TotalCount != len(runs) {
 		return nil, fmt.Errorf("%w: a count of %d beside %d runs",
-			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
+			ErrInconsistentListing, *listed.TotalCount, len(runs))
 	}
 	hasNoID := func(run listedCheckRun) bool { return run.ID <= 0 }
-	if malformed := slices.IndexFunc(listed.CheckRuns, hasNoID); malformed >= 0 {
-		return nil, fmt.Errorf("%w: id %d", ErrMalformedListedRun, listed.CheckRuns[malformed].ID)
+	if malformed := slices.IndexFunc(runs, hasNoID); malformed >= 0 {
+		return nil, fmt.Errorf("%w: id %d", ErrMalformedListedRun, runs[malformed].ID)
 	}
-	return listed.CheckRuns, nil
+	return runs, nil
 }
 
 type listedCheckRun struct {

@@ -329,6 +329,31 @@ func listingOnly(t *testing.T, status int, listing string) *httptest.Server {
 	})
 }
 
+func TestPublishCheckRunRefusesAListingThatDoesNotStateItsRuns(t *testing.T) {
+	unstated := []string{
+		`{}`,
+		`null`,
+		`{"message": "Bad credentials"}`,
+		`{"total_count": 0}`,
+		`{"check_runs": null}`,
+		`{"total_count": 0, "check_runs": null}`,
+		`{"total_count": null, "check_runs": []}`,
+	}
+
+	for _, listing := range unstated {
+		t.Run(listing, func(t *testing.T) {
+			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
+
+			err := runs.PublishCheckRun(context.Background(),
+				locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if !errors.Is(err, github.ErrMalformedListing) {
+				t.Fatalf("error is %v, want %v", err, github.ErrMalformedListing)
+			}
+		})
+	}
+}
+
 func TestPublishCheckRunRefusesAListedRunWithoutAPositiveID(t *testing.T) {
 	malformed := []string{
 		`{"total_count": 1, "check_runs": [{}]}`,
