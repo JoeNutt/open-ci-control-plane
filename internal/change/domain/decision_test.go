@@ -160,3 +160,22 @@ func TestAnUndecidedDocumentKeepsTheFailurePostureItDeclares(t *testing.T) {
 		})
 	}
 }
+
+func TestADocumentThatDeclaresNoFailurePostureIsNotReadAsOpen(t *testing.T) {
+	for _, wellformed := range []string{"true", "false"} {
+		t.Run("input_wellformed "+wellformed, func(t *testing.T) {
+			decided, err := domain.ParseDecision([]byte(`{
+				"input_wellformed": ` + wellformed + `, "schema_version_accepted": 1,
+				"effect": "allow", "violations": [], "reviewers": []
+			}`))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if decided.FailurePosture() != "" {
+				t.Errorf("an omitted fail_closed reads as %q, want no declaration",
+					decided.FailurePosture())
+			}
+		})
+	}
+}

@@ -40,7 +40,7 @@ type statedDecision struct {
 	Effect                string              `json:"effect"`
 	Violations            Declared[Violation] `json:"violations"`
 	Reviewers             Declared[string]    `json:"reviewers"`
-	FailClosed            bool                `json:"fail_closed"`
+	FailClosed            *bool               `json:"fail_closed"`
 }
 
 func UndecidedDecision() Decision { return Decision{outcome: OutcomeUndefined} }
@@ -64,9 +64,11 @@ func ParseDecision(stated []byte) (Decision, error) {
 	}
 	if !written.InputWellformed {
 		undecided := UndecidedDecision()
-		undecided.posture = FailurePostureOpen
-		if written.FailClosed {
-			undecided.posture = FailurePostureClosed
+		if written.FailClosed != nil {
+			undecided.posture = FailurePostureOpen
+			if *written.FailClosed {
+				undecided.posture = FailurePostureClosed
+			}
 		}
 		return undecided, nil
 	}
@@ -75,6 +77,6 @@ func ParseDecision(stated []byte) (Decision, error) {
 		effect:     effect,
 		violations: written.Violations,
 		reviewers:  written.Reviewers,
-		failClosed: written.FailClosed,
+		failClosed: written.FailClosed != nil && *written.FailClosed,
 	}, nil
 }
