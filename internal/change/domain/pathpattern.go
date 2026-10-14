@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const spanningSegment = "**"
+
 var ErrMalformedPathPattern = errors.New("path pattern is malformed")
 
 type PathPattern struct {
@@ -30,14 +32,27 @@ func (pattern PathPattern) Matches(candidate string) bool {
 }
 
 func segmentsMatch(patterns, segments []string) bool {
-	if len(patterns) != len(segments) {
+	if len(patterns) == 0 {
+		return len(segments) == 0
+	}
+	if patterns[0] == spanningSegment {
+		return spanMatches(patterns[1:], segments)
+	}
+	if len(segments) == 0 {
 		return false
 	}
-	for index, segment := range segments {
-		matched, err := path.Match(patterns[index], segment)
-		if err != nil || !matched {
-			return false
+	matched, err := path.Match(patterns[0], segments[0])
+	if err != nil || !matched {
+		return false
+	}
+	return segmentsMatch(patterns[1:], segments[1:])
+}
+
+func spanMatches(beyond, segments []string) bool {
+	for spanned := 0; spanned <= len(segments); spanned++ {
+		if segmentsMatch(beyond, segments[spanned:]) {
+			return true
 		}
 	}
-	return true
+	return false
 }
