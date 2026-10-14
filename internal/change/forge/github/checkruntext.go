@@ -20,5 +20,8 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
-	return checkRunTextOutput{title: run.Title}, nil
+	return checkRunTextOutput{
+		title:   run.Title,
+		summary: run.Headline + "\n\nDecision `" + run.DecisionID.String() + "`",
+	}, nil
 }

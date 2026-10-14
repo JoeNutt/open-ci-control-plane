@@ -22,6 +22,18 @@ func TestCheckRunTextCarriesTheTitle(t *testing.T) {
 	}
 }
 
+func TestCheckRunTextSummaryIsTheHeadlineThenTheDecision(t *testing.T) {
+	output, err := checkRunTextFor(checkRunTextFixture(t), checkRunTextTestCapacity)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	want := "Blocked by the rules below.\n\nDecision `dec_0123456789abcdef0123456789abcdef`"
+	if output.summary != want {
+		t.Errorf("summary is %q, want %q", output.summary, want)
+	}
+}
+
 func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 	unidentified := checkRunTextFixture(t)
 	unidentified.DecisionID = domain.DecisionID{}
