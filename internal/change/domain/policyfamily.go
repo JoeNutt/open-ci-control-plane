@@ -53,5 +53,9 @@ func (family PolicyFamily) DecisionQuery() string {
 }
 
 func (family PolicyFamily) FailurePosture() FailurePosture {
-	return failurePostures[family]
+	posture, declared := failurePostures[family]
+	if !declared {
+		return FailurePostureClosed
+	}
+	return posture
 }
