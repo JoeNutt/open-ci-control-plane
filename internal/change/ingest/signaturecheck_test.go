@@ -185,3 +185,29 @@ func TestABodyOverTheBoundIsRefusedBeforeItIsRead(t *testing.T) {
 		t.Errorf("an oversized delivery was served onward %d times", accepted.served)
 	}
 }
+
+func TestVerificationPrecedesAnyParsingOfTheBody(t *testing.T) {
+	const notJSON = "this is not json at all"
+	const signedNotJSON = "sha256=126b0613bfa437f09a85e989ea7d007594eccf9f811e5a33b70adfb5b8af5857"
+
+	accepted := &acceptedDelivery{}
+	checking := checkWith(t, accepted, &rejectionTally{})
+	answered := httptest.NewRecorder()
+
+	asked := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events",
+		strings.NewReader(notJSON))
+	asked.Header.Set("X-Hub-Signature-256", signedNotJSON)
+
+	checking.ServeHTTP(answered, asked)
+
+	if accepted.served != 1 {
+		t.Fatalf("a signed body that is not JSON was served onward %d times, want 1",
+			accepted.served)
+	}
+	if string(accepted.body) != notJSON {
+		t.Errorf("body seen onward is %q, want %q", accepted.body, notJSON)
+	}
+	if answered.Code == http.StatusBadRequest {
+		t.Errorf("the check parsed the body: it answered 400 rather than admitting it")
+	}
+}
