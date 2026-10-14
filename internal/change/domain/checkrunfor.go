@@ -38,6 +38,7 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided),
+		Summary:    "Decision " + id.String(),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }

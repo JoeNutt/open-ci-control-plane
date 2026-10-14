@@ -69,6 +69,14 @@ func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
 	}
 }
 
+func TestTheSummaryCarriesTheDecisionIdentifier(t *testing.T) {
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow))
+
+	if !strings.Contains(run.Summary, wellFormedDecisionID) {
+		t.Errorf("summary does not carry %s:\n%s", wellFormedDecisionID, run.Summary)
+	}
+}
+
 func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
 
