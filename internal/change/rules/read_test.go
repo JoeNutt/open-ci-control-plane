@@ -10,15 +10,20 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 )
 
-func TestReadFromGivesRulesThatClassify(t *testing.T) {
-	stated := `{
-		"kinds": {
-			"test": ["**/*_test.go"],
-			"iac":  ["infra/**", "**/*.tf"]
-		}
-	}`
+const written = `
+# A kind is a top-level key. Everything under it is a path pattern.
+test:
+  - "**/*_test.go"
+  - "**/testdata/**"
 
-	read, err := rules.ReadFrom(strings.NewReader(stated))
+# Terraform and anything under infra/ counts as infrastructure.
+iac:
+  - "infra/**"
+  - "**/*.tf"
+`
+
+func TestReadFromGivesRulesThatClassify(t *testing.T) {
+	read, err := rules.ReadFrom(strings.NewReader(written))
 	if err != nil {
 		t.Fatalf("read rules: %v", err)
 	}
@@ -38,13 +43,13 @@ func TestReadFromGivesRulesThatClassify(t *testing.T) {
 
 func TestReadFromRefusesADocumentItCannotTrust(t *testing.T) {
 	refused := map[string]string{
-		"a misspelled top-level key":          `{"kind": {"test": ["**/*_test.go"]}}`,
-		"a kind the schema does not declare":  `{"kinds": {"tests": ["**/*_test.go"]}}`,
-		"a pattern that cannot be translated": `{"kinds": {"test": ["infra/[ab].go"]}}`,
-		"more patterns than a kind may hold": `{"kinds": {"test": [` +
-			strings.TrimSuffix(strings.Repeat(`"a/**",`, domain.MaxPatternsPerKind+1), ",") + `]}}`,
-		"not an object at all": `["**/*_test.go"]`,
-		"truncated":            `{"kinds": {"test": [`,
+		"a kind the schema does not declare":  "tests:\n  - \"**/*_test.go\"\n",
+		"a pattern that cannot be translated": "test:\n  - \"infra/[ab].go\"\n",
+		"a kind holding a single string":      "test: \"**/*_test.go\"\n",
+		"a sequence where a mapping belongs":  "- \"**/*_test.go\"\n",
+		"more patterns than a kind may hold": "test:\n" +
+			strings.Repeat("  - \"a/**\"\n", domain.MaxPatternsPerKind+1),
+		"not yaml at all": "test:\n  - \"a\"\n :\t- bad\n",
 	}
 
 	for form, stated := range refused {
