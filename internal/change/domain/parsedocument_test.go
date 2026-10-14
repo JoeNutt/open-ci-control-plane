@@ -152,3 +152,32 @@ func TestParseDocumentCountsTheFilesNoExtractorClaims(t *testing.T) {
 			document.Diff.UnresolvedImportFiles)
 	}
 }
+
+func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
+	shares := map[string]struct {
+		files []domain.File
+		want  float64
+	}{
+		"no extractor claims any of three": {
+			files: []domain.File{
+				{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+				{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+				{Path: "README.md", Action: domain.FileActionModified},
+			},
+			want: 0,
+		},
+		"no changed files at all": {files: nil, want: 0},
+	}
+
+	for form, share := range shares {
+		t.Run(form, func(t *testing.T) {
+			document := domain.ParseDocument(
+				domain.PullRequest{}, withinBounds(t, share.files...))
+
+			if document.Diff.ResolvedImportShare != share.want {
+				t.Fatalf("resolved_import_share is %v, want %v",
+					document.Diff.ResolvedImportShare, share.want)
+			}
+		})
+	}
+}

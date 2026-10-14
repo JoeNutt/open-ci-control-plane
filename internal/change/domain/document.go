@@ -51,6 +51,7 @@ type Diff struct {
 	NewFiles              Paths            `json:"new_files"`
 	Imports               Declared[Import] `json:"imports"`
 	UnresolvedImportFiles int              `json:"unresolved_import_files"`
+	ResolvedImportShare   float64          `json:"resolved_import_share"`
 }
 
 type Totals struct {

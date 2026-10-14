@@ -19,6 +19,7 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 
 func diffOf(bounded BoundedFiles) Diff {
 	imports := importsOf(bounded.files)
+	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 pathsOf(bounded.files),
 		Files:                 slices.Clone(bounded.files),
@@ -26,7 +27,8 @@ func diffOf(bounded BoundedFiles) Diff {
 		ByDir:                 byDirOf(bounded.files),
 		NewFiles:              addedPathsOf(bounded.files),
 		Imports:               imports,
-		UnresolvedImportFiles: unresolvedImportFilesIn(imports),
+		UnresolvedImportFiles: resolution.unresolved,
+		ResolvedImportShare:   resolution.share,
 	}
 }
 
@@ -79,12 +81,21 @@ func importsOf(files []File) Declared[Import] {
 	return imports
 }
 
-func unresolvedImportFilesIn(imports Declared[Import]) int {
+type importResolution struct {
+	unresolved int
+	share      float64
+}
+
+func importResolutionIn(imports Declared[Import]) importResolution {
 	unresolved := 0
 	for _, imported := range imports {
 		if imported.State != ImportStateResolved {
 			unresolved++
 		}
 	}
-	return unresolved
+	resolution := importResolution{unresolved: unresolved}
+	if len(imports) > 0 {
+		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
+	}
+	return resolution
 }
