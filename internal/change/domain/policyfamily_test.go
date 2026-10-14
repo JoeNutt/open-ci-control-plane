@@ -73,3 +73,11 @@ func TestEachFamilyCarriesTheFailurePostureTheDesignStates(t *testing.T) {
 		})
 	}
 }
+
+func TestAnUndeclaredFamilyFailsClosed(t *testing.T) {
+	undeclared := domain.PolicyFamily("nonsense")
+
+	if posture := undeclared.FailurePosture(); posture != domain.FailurePostureClosed {
+		t.Fatalf("posture is %q, want %q", posture, domain.FailurePostureClosed)
+	}
+}
