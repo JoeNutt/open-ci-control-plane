@@ -275,20 +275,23 @@ func TestPublishCheckRunListsByNameOwnerAndLatest(t *testing.T) {
 	}
 }
 
-func TestPublishCheckRunRefusesToChooseBetweenRunsOfTheSameName(t *testing.T) {
+func TestPublishCheckRunUpdatesTheNewestOfSeveralRunsOfTheSameName(t *testing.T) {
 	held := newCheckRunForge(t)
-	run := securityRun()
-	seeded := []wireCheckRun{heldAs(1, run), heldAs(2, run)}
-	held.runs = slices.Clone(seeded)
+	earlier := securityRun()
+	held.runs = []wireCheckRun{heldAs(3, earlier), heldAs(7, earlier), heldAs(5, earlier)}
+	later := earlier
+	later.Conclusion = domain.ConclusionSuccess
+	later.Title = "no violations"
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, later)
 
-	if !errors.Is(err, github.ErrAmbiguousCheckRun) {
-		t.Fatalf("error is %v, want %v", err, github.ErrAmbiguousCheckRun)
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
 	}
-	if got := held.runsOn(headSHA); !slices.Equal(got, seeded) {
-		t.Fatalf("the forge holds %+v, want it untouched as %+v", got, seeded)
+	want := []wireCheckRun{heldAs(3, earlier), heldAs(7, later), heldAs(5, earlier)}
+	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
+		t.Fatalf("the forge holds %+v, want only the newest updated: %+v", got, want)
 	}
 }
 

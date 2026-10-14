@@ -3,6 +3,7 @@
 package github
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,8 +17,6 @@ import (
 var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
 
 var ErrNotUTF8 = errors.New("a check run's text is not valid UTF-8")
-
-var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
 type publication struct {
 	locator domain.PullRequestLocator
@@ -56,9 +55,6 @@ func isAllUTF8(texts ...string) bool {
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
-	if listed.TotalCount > 1 {
-		return exchange{}, fmt.Errorf("%w: %d of them", ErrAmbiguousCheckRun, listed.TotalCount)
-	}
 	existing, err := listed.consistentRuns()
 	if err != nil {
 		return exchange{}, err
@@ -66,7 +62,10 @@ func (pending publication) exchangeGiven(listed checkRunListing) (exchange, erro
 	if len(existing) == 0 {
 		return pending.creation(), nil
 	}
-	return pending.updateOf(existing[0].ID), nil
+	newest := slices.MaxFunc(existing, func(one, other listedCheckRun) int {
+		return cmp.Compare(one.ID, other.ID)
+	})
+	return pending.updateOf(newest.ID), nil
 }
 
 func (pending publication) creation() exchange {
