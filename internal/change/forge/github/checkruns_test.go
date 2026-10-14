@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -47,6 +48,7 @@ func newCheckRunForge(t *testing.T) *checkRunForge {
 	routes := http.NewServeMux()
 	routes.HandleFunc("GET /repos/acme/payments/commits/{ref}/check-runs", held.list)
 	routes.HandleFunc("POST /repos/acme/payments/check-runs", held.create)
+	routes.HandleFunc("PATCH /repos/acme/payments/check-runs/{id}", held.update)
 	held.server = forge(t, routes.ServeHTTP)
 	return held
 }
@@ -81,6 +83,30 @@ func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Requ
 	posted.ID = int64(len(held.runs) + 1)
 	held.runs = append(held.runs, posted)
 	held.answer(writer, http.StatusCreated, posted)
+}
+
+func (held *checkRunForge) update(writer http.ResponseWriter, request *http.Request) {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+
+	position := slices.IndexFunc(held.runs, func(run wireCheckRun) bool {
+		return strconv.FormatInt(run.ID, 10) == request.PathValue("id")
+	})
+	if position < 0 {
+		writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+	var patched wireCheckRun
+	if err := json.NewDecoder(request.Body).Decode(&patched); err != nil {
+		held.t.Errorf("decode the patched check run: %v", err)
+		writer.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	updated := &held.runs[position]
+	updated.Status = patched.Status
+	updated.Conclusion = patched.Conclusion
+	updated.Output = patched.Output
+	held.answer(writer, http.StatusOK, *updated)
 }
 
 func (held *checkRunForge) answer(writer http.ResponseWriter, status int, body any) {
@@ -145,6 +171,36 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 		Status:     "completed",
 		Conclusion: string(run.Conclusion),
 		Output:     wireOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
+	}
+	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
+		t.Fatalf("the forge holds %+v, want %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) {
+	held := newCheckRunForge(t)
+	runs := checkRunsAt(t, held.server)
+	locator := locatorOf(t, "acme/payments", 412)
+	first := securityRun()
+	second := first
+	second.Conclusion = domain.ConclusionSuccess
+	second.Title = "no violations"
+	second.Summary = "every security policy admitted the change"
+	second.Text = ""
+
+	for _, run := range []domain.CheckRun{first, second} {
+		if err := runs.PublishCheckRun(context.Background(), locator, headSHA, run); err != nil {
+			t.Fatalf("publish check run: %v", err)
+		}
+	}
+
+	want := wireCheckRun{
+		ID:         1,
+		Name:       second.Name,
+		HeadSHA:    headSHA,
+		Status:     "completed",
+		Conclusion: string(second.Conclusion),
+		Output:     wireOutput{Title: second.Title, Summary: second.Summary, Text: second.Text},
 	}
 	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
 		t.Fatalf("the forge holds %+v, want %+v", got, want)

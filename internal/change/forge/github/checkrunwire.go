@@ -25,6 +25,9 @@ func checkRunsOnCommitEndpoint(
 
 type checkRunListing struct {
 	TotalCount int `json:"total_count"`
+	CheckRuns  []struct {
+		ID int64 `json:"id"`
+	} `json:"check_runs"`
 }
 
 type checkRunOutput struct {

@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -30,8 +31,17 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	_, err = jsonAt[checkRunListing](ctx, runs.forge, checkRunsOnCommitEndpoint(locator, head, run.Name))
+	listed, err := jsonAt[checkRunListing](ctx, runs.forge, checkRunsOnCommitEndpoint(locator, head, run.Name))
 	if err != nil {
+		return err
+	}
+	if len(listed.CheckRuns) > 0 {
+		_, err = exchanged[struct{}](ctx, runs.forge, exchange{
+			method:    http.MethodPatch,
+			endpoint:  fmt.Sprintf("/repos/%s/%s/check-runs/%d", locator.Owner(), locator.Name(), listed.CheckRuns[0].ID),
+			sent:      verdictOf(run),
+			succeeded: http.StatusOK,
+		})
 		return err
 	}
 	_, err = exchanged[struct{}](ctx, runs.forge, exchange{
