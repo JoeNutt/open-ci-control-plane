@@ -100,7 +100,7 @@ Module `github.com/JoeNutt/open-ci-control-plane`, Go 1.26 — the floor OPA v1.
 dev shell. Batch them, because the shell is slow to start.
 
 ```
-nix develop --command bash -c 'gofmt -l . && go vet ./... && go test ./...'
+nix develop --command bash -c 'gofmt -l $(git ls-files "*.go") && go vet ./... && go test ./...'
 nix develop --command bash -c 'golangci-lint run ./...'
 nix develop --command go test ./internal/change/domain -run 'TestName' -v
 ```

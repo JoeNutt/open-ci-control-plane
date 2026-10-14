@@ -19,7 +19,7 @@ else
     fail "go.mod is present but neither the go toolchain nor nix is available."
 fi
 
-unformatted="$(run 'gofmt -l .' | grep -E '\.go$' || true)"
+unformatted="$(run "git ls-files -z -- '*.go' | xargs -0 gofmt -l" | grep -E '\.go$' || true)"
 [ -n "$unformatted" ] && fail "gofmt reports unformatted files:
 $(printf '%s\n' "$unformatted" | sed 's/^/  - /')"
 
