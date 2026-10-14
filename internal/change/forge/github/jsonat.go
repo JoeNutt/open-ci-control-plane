@@ -23,6 +23,7 @@ type exchange struct {
 	endpoint  string
 	sent      any
 	succeeded int
+	missing   string
 }
 
 func jsonAt[Payload any](
@@ -49,7 +50,7 @@ func exchanged[Payload any](
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if failure := failureIn(response, over.succeeded); failure != nil {
+	if failure := failureIn(response, over); failure != nil {
 		return payload, failure
 	}
 	body, err := bodyWithinBound(response.Body, forge.settings.MaxResponseBytes)
@@ -93,9 +94,12 @@ var reportedByStatus = map[int]error{
 	http.StatusNotFound: domain.ErrNoSuchPullRequest,
 }
 
-func failureIn(response *http.Response, succeeded int) error {
-	if response.StatusCode == succeeded {
+func failureIn(response *http.Response, over exchange) error {
+	if response.StatusCode == over.succeeded {
 		return nil
+	}
+	if response.StatusCode == http.StatusNotFound && over.missing != "" {
+		return fmt.Errorf("%w: %s: %s", ErrCheckRunTargetNotFound, over.missing, response.Status)
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {

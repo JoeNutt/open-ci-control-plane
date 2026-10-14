@@ -74,6 +74,7 @@ func (pending publication) creation() exchange {
 			checkRunVerdict: pending.verdict,
 		},
 		succeeded: http.StatusCreated,
+		missing:   "repository " + pending.locator.Repository(),
 	}
 }
 
@@ -83,6 +84,7 @@ func (pending publication) updateOf(id checkRunID) exchange {
 		endpoint:  fmt.Sprintf("%s/%d", pending.checkRunsEndpoint(), id),
 		sent:      pending.verdict,
 		succeeded: http.StatusOK,
+		missing:   fmt.Sprintf("check run %d", id),
 	}
 }
 

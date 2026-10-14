@@ -382,28 +382,63 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 	held.mustHoldOnly(heldAs(1, run))
 }
 
-func failingOn(t *testing.T, method, listing string) *httptest.Server {
+const (
+	noRunsListed = `{"total_count": 0, "check_runs": []}`
+	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7}]}`
+)
+
+type failedStep struct {
+	method  string
+	status  int
+	listing string
+}
+
+func failingOn(t *testing.T, step failedStep) *httptest.Server {
 	t.Helper()
 
 	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method == method {
-			writer.WriteHeader(http.StatusUnprocessableEntity)
+		if request.Method == step.method {
+			writer.WriteHeader(step.status)
 			write(t, writer, `{"message": "`+request.Header.Get("Authorization")+`"}`)
 			return
 		}
-		write(t, writer, listing)
+		write(t, writer, step.listing)
 	})
 }
 
+func TestPublishCheckRunNamesWhatTheForgeCouldNotFind(t *testing.T) {
+	notFound := map[string]struct {
+		step    failedStep
+		missing string
+	}{
+		"listing": {failedStep{http.MethodGet, http.StatusNotFound, noRunsListed}, "commit " + headSHA},
+		"create":  {failedStep{http.MethodPost, http.StatusNotFound, noRunsListed}, "repository acme/payments"},
+		"update":  {failedStep{http.MethodPatch, http.StatusNotFound, run7Listed}, "check run 7"},
+	}
+
+	for step, answer := range notFound {
+		t.Run(step, func(t *testing.T) {
+			err := checkRunsAt(t, failingOn(t, answer.step)).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+			if !errors.Is(err, github.ErrCheckRunTargetNotFound) {
+				t.Fatalf("error is %v, want %v", err, github.ErrCheckRunTargetNotFound)
+			}
+			if errors.Is(err, domain.ErrNoSuchPullRequest) {
+				t.Errorf("error %v claims the pull request is missing", err)
+			}
+			if !strings.Contains(err.Error(), answer.missing) {
+				t.Errorf("error %q does not name the missing %s", err, answer.missing)
+			}
+		})
+	}
+}
+
 func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(t *testing.T) {
-	const (
-		noRuns = `{"total_count": 0, "check_runs": []}`
-		oneRun = `{"total_count": 1, "check_runs": [{"id": 7}]}`
-	)
 	failing := map[string]*httptest.Server{
-		"listing": failingOn(t, http.MethodGet, noRuns),
-		"create":  failingOn(t, http.MethodPost, noRuns),
-		"update":  failingOn(t, http.MethodPatch, oneRun),
+		"listing": failingOn(t, failedStep{http.MethodGet, http.StatusUnprocessableEntity, noRunsListed}),
+		"create":  failingOn(t, failedStep{http.MethodPost, http.StatusUnprocessableEntity, noRunsListed}),
+		"update":  failingOn(t, failedStep{http.MethodPatch, http.StatusUnprocessableEntity, run7Listed}),
 	}
 
 	for step, server := range failing {
