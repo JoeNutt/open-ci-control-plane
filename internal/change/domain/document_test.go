@@ -262,3 +262,13 @@ func TestZeroDocumentDeclaresBothMasksAsLists(t *testing.T) {
 		}
 	}
 }
+
+func TestZeroDocumentDeclaresIaCResourcesAsList(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"iac_resources":[]`) {
+		t.Fatalf(`want "iac_resources":[] in %s`, encoded)
+	}
+}
