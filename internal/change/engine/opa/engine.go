@@ -70,7 +70,11 @@ func (engine *Engine) Decide(
 	if err != nil {
 		return domain.Decision{}, fmt.Errorf("re-encode the %q decision: %w", engine.family, err)
 	}
-	return domain.ParseDecision(stated)
+	decided, err := domain.ParseDecision(stated)
+	if err != nil {
+		return domain.Decision{}, fmt.Errorf("the %q decision: %w", engine.family, err)
+	}
+	return decided, nil
 }
 
 func decisionPathFor(family domain.PolicyFamily) string {
