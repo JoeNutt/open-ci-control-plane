@@ -19,13 +19,13 @@ type Settings struct {
 	MaxResponseBytes int
 }
 
-var ErrNoCredential = errors.New("a change source is given no forge credential")
+var ErrNoCredential = errors.New("the forge settings carry no credential")
 
 var ErrMalformedBaseURL = errors.New("the forge address is not an https origin")
 
 var ErrMalformedResponseBound = errors.New("the forge settings carry no positive response byte bound")
 
-var ErrNoClient = errors.New("a change source is given no http client")
+var ErrNoClient = errors.New("the forge settings carry no http client")
 
 type connection struct {
 	settings Settings

@@ -4,6 +4,7 @@ package github_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -18,6 +19,15 @@ func TestParseCheckRunsRefusesAnAppIDThatIsNotPositive(t *testing.T) {
 
 		if !errors.Is(err, github.ErrMalformedAppID) {
 			t.Errorf("app id %d: error is %v, want %v", appID, err, github.ErrMalformedAppID)
+		}
+	}
+}
+
+func TestASettingsRefusalNamesTheSettingsNotTheCaller(t *testing.T) {
+	for _, refused := range []error{github.ErrNoCredential, github.ErrNoClient} {
+		text := refused.Error()
+		if strings.Contains(text, "change source") || !strings.Contains(text, "forge settings") {
+			t.Errorf("%q should name the forge settings, not a caller", text)
 		}
 	}
 }
