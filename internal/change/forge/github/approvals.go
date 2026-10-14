@@ -80,7 +80,6 @@ func standingReviewsIn(reviewed []review) []standingReview {
 	return standing
 }
 
-// https://docs.github.com/en/rest/pulls/reviews
 var replacesStandingReview = map[string]bool{
 	"APPROVED":          true,
 	"CHANGES_REQUESTED": true,
