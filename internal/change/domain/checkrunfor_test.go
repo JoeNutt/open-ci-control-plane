@@ -50,6 +50,16 @@ func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
 	}
 }
 
+func TestAWarnIsNeutral(t *testing.T) {
+	warned := decided(t, domain.EffectAllow, violationsAt(domain.EnforcementSeverityWarn))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, warned)
+
+	if run.Conclusion != domain.ConclusionNeutral {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
+	}
+}
+
 const noViolations = `[]`
 
 func violationsAt(severity domain.EnforcementSeverity) string {

@@ -20,6 +20,9 @@ func conclusionFor(decision Decision) Conclusion {
 	if decision.Effect() == EffectBlock || isAnyDenied(decision.Violations()) {
 		return ConclusionFailure
 	}
+	if len(decision.Violations()) > 0 {
+		return ConclusionNeutral
+	}
 	return ConclusionSuccess
 }
 
