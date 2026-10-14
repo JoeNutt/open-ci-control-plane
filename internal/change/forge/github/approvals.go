@@ -11,9 +11,6 @@ import (
 
 const ReviewsPerPage = 100
 
-// A pull request's review history has no documented ceiling, so this bound is this
-// project's: 100 pages of ReviewsPerPage is more reviews than any change under
-// NFR-5's bounds can have attracted.
 const maxReviewPages = 100
 
 const approvedReviewState = "APPROVED"
@@ -66,7 +63,7 @@ func standingReviewsIn(reviewed []review) []standingReview {
 	positionOf := make(map[string]int, len(reviewed))
 	var standing []standingReview
 	for _, reviewing := range reviewed {
-		if !decidesApproval[reviewing.State] {
+		if !replacesStandingReview[reviewing.State] {
 			continue
 		}
 		position, reviewedBefore := positionOf[reviewing.User.Login]
@@ -83,10 +80,8 @@ func standingReviewsIn(reviewed []review) []standingReview {
 	return standing
 }
 
-// A review of COMMENTED or PENDING leaves a reviewer's earlier approval or request
-// for changes standing; the other states replace it:
 // https://docs.github.com/en/rest/pulls/reviews
-var decidesApproval = map[string]bool{
+var replacesStandingReview = map[string]bool{
 	"APPROVED":          true,
 	"CHANGES_REQUESTED": true,
 	"DISMISSED":         true,
