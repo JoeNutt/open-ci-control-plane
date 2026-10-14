@@ -82,16 +82,27 @@ Then **commit again.** Two clean commits beat one mixed one.
 
 Work comes from the board: https://github.com/users/JoeNutt/projects/2
 
-You are an engineer, not a queue. **Hold exactly one card in In Progress.** Claim it by
-setting both the `Agent` and `Status` fields in the same call, work it through the cycle, and
-move it to `Review` or `Blocked` before claiming another.
+**Take the Ready card with the lowest `Sequence`, and only that card.** The board is ordered
+so card N depends only on cards before it; never pick a card further down because it looks
+smaller, more interesting or unblocked. Cards with no `Sequence` are not yet ordered and are
+not work. When the sequenced cards run out, the next batch is sequenced from the SAD — every
+obligation a card carries checked for the card that produces its data — before any of it is
+started.
+
+**Hold exactly one card in In Progress.** Claim it by setting both the `Agent` and `Status`
+fields in the same call, work it through the cycle, and move it to `Review` or `Blocked`
+before claiming another. When a card closes, set the next `Sequence` card to `Ready`.
 
 Nothing enforces this. It is a convention, and a breach is visible on the board.
 
 **A card closes on proof, and nothing else starts until it does.** Not "the code works", not
-"the tests pass" — proof that every requirement the card names is met, quoted from the
-specification and answered one obligation at a time. A requirement with three clauses needs
-three answers. Partial delivery is reported as partial and the card stays open.
+"the tests pass" — proof that every obligation in the card's checklist is met, quoted from the
+specification and answered one at a time. The checklist is the requirement's text **and** its
+user story's acceptance criteria **and** the §13 contract and §14 state rows that describe its
+output. A requirement with three clauses needs three answers. Partial delivery is reported as
+partial and the card stays open. Never close a card by moving an unmet obligation to another
+card at closing time — card #8 was closed that way and had to be reopened. Scope moves happen
+before work starts, written on both cards.
 
 Merging is not closing. Five pull requests merged into card #2 without closing it, because
 one clause of FR-3 reaches into another card — which is a scoping defect to surface, not to
