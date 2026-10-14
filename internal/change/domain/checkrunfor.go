@@ -10,6 +10,15 @@ import (
 
 const checkRunNamePrefix = "policy/"
 
+type checkRunRendering func(decided FamilyDecision, id DecisionID) CheckRun
+
+var checkRunRenderingByOutcome = map[Outcome]checkRunRendering{
+	OutcomeDecided:          verdictCheckRun,
+	OutcomeUndefined:        undecidedCheckRun,
+	OutcomeEngineError:      policyErrorCheckRun,
+	OutcomeDeadlineExceeded: policyErrorCheckRun,
+}
+
 var conclusionByPosture = map[FailurePosture]Conclusion{
 	FailurePostureOpen:              ConclusionNeutral,
 	FailurePostureClosed:            ConclusionFailure,
@@ -35,31 +44,44 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	if decided.Decision.Outcome() == OutcomeEngineError ||
-		decided.Decision.Outcome() == OutcomeDeadlineExceeded {
-		return policyErrorCheckRun(decided.Family, id)
+	rendering, declared := checkRunRenderingByOutcome[decided.Decision.Outcome()]
+	if !declared {
+		return verdictCheckRun(decided, id)
 	}
+	return rendering(decided, id)
+}
+
+func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
-		Conclusion: conclusionFor(decided),
+		Conclusion: verdictConclusionFor(decided.Decision),
 		Summary:    decisionLineFor(id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
 
-func checkRunNameFor(family PolicyFamily) string {
-	return checkRunNamePrefix + string(family)
+func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+	return CheckRun{
+		Name:       checkRunNameFor(decided.Family),
+		Conclusion: conclusionIn(conclusionByPosture, decided.Family.FailurePosture()),
+		Summary:    decisionLineFor(id),
+	}
 }
 
 const policyErrorLayout = "Policy %[1]s failed to evaluate. This is not a problem with your change.\n\n" +
 	"Owning team: %[1]s\n\n%[2]s"
 
-func policyErrorCheckRun(family PolicyFamily, id DecisionID) CheckRun {
+func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
-		Name:       checkRunNameFor(family),
+		Name:       checkRunNameFor(decided.Family),
 		Conclusion: ConclusionFailure,
-		Summary:    fmt.Sprintf(policyErrorLayout, markdownTextOf(string(family)), decisionLineFor(id)),
+		Summary: fmt.Sprintf(policyErrorLayout,
+			markdownTextOf(string(decided.Family)), decisionLineFor(id)),
 	}
+}
+
+func checkRunNameFor(family PolicyFamily) string {
+	return checkRunNamePrefix + string(family)
 }
 
 const decisionLineLayout = "Decision %s"
@@ -69,16 +91,6 @@ func decisionLineFor(id DecisionID) string {
 }
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n\n"
-
-const withheldDocumentationLink = "withheld, not an https link"
-
-func documentationLinkFor(stated string) string {
-	link, isHTTPS := markdownHTTPSAutolinkOf(stated)
-	if !isHTTPS {
-		return withheldDocumentationLink
-	}
-	return link
-}
 
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
@@ -92,17 +104,14 @@ func violationsTextFor(violations Declared[Violation]) string {
 	return text.String()
 }
 
-func conclusionFor(decided FamilyDecision) Conclusion {
-	switch decided.Decision.Outcome() {
-	case OutcomeDecided:
-		return verdictConclusionFor(decided.Decision)
-	case OutcomeUndefined:
-		return conclusionIn(conclusionByPosture, decided.Family.FailurePosture())
-	case OutcomeEngineError, OutcomeDeadlineExceeded:
-		return ConclusionFailure
-	default:
-		return ConclusionFailure
+const withheldDocumentationLink = "withheld, not an https link"
+
+func documentationLinkFor(stated string) string {
+	link, isHTTPS := markdownHTTPSAutolinkOf(stated)
+	if !isHTTPS {
+		return withheldDocumentationLink
 	}
+	return link
 }
 
 func verdictConclusionFor(decision Decision) Conclusion {
