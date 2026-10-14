@@ -382,18 +382,14 @@ func numberedViolations(fired int) []domain.Violation {
 	return violations
 }
 
-func TestNoPolicySuppliedNameCanForgeMarkdownStructure(t *testing.T) {
-	forged := "x\n\n# Passed [docs](javascript:alert(1)) <b>"
-	encoded := `x&#10;&#10;\# Passed \[docs\]\(javascript\:alert\(1\)\) \<b\>`
-	ruleForged := violationAt(domain.EnforcementSeverityDeny)
-	ruleForged.RuleID = forged
-	teamForged := violationAt(domain.EnforcementSeverityDeny)
-	teamForged.OwningTeam = forged
+func TestNoPolicySuppliedTextCanForgeMarkdownStructure(t *testing.T) {
+	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
+	encoded := `fine&#10;&#10;\# Passed&#10;\[docs\]\(javascript\:alert\(1\)\) ` +
+		`\<img src\=x onerror\=alert\(1\)\>`
 	runs := map[string]domain.CheckRun{
-		"rule_id": checkRunFor(t, domain.PolicyFamilySecurity,
-			decided(t, domain.EffectBlock, ruleForged)),
-		"owning_team": checkRunFor(t, domain.PolicyFamilySecurity,
-			decided(t, domain.EffectBlock, teamForged)),
+		"message":     violationRunWith(t, func(forging *domain.Violation) { forging.Message = forged }),
+		"rule_id":     violationRunWith(t, func(forging *domain.Violation) { forging.RuleID = forged }),
+		"owning_team": violationRunWith(t, func(forging *domain.Violation) { forging.OwningTeam = forged }),
 		"family": checkRunFor(t, domain.PolicyFamily(forged),
 			evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})),
 	}
@@ -404,7 +400,12 @@ func TestNoPolicySuppliedNameCanForgeMarkdownStructure(t *testing.T) {
 			if !strings.Contains(rendered, encoded) {
 				t.Errorf("output does not carry the encoded %s %q:\n%s", field, encoded, rendered)
 			}
-			for _, raw := range []string{"\n# Passed", "](", " <b>"} {
+			for _, line := range strings.Split(rendered, "\n") {
+				if strings.HasPrefix(strings.TrimLeft(line, " "), "#") {
+					t.Errorf("the %s forged a heading: %q", field, line)
+				}
+			}
+			for _, raw := range []string{"](", " <img"} {
 				if strings.Contains(rendered, raw) {
 					t.Errorf("output carries raw %q:\n%s", raw, rendered)
 				}
@@ -413,30 +414,12 @@ func TestNoPolicySuppliedNameCanForgeMarkdownStructure(t *testing.T) {
 	}
 }
 
-func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
-	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
-	denied := decided(t, domain.EffectBlock, domain.Violation{
-		RuleID: "AUTHZ1", Message: forged, Severity: domain.EnforcementSeverityDeny,
-		OwningTeam: "platform", DocsURL: "https://example.test/AUTHZ1",
-	})
+func violationRunWith(t *testing.T, forge func(*domain.Violation)) domain.CheckRun {
+	t.Helper()
 
-	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
-
-	encoded := `fine&#10;&#10;\# Passed&#10;\[docs\]\(javascript\:alert\(1\)\) ` +
-		`\<img src\=x onerror\=alert\(1\)\>`
-	if !strings.Contains(run.Text, encoded) {
-		t.Errorf("text does not carry the encoded message %q:\n%s", encoded, run.Text)
-	}
-	for _, line := range strings.Split(run.Text, "\n") {
-		if strings.HasPrefix(strings.TrimLeft(line, " "), "#") {
-			t.Errorf("the message forged a heading: %q", line)
-		}
-	}
-	for _, raw := range []string{"](", " <img"} {
-		if strings.Contains(run.Text, raw) {
-			t.Errorf("text carries raw %q:\n%s", raw, run.Text)
-		}
-	}
+	violation := violationAt(domain.EnforcementSeverityDeny)
+	forge(&violation)
+	return checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock, violation))
 }
 
 func violationAt(severity domain.EnforcementSeverity) domain.Violation {
