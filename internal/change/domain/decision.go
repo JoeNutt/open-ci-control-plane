@@ -11,11 +11,11 @@ import (
 var ErrMalformedDecision = errors.New("decision document is malformed")
 
 type Violation struct {
-	RuleID     string   `json:"rule_id"`
-	Message    string   `json:"message"`
-	Severity   Severity `json:"severity"`
-	OwningTeam string   `json:"owning_team"`
-	DocsURL    string   `json:"docs_url"`
+	RuleID     string          `json:"rule_id"`
+	Message    string          `json:"message"`
+	Severity   FindingSeverity `json:"severity"`
+	OwningTeam string          `json:"owning_team"`
+	DocsURL    string          `json:"docs_url"`
 }
 
 type Decision struct {

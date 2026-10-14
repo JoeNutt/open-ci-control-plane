@@ -124,9 +124,9 @@ type Analyzers struct {
 }
 
 type Finding struct {
-	Analyzer string   `json:"analyzer"`
-	RuleID   string   `json:"rule_id"`
-	Severity Severity `json:"severity"`
-	Path     string   `json:"path"`
-	Line     int      `json:"line"`
+	Analyzer string          `json:"analyzer"`
+	RuleID   string          `json:"rule_id"`
+	Severity FindingSeverity `json:"severity"`
+	Path     string          `json:"path"`
+	Line     int             `json:"line"`
 }
