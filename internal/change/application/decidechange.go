@@ -8,12 +8,12 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-type EvaluateChange struct {
+type DecideChange struct {
 	Build BuildDocument
 	Gate  domain.Gate
 }
 
-func (useCase EvaluateChange) Execute(
+func (useCase DecideChange) Execute(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]domain.FamilyDecision, error) {
 	document, err := useCase.Build.Execute(ctx, locator)

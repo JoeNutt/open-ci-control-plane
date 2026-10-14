@@ -23,7 +23,7 @@ func (engine *recordingEngine) Decide(
 	return domain.UndecidedDecision(), nil
 }
 
-func TestEveryFamilyEvaluatesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
+func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	build := application.BuildDocument{
 		Source: memory.ChangeSource{
@@ -50,11 +50,11 @@ func TestEveryFamilyEvaluatesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 		t.Fatalf("parse gate: %v", err)
 	}
 
-	decisions, err := application.EvaluateChange{Build: build, Gate: gate}.
+	decisions, err := application.DecideChange{Build: build, Gate: gate}.
 		Execute(context.Background(), locator)
 
 	if err != nil {
-		t.Fatalf("evaluate change: %v", err)
+		t.Fatalf("decide change: %v", err)
 	}
 	if len(decisions) != len(domain.DeclaredPolicyFamilies()) {
 		t.Fatalf("got %d decisions, want one per family", len(decisions))
@@ -68,7 +68,7 @@ func TestEveryFamilyEvaluatesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 			t.Fatalf("%s was asked %d times, want once", family, len(engine.received))
 		}
 		if !reflect.DeepEqual(engine.received[0], built) {
-			t.Errorf("%s evaluated %+v, want the built document %+v",
+			t.Errorf("%s decided %+v, want the built document %+v",
 				family, engine.received[0], built)
 		}
 	}
