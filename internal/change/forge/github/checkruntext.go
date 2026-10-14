@@ -28,39 +28,41 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
-	text := ""
-	listed := 0
-	for _, violation := range run.Violations {
-		block := checkRunTextViolationsOf([]domain.CheckRunViolation{violation})
-		closing := ""
-		if run.ViolationCount-(listed+1) > 0 {
-			closing = fmt.Sprintf(checkRunTextTruncationLayout, run.ViolationCount-(listed+1), run.ViolationCount)
-		}
-		if len(text)+len(block)+len(closing) > capacity {
-			break
-		}
-		text += block
-		listed++
-	}
-	if run.ViolationCount > listed {
-		text += fmt.Sprintf(checkRunTextTruncationLayout, run.ViolationCount-listed, run.ViolationCount)
-	}
+	blocks := checkRunTextBlocksThatFit(run, capacity)
 	return checkRunTextOutput{
 		title:   run.Title,
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
-		text:    text,
+		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
 	}, nil
 }
 
-func checkRunTextViolationsOf(violations []domain.CheckRunViolation) string {
-	var text strings.Builder
-	for _, violation := range violations {
-		fmt.Fprintf(&text, checkRunTextViolationLayout,
-			markdownCodeSpanOf(violation.RuleID),
-			violation.Marking,
-			markdownCodeSpanOf(violation.Message),
-			markdownCodeSpanOf(violation.OwningTeam),
-			checkRunTextDocumentationOf(violation.DocsURL))
+func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
+	var blocks []string
+	used := 0
+	for _, violation := range run.Violations {
+		block := checkRunTextBlockOf(violation)
+		closing := checkRunTextTruncationOf(run.ViolationCount-len(blocks)-1, run.ViolationCount)
+		if used+len(block)+len(closing) > capacity {
+			return blocks
+		}
+		blocks = append(blocks, block)
+		used += len(block)
 	}
-	return text.String()
+	return blocks
+}
+
+func checkRunTextTruncationOf(leftOut, total int) string {
+	if leftOut <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(checkRunTextTruncationLayout, leftOut, total)
+}
+
+func checkRunTextBlockOf(violation domain.CheckRunViolation) string {
+	return fmt.Sprintf(checkRunTextViolationLayout,
+		markdownCodeSpanOf(violation.RuleID),
+		violation.Marking,
+		markdownCodeSpanOf(violation.Message),
+		markdownCodeSpanOf(violation.OwningTeam),
+		checkRunTextDocumentationOf(violation.DocsURL))
 }
