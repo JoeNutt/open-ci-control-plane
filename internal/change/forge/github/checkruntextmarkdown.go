@@ -15,18 +15,9 @@ import (
 // "Entity and character references are not recognized in code blocks and code
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
-	line := markdownSingleLineOf(value)
-	var marked strings.Builder
-	for _, character := range line {
-		if unicode.Is(unicode.Cf, character) || unicode.IsControl(character) {
-			fmt.Fprintf(&marked, "<U+%04X>", character)
-			continue
-		}
-		marked.WriteRune(character)
-	}
-	line = marked.String()
-	fence := strings.Repeat("`", markdownLongestBacktickRunIn(line)+1)
-	return fence + " " + line + " " + fence
+	visible := markdownVisibleTextOf(markdownSingleLineOf(value))
+	fence := strings.Repeat("`", markdownLongestBacktickRunIn(visible)+1)
+	return fence + " " + visible + " " + fence
 }
 
 var markdownLineTerminators = strings.NewReplacer(
@@ -42,6 +33,24 @@ var markdownLineTerminators = strings.NewReplacer(
 
 func markdownSingleLineOf(value string) string {
 	return markdownLineTerminators.Replace(value)
+}
+
+const markdownHiddenCharacterMarker = "<U+%04X>"
+
+func markdownVisibleTextOf(line string) string {
+	var visible strings.Builder
+	for _, character := range line {
+		if markdownIsHidden(character) {
+			fmt.Fprintf(&visible, markdownHiddenCharacterMarker, character)
+			continue
+		}
+		visible.WriteRune(character)
+	}
+	return visible.String()
+}
+
+func markdownIsHidden(character rune) bool {
+	return unicode.Is(unicode.Cf, character) || unicode.IsControl(character)
 }
 
 func markdownLongestBacktickRunIn(value string) int {
