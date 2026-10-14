@@ -100,9 +100,15 @@ func enforcementMarkingFor(severity EnforcementSeverity) string {
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"
 
+const (
+	listedViolationLimit = 20
+	truncationLayout     = "and %d more — %d violations in total. This list is truncated.\n"
+)
+
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
-	for _, violation := range violations[:min(len(violations), 20)] {
+	listed := violations[:min(len(violations), listedViolationLimit)]
+	for _, violation := range listed {
 		fmt.Fprintf(&text, violationBlockLayout,
 			markdownTextOf(violation.RuleID),
 			markdownTextOf(violation.Message),
@@ -110,9 +116,8 @@ func violationsTextFor(violations Declared[Violation]) string {
 			documentationLinkFor(violation.DocsURL),
 			enforcementMarkingFor(violation.Severity))
 	}
-	if len(violations) > 20 {
-		fmt.Fprintf(&text, "and %d more — %d violations in total. This list is truncated.\n",
-			len(violations)-20, len(violations))
+	if unlisted := len(violations) - len(listed); unlisted > 0 {
+		fmt.Fprintf(&text, truncationLayout, unlisted, len(violations))
 	}
 	return text.String()
 }
