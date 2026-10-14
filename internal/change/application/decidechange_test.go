@@ -86,13 +86,16 @@ func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordin
 	return gate, engines
 }
 
+const recordedHeadSHA = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
+
 func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) application.BuildDocument {
 	return application.BuildDocument{
 		Source: memory.ChangeSource{
 			Changes: map[domain.PullRequestLocator]memory.Change{
 				locator: {
 					PullRequest: domain.PullRequest{
-						Number: locator.Number(), Repository: locator.Repository()},
+						Number: locator.Number(), Repository: locator.Repository(),
+						HeadSHA: recordedHeadSHA},
 					Files: []domain.File{file},
 				},
 			},
