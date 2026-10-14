@@ -237,6 +237,16 @@ func renderedOutputOf(run domain.CheckRun) wireOutput {
 	return wireOutput{Title: title, Summary: summary, Text: text}
 }
 
+func (held *checkRunForge) onlyRun() wireCheckRun {
+	held.t.Helper()
+
+	published := held.runsOn(headSHA)
+	if len(published) != 1 {
+		held.t.Fatalf("the forge holds %d runs, want 1", len(published))
+	}
+	return published[0]
+}
+
 func (held *checkRunForge) mustHoldOnly(want wireCheckRun) {
 	held.t.Helper()
 
@@ -516,19 +526,16 @@ func TestPublishCheckRunFitsAViolationLongerThanTheForgeAcceptsWithinItsLimit(t 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
-	published := held.runsOn(headSHA)
-	if len(published) != 1 {
-		t.Fatalf("the forge holds %d runs, want 1", len(published))
-	}
+	published := held.onlyRun()
 	for field, value := range map[string]string{
-		"summary": published[0].Output.Summary, "text": published[0].Output.Text,
+		"summary": published.Output.Summary, "text": published.Output.Text,
 	} {
 		if characters := utf8.RuneCountInString(value); characters > github.MaxOutputCharacters {
 			t.Errorf("%s is %d characters, over the forge's %d", field, characters, github.MaxOutputCharacters)
 		}
 	}
-	if !strings.Contains(published[0].Output.Text, "1 violation in total") {
-		t.Errorf("the text does not count the violation it could not list: %q", published[0].Output.Text)
+	if !strings.Contains(published.Output.Text, "1 violation in total") {
+		t.Errorf("the text does not count the violation it could not list: %q", published.Output.Text)
 	}
 }
 
@@ -543,11 +550,8 @@ func TestPublishCheckRunListsAViolationThatFitsInCharactersButNotInBytes(t *test
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
-	published := held.runsOn(headSHA)
-	if len(published) != 1 {
-		t.Fatalf("the forge holds %d runs, want 1", len(published))
-	}
-	if !strings.Contains(published[0].Output.Text, run.Violations[0].Message) {
+	published := held.onlyRun()
+	if !strings.Contains(published.Output.Text, run.Violations[0].Message) {
 		t.Errorf("the text does not list a violation of %d characters", utf8.RuneCountInString(run.Violations[0].Message))
 	}
 }
@@ -560,16 +564,16 @@ func TestPublishCheckRunAcceptsASummaryOfExactlyTheForgesCharactersAndNotOneMore
 	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, short); err != nil {
 		t.Fatalf("publish a short headline: %v", err)
 	}
-	beside := utf8.RuneCountInString(held.runsOn(headSHA)[0].Output.Summary) - utf8.RuneCountInString(short.Headline)
+	besideHeadline := utf8.RuneCountInString(held.onlyRun().Output.Summary) - utf8.RuneCountInString(short.Headline)
 	exact := securityRun()
-	exact.Headline = strings.Repeat("é", github.MaxOutputCharacters-beside)
+	exact.Headline = strings.Repeat("é", github.MaxOutputCharacters-besideHeadline)
 	over := securityRun()
 	over.Headline = exact.Headline + "é"
 
 	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, exact); err != nil {
 		t.Errorf("a summary of exactly %d characters: %v", github.MaxOutputCharacters, err)
 	}
-	if got := utf8.RuneCountInString(held.runsOn(headSHA)[0].Output.Summary); got != github.MaxOutputCharacters {
+	if got := utf8.RuneCountInString(held.onlyRun().Output.Summary); got != github.MaxOutputCharacters {
 		t.Errorf("the forge holds a summary of %d characters, want %d", got, github.MaxOutputCharacters)
 	}
 	err := checkRunsAt(t, refusingEveryRequest(t)).PublishCheckRun(context.Background(), locator, headCommit, over)
