@@ -104,6 +104,47 @@ func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 	}
 }
 
+func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, _ := recordingGate(t)
+	recorded := &memory.CheckRuns{}
+	refused := errors.New("the forge refused the post")
+	useCase := application.GateChange{
+		Build: buildOverRecorded(locator, domain.File{
+			Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			Additions: 12, Deletions: 3, PatchBytes: 1840,
+		}),
+		Gate:      gate,
+		Publisher: refusingOne{name: "policy/structural", refusal: refused, rest: recorded},
+	}
+
+	err := useCase.Execute(context.Background(), locator,
+		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+
+	if !errors.Is(err, refused) {
+		t.Fatalf("want the refusal reported, got %v", err)
+	}
+	runs := recorded.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+	if want := len(domain.DeclaredPolicyFamilies()) - 1; len(runs) != want {
+		t.Errorf("published %d check runs, want the other %d: %v", len(runs), want, runs)
+	}
+}
+
+type refusingOne struct {
+	name    string
+	refusal error
+	rest    domain.CheckRunPublisher
+}
+
+func (publisher refusingOne) PublishCheckRun(
+	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
+) error {
+	if run.Name == publisher.name {
+		return publisher.refusal
+	}
+	return publisher.rest.PublishCheckRun(ctx, locator, head, run)
+}
+
 func decisionIDOf(t *testing.T, stated string) domain.DecisionID {
 	t.Helper()
 
