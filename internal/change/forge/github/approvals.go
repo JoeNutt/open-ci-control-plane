@@ -14,7 +14,15 @@ const ReviewsPerPage = 100
 
 const maxReviewPages = 100
 
-const approvedReviewState = "APPROVED"
+type reviewState string
+
+const (
+	reviewApproved         reviewState = "APPROVED"
+	reviewChangesRequested reviewState = "CHANGES_REQUESTED"
+	reviewDismissed        reviewState = "DISMISSED"
+	reviewCommented        reviewState = "COMMENTED"
+	reviewPending          reviewState = "PENDING"
+)
 
 var ErrUnknownReviewState = errors.New("the forge reports a review state the adapter cannot classify")
 
@@ -38,8 +46,8 @@ func reviewsEndpoint(locator domain.PullRequestLocator, page int) string {
 }
 
 type review struct {
-	User  account `json:"user"`
-	State string  `json:"state"`
+	User  account     `json:"user"`
+	State reviewState `json:"state"`
 }
 
 func approvalsIn(
@@ -51,7 +59,7 @@ func approvalsIn(
 	}
 	approvals := make(domain.Declared[domain.Approval], 0, len(standing))
 	for _, held := range standing {
-		if held.state != approvedReviewState {
+		if held.state != reviewApproved {
 			continue
 		}
 		approvals = append(approvals, domain.Approval{
@@ -64,7 +72,7 @@ func approvalsIn(
 
 type standingReview struct {
 	reviewer string
-	state    string
+	state    reviewState
 }
 
 func standingReviewsIn(reviewed []review) ([]standingReview, error) {
@@ -92,10 +100,10 @@ func standingReviewsIn(reviewed []review) ([]standingReview, error) {
 	return standing, nil
 }
 
-var replacesStandingReview = map[string]bool{
-	"APPROVED":          true,
-	"CHANGES_REQUESTED": true,
-	"DISMISSED":         true,
-	"COMMENTED":         false,
-	"PENDING":           false,
+var replacesStandingReview = map[reviewState]bool{
+	reviewApproved:         true,
+	reviewChangesRequested: true,
+	reviewDismissed:        true,
+	reviewCommented:        false,
+	reviewPending:          false,
 }
