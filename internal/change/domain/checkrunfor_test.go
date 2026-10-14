@@ -100,7 +100,7 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 		"dry run then warn":      {domain.EffectAllow, []domain.Violation{dryRun, warn}, domain.ConclusionNeutral, "Advisory"},
 		"warn then dry run":      {domain.EffectAllow, []domain.Violation{warn, dryRun}, domain.ConclusionNeutral, "Advisory"},
 		"block with a dry run":   {domain.EffectBlock, []domain.Violation{dryRun}, domain.ConclusionFailure, "Blocked"},
-		"review with a dry run":  {domain.EffectReview, []domain.Violation{dryRun}, domain.ConclusionNeutral, "Recorded only"},
+		"review with a dry run":  {domain.EffectReview, []domain.Violation{dryRun}, domain.ConclusionNeutral, "Review required"},
 		"allow with a late deny": {domain.EffectAllow, []domain.Violation{dryRun, warn, deny}, domain.ConclusionFailure, "Blocked"},
 	}
 
@@ -260,6 +260,20 @@ func TestAReviewWithNothingFiredSaysReviewIsRequired(t *testing.T) {
 	}
 	if strings.Contains(run.Summary, "Passed") {
 		t.Errorf("a review reads as passed:\n%s", run.Summary)
+	}
+}
+
+func TestAReviewWithADryRunDoesNotClaimTheChangeWasUnaffected(t *testing.T) {
+	reviewed := decided(t, domain.EffectReview, violationAt(domain.EnforcementSeverityDryRun))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, reviewed)
+
+	stated := "Review required. The violations below are recorded only, from a policy in dry run."
+	if !strings.HasPrefix(run.Summary, stated) {
+		t.Errorf("summary does not open with %q:\n%s", stated, run.Summary)
+	}
+	if strings.Contains(run.Summary, "did not affect") {
+		t.Errorf("a review claims the change was unaffected:\n%s", run.Summary)
 	}
 }
 
