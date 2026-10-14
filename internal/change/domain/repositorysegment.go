@@ -36,3 +36,18 @@ func asciiAlphanumeric(character byte) bool {
 		'A' <= character && character <= 'Z' ||
 		'0' <= character && character <= '9'
 }
+
+func nameSegmentOK(segment string) bool {
+	if len(segment) == 0 || len(segment) > maxRepositorySegment {
+		return false
+	}
+	if !asciiAlphanumeric(segment[0]) && segment[0] != '.' {
+		return false
+	}
+	for index := 1; index < len(segment); index++ {
+		if !repositoryCharacterOK(segment[index]) {
+			return false
+		}
+	}
+	return true
+}

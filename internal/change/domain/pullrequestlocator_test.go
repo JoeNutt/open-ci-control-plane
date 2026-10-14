@@ -69,3 +69,14 @@ func TestParsePullRequestLocatorRefusesANumberNoForgeIssues(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePullRequestLocatorAcceptsARepositoryBeginningWithAPeriod(t *testing.T) {
+	locator, err := domain.ParsePullRequestLocator("acme/.github", 7)
+
+	if err != nil {
+		t.Fatalf("parse acme/.github#7: %v", err)
+	}
+	if locator.Name() != ".github" {
+		t.Errorf("name is %q, want .github", locator.Name())
+	}
+}
