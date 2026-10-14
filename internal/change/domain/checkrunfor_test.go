@@ -91,6 +91,16 @@ func TestAViolationNamesItsRuleAndOwningTeam(t *testing.T) {
 	}
 }
 
+func TestAViolationLinksItsDocumentation(t *testing.T) {
+	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
+
+	if link := "<https://example.test/policy/AUTHZ-1>"; !strings.Contains(run.Text, link) {
+		t.Errorf("text does not link %s:\n%s", link, run.Text)
+	}
+}
+
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
 	denied := decided(t, domain.EffectBlock, domain.Violation{

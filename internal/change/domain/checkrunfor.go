@@ -42,7 +42,7 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	}
 }
 
-const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n\n"
+const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: <%s>\n\n"
 
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
@@ -50,7 +50,8 @@ func violationsTextFor(violations Declared[Violation]) string {
 		fmt.Fprintf(&text, violationBlockLayout,
 			markdownTextOf(violation.RuleID),
 			markdownTextOf(violation.Message),
-			markdownTextOf(violation.OwningTeam))
+			markdownTextOf(violation.OwningTeam),
+			violation.DocsURL)
 	}
 	return text.String()
 }
