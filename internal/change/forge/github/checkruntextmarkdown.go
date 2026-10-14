@@ -15,12 +15,23 @@ import (
 // "Entity and character references are not recognized in code blocks and code
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
-	visible := markdownVisibleTextOf(markdownSingleLineOf(value))
-	if markdownLongestBacktickRunIn(visible) >= 16 {
-		visible = strings.ReplaceAll(visible, "`", "<U+0060>")
+	fenceable := markdownFenceableTextOf(markdownVisibleTextOf(markdownSingleLineOf(value)))
+	fence := strings.Repeat("`", markdownLongestBacktickRunIn(fenceable)+1)
+	return fence + " " + fenceable + " " + fence
+}
+
+// cmark-gfm 0.29.0.gfm.13 (the renderer GitHub's Markdown descends from) never
+// closes a backtick fence of 81 or more: measured, a value opening with 80
+// backticks inside an 81-backtick fence rendered live links and emphasis, while
+// fences up to 80 stayed inside <code>. Fences are kept to markdownLongestFence,
+// far inside what was measured safe.
+const markdownLongestFence = 16
+
+func markdownFenceableTextOf(visible string) string {
+	if markdownLongestBacktickRunIn(visible) < markdownLongestFence {
+		return visible
 	}
-	fence := strings.Repeat("`", markdownLongestBacktickRunIn(visible)+1)
-	return fence + " " + visible + " " + fence
+	return strings.ReplaceAll(visible, "`", fmt.Sprintf(markdownHiddenCharacterMarker, '`'))
 }
 
 var markdownLineTerminators = strings.NewReplacer(
