@@ -30,13 +30,26 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
 	run.ViolationCount = len(decided.Decision.Violations())
-	for _, violation := range decided.Decision.Violations()[:min(len(decided.Decision.Violations()), listedViolationLimit)] {
-		run.Violations = append(run.Violations, CheckRunViolation{
-			RuleID: violation.RuleID, Message: violation.Message, OwningTeam: violation.OwningTeam,
-			DocsURL: violation.DocsURL, Marking: enforcementMarkingFor(violation.Severity),
+	run.Violations = checkRunViolationsFrom(listedOf(decided.Decision.Violations()))
+	return run
+}
+
+func listedOf(violations Declared[Violation]) Declared[Violation] {
+	return violations[:min(len(violations), listedViolationLimit)]
+}
+
+func checkRunViolationsFrom(listed Declared[Violation]) []CheckRunViolation {
+	var carried []CheckRunViolation
+	for _, violation := range listed {
+		carried = append(carried, CheckRunViolation{
+			RuleID:     violation.RuleID,
+			Message:    violation.Message,
+			OwningTeam: violation.OwningTeam,
+			DocsURL:    violation.DocsURL,
+			Marking:    enforcementMarkingFor(violation.Severity),
 		})
 	}
-	return run
+	return carried
 }
 
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
@@ -119,7 +132,7 @@ const (
 
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
-	listed := violations[:min(len(violations), listedViolationLimit)]
+	listed := listedOf(violations)
 	for _, violation := range listed {
 		fmt.Fprintf(&text, violationBlockLayout,
 			markdownTextOf(violation.RuleID),
