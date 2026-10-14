@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -41,12 +42,15 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	}
 }
 
+const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n\n"
+
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
 	for _, violation := range violations {
-		text.WriteString("**Rule** " + markdownTextOf(violation.RuleID) + "\n\n")
-		text.WriteString(markdownTextOf(violation.Message) + "\n\n")
-		text.WriteString("- Owning team: " + markdownTextOf(violation.OwningTeam) + "\n\n")
+		fmt.Fprintf(&text, violationBlockLayout,
+			markdownTextOf(violation.RuleID),
+			markdownTextOf(violation.Message),
+			markdownTextOf(violation.OwningTeam))
 	}
 	return text.String()
 }
