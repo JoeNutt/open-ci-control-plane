@@ -29,15 +29,17 @@ type verdictPresentation struct {
 }
 
 const (
+	passedHeadline       = "Passed. No rule fired."
 	recordedOnlyHeadline = "Recorded only. This policy is in dry run and did not affect your pull request."
 	advisoryHeadline     = "Advisory only. The merge is not prevented."
+	blockedHeadline      = "Blocked by the rules below."
 )
 
 var presentationByVerdict = [...]verdictPresentation{
-	verdictPassed:   {conclusion: ConclusionSuccess},
+	verdictPassed:   {conclusion: ConclusionSuccess, headline: passedHeadline},
 	verdictRecorded: {conclusion: ConclusionNeutral, headline: recordedOnlyHeadline},
 	verdictWarned:   {conclusion: ConclusionNeutral, headline: advisoryHeadline},
-	verdictBlocked:  {conclusion: ConclusionFailure},
+	verdictBlocked:  {conclusion: ConclusionFailure, headline: blockedHeadline},
 }
 
 func verdictOf(decision Decision) verdict {

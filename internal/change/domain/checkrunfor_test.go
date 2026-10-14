@@ -170,6 +170,34 @@ func TestAWarnIsMarkedAdvisoryAndDoesNotPreventTheMerge(t *testing.T) {
 	}
 }
 
+func TestAPassedOrBlockedVerdictIsStated(t *testing.T) {
+	stated := map[string]struct {
+		decision func(t *testing.T) domain.Decision
+		headline string
+	}{
+		"passed": {
+			decision: func(t *testing.T) domain.Decision { return decided(t, domain.EffectAllow) },
+			headline: "Passed. No rule fired.",
+		},
+		"blocked": {
+			decision: func(t *testing.T) domain.Decision {
+				return decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
+			},
+			headline: "Blocked by the rules below.",
+		},
+	}
+
+	for verdict, want := range stated {
+		t.Run(verdict, func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilySecurity, want.decision(t))
+
+			if !strings.HasPrefix(run.Summary, want.headline) {
+				t.Errorf("summary does not open with %q:\n%s", want.headline, run.Summary)
+			}
+		})
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 
