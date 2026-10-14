@@ -39,14 +39,20 @@ Keep secrets out of anything that formats, and redact where the value is **forma
 where it is read.
 
 ```go
-// RIGHT — the type cannot be printed by accident.
-type Secret struct{ v string }
+// RIGHT — the type cannot be printed by accident, under any verb.
+type Secret struct{ v *string }           // behind a pointer: %p reaches only an address
 
-func (Secret) String() string          { return "[REDACTED]" }
-func (Secret) MarshalJSON() ([]byte, error) { return []byte(`"[REDACTED]"`), nil }
-func (s Secret) Reveal() string        { return s.v }   // explicit, greppable
+func NewSecret(v string) Secret { return Secret{v: &v} }
 
-// log.Info("auth", "token", tok) now prints [REDACTED] whatever the call site does.
+func (Secret) Format(state fmt.State, _ rune) { io.WriteString(state, "[REDACTED]") }
+func (Secret) MarshalJSON() ([]byte, error)    { return []byte(`"[REDACTED]"`), nil }
+func (s Secret) Reveal() string                { return *s.v }   // explicit, greppable
+
+// log.Info("auth", "token", tok) now prints [REDACTED] whatever the verb or call site.
+// fmt calls String and GoString only for %v %s %x %X %q; Format covers every other
+// verb. fmt handles %p before any method and prints a non-pointer by reflection,
+// which is why the value sits behind a pointer. https://pkg.go.dev/fmt
+// Test every verb, %p included: a struct holding the secret prints it too.
 ```
 
 ```go
@@ -84,6 +90,22 @@ log.Error("forge call failed", "token", token, "err", err)
 return fmt.Errorf("auth failed for token %s: %w", token, err)
 // Symptom: the secret has been copied to every system that ingests logs, and
 // the error text may be returned to a caller.
+```
+
+**A secret type that only redacts the common verbs.**
+
+```go
+// WRONG — String covers %v and %s; every other verb walks the value.
+type Credential string
+
+func (Credential) String() string { return "[redacted]" }
+
+fmt.Sprintf("%d", settings)   // {https://api.example %!d(Credential=s3cret)}
+fmt.Sprintf("%p", tok)        // %!p(Credential=s3cret)
+// Symptom: one debug line with an unusual verb, or a struct printed with %+d,
+// copies the secret to the log. Found in this project by review, not by a test,
+// because the test tried five verbs. Implement fmt.Formatter, hold the value
+// behind a pointer, and test every verb.
 ```
 
 **A secret in a URL.**
