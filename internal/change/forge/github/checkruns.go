@@ -4,12 +4,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
+
+var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
 
 type CheckRuns struct {
 	forge connection

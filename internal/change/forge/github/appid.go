@@ -8,8 +8,6 @@ import (
 	"strconv"
 )
 
-var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
-
 var ErrMalformedAppID = errors.New("the forge settings carry no positive GitHub App id")
 
 type appID int64
