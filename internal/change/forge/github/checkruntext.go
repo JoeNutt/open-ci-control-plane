@@ -64,16 +64,17 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 	var blocks []string
 	used := 0
 	for _, violation := range run.Violations {
-		if used+checkRunTextLeastLengthOf(violation) > capacity {
+		if used+checkRunTextLeastCharactersOf(violation) > capacity {
 			return blocks
 		}
 		block := checkRunTextBlockOf(violation)
+		blockCharacters := checkRunTextCharactersIn(block)
 		closing := checkRunTextTruncationOf(run.ViolationCount-len(blocks)-1, run.ViolationCount)
-		if used+checkRunTextCharactersIn(block)+checkRunTextCharactersIn(closing) > capacity {
+		if used+blockCharacters+checkRunTextCharactersIn(closing) > capacity {
 			return blocks
 		}
 		blocks = append(blocks, block)
-		used += checkRunTextCharactersIn(block)
+		used += blockCharacters
 	}
 	return blocks
 }
@@ -83,7 +84,7 @@ func checkRunTextCharactersIn(value string) int {
 	return utf8.RuneCountInString(value)
 }
 
-func checkRunTextLeastLengthOf(violation domain.CheckRunViolation) int {
+func checkRunTextLeastCharactersOf(violation domain.CheckRunViolation) int {
 	least := 0
 	for _, field := range []string{
 		violation.RuleID, violation.Message, violation.OwningTeam, violation.DocsURL, violation.Marking,

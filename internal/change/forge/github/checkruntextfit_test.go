@@ -69,7 +69,7 @@ func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
 	}
 }
 
-func TestCheckRunTextLeastLengthNeverStopsABlockThatFits(t *testing.T) {
+func TestCheckRunTextLeastCharactersNeverStopABlockThatFits(t *testing.T) {
 	run := checkRunTextFixture(t)
 	run.Violations[0].Message = strings.Repeat("a\r\n", 300)
 
