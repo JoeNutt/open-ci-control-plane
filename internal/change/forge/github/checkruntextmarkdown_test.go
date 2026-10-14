@@ -21,3 +21,25 @@ func TestMarkdownCodeSpanFenceOutrunsEveryBacktickRunInTheValue(t *testing.T) {
 		})
 	}
 }
+
+func TestMarkdownCodeSpanTurnsEveryLineTerminatorIntoASpace(t *testing.T) {
+	terminated := map[string]struct{ value, span string }{
+		"line feed":            {"a\nb", "` a b `"},
+		"carriage return":      {"a\rb", "` a b `"},
+		"CR LF":                {"a\r\nb", "` a b `"},
+		"vertical tab":         {"a\vb", "` a b `"},
+		"form feed":            {"a\fb", "` a b `"},
+		"next line":            {"a\u0085b", "` a b `"},
+		"line separator":       {"a b", "` a b `"},
+		"paragraph separator":  {"a b", "` a b `"},
+		"a forged heading too": {"x\n\n# Passed", "` x  # Passed `"},
+	}
+
+	for form, want := range terminated {
+		t.Run(form, func(t *testing.T) {
+			if got := markdownCodeSpanOf(want.value); got != want.span {
+				t.Errorf("span is %q, want %q", got, want.span)
+			}
+		})
+	}
+}

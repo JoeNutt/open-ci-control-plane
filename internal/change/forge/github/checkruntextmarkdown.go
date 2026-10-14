@@ -11,6 +11,9 @@ import "strings"
 // "Entity and character references are not recognized in code blocks and code
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", " ")
+	value = strings.NewReplacer("\n", " ", "\r", " ", "\v", " ", "\f", " ",
+		"\u0085", " ", " ", " ", " ", " ").Replace(value)
 	fence := strings.Repeat("`", markdownLongestBacktickRunIn(value)+1)
 	return fence + " " + value + " " + fence
 }
