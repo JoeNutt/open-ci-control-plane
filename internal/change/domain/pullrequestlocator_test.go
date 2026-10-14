@@ -96,3 +96,18 @@ func TestParsePullRequestLocatorRefusesANameOfNothingButPeriods(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePullRequestLocatorRefusesAnOwnerOutsideTheForgesCharacterSet(t *testing.T) {
+	refused := map[string]string{
+		"underscore": "my_org/payments",
+		"period":     "my.org/payments",
+	}
+
+	for form, repository := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := domain.ParsePullRequestLocator(repository, 1); !errors.Is(err, domain.ErrMalformedRepository) {
+				t.Fatalf("%q gave %v, want ErrMalformedRepository", repository, err)
+			}
+		})
+	}
+}

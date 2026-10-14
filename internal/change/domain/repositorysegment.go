@@ -54,3 +54,18 @@ func nameSegmentOK(segment string) bool {
 	}
 	return true
 }
+
+func ownerSegmentOK(segment string) bool {
+	if len(segment) == 0 || len(segment) > maxRepositorySegment {
+		return false
+	}
+	if !asciiAlphanumeric(segment[0]) {
+		return false
+	}
+	for index := 1; index < len(segment); index++ {
+		if !asciiAlphanumeric(segment[index]) && segment[index] != '-' {
+			return false
+		}
+	}
+	return true
+}

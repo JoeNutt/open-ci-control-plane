@@ -28,7 +28,7 @@ func ParsePullRequestLocator(repository string, number int) (PullRequestLocator,
 			ErrMalformedRepository, len(repository), maxRepositoryLength)
 	}
 	owner, name, separated := strings.Cut(repository, repositorySeparator)
-	if !separated || !repositorySegmentOK(owner) || !nameSegmentOK(name) {
+	if !separated || !ownerSegmentOK(owner) || !nameSegmentOK(name) {
 		return PullRequestLocator{}, fmt.Errorf("%w: %q", ErrMalformedRepository, repository)
 	}
 	if number < firstPullRequestNumber {
