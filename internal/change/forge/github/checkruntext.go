@@ -41,7 +41,7 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
 		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
 	}
-	if len(output.summary) > capacity || len(output.text) > capacity {
+	if len(output.summary) > capacity || utf8.RuneCountInString(output.text) > capacity {
 		return checkRunTextOutput{}, errCheckRunTextOverCapacity
 	}
 	return output, nil
@@ -69,11 +69,11 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 		}
 		block := checkRunTextBlockOf(violation)
 		closing := checkRunTextTruncationOf(run.ViolationCount-len(blocks)-1, run.ViolationCount)
-		if used+len(block)+len(closing) > capacity {
+		if used+utf8.RuneCountInString(block)+utf8.RuneCountInString(closing) > capacity {
 			return blocks
 		}
 		blocks = append(blocks, block)
-		used += len(block)
+		used += utf8.RuneCountInString(block)
 	}
 	return blocks
 }

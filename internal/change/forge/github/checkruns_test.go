@@ -532,6 +532,26 @@ func TestPublishCheckRunFitsAViolationLongerThanTheForgeAcceptsWithinItsLimit(t 
 	}
 }
 
+func TestPublishCheckRunListsAViolationThatFitsInCharactersButNotInBytes(t *testing.T) {
+	held := newCheckRunForge(t)
+	run := securityRun()
+	run.Violations[0].Message = strings.Repeat("é", 40000)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	published := held.runsOn(headSHA)
+	if len(published) != 1 {
+		t.Fatalf("the forge holds %d runs, want 1", len(published))
+	}
+	if !strings.Contains(published[0].Output.Text, run.Violations[0].Message) {
+		t.Errorf("the text does not list a violation of %d characters", utf8.RuneCountInString(run.Violations[0].Message))
+	}
+}
+
 const (
 	noRunsListed = `{"total_count": 0, "check_runs": []}`
 	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7, "app": {"id": 4242}}]}`

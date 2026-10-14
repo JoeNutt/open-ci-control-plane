@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,8 +16,8 @@ func TestCheckRunTextFitsAtTheExactBoundaryAndNotOneShort(t *testing.T) {
 	block := checkRunTextBlockOf(run.Violations[0])
 
 	listedAt := map[string]struct{ capacity, listed int }{
-		"exactly the block":   {len(block), 1},
-		"one short the block": {len(block) - 1, 0},
+		"exactly the block":   {utf8.RuneCountInString(block), 1},
+		"one short the block": {utf8.RuneCountInString(block) - 1, 0},
 	}
 
 	for form, want := range listedAt {
@@ -32,8 +33,8 @@ func TestCheckRunTextCountsTheTruncationLineItWouldLeave(t *testing.T) {
 	leaves := checkRunTextTruncationOf(9, 10)
 
 	listedAt := map[string]struct{ capacity, listed int }{
-		"block and its line exactly":   {len(block) + len(leaves), 1},
-		"block and its line one short": {len(block) + len(leaves) - 1, 0},
+		"block and its line exactly":   {utf8.RuneCountInString(block + leaves), 1},
+		"block and its line one short": {utf8.RuneCountInString(block+leaves) - 1, 0},
 	}
 
 	for form, want := range listedAt {
@@ -55,7 +56,7 @@ func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
 			run.Violations[0].Message = message
 			small := checkRunTextBlockOf(run.Violations[1])
 
-			assertCheckRunTextLists(t, run, len(small)+200, 0)
+			assertCheckRunTextLists(t, run, utf8.RuneCountInString(small)+200, 0)
 		})
 	}
 }
@@ -64,7 +65,7 @@ func TestCheckRunTextLeastLengthNeverStopsABlockThatFits(t *testing.T) {
 	run := checkRunTextFixture(t)
 	run.Violations[0].Message = strings.Repeat("a\r\n", 300)
 
-	assertCheckRunTextLists(t, run, len(checkRunTextBlockOf(run.Violations[0])), 1)
+	assertCheckRunTextLists(t, run, utf8.RuneCountInString(checkRunTextBlockOf(run.Violations[0])), 1)
 }
 
 func TestCheckRunTextDoesNotFormatAFieldThatCannotFit(t *testing.T) {
@@ -112,7 +113,7 @@ func assertCheckRunTextLists(t *testing.T, run domain.CheckRun, capacity, listed
 	if got := strings.Count(output.text, "**Rule**"); got != listed {
 		t.Errorf("at capacity %d listed %d, want %d:\n%s", capacity, got, listed, output.text)
 	}
-	if len(output.text) > capacity {
-		t.Errorf("text is %d bytes, capacity %d", len(output.text), capacity)
+	if characters := utf8.RuneCountInString(output.text); characters > capacity {
+		t.Errorf("text is %d characters, capacity %d", characters, capacity)
 	}
 }
