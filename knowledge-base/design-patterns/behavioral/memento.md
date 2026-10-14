@@ -9,6 +9,13 @@ later, without exposing that state to anyone else. The originator creates the me
 the only thing that can read it; a caretaker holds it and hands it back, treating it as a
 token it cannot inspect.
 
+## Why it exists
+
+Undo and rollback need an object's earlier state, but copying that state from outside means
+exposing the internals its encapsulation exists to hide — and whatever can read the copy can
+come to depend on it. The memento lets the object produce a snapshot only it can read, so a
+caretaker can hold and hand back state without learning its shape.
+
 ## When to use it
 
 - **Undo or rollback** is needed, and the state to restore is internal.
@@ -29,15 +36,15 @@ a different package, or the opacity is a convention.
 ```go
 // RIGHT — unexported fields make the snapshot an opaque token outside this package.
 type Snapshot struct {
-    blocks []Block
+	blocks []Block
 }
 
 func (d *Document) Save() Snapshot {
-    return Snapshot{blocks: slices.Clone(d.blocks)}
+	return Snapshot{blocks: slices.Clone(d.blocks)}
 }
 
 func (d *Document) Restore(s Snapshot) {
-    d.blocks = slices.Clone(s.blocks)
+	d.blocks = slices.Clone(s.blocks)
 }
 ```
 
@@ -93,7 +100,7 @@ func (s *Session) Save() Snapshot { return Snapshot{conn: s.conn, cursor: s.curs
 ```go
 // WRONG — the snapshot exported and written out for another process to restore.
 type Snapshot struct {
-    Blocks []Block `json:"blocks"`
+	Blocks []Block `json:"blocks"`
 }
 
 encoded, err := json.Marshal(doc.Save())

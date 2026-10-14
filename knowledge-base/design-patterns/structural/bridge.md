@@ -9,6 +9,13 @@ composition, so each can be extended without touching the other. The abstraction
 reference to an implementor interface and delegates the primitive operations to it, while
 adding its own higher-level behaviour on top.
 
+## Why it exists
+
+When a type varies along two independent dimensions and both are expressed as separate types,
+their number is the product of the two — every new report kind needs a version per output
+device, and every new device a version per report kind. The bridge splits the dimensions into
+two families joined by composition, so each grows by addition and the count is their sum.
+
 ## When to use it
 
 - **Two independent dimensions of variation** are multiplying subclasses. Three report kinds
@@ -28,20 +35,20 @@ interface — here `Report{ Render() }` — each holding the implementor as a fi
 ```go
 // RIGHT — Sink offers primitives; each report kind composes them through the Sink it holds.
 type Sink interface {
-    Heading(text string)
-    Row(cells ...string)
+	Heading(text string)
+	Row(cells ...string)
 }
 
 type DecisionReport struct {
-    sink      Sink
-    decisions []Decision
+	sink      Sink
+	decisions []Decision
 }
 
 func (r DecisionReport) Render() {
-    r.sink.Heading(decisionsHeading)
-    for _, d := range r.decisions {
-        r.sink.Row(d.Policy, d.Outcome.String())
-    }
+	r.sink.Heading(decisionsHeading)
+	for _, d := range r.decisions {
+		r.sink.Row(d.Policy, d.Outcome.String())
+	}
 }
 ```
 
@@ -69,8 +76,8 @@ type markdownSink struct{ out *strings.Builder }
 ```go
 // WRONG — the implementor mirrors the report kinds rather than offering primitives.
 type Sink interface {
-    RenderDecisionReport(decisions []Decision)
-    RenderCoverageReport(c Coverage)
+	RenderDecisionReport(decisions []Decision)
+	RenderCoverageReport(c Coverage)
 }
 // Symptom: a new report kind edits every sink, and a new sink implements every report.
 ```
@@ -93,7 +100,7 @@ func (b commentBridge) Heading(text string) { /* translate to the forge's commen
 ```go
 // WRONG — named a bridge, though DecisionReport is the only type that will hold a Sink.
 type DecisionReport struct {
-    sinkBridge Sink
+	sinkBridge Sink
 }
 // Symptom: no second abstraction exists to vary; this is a Strategy under a heavier name.
 ```
@@ -105,10 +112,10 @@ type DecisionReport struct {
 ```go
 // WRONG — the report recovers the concrete sink and writes into its state.
 func (r DecisionReport) Render() {
-    if md, isMarkdown := r.sink.(*markdownSink); isMarkdown {
-        md.out.WriteString("<details>")
-    }
-    r.sink.Heading(decisionsHeading)
+	if md, isMarkdown := r.sink.(*markdownSink); isMarkdown {
+		md.out.WriteString("<details>")
+	}
+	r.sink.Heading(decisionsHeading)
 }
 // Symptom: adding a sink means editing reports, and the two hierarchies change together.
 ```

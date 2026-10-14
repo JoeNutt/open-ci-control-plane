@@ -9,6 +9,14 @@ on those types. A sentence in the language becomes an abstract syntax tree of th
 and interpreting it means calling `interpret` on the root and letting each node evaluate its
 children.
 
+## Why it exists
+
+When a small language's sentences are handled as strings, every evaluation re-parses them and
+every operation over them — evaluate, validate, print — re-implements the grammar ad hoc,
+each slightly differently. Representing each grammar rule as a type puts the grammar in one
+place, and makes a sentence a tree that can be built, inspected and evaluated without parsing
+it again.
+
 ## When to use it
 
 - You **own a small language** whose grammar is simple and stable — a filter expression, a
@@ -25,7 +33,7 @@ bound the recursion. In Go the hierarchy is an interface with one struct type pe
 ```go
 // RIGHT — one type per grammar rule, each evaluating only itself and its children.
 type Expr interface {
-    Eval(env Env) bool
+	Eval(env Env) bool
 }
 
 type And struct{ Left, Right Expr }
@@ -63,7 +71,7 @@ type Comprehension struct{ Clauses []Clause }
 // WRONG — the tree came from a request body, and nothing bounded its depth.
 expr, err := parseExpr(body)
 if err != nil {
-    return err
+	return err
 }
 isAllowed := expr.Eval(env)
 // Symptom: a body of a million nested terms exceeds the goroutine stack limit, a fatal error no recover catches.
@@ -76,11 +84,11 @@ isAllowed := expr.Eval(env)
 ```go
 // WRONG — the node knows its own text syntax as well as its meaning.
 func (a *And) UnmarshalText(text []byte) error {
-    left, right, isFound := bytes.Cut(text, []byte(" && "))
-    if !isFound {
-        return errNotAnd
-    }
-    return a.parseOperands(left, right)
+	left, right, isFound := bytes.Cut(text, []byte(" && "))
+	if !isFound {
+		return errNotAnd
+	}
+	return a.parseOperands(left, right)
 }
 // Symptom: changing && to "and" in the syntax edits every node type.
 ```

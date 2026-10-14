@@ -8,6 +8,14 @@ A request is turned into an object carrying the operation and its parameters, wi
 method to execute it. Because the request is now a value, it can be stored, passed, queued,
 logged, replayed and — if it also records how to reverse itself — undone.
 
+## Why it exists
+
+A call made directly happens now, once, and leaves nothing behind: it cannot be queued for
+later, retried after a crash, recorded for audit, or reversed. All of those need the request
+to exist as data between the decision to make it and its execution. The pattern makes the
+request a value carrying its operation and parameters, so the invoker can hold, order, persist
+or replay it without knowing what it does.
+
 ## When to use it
 
 - Operations must be **deferred or scheduled**: a job queue, a retry buffer, a transaction
@@ -26,16 +34,16 @@ and a process restart.
 ```go
 // RIGHT — every input is a field, fixed when the command is built.
 type Command interface {
-    Execute(ctx context.Context, env Env) error
+	Execute(ctx context.Context, env Env) error
 }
 
 type RevokeGrant struct {
-    GrantID string
-    Actor   string
+	GrantID string
+	Actor   string
 }
 
 func (c RevokeGrant) Execute(ctx context.Context, env Env) error {
-    return env.Grants.Revoke(ctx, c.GrantID, c.Actor)
+	return env.Grants.Revoke(ctx, c.GrantID, c.Actor)
 }
 ```
 
@@ -53,7 +61,7 @@ different operations, and replay produces a different result.
 type RevokeGrant struct{ session *Session }
 
 func (c RevokeGrant) Execute(ctx context.Context, env Env) error {
-    return env.Grants.Revoke(ctx, c.session.CurrentGrantID, c.session.User)
+	return env.Grants.Revoke(ctx, c.session.CurrentGrantID, c.session.User)
 }
 // Symptom: replaying the log revokes whichever grant the session holds now.
 ```
@@ -65,7 +73,7 @@ func (c RevokeGrant) Execute(ctx context.Context, env Env) error {
 ```go
 // WRONG — undo restores a snapshot instead of reversing the change.
 func (c SetThreshold) Undo(ctx context.Context, env Env) error {
-    return env.Thresholds.Set(ctx, c.Policy, c.Previous)
+	return env.Thresholds.Set(ctx, c.Policy, c.Previous)
 }
 // Symptom: undoing after another operator's edit silently discards their edit too.
 ```
@@ -90,10 +98,10 @@ err := OpenCheckRun{ID: id}.Execute(ctx, env)
 ```go
 // WRONG — the command decides whether it is permitted only when it runs.
 func (c RevokeGrant) Execute(ctx context.Context, env Env) error {
-    if !env.Authz.CanRevoke(c.Actor, c.GrantID) {
-        return ErrForbidden
-    }
-    return env.Grants.Revoke(ctx, c.GrantID, c.Actor)
+	if !env.Authz.CanRevoke(c.Actor, c.GrantID) {
+		return ErrForbidden
+	}
+	return env.Grants.Revoke(ctx, c.GrantID, c.Actor)
 }
 // Symptom: a forbidden command is accepted into the queue and fails hours later, far from the request.
 ```
@@ -106,7 +114,7 @@ func (c RevokeGrant) Execute(ctx context.Context, env Env) error {
 type notifyCommand struct{ message string }
 
 func (c notifyCommand) Execute(ctx context.Context, env Env) error {
-    return env.Notify(ctx, c.message)
+	return env.Notify(ctx, c.message)
 }
 // Symptom: a declaration per operation where a func(context.Context, Env) error was the whole pattern.
 ```

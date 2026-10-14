@@ -9,6 +9,14 @@ constructor. The instance being copied — the prototype — carries the configu
 should start from, and the copying operation lives on the object itself, so the caller
 creates a new object of the right class without naming that class.
 
+## Why it exists
+
+When the type to create is not known at the call site, or building a correctly configured
+instance from scratch is slow, calling a constructor is impossible or wasteful. The caller
+must then branch on types to pick a constructor, or repeat the costly setup for every
+instance. Copying an instance already in hand avoids both: it knows its own type and already
+carries the expensive configuration.
+
 ## When to use it
 
 - Constructing from scratch is genuinely expensive and an already-initialised instance can
@@ -30,11 +38,11 @@ set includes it. Struct assignment, Go's only built-in copy, is shallow.
 ```go
 // RIGHT — Clone states which state is owned and which is shared.
 func (w *Workflow) Clone() *Workflow {
-    steps := make([]*Step, len(w.Steps))
-    for i, s := range w.Steps {
-        steps[i] = s.Clone() // deep: steps are owned
-    }
-    return &Workflow{Name: w.Name, Steps: steps, Registry: w.Registry} // shallow: registry is shared
+	steps := make([]*Step, len(w.Steps))
+	for i, s := range w.Steps {
+		steps[i] = s.Clone() // deep: steps are owned
+	}
+	return &Workflow{Name: w.Name, Steps: steps, Registry: w.Registry} // shallow: registry is shared
 }
 ```
 

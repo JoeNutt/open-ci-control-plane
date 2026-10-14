@@ -9,6 +9,14 @@ with one method per node type. Each node implements `accept`, which calls back t
 its own type — double dispatch. New operations are added by writing a new visitor, without
 changing any node.
 
+## Why it exists
+
+Adding an operation over a structure of several node types normally means adding a method to
+every node type, so each new operation touches every node and mixes unrelated concerns into
+each. Writing the operation outside the nodes as a type switch avoids that but loses any check
+that every node type is handled. The visitor puts each operation in one type with a method
+per node type, and the interface makes the compiler insist every node type is covered.
+
 ## When to use it
 
 - The **node types are stable** and the **operations change often**. That asymmetry is the
@@ -31,8 +39,8 @@ property: a visitor missing a method does not satisfy `Visitor` and fails to com
 ```go
 // RIGHT — Accept dispatches on the node's own type; the visitor is exhaustive.
 type Visitor interface {
-    VisitRule(r *Rule)
-    VisitRuleSet(s *RuleSet)
+	VisitRule(r *Rule)
+	VisitRuleSet(s *RuleSet)
 }
 
 func (r *Rule) Accept(v Visitor)    { v.VisitRule(r) }
@@ -43,15 +51,15 @@ type ruleCounter struct{ count int }
 func (c *ruleCounter) VisitRule(*Rule) { c.count++ }
 
 func (c *ruleCounter) VisitRuleSet(s *RuleSet) {
-    for _, child := range s.Children {
-        child.Accept(c)
-    }
+	for _, child := range s.Children {
+		child.Accept(c)
+	}
 }
 ```
 
 The invariant: **adding a node type must break every visitor at compile time.** If it does
-not — because the interface has a default case or the language permits partial implementation
-— the pattern's one safety property is gone and new node types are silently unhandled.
+not — because a default implementation is embedded, or the operation is a type switch —
+the pattern's one safety property is gone and new node types are silently unhandled.
 
 ## How not to use it
 
@@ -62,9 +70,9 @@ not — because the interface has a default case or the language permits partial
 ```go
 // WRONG — the third node type this quarter, and the operations have not changed.
 type Visitor interface {
-    VisitRule(*Rule)
-    VisitRuleSet(*RuleSet)
-    VisitWaiver(*Waiver)
+	VisitRule(*Rule)
+	VisitRuleSet(*RuleSet)
+	VisitWaiver(*Waiver)
 }
 // Symptom: each new node edits every visitor in the same change.
 ```
@@ -99,26 +107,26 @@ func (r *Rule) CacheKey() string       { return r.cacheKey }
 ```go
 // WRONG — the structure recurses, and ruleCounter.VisitRuleSet recurses too.
 func (s *RuleSet) Accept(v Visitor) {
-    v.VisitRuleSet(s)
-    for _, child := range s.Children {
-        child.Accept(v)
-    }
+	v.VisitRuleSet(s)
+	for _, child := range s.Children {
+		child.Accept(v)
+	}
 }
 // Symptom: every rule is counted twice.
 ```
 
-- **In a language with pattern matching over sum types.** An exhaustive `match` or `switch`
-  over a sealed hierarchy gives the same compile-time exhaustiveness with none of the double
-  dispatch — the pattern is largely a workaround for languages that lack it. Go is one that
-  lacks it: a type switch dispatches, but the compiler does not check it for exhaustiveness.
+- **Replacing the visitor with an unchecked type switch.** A type switch over the node
+  interface dispatches with none of the double-dispatch ceremony, but Go's compiler does not
+  check it for exhaustiveness, so it gives up the one guarantee the visitor exists to provide.
+  If a type switch is used, its `default` case must return an error, never fall through.
 
 ```go
-// WRONG — a Go type switch trusted as if it were an exhaustive match.
+// WRONG — a type switch trusted to be exhaustive, with no default.
 switch n := node.(type) {
 case *Rule:
-    count++
+	count++
 case *RuleSet:
-    count += countRules(n)
+	count += countRules(n)
 }
 // Symptom: a new node type compiles, falls through, and is silently uncounted.
 ```
@@ -130,8 +138,8 @@ case *RuleSet:
 // WRONG — one counter carried across traversals.
 counter := &ruleCounter{}
 for _, set := range sets {
-    set.Accept(counter)
-    report(set, counter.count)
+	set.Accept(counter)
+	report(set, counter.count)
 }
 // Symptom: each set's count includes every set before it.
 ```

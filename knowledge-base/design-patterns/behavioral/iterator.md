@@ -9,6 +9,14 @@ through it and report when it is done. Clients walk the elements through the ite
 interface without knowing whether the underlying structure is an array, a tree, a cursor over
 a file, or a paginated remote API.
 
+## Why it exists
+
+If clients walk a collection by reaching into its representation — indexing a slice,
+following child pointers, passing a paginated API's next-page token — every client breaks
+when the representation changes, and every client re-implements the traversal and its edge
+cases. The iterator puts traversal in one object behind one interface, so the representation
+can change and several traversals can proceed independently.
+
 ## When to use it
 
 - Clients must traverse a structure **without depending on its representation**, so the
@@ -28,24 +36,24 @@ return an `iter.Seq` or `iter.Seq2` from the `iter` package.
 ```go
 // RIGHT — a lazy sequence; each error travels with the element it interrupted.
 func (c *ForgeClient) ChangedFiles(ctx context.Context, pr PullRequest) iter.Seq2[ChangedFile, error] {
-    return func(yield func(ChangedFile, error) bool) {
-        for cursor := ""; ; {
-            page, err := c.fetchPage(ctx, pr, cursor)
-            if err != nil {
-                yield(ChangedFile{}, err)
-                return
-            }
-            for _, f := range page.Files {
-                if !yield(f, nil) {
-                    return
-                }
-            }
-            if page.Next == "" {
-                return
-            }
-            cursor = page.Next
-        }
-    }
+	return func(yield func(ChangedFile, error) bool) {
+		for cursor := ""; ; {
+			page, err := c.fetchPage(ctx, pr, cursor)
+			if err != nil {
+				yield(ChangedFile{}, err)
+				return
+			}
+			for _, f := range page.Files {
+				if !yield(f, nil) {
+					return
+				}
+			}
+			if page.Next == "" {
+				return
+			}
+			cursor = page.Next
+		}
+	}
 }
 ```
 
@@ -60,8 +68,8 @@ Its position is its only state.
 ```go
 // WRONG — a bespoke protocol where range-over-func exists.
 type FileIterator interface {
-    HasNext() bool
-    Next() ChangedFile
+	HasNext() bool
+	Next() ChangedFile
 }
 // Symptom: no for-range, no slices.Collect, and nowhere for an error to go.
 ```
@@ -73,9 +81,9 @@ type FileIterator interface {
 ```go
 // WRONG — deleting from the slice being ranged over.
 for i, f := range files {
-    if f.Generated {
-        files = slices.Delete(files, i, i+1)
-    }
+	if f.Generated {
+		files = slices.Delete(files, i, i+1)
+	}
 }
 // Symptom: the element after each deletion is skipped, the tail reads as zero values,
 // and an index past the shrunken length panics. slices.DeleteFunc does this correctly.
@@ -90,7 +98,7 @@ for i, f := range files {
 // WRONG — inside the sequence, a failed page ends it the way the last page does.
 page, err := c.fetchPage(ctx, pr, cursor)
 if err != nil {
-    return
+	return
 }
 // Symptom: policy is evaluated over a truncated diff, and the decision looks complete.
 ```
@@ -110,15 +118,15 @@ func (pr PullRequest) Files() iter.Seq[ChangedFile]
 ```go
 // WRONG — the read lock is held for as long as the caller's loop body runs.
 func (r *Registry) Policies() iter.Seq[Policy] {
-    return func(yield func(Policy) bool) {
-        r.mu.RLock()
-        defer r.mu.RUnlock()
-        for _, p := range r.policies {
-            if !yield(p) {
-                return
-            }
-        }
-    }
+	return func(yield func(Policy) bool) {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, p := range r.policies {
+			if !yield(p) {
+				return
+			}
+		}
+	}
 }
 // Symptom: a slow loop body stalls every writer; one that writes to the Registry deadlocks.
 ```

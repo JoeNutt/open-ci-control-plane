@@ -9,6 +9,13 @@ state, which the caller supplies per use. Many logical objects share one flyweig
 holding the intrinsic part, so memory scales with the number of distinct intrinsic values
 rather than with the number of logical objects. A factory hands out the shared instances.
 
+## Why it exists
+
+When a program holds very many objects whose state is mostly the same, memory grows with the
+number of objects even though the distinct information grows only with the number of distinct
+values. The flyweight stores the shared part once and has callers supply the varying part, so
+memory follows the count of distinct values instead.
+
 ## When to use it
 
 - Object **count** is the problem, not object cost — hundreds of thousands of them, and the
@@ -26,26 +33,26 @@ parameters.
 ```go
 // RIGHT — Glyph has no setters; position and style arrive per call.
 type Glyph struct {
-    symbol  rune
-    outline Outline
+	symbol  rune
+	outline Outline
 }
 
 func (g *Glyph) DrawAt(x, y int, style Style) { /* extrinsic state passed in */ }
 
 type GlyphFactory struct {
-    mu     sync.Mutex
-    glyphs map[rune]*Glyph
+	mu     sync.Mutex
+	glyphs map[rune]*Glyph
 }
 
 func (f *GlyphFactory) Of(symbol rune) *Glyph {
-    f.mu.Lock()
-    defer f.mu.Unlock()
-    g, isInterned := f.glyphs[symbol]
-    if !isInterned {
-        g = newGlyph(symbol)
-        f.glyphs[symbol] = g
-    }
-    return g
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	g, isInterned := f.glyphs[symbol]
+	if !isInterned {
+		g = newGlyph(symbol)
+		f.glyphs[symbol] = g
+	}
+	return g
 }
 ```
 
@@ -65,7 +72,7 @@ is a data race and a correctness bug across unrelated callers.
 ```go
 // WRONG — interning a few dozen check names, with no profile asking for it.
 type CheckRun struct {
-    Name unique.Handle[string]
+	Name unique.Handle[string]
 }
 // Symptom: every read of a name is .Value(), and the heap profile never mentioned names.
 ```
@@ -86,8 +93,8 @@ func (g *Glyph) SetOutline(o Outline) { g.outline = o }
 ```go
 // WRONG — per-use position stored on the shared glyph.
 func (g *Glyph) DrawAt(x, y int, style Style) {
-    g.x, g.y = x, y
-    g.render(style)
+	g.x, g.y = x, y
+	g.render(style)
 }
 // Symptom: concurrent draws land at each other's positions; single-threaded tests pass.
 ```
@@ -98,7 +105,7 @@ func (g *Glyph) DrawAt(x, y int, style Style) {
 ```go
 // WRONG — every path in a webhook payload becomes a permanent factory entry.
 for _, file := range payload.Files {
-    refs = append(refs, paths.Of(file.Path))
+	refs = append(refs, paths.Of(file.Path))
 }
 // Symptom: a sender varying paths grows the factory's map without limit.
 ```
