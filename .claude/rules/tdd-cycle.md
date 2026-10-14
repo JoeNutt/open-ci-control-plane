@@ -85,7 +85,9 @@ Work comes from the board: https://github.com/users/JoeNutt/projects/2
 **Take the Ready card with the lowest `Sequence`, and only that card.** The board is ordered
 so card N depends only on cards before it; never pick a card further down because it looks
 smaller, more interesting or unblocked. Cards with no `Sequence` are not yet ordered and are
-not work. When the sequenced cards run out, the next batch is sequenced from the SAD — every
+not work. Below the sequenced cards the board is kept in priority order — every Must, then
+every Should, then every Could; within each, by phase, then card number — so the next batch to
+sequence is always the top of what remains. When the sequenced cards run out, the next batch is sequenced from the SAD — every
 obligation a card carries checked for the card that produces its data — before any of it is
 started.
 
