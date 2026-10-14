@@ -99,6 +99,14 @@ var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
 	EnforcementSeverityDryRun: "recorded only, dry run",
 }
 
+func enforcementMarkingFor(severity EnforcementSeverity) string {
+	marking, declared := enforcementMarkingBySeverity[severity]
+	if !declared {
+		return enforcementMarkingBySeverity[EnforcementSeverityDeny]
+	}
+	return marking
+}
+
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"
 
 func violationsTextFor(violations Declared[Violation]) string {
@@ -109,7 +117,7 @@ func violationsTextFor(violations Declared[Violation]) string {
 			markdownTextOf(violation.Message),
 			markdownTextOf(violation.OwningTeam),
 			documentationLinkFor(violation.DocsURL),
-			enforcementMarkingBySeverity[violation.Severity])
+			enforcementMarkingFor(violation.Severity))
 	}
 	return text.String()
 }

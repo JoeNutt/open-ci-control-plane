@@ -2,7 +2,24 @@
 
 package domain
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestAnUndeclaredSeverityIsMarkedBlocking(t *testing.T) {
+	undeclared := Decision{
+		outcome:    OutcomeDecided,
+		effect:     EffectAllow,
+		violations: Declared[Violation]{{RuleID: "AUTHZ-1", Severity: "advise"}},
+	}
+
+	run := CheckRunFor(FamilyDecision{Family: PolicyFamilySecurity, Decision: undeclared}, DecisionID{})
+
+	if marked := "- Enforcement: blocking"; !strings.Contains(run.Text, marked) {
+		t.Errorf("text does not carry %q:\n%s", marked, run.Text)
+	}
+}
 
 func TestAnUndeclaredEffectOrSeverityFailsClosed(t *testing.T) {
 	undeclared := map[string]Decision{
