@@ -17,12 +17,9 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	gate, _ := recordingGate(t)
 	published := &memory.CheckRuns{}
-	id := decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef")
+	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
-		Build: buildOverRecorded(locator, domain.File{
-			Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-			Additions: 12, Deletions: 3, PatchBytes: 1840,
-		}),
+		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: published,
 	}
@@ -49,15 +46,12 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 
 func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
-	build := buildOverRecorded(locator, domain.File{
-		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-		Additions: 12, Deletions: 3, PatchBytes: 1840,
-	})
+	build := buildOverAnAuthChange(locator)
 	gate, engines := recordingGate(t)
 	useCase := application.GateChange{Build: build, Gate: gate, Publisher: &memory.CheckRuns{}}
 
 	err := useCase.Execute(context.Background(), locator,
-		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+		decisionIDOf(t, gatedDecisionID))
 
 	if err != nil {
 		t.Fatalf("gate change: %v", err)
@@ -89,7 +83,7 @@ func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
 
 	err := useCase.Execute(context.Background(), locator,
-		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+		decisionIDOf(t, gatedDecisionID))
 
 	if !errors.Is(err, domain.ErrFilePatchTooLarge) {
 		t.Fatalf("want ErrFilePatchTooLarge, got %v", err)
@@ -110,16 +104,13 @@ func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 	recorded := &memory.CheckRuns{}
 	refused := errors.New("the forge refused the post")
 	useCase := application.GateChange{
-		Build: buildOverRecorded(locator, domain.File{
-			Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-			Additions: 12, Deletions: 3, PatchBytes: 1840,
-		}),
+		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: refusingOne{name: "policy/structural", refusal: refused, rest: recorded},
 	}
 
 	err := useCase.Execute(context.Background(), locator,
-		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+		decisionIDOf(t, gatedDecisionID))
 
 	if !errors.Is(err, refused) {
 		t.Fatalf("want the refusal reported, got %v", err)
@@ -179,6 +170,15 @@ func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordin
 		t.Fatalf("parse gate: %v", err)
 	}
 	return gate, engines
+}
+
+const gatedDecisionID = "dec_0123456789abcdef0123456789abcdef"
+
+func buildOverAnAuthChange(locator domain.PullRequestLocator) application.BuildDocument {
+	return buildOverRecorded(locator, domain.File{
+		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+		Additions: 12, Deletions: 3, PatchBytes: 1840,
+	})
 }
 
 const recordedHeadSHA = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
