@@ -101,6 +101,37 @@ func TestAViolationLinksItsDocumentation(t *testing.T) {
 	}
 }
 
+func TestADocumentationLinkThatIsNotHTTPSIsWithheld(t *testing.T) {
+	refused := map[string]string{
+		"a script":              "javascript:alert(1)",
+		"inline data":           "data:text/html,<script>alert(1)</script>",
+		"plain http":            "http://example.test/policy/AUTHZ-1",
+		"no scheme":             "//example.test/policy/AUTHZ-1",
+		"no host":               "https:///policy/AUTHZ-1",
+		"empty":                 "",
+		"a space":               "https://example.test/a b",
+		"an angle bracket":      "https://example.test/a>b",
+		"a forged line":         "https://example.test/a\n# Passed",
+		"upper-case look-alike": "HTTPS://example.test/policy/AUTHZ-1",
+	}
+
+	for form, docsURL := range refused {
+		t.Run(form, func(t *testing.T) {
+			violation := violationAt(domain.EnforcementSeverityDeny)
+			violation.DocsURL = docsURL
+
+			run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock, violation))
+
+			if !strings.Contains(run.Text, "- Documentation: withheld, not an https link") {
+				t.Errorf("text does not say the link was withheld:\n%s", run.Text)
+			}
+			if docsURL != "" && strings.Contains(run.Text, docsURL) {
+				t.Errorf("text carries the refused link %q:\n%s", docsURL, run.Text)
+			}
+		})
+	}
+}
+
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
 	denied := decided(t, domain.EffectBlock, domain.Violation{
