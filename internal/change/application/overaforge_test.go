@@ -48,7 +48,7 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 
 	source, err := github.ParseChangeSource(github.Settings{
 		BaseURL:          server.URL,
-		Token:            "s3cret",
+		Token:            github.NewCredential("s3cret"),
 		Client:           server.Client(),
 		MaxResponseBytes: 1 << 20,
 	})

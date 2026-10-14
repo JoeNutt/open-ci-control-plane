@@ -65,7 +65,7 @@ func TestParseChangeSourceRefusesASourceWithNoClient(t *testing.T) {
 
 func TestParseChangeSourceRefusesASourceWithNoCredential(t *testing.T) {
 	settings := wellFormedSettings()
-	settings.Token = ""
+	settings.Token = github.Credential{}
 
 	_, err := github.ParseChangeSource(settings)
 

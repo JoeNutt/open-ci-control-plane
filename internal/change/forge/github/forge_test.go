@@ -14,7 +14,9 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
-const forgeCredential github.Credential = "s3cret"
+const forgeToken = "s3cret"
+
+var forgeCredential = github.NewCredential(forgeToken)
 
 const forgeAppID = 4242
 

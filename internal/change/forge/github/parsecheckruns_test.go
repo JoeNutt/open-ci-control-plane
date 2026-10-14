@@ -37,8 +37,9 @@ func TestParseCheckRunsRefusesWhatAChangeSourceRefuses(t *testing.T) {
 		spoil func(*github.Settings)
 		want  error
 	}{
-		"no credential": {func(s *github.Settings) { s.Token = "" }, github.ErrNoCredential},
-		"no client":     {func(s *github.Settings) { s.Client = nil }, github.ErrNoClient},
+		"no credential":    {func(s *github.Settings) { s.Token = github.Credential{} }, github.ErrNoCredential},
+		"empty credential": {func(s *github.Settings) { s.Token = github.NewCredential("") }, github.ErrNoCredential},
+		"no client":        {func(s *github.Settings) { s.Client = nil }, github.ErrNoClient},
 		"plain http": {
 			func(s *github.Settings) { s.BaseURL = "http://api.example" },
 			github.ErrMalformedBaseURL,

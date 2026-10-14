@@ -33,7 +33,7 @@ type connection struct {
 }
 
 func parseConnection(settings Settings) (connection, error) {
-	if settings.Token == "" {
+	if !settings.Token.isPresent() {
 		return connection{}, ErrNoCredential
 	}
 	if settings.Client == nil {
@@ -46,7 +46,7 @@ func parseConnection(settings Settings) (connection, error) {
 		return connection{}, fmt.Errorf("%w: %d", ErrMalformedResponseBound, settings.MaxResponseBytes)
 	}
 	token := settings.Token
-	settings.Token = ""
+	settings.Token = Credential{}
 	return connection{settings: settings, token: &token}, nil
 }
 

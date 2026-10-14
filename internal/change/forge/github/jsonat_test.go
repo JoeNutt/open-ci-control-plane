@@ -52,7 +52,7 @@ func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 
 	for _, verb := range verbs {
 		printed := fmt.Sprintf(verb, holder)
-		if reveals(printed, string(forgeCredential)) {
+		if reveals(printed, forgeToken) {
 			t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
 		}
 	}
@@ -61,7 +61,7 @@ func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 var everyFormatVerb = []string{
 	"%v", "%+v", "%#v", "%T", "%s", "%q", "%x", "%X", "%d", "%t", "%o", "%O",
 	"%b", "%c", "%U", "%e", "%E", "%f", "%F", "%g", "%G",
-	"%10s", "%-20v", "%+d", "% x", "%#x", "%#q", "%08d", "%.3s", "%[1]v",
+	"%10s", "%-20v", "%+d", "% x", "%#x", "%#q", "%08d", "%.3s", "%[1]v", "%p",
 }
 
 func reveals(printed, secret string) bool {
@@ -73,7 +73,7 @@ func reveals(printed, secret string) bool {
 func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		presented := request.Header.Get("Authorization")
-		if presented != "Bearer "+string(forgeCredential) {
+		if presented != "Bearer "+forgeToken {
 			t.Errorf("the adapter presented %q", presented)
 			writer.WriteHeader(http.StatusUnauthorized)
 			return

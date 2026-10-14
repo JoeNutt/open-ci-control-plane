@@ -512,7 +512,7 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 					t.Errorf("error %q does not name %q", err, context)
 				}
 			}
-			if strings.Contains(err.Error(), string(forgeCredential)) {
+			if strings.Contains(err.Error(), forgeToken) {
 				t.Errorf("error %q reveals the credential", err)
 			}
 		})
