@@ -37,3 +37,36 @@ func TestADecisionCarryingTheAssertionIsHonoured(t *testing.T) {
 		t.Errorf("violations are %v, want one", decided.Violations())
 	}
 }
+
+func TestADecisionWithoutTheAssertionIsUndecidedWhateverItSays(t *testing.T) {
+	withheld := map[string]string{
+		"the assertion absent": `{
+			"schema_version_accepted": 1, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": true
+		}`,
+		"the assertion false": `{
+			"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": true
+		}`,
+		"the assertion absent while blocking": `{
+			"schema_version_accepted": 1, "effect": "block",
+			"violations": [], "reviewers": [], "fail_closed": true
+		}`,
+	}
+
+	for form, stated := range withheld {
+		t.Run(form, func(t *testing.T) {
+			decided, err := domain.ParseDecision([]byte(stated))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if decided.Outcome() != domain.OutcomeUndefined {
+				t.Fatalf("outcome is %q, want %q", decided.Outcome(), domain.OutcomeUndefined)
+			}
+			if decided.Outcome().CarriesVerdict() {
+				t.Fatal("an undecided document was allowed to carry a verdict")
+			}
+		})
+	}
+}

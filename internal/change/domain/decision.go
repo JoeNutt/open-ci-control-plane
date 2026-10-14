@@ -50,6 +50,9 @@ func ParseDecision(stated []byte) (Decision, error) {
 	if err != nil {
 		return Decision{}, fmt.Errorf("%w: %w", ErrMalformedDecision, err)
 	}
+	if !written.InputWellformed {
+		return Decision{outcome: OutcomeUndefined}, nil
+	}
 	return Decision{
 		outcome:    OutcomeDecided,
 		effect:     effect,
