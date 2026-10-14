@@ -14,6 +14,7 @@ var (
 	errCheckRunTextUnidentified = errors.New("check run carries no decision identifier")
 	errCheckRunTextOverCapacity = errors.New("check run output cannot fit its capacity")
 	errCheckRunTextUndercounted = errors.New("check run counts fewer violations than it carries")
+	errCheckRunTextOverlisted   = errors.New("check run lists more violations than the domain ever carries")
 )
 
 const (
@@ -35,6 +36,9 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	}
 	if run.ViolationCount < len(run.Violations) {
 		return checkRunTextOutput{}, errCheckRunTextUndercounted
+	}
+	if len(run.Violations) > domain.ListedViolationLimit {
+		return checkRunTextOutput{}, errCheckRunTextOverlisted
 	}
 	blocks := checkRunTextBlocksThatFit(run, capacity)
 	output := checkRunTextOutput{

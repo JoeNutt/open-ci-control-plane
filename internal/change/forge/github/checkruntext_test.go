@@ -192,6 +192,16 @@ func TestCheckRunTextRefusesACountBelowTheViolationsCarried(t *testing.T) {
 	}
 }
 
+func TestCheckRunTextRefusesMoreListedViolationsThanTheDomainEverCarries(t *testing.T) {
+	overlisted := checkRunTextWithViolations(t, domain.ListedViolationLimit+1)
+
+	_, err := checkRunTextFor(overlisted, checkRunTextTestCapacity)
+
+	if !errors.Is(err, errCheckRunTextOverlisted) {
+		t.Fatalf("got %v, want errCheckRunTextOverlisted", err)
+	}
+}
+
 func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 	unidentified := checkRunTextFixture(t)
 	unidentified.DecisionID = domain.DecisionID{}

@@ -31,7 +31,7 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func listedOf(violations Declared[Violation]) Declared[Violation] {
-	return violations[:min(len(violations), listedViolationLimit)]
+	return violations[:min(len(violations), ListedViolationLimit)]
 }
 
 func checkRunViolationsFrom(listed Declared[Violation]) []CheckRunViolation {
@@ -112,4 +112,4 @@ func enforcementMarkingFor(severity EnforcementSeverity) string {
 	return marking
 }
 
-const listedViolationLimit = 20
+const ListedViolationLimit = 20
