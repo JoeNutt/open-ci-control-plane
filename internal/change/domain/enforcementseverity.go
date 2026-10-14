@@ -23,3 +23,12 @@ var ErrUnknownEnforcementSeverity = errors.New("unknown enforcement severity")
 func ParseEnforcementSeverity(name string) (EnforcementSeverity, error) {
 	return parseDeclaration(name, declaredEnforcementSeverities, ErrUnknownEnforcementSeverity)
 }
+
+func (severity *EnforcementSeverity) UnmarshalText(stated []byte) error {
+	parsed, err := ParseEnforcementSeverity(string(stated))
+	if err != nil {
+		return err
+	}
+	*severity = parsed
+	return nil
+}
