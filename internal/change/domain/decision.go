@@ -41,6 +41,8 @@ type statedDecision struct {
 	FailClosed            bool                `json:"fail_closed"`
 }
 
+func UndecidedDecision() Decision { return Decision{outcome: OutcomeUndefined} }
+
 func ParseDecision(stated []byte) (Decision, error) {
 	var written statedDecision
 	if err := json.Unmarshal(stated, &written); err != nil {
@@ -51,7 +53,7 @@ func ParseDecision(stated []byte) (Decision, error) {
 		return Decision{}, fmt.Errorf("%w: %w", ErrMalformedDecision, err)
 	}
 	if !written.InputWellformed {
-		return Decision{outcome: OutcomeUndefined}, nil
+		return UndecidedDecision(), nil
 	}
 	return Decision{
 		outcome:    OutcomeDecided,
