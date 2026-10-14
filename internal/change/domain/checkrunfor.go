@@ -57,8 +57,8 @@ func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 
 const (
 	admittedWithoutDecisionTitle  = "Admitted without a decision"
-	admittedWithoutDecisionLayout = "Policy %s could not be evaluated and this change was " +
-		"admitted without a decision."
+	admittedWithoutDecisionLayout = "Policy %s did not decide, and this change was admitted " +
+		"because it fails open."
 )
 
 func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {

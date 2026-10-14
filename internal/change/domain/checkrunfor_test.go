@@ -180,15 +180,15 @@ func TestTheFirstTwentyViolationsAreCarriedPlainlyInOrder(t *testing.T) {
 	}
 }
 
-func TestAnUndecidedFamilyThatFailsOpenSaysItAdmittedWithoutADecision(t *testing.T) {
+func TestAnUndecidedFamilyThatFailsOpenSaysThePolicyDidNotDecide(t *testing.T) {
 	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision())
 
-	for _, stated := range []string{
-		"Policy quality could not be evaluated and this change was admitted without a decision.",
-	} {
-		if !strings.Contains(run.Headline, stated) {
-			t.Errorf("headline does not say %q:\n%s", stated, run.Headline)
-		}
+	stated := "Policy quality did not decide, and this change was admitted because it fails open."
+	if !strings.Contains(run.Headline, stated) {
+		t.Errorf("headline does not say %q:\n%s", stated, run.Headline)
+	}
+	if strings.Contains(run.Headline, "could not be evaluated") {
+		t.Errorf("headline claims the engine was unavailable, which is another state:\n%s", run.Headline)
 	}
 }
 
@@ -371,7 +371,7 @@ func TestEveryStateCarriesAPlainHeadline(t *testing.T) {
 		}, "Policy security failed to evaluate. This is not a problem with your change."},
 		"admitted": {domain.PolicyFamilyQuality, func(*testing.T) domain.Decision {
 			return domain.UndecidedDecision()
-		}, "Policy quality could not be evaluated and this change was admitted without a decision."},
+		}, "Policy quality did not decide, and this change was admitted because it fails open."},
 	}
 
 	headed["punctuated family"] = struct {
