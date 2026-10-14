@@ -8,8 +8,9 @@ import "encoding/json"
 const SchemaID = "ci.diff/v1"
 
 type Document struct {
-	PR   PullRequest `json:"pr"`
-	Diff Diff        `json:"diff"`
+	PR        PullRequest `json:"pr"`
+	Diff      Diff        `json:"diff"`
+	Analyzers Analyzers   `json:"analyzers"`
 }
 
 func (document Document) MarshalJSON() ([]byte, error) {
@@ -115,4 +116,17 @@ type IaCResource struct {
 	Type              string           `json:"type"`
 	Actions           Declared[string] `json:"actions"`
 	HasWildcardAction bool             `json:"has_wildcard_action"`
+}
+
+type Analyzers struct {
+	Submitted Declared[string]  `json:"submitted"`
+	Findings  Declared[Finding] `json:"findings"`
+}
+
+type Finding struct {
+	Analyzer string   `json:"analyzer"`
+	RuleID   string   `json:"rule_id"`
+	Severity Severity `json:"severity"`
+	Path     string   `json:"path"`
+	Line     int      `json:"line"`
 }

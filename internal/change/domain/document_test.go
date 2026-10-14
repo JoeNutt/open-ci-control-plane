@@ -272,3 +272,26 @@ func TestZeroDocumentDeclaresIaCResourcesAsList(t *testing.T) {
 		t.Fatalf(`want "iac_resources":[] in %s`, encoded)
 	}
 }
+
+func TestZeroDocumentDeclaresAnalyzersBesideDiff(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		Analyzers *struct {
+			Submitted *[]string          `json:"submitted"`
+			Findings  *[]json.RawMessage `json:"findings"`
+		} `json:"analyzers"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+	if decoded.Analyzers == nil {
+		t.Fatalf("analyzers absent from %s", encoded)
+	}
+	if decoded.Analyzers.Submitted == nil || decoded.Analyzers.Findings == nil {
+		t.Fatalf("submitted or findings absent from %s", encoded)
+	}
+}
