@@ -64,11 +64,7 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 	var blocks []string
 	used := 0
 	for _, violation := range run.Violations {
-		least := 0
-		for _, field := range []string{violation.RuleID, violation.Message, violation.OwningTeam, violation.DocsURL, violation.Marking} {
-			least += utf8.RuneCountInString(field) - strings.Count(field, "\r\n")
-		}
-		if used+least > capacity {
+		if used+checkRunTextLeastLengthOf(violation) > capacity {
 			return blocks
 		}
 		block := checkRunTextBlockOf(violation)
@@ -80,6 +76,16 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 		used += len(block)
 	}
 	return blocks
+}
+
+func checkRunTextLeastLengthOf(violation domain.CheckRunViolation) int {
+	least := 0
+	for _, field := range []string{
+		violation.RuleID, violation.Message, violation.OwningTeam, violation.DocsURL, violation.Marking,
+	} {
+		least += utf8.RuneCountInString(field) - strings.Count(field, "\r\n")
+	}
+	return least
 }
 
 func checkRunTextTruncationOf(leftOut, total int) string {
