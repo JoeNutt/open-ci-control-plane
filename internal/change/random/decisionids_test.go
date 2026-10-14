@@ -9,11 +9,18 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/random"
 )
 
-func TestNextDecisionIDMintsAWellFormedIdentifier(t *testing.T) {
+func mintedDecisionID(t *testing.T) domain.DecisionID {
+	t.Helper()
+
 	minted, err := random.DecisionIDs{}.NextDecisionID()
 	if err != nil {
 		t.Fatalf("mint decision identifier: %v", err)
 	}
+	return minted
+}
+
+func TestNextDecisionIDMintsAWellFormedIdentifier(t *testing.T) {
+	minted := mintedDecisionID(t)
 
 	if _, err := domain.ParseDecisionID(minted.String()); err != nil {
 		t.Errorf("minted %q, which does not parse: %v", minted.String(), err)
@@ -25,10 +32,7 @@ func TestNextDecisionIDNeverRepeatsAnIdentifier(t *testing.T) {
 	seen := make(map[domain.DecisionID]int, mintings)
 
 	for minting := range mintings {
-		minted, err := random.DecisionIDs{}.NextDecisionID()
-		if err != nil {
-			t.Fatalf("mint decision identifier %d: %v", minting, err)
-		}
+		minted := mintedDecisionID(t)
 		if earlier, repeated := seen[minted]; repeated {
 			t.Fatalf("minting %d repeated %q from minting %d", minting, minted.String(), earlier)
 		}
