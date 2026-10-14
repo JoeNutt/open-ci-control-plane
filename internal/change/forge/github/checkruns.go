@@ -21,6 +21,9 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	if err != nil {
 		return CheckRuns{}, err
 	}
+	if settings.Client.Timeout <= 0 {
+		return CheckRuns{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
+	}
 	owner, err := parseAppID(settings.AppID)
 	if err != nil {
 		return CheckRuns{}, err

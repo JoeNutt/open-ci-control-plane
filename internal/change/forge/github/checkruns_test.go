@@ -677,7 +677,7 @@ func publishThrough(t *testing.T, transport countedTransport, bound int) error {
 	t.Helper()
 
 	settings := wellFormedSettings()
-	settings.Client = &http.Client{Transport: transport}
+	settings.Client = &http.Client{Transport: transport, Timeout: forgeTimeout}
 	settings.MaxResponseBytes = bound
 	return checkRunsWith(t, settings).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
