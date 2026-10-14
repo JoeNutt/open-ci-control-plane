@@ -37,14 +37,14 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 
 var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
 	FailurePostureOpen:              admittedWithoutDecisionCheckRun,
-	FailurePostureClosed:            refusedWithoutDecisionCheckRun,
-	FailurePostureDeclaredPerPolicy: refusedWithoutDecisionCheckRun,
+	FailurePostureClosed:            policyErrorCheckRun,
+	FailurePostureDeclaredPerPolicy: policyErrorCheckRun,
 }
 
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	rendering, declared := undecidedRenderingByPosture[decided.Family.FailurePosture()]
 	if !declared {
-		return refusedWithoutDecisionCheckRun(decided, id)
+		return policyErrorCheckRun(decided, id)
 	}
 	return rendering(decided, id)
 }
@@ -58,14 +58,6 @@ func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) Chec
 		Conclusion: ConclusionNeutral,
 		Summary: fmt.Sprintf(admittedWithoutDecisionLayout,
 			markdownTextOf(string(decided.Family)), decisionLineFor(id)),
-	}
-}
-
-func refusedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	return CheckRun{
-		Name:       checkRunNameFor(decided.Family),
-		Conclusion: ConclusionFailure,
-		Summary:    decisionLineFor(id),
 	}
 }
 

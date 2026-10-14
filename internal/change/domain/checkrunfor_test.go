@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -135,6 +136,24 @@ func TestAnUndecidedFamilyThatFailsOpenSaysItAdmittedWithoutADecision(t *testing
 		if !strings.Contains(run.Summary, stated) {
 			t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
 		}
+	}
+}
+
+func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
+	for _, family := range []domain.PolicyFamily{
+		domain.PolicyFamilySecurity, domain.PolicyFamilyStructural,
+	} {
+		t.Run(string(family), func(t *testing.T) {
+			run := checkRunFor(t, family, domain.UndecidedDecision())
+
+			if run.Conclusion != domain.ConclusionFailure {
+				t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+			}
+			stated := fmt.Sprintf("Policy %s failed to evaluate.", family)
+			if !strings.Contains(run.Summary, stated) {
+				t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+			}
+		})
 	}
 }
 
