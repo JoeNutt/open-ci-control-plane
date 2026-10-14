@@ -136,6 +136,68 @@ func (publisher refusingOne) PublishCheckRun(
 	return publisher.rest.PublishCheckRun(ctx, locator, head, run)
 }
 
+func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	denied, err := domain.ParseDecision([]byte(`{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "block",
+		"violations": [
+			{ "rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
+			  "severity": "deny", "owning_team": "security-platform",
+			  "docs_url": "https://docs.example.com/policy/AUTHZ-1" }
+		],
+		"reviewers": [], "fail_closed": true
+	}`))
+	if err != nil {
+		t.Fatalf("parse decision: %v", err)
+	}
+	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = &recordingEngine{}
+	}
+	engines[domain.PolicyFamilySecurity] = answeringEngine{decided: denied}
+	gate, err := domain.ParseGate(engines)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	published := &memory.CheckRuns{}
+	id := decisionIDOf(t, gatedDecisionID)
+	useCase := application.GateChange{
+		Build: buildOverAnAuthChange(locator), Gate: gate, Publisher: published,
+	}
+
+	if err := useCase.Execute(context.Background(), locator, id); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	security := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))["policy/security"]
+	if security.Conclusion != domain.ConclusionFailure {
+		t.Errorf("a deny concluded %q, want %q", security.Conclusion, domain.ConclusionFailure)
+	}
+	if security.DecisionID != id {
+		t.Errorf("the check run carries decision %q, want %q", security.DecisionID, id)
+	}
+	want := domain.CheckRunViolation{
+		RuleID: "AUTHZ-1", Message: "auth middleware changed with no authz test",
+		OwningTeam: "security-platform", DocsURL: "https://docs.example.com/policy/AUTHZ-1",
+	}
+	if len(security.Violations) != 1 || security.ViolationCount != 1 {
+		t.Fatalf("listed %d of %d violations, want 1 of 1", len(security.Violations), security.ViolationCount)
+	}
+	listed := security.Violations[0]
+	listed.Marking = ""
+	if listed != want {
+		t.Errorf("the check run lists %+v, want %+v", listed, want)
+	}
+}
+
+type answeringEngine struct {
+	decided domain.Decision
+}
+
+func (engine answeringEngine) Decide(context.Context, domain.Document) (domain.Decision, error) {
+	return engine.decided, nil
+}
+
 func decisionIDOf(t *testing.T, stated string) domain.DecisionID {
 	t.Helper()
 
