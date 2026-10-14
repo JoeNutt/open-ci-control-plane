@@ -30,6 +30,12 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
 	run.ViolationCount = len(decided.Decision.Violations())
+	for _, violation := range decided.Decision.Violations()[:min(len(decided.Decision.Violations()), listedViolationLimit)] {
+		run.Violations = append(run.Violations, CheckRunViolation{
+			RuleID: violation.RuleID, Message: violation.Message, OwningTeam: violation.OwningTeam,
+			DocsURL: violation.DocsURL, Marking: enforcementMarkingFor(violation.Severity),
+		})
+	}
 	return run
 }
 

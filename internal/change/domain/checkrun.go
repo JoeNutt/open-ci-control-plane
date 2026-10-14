@@ -10,5 +10,14 @@ type CheckRun struct {
 	Summary        string
 	Text           string
 	DecisionID     DecisionID
+	Violations     []CheckRunViolation
 	ViolationCount int
+}
+
+type CheckRunViolation struct {
+	RuleID     string
+	Message    string
+	OwningTeam string
+	DocsURL    string
+	Marking    string
 }

@@ -154,6 +154,29 @@ func TestTheViolationCountIsAlwaysComplete(t *testing.T) {
 	}
 }
 
+func TestTheFirstTwentyViolationsAreCarriedPlainlyInOrder(t *testing.T) {
+	fired := numberedViolations(21)
+	fired[0].Message = "a `quoted` *message* with <html>"
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock, fired...))
+
+	if len(run.Violations) != 20 {
+		t.Fatalf("carried %d violations, want 20", len(run.Violations))
+	}
+	for index, carried := range run.Violations {
+		want := domain.CheckRunViolation{
+			RuleID:     fired[index].RuleID,
+			Message:    fired[index].Message,
+			OwningTeam: fired[index].OwningTeam,
+			DocsURL:    fired[index].DocsURL,
+			Marking:    "blocking",
+		}
+		if carried != want {
+			t.Errorf("violation %d is %+v, want %+v", index, carried, want)
+		}
+	}
+}
+
 func TestTheSummaryCarriesTheDecisionIdentifier(t *testing.T) {
 	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow))
 
