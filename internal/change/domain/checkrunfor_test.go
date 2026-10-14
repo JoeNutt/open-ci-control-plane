@@ -404,7 +404,7 @@ func TestEveryViolationIsMarkedWithItsEnforcement(t *testing.T) {
 	marking := map[domain.EnforcementSeverity]string{
 		domain.EnforcementSeverityDeny:   "blocking",
 		domain.EnforcementSeverityWarn:   "advisory",
-		domain.EnforcementSeverityDryRun: "recorded only, dry run",
+		domain.EnforcementSeverityDryRun: "recorded only",
 	}
 
 	for severity, marked := range marking {

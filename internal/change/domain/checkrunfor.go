@@ -101,7 +101,7 @@ func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID)
 var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
 	EnforcementSeverityDeny:   "blocking",
 	EnforcementSeverityWarn:   "advisory",
-	EnforcementSeverityDryRun: "recorded only, dry run",
+	EnforcementSeverityDryRun: "recorded only",
 }
 
 func enforcementMarkingFor(severity EnforcementSeverity) string {
