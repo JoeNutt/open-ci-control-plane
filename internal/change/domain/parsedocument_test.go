@@ -104,3 +104,19 @@ func TestParseDocumentGroupsChangedPathsByDirectory(t *testing.T) {
 		t.Fatalf("by_dir is %+v, want %+v", document.Diff.ByDir, want)
 	}
 }
+
+func TestParseDocumentListsOnlyThePathsTheChangeAdds(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded},
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/old.tf", Action: domain.FileActionRemoved},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.Paths{"internal/auth/session.go", "infra/iam.tf"}
+	if !slices.Equal(document.Diff.NewFiles, want) {
+		t.Fatalf("new_files is %v, want %v", document.Diff.NewFiles, want)
+	}
+}

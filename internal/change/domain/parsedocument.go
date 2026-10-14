@@ -19,20 +19,35 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 
 func diffOf(bounded BoundedFiles) Diff {
 	return Diff{
-		Paths:  pathsOf(bounded.files),
-		Files:  slices.Clone(bounded.files),
-		Totals: totalsOf(bounded.files),
-		ByDir:  byDirOf(bounded.files),
+		Paths:    pathsOf(bounded.files),
+		Files:    slices.Clone(bounded.files),
+		Totals:   totalsOf(bounded.files),
+		ByDir:    byDirOf(bounded.files),
+		NewFiles: addedPathsOf(bounded.files),
 	}
 }
 
 func pathsOf(files []File) Paths {
-	paths := make(Paths, 0, len(files))
-	for _, file := range files {
-		paths = append(paths, file.Path)
-	}
-	return paths
+	return pathsMatching(files, everyFile)
 }
+
+func addedPathsOf(files []File) Paths {
+	return pathsMatching(files, fileAdded)
+}
+
+func pathsMatching(files []File, selected func(File) bool) Paths {
+	matching := make(Paths, 0, len(files))
+	for _, file := range files {
+		if selected(file) {
+			matching = append(matching, file.Path)
+		}
+	}
+	return matching
+}
+
+func everyFile(File) bool { return true }
+
+func fileAdded(file File) bool { return file.Action == FileActionAdded }
 
 func totalsOf(files []File) Totals {
 	totals := Totals{Files: len(files)}
