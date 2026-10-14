@@ -40,7 +40,25 @@ func TestAnEngineErrorIsAFailure(t *testing.T) {
 	}
 }
 
+func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
+	denied := decided(t, domain.EffectAllow, violationsAt(domain.EnforcementSeverityDeny))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+}
+
 const noViolations = `[]`
+
+func violationsAt(severity domain.EnforcementSeverity) string {
+	return fmt.Sprintf(`[{
+		"rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
+		"severity": %q, "owning_team": "security-platform",
+		"docs_url": "https://example.test/policy/AUTHZ-1"
+	}]`, severity)
+}
 
 func evaluatedWith(t *testing.T, engine domain.FamilyEngine) domain.Decision {
 	t.Helper()

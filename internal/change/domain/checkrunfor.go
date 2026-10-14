@@ -9,5 +9,10 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	if !decided.Decision.Outcome().CarriesVerdict() || decided.Decision.Effect() == EffectBlock {
 		conclusion = ConclusionFailure
 	}
+	for _, violation := range decided.Decision.Violations() {
+		if violation.Severity == EnforcementSeverityDeny {
+			conclusion = ConclusionFailure
+		}
+	}
 	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: conclusion}
 }
