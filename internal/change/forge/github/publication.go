@@ -21,13 +21,13 @@ var ErrCheckRunTargetNotFound = errors.New("the forge found nothing at a check-r
 
 type publication struct {
 	locator domain.PullRequestLocator
-	head    commitSHA
+	head    domain.CommitSHA
 	name    string
 	verdict checkRunVerdict
 }
 
 func parsePublication(
-	locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
+	locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
 ) (publication, error) {
 	if !isComplete(run) {
 		return publication{}, ErrIncompleteCheckRun
@@ -39,9 +39,8 @@ func parsePublication(
 	if err != nil {
 		return publication{}, err
 	}
-	head, err := parseCommitSHA(headSHA)
-	if err != nil {
-		return publication{}, err
+	if head == (domain.CommitSHA{}) {
+		return publication{}, ErrMalformedHeadSHA
 	}
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
 }
@@ -89,7 +88,7 @@ func (pending publication) creation() exchange {
 		endpoint: pending.checkRunsEndpoint(),
 		sent: newCheckRun{
 			Name:            pending.name,
-			HeadSHA:         string(pending.head),
+			HeadSHA:         pending.head.String(),
 			checkRunVerdict: pending.verdict,
 		},
 		succeeded: http.StatusCreated,

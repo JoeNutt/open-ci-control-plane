@@ -43,7 +43,7 @@ func (runs CheckRuns) Format(state fmt.State, verb rune) {
 func (runs CheckRuns) PublishCheckRun(
 	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
 ) error {
-	pending, err := parsePublication(locator, head.String(), run)
+	pending, err := parsePublication(locator, head, run)
 	if err != nil {
 		return err
 	}
