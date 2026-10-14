@@ -5,9 +5,9 @@ package github_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 
@@ -145,7 +145,7 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 		Conclusion: string(run.Conclusion),
 		Output:     wireOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
 	}
-	if got := held.runsOn(headSHA); fmt.Sprint(got) != fmt.Sprint([]wireCheckRun{want}) {
+	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
 		t.Fatalf("the forge holds %+v, want %+v", got, want)
 	}
 }

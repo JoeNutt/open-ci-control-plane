@@ -3,6 +3,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,11 +18,28 @@ var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected stat
 
 var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
 
+type exchange struct {
+	method    string
+	endpoint  string
+	sent      any
+	succeeded int
+}
+
 func jsonAt[Payload any](
 	ctx context.Context, forge connection, endpoint string,
 ) (Payload, error) {
+	return exchanged[Payload](ctx, forge, exchange{
+		method:    http.MethodGet,
+		endpoint:  endpoint,
+		succeeded: http.StatusOK,
+	})
+}
+
+func exchanged[Payload any](
+	ctx context.Context, forge connection, over exchange,
+) (Payload, error) {
 	var payload Payload
-	request, err := requestFor(ctx, forge, endpoint)
+	request, err := requestFor(ctx, forge, over)
 	if err != nil {
 		return payload, err
 	}
@@ -31,7 +49,7 @@ func jsonAt[Payload any](
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if failure := failureIn(response); failure != nil {
+	if failure := failureIn(response, over.succeeded); failure != nil {
 		return payload, failure
 	}
 	body, err := bodyWithinBound(response.Body, forge.settings.MaxResponseBytes)
@@ -45,23 +63,38 @@ func jsonAt[Payload any](
 }
 
 func requestFor(
-	ctx context.Context, forge connection, endpoint string,
+	ctx context.Context, forge connection, over exchange,
 ) (*http.Request, error) {
-	request, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, forge.settings.BaseURL+endpoint, nil)
+	body, err := encodedBodyOf(over)
 	if err != nil {
-		return nil, fmt.Errorf("request %s: %w", endpoint, err)
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(
+		ctx, over.method, forge.settings.BaseURL+over.endpoint, body)
+	if err != nil {
+		return nil, fmt.Errorf("request %s: %w", over.endpoint, err)
 	}
 	request.Header.Set("Authorization", "Bearer "+string(forge.settings.Token))
 	return request, nil
+}
+
+func encodedBodyOf(over exchange) (io.Reader, error) {
+	if over.sent == nil {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(over.sent)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s %s: %w", over.method, over.endpoint, err)
+	}
+	return bytes.NewReader(encoded), nil
 }
 
 var reportedByStatus = map[int]error{
 	http.StatusNotFound: domain.ErrNoSuchPullRequest,
 }
 
-func failureIn(response *http.Response) error {
-	if response.StatusCode == http.StatusOK {
+func failureIn(response *http.Response, succeeded int) error {
+	if response.StatusCode == succeeded {
 		return nil
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
