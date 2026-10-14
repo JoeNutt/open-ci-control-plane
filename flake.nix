@@ -16,6 +16,18 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
 
       documentedOpaVersion = "1.21.2";
+
+      opaAt = pkgs:
+        pkgs.open-policy-agent.overrideAttrs (_: {
+          version = documentedOpaVersion;
+          src = pkgs.fetchFromGitHub {
+            owner = "open-policy-agent";
+            repo = "opa";
+            rev = "v${documentedOpaVersion}";
+            hash = "sha256-4c6AZCTyOIj8NnzkjJg0PsSrrLPwaEwpOAWAyJbmKUI=";
+          };
+          vendorHash = "sha256-XH55Xf5ENmdOcvOzAOTIhU249rBB/D/44dJeZUKrprM=";
+        });
     in
     {
       devShells = forAllSystems (pkgs: {
@@ -33,7 +45,7 @@
             pkgs.go-tools
             pkgs.govulncheck
 
-            pkgs.open-policy-agent
+            (opaAt pkgs)
             pkgs.regal
 
             pkgs.syft
