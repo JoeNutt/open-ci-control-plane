@@ -27,6 +27,8 @@ var ErrMalformedResponseBound = errors.New("the forge settings carry no positive
 
 var ErrNoClient = errors.New("the forge settings carry no http client")
 
+var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
+
 type connection struct {
 	settings Settings
 	token    Credential
@@ -44,6 +46,9 @@ func parseConnection(settings Settings) (connection, error) {
 	}
 	if settings.MaxResponseBytes <= 0 {
 		return connection{}, fmt.Errorf("%w: %d", ErrMalformedResponseBound, settings.MaxResponseBytes)
+	}
+	if settings.Client.Timeout <= 0 {
+		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
 	token := settings.Token
 	settings.Token = Credential{}
