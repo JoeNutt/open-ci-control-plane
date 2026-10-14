@@ -29,7 +29,7 @@ type publication struct {
 func parsePublication(
 	locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
 ) (publication, error) {
-	if run.Name == "" {
+	if !isComplete(run) {
 		return publication{}, ErrIncompleteCheckRun
 	}
 	if !isAllUTF8(run.Name, run.Title, run.Summary, run.Text) {
@@ -44,6 +44,10 @@ func parsePublication(
 		return publication{}, err
 	}
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
+}
+
+func isComplete(run domain.CheckRun) bool {
+	return run.Name != "" && run.Title != "" && run.Summary != ""
 }
 
 func (pending publication) String() string {

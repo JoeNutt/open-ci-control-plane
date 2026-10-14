@@ -32,9 +32,6 @@ func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
 }
 
 func parseOutput(run domain.CheckRun) (checkRunOutput, error) {
-	if run.Title == "" || run.Summary == "" {
-		return checkRunOutput{}, ErrIncompleteCheckRun
-	}
 	if !fitsOutput(run.Summary) || !fitsOutput(run.Text) {
 		return checkRunOutput{}, ErrOutputTooLong
 	}
