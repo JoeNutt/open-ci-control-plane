@@ -35,6 +35,15 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
+	if decided.Decision.Outcome() == OutcomeEngineError {
+		family := markdownTextOf(string(decided.Family))
+		return CheckRun{
+			Name:       checkRunNamePrefix + string(decided.Family),
+			Conclusion: ConclusionFailure,
+			Summary: "Policy " + family + " failed to evaluate. This is not a problem with your change.\n\n" +
+				"Owning team: " + family + "\n\n" + fmt.Sprintf(decisionLineLayout, id),
+		}
+	}
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided),

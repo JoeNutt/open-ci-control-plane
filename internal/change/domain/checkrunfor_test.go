@@ -41,6 +41,27 @@ func TestAnEngineErrorIsAFailure(t *testing.T) {
 	}
 }
 
+func TestAnEngineErrorSaysThePolicyFailedAndNamesTheOwnerNotARule(t *testing.T) {
+	failed := evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, failed)
+
+	for _, stated := range []string{
+		"Policy security failed to evaluate. This is not a problem with your change.",
+		"Owning team: security",
+		wellFormedDecisionID,
+	} {
+		if !strings.Contains(run.Summary, stated) {
+			t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+		}
+	}
+	for _, leaked := range []string{"**Rule**", "conflicting rule outputs"} {
+		if strings.Contains(run.Summary+run.Text, leaked) {
+			t.Errorf("a policy error rendered %q:\n%s\n%s", leaked, run.Summary, run.Text)
+		}
+	}
+}
+
 func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
 	denied := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDeny))
 
