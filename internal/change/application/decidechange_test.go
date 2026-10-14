@@ -13,43 +13,13 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
-type recordingEngine struct {
-	received []domain.Document
-}
-
-func (engine *recordingEngine) Decide(
-	_ context.Context, document domain.Document,
-) (domain.Decision, error) {
-	engine.received = append(engine.received, document)
-	return domain.UndecidedDecision(), nil
-}
-
 func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
-	build := application.BuildDocument{
-		Source: memory.ChangeSource{
-			Changes: map[domain.PullRequestLocator]memory.Change{
-				locator: {
-					PullRequest: domain.PullRequest{Number: 412, Repository: "acme/payments"},
-					Files: []domain.File{
-						{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-							Additions: 12, Deletions: 3, PatchBytes: 1840},
-					},
-				},
-			},
-		},
-		Limits: domain.DeclaredLimits(),
-	}
-	engines := map[domain.PolicyFamily]*recordingEngine{}
-	held := map[domain.PolicyFamily]domain.FamilyEngine{}
-	for _, family := range domain.DeclaredPolicyFamilies() {
-		engines[family] = &recordingEngine{}
-		held[family] = engines[family]
-	}
-	gate, err := domain.ParseGate(held)
-	if err != nil {
-		t.Fatalf("parse gate: %v", err)
-	}
+	build := buildOverRecorded(locator, domain.File{
+		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+		Additions: 12, Deletions: 3, PatchBytes: 1840,
+	})
+	gate, engines := recordingGate(t)
 
 	decisions, err := application.DecideChange{Build: build, Gate: gate}.
 		Execute(context.Background(), locator)
@@ -78,30 +48,11 @@ func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 func TestAChangeThatCannotBeBuiltIsNeverDecided(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 413)
 	oversized := domain.DeclaredLimits().MaxPatchBytesPerFile + 1
-	build := application.BuildDocument{
-		Source: memory.ChangeSource{
-			Changes: map[domain.PullRequestLocator]memory.Change{
-				locator: {
-					PullRequest: domain.PullRequest{Number: 413, Repository: "acme/payments"},
-					Files: []domain.File{
-						{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-							Additions: 1, PatchBytes: oversized},
-					},
-				},
-			},
-		},
-		Limits: domain.DeclaredLimits(),
-	}
-	engines := map[domain.PolicyFamily]*recordingEngine{}
-	held := map[domain.PolicyFamily]domain.FamilyEngine{}
-	for _, family := range domain.DeclaredPolicyFamilies() {
-		engines[family] = &recordingEngine{}
-		held[family] = engines[family]
-	}
-	gate, err := domain.ParseGate(held)
-	if err != nil {
-		t.Fatalf("parse gate: %v", err)
-	}
+	build := buildOverRecorded(locator, domain.File{
+		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+		Additions: 1, PatchBytes: oversized,
+	})
+	gate, engines := recordingGate(t)
 
 	decisions, err := application.DecideChange{Build: build, Gate: gate}.
 		Execute(context.Background(), locator)
@@ -117,4 +68,46 @@ func TestAChangeThatCannotBeBuiltIsNeverDecided(t *testing.T) {
 			t.Errorf("%s was asked about a change that was never built", family)
 		}
 	}
+}
+
+func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordingEngine) {
+	t.Helper()
+
+	engines := map[domain.PolicyFamily]*recordingEngine{}
+	held := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = &recordingEngine{}
+		held[family] = engines[family]
+	}
+	gate, err := domain.ParseGate(held)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	return gate, engines
+}
+
+func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) application.BuildDocument {
+	return application.BuildDocument{
+		Source: memory.ChangeSource{
+			Changes: map[domain.PullRequestLocator]memory.Change{
+				locator: {
+					PullRequest: domain.PullRequest{
+						Number: locator.Number(), Repository: locator.Repository()},
+					Files: []domain.File{file},
+				},
+			},
+		},
+		Limits: domain.DeclaredLimits(),
+	}
+}
+
+type recordingEngine struct {
+	received []domain.Document
+}
+
+func (engine *recordingEngine) Decide(
+	_ context.Context, document domain.Document,
+) (domain.Decision, error) {
+	engine.received = append(engine.received, document)
+	return domain.UndecidedDecision(), nil
 }
