@@ -35,8 +35,8 @@ The standard is `../cryptography.md`. Here, the three checks that catch most of 
 
 ```go
 // RIGHT — CSPRNG for anything security-bearing.
-b := make([]byte, 16)
-if _, err := rand.Read(b); err != nil { return "", err }   // crypto/rand
+var entropy [16]byte
+rand.Read(entropy[:])        // crypto/rand; never returns an error — see ../cryptography.md
 ```
 
 ```go
@@ -47,7 +47,7 @@ return hmac.Equal([]byte(received), []byte(expected))
 ```go
 // RIGHT — AEAD with a fresh nonce per message.
 nonce := make([]byte, aead.NonceSize())
-if _, err := rand.Read(nonce); err != nil { return nil, err }
+rand.Read(nonce)
 sealed := aead.Seal(nonce, nonce, plaintext, aad)
 ```
 

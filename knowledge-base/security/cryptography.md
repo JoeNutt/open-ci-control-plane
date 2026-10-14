@@ -40,14 +40,19 @@ current guidance when it matters:
 ## How to use it
 
 ```go
-// RIGHT — CSPRNG for anything security-bearing.
-func newDecisionID() (string, error) {
-    b := make([]byte, 16)
-    if _, err := rand.Read(b); err != nil {    // crypto/rand
-        return "", err
-    }
-    return hex.EncodeToString(b), nil
+// RIGHT — CSPRNG for anything security-bearing. crypto/rand.Read never returns an
+// error: on a failed read it crashes the process. go doc crypto/rand.Read, Go 1.26.
+func newDecisionID() string {
+    var entropy [16]byte
+    rand.Read(entropy[:])                     // crypto/rand
+    return hex.EncodeToString(entropy[:])
 }
+```
+
+```go
+// RIGHT — a random secret string with no format of your own: rand.Text returns at
+// least 128 bits in RFC 4648 base32. go doc crypto/rand.Text, Go 1.26.
+token := rand.Text()
 ```
 
 ```go
@@ -63,7 +68,7 @@ func verifySignature(header string, body, secret []byte) bool {
 ```go
 // RIGHT — AEAD, with a fresh random nonce per message.
 nonce := make([]byte, aead.NonceSize())
-if _, err := rand.Read(nonce); err != nil { return nil, err }
+rand.Read(nonce)                                           // never fails; see above
 sealed := aead.Seal(nonce, nonce, plaintext, aad)        // nonce prefixed, never reused
 ```
 
@@ -79,6 +84,20 @@ primitive yourself.** Prefer a high-level library that picks the primitives for 
 import "math/rand"
 token := fmt.Sprintf("%d", rand.Int63())
 // Symptom: an attacker who sees two tokens can compute the rest. Use crypto/rand.
+```
+
+**An error branch on crypto/rand.Read.**
+
+```go
+// WRONG — handles a failure the call cannot report.
+if _, err := rand.Read(b); err != nil {
+    return "", err
+}
+// Symptom: the branch never runs, so no test can reach it, and the signature now
+// promises callers a failure that never comes — each of them grows its own dead
+// branch. crypto/rand.Read never returns an error and crashes the process instead
+// (go doc crypto/rand.Read, Go 1.26). Call it bare, and drop the error from the
+// signature if it was there only for this.
 ```
 
 **A byte-comparing equality check on a secret.**
