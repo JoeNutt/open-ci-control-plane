@@ -62,6 +62,12 @@ func checkRunTextTruncationOf(leftOut, total int) string {
 	if leftOut <= 0 {
 		return ""
 	}
+	if leftOut == total && total == 1 {
+		return "No violation could be listed here \u2014 1 violation in total. This list is truncated.\n"
+	}
+	if leftOut == total {
+		return fmt.Sprintf("No violation could be listed here \u2014 %d violations in total. This list is truncated.\n", total)
+	}
 	return fmt.Sprintf(checkRunTextTruncationLayout, leftOut, total)
 }
 

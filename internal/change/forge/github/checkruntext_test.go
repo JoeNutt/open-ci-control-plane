@@ -43,7 +43,7 @@ func TestCheckRunTextLaysOutEachViolationWithItsTenantTextInCodeSpans(t *testing
 	}
 
 	for _, line := range []string{
-		"**Rule** ` AUTHZ-1 ` — blocking",
+		"**Rule** ` AUTHZ-1 ` \u2014 blocking",
 		"Message: ` auth middleware changed with no authz test `",
 		"- Owning team: ` security-platform `",
 		"- Documentation: <https://example.test/policy/AUTHZ-1>",
@@ -59,7 +59,7 @@ func TestCheckRunTextCountsWhatTheDomainLeftOut(t *testing.T) {
 		count     int
 		truncated string
 	}{
-		"54 counted, 1 carried": {54, "and 53 more — 54 violations in total. This list is truncated.\n"},
+		"54 counted, 1 carried": {54, "and 53 more \u2014 54 violations in total. This list is truncated.\n"},
 		"1 counted, 1 carried":  {1, ""},
 	}
 
@@ -100,9 +100,9 @@ func TestCheckRunTextListsWholeViolationsThatFitAndCountsTheRest(t *testing.T) {
 		truncated string
 	}{
 		"one message beyond the capacity": {oversized, 0,
-			"and 1 more — 1 violations in total. This list is truncated.\n"},
+			"No violation could be listed here \u2014 1 violation in total. This list is truncated.\n"},
 		"five where two fit": {several, 2,
-			"and 3 more — 5 violations in total. This list is truncated.\n"},
+			"and 3 more \u2014 5 violations in total. This list is truncated.\n"},
 	}
 
 	for form, want := range fitting {
@@ -123,6 +123,26 @@ func TestCheckRunTextListsWholeViolationsThatFitAndCountsTheRest(t *testing.T) {
 			}
 			if strings.Contains(output.text, "mmm") && want.listed == 0 {
 				t.Errorf("a cut message appears:\n%s", output.text)
+			}
+		})
+	}
+}
+
+func TestCheckRunTextSaysWhenNothingAboveIsListed(t *testing.T) {
+	unlisted := map[string]struct {
+		leftOut, total int
+		line           string
+	}{
+		"one of one":   {1, 1, "No violation could be listed here \u2014 1 violation in total. This list is truncated.\n"},
+		"all of 54":    {54, 54, "No violation could be listed here \u2014 54 violations in total. This list is truncated.\n"},
+		"53 of 54":     {53, 54, "and 53 more \u2014 54 violations in total. This list is truncated.\n"},
+		"none omitted": {0, 3, ""},
+	}
+
+	for form, want := range unlisted {
+		t.Run(form, func(t *testing.T) {
+			if got := checkRunTextTruncationOf(want.leftOut, want.total); got != want.line {
+				t.Errorf("line is %q, want %q", got, want.line)
 			}
 		})
 	}
