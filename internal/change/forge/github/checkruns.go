@@ -4,18 +4,11 @@ package github
 
 import (
 	"context"
-	"errors"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
-
-var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
-
-var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
-
-var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
 
 type CheckRuns struct {
 	forge connection
@@ -32,14 +25,10 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 func (runs CheckRuns) PublishCheckRun(
 	ctx context.Context, locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
 ) error {
-	if run.Name == "" || run.Title == "" || run.Summary == "" {
-		return ErrIncompleteCheckRun
-	}
-	head, err := parseCommitSHA(headSHA)
+	pending, err := parsePublication(locator, headSHA, run)
 	if err != nil {
 		return err
 	}
-	pending := publication{locator: locator, head: head, run: run}
 	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint())
 	if err != nil {
 		return err
