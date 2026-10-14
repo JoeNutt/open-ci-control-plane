@@ -8,8 +8,9 @@ import "encoding/json"
 const SchemaID = "ci.diff/v1"
 
 type Document struct {
-	PR   PullRequest `json:"pr"`
-	Diff Diff        `json:"diff"`
+	PR        PullRequest `json:"pr"`
+	Diff      Diff        `json:"diff"`
+	Analyzers Analyzers   `json:"analyzers"`
 }
 
 func (document Document) MarshalJSON() ([]byte, error) {
@@ -43,10 +44,19 @@ type Approval struct {
 }
 
 type Diff struct {
-	Paths  Paths          `json:"paths"`
-	Files  Declared[File] `json:"files"`
-	Kinds  Kinds          `json:"kinds"`
-	Totals Totals         `json:"totals"`
+	Paths                 Paths                 `json:"paths"`
+	Files                 Declared[File]        `json:"files"`
+	Kinds                 Kinds                 `json:"kinds"`
+	Totals                Totals                `json:"totals"`
+	ByDir                 PathsByDir            `json:"by_dir"`
+	NewFiles              Paths                 `json:"new_files"`
+	Imports               Declared[Import]      `json:"imports"`
+	UnresolvedImportFiles int                   `json:"unresolved_import_files"`
+	ResolvedImportShare   float64               `json:"resolved_import_share"`
+	ModuleGraphDelta      ModuleGraphDelta      `json:"module_graph_delta"`
+	Sensitive             Declared[string]      `json:"sensitive"`
+	Unknown               Declared[string]      `json:"unknown"`
+	IaCResources          Declared[IaCResource] `json:"iac_resources"`
 }
 
 type Totals struct {
@@ -74,4 +84,49 @@ type File struct {
 	Additions  int        `json:"additions"`
 	Deletions  int        `json:"deletions"`
 	PatchBytes int        `json:"patch_bytes"`
+}
+
+type Import struct {
+	Path              string                `json:"path"`
+	Language          *string               `json:"language"`
+	Extractor         *string               `json:"extractor"`
+	State             ImportState           `json:"state"`
+	Refs              Declared[string]      `json:"refs"`
+	DeclarationsAdded Declared[Declaration] `json:"declarations_added"`
+}
+
+type Declaration struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+type ModuleGraphDelta struct {
+	EdgesAdded   Declared[ModuleEdge] `json:"edges_added"`
+	EdgesRemoved Declared[ModuleEdge] `json:"edges_removed"`
+	Incomplete   bool                 `json:"incomplete"`
+}
+
+type ModuleEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type IaCResource struct {
+	Path              string           `json:"path"`
+	Type              string           `json:"type"`
+	Actions           Declared[string] `json:"actions"`
+	HasWildcardAction bool             `json:"has_wildcard_action"`
+}
+
+type Analyzers struct {
+	Submitted Declared[string]  `json:"submitted"`
+	Findings  Declared[Finding] `json:"findings"`
+}
+
+type Finding struct {
+	Analyzer string   `json:"analyzer"`
+	RuleID   string   `json:"rule_id"`
+	Severity Severity `json:"severity"`
+	Path     string   `json:"path"`
+	Line     int      `json:"line"`
 }

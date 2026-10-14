@@ -100,6 +100,32 @@ released modules couples them, and that usually costs more than the duplication 
 "deduplicating" by inventing a `shared` package is relocating the problem into a module with
 no cohesion.
 
+**Collapsing derivations into a generic transformation helper.** Go's standard library has no
+`Map`, `Filter`, `Sum`, `Count` or group-by for slices — `slices` carries 41 functions and none
+of them transform, and `iter` defines only `Pull`, `Pull2`, `Seq` and `Seq2`. So a package that
+derives several values from one collection ends up with several similar walks, and they look
+like structural duplication.
+
+```go
+// WRONG — a module whose only theme is "operations on slices".
+func Mapped[In, Out any](in []In, to func(In) Out) []Out
+func Filtered[Element any](in []Element, keep func(Element) bool) []Element
+func SummedBy[Element any](in []Element, by func(Element) int) int
+// Symptom: the names say nothing about the domain, every caller reads as
+// Mapped(files, somethingOf) instead of saying what it produces, and the
+// module acquires dependencies in every direction. The global standards ban
+// `util`, `helpers` and `common` by name for this reason.
+```
+
+Write each derivation explicitly and **name it for what it returns** — `pathsOf`, `totalsOf`,
+`byDirOf`, `importsOf`. The walks are similar in shape and different in meaning, and the shape
+is the part the language forces. Collapse two only when they differ by **one** value that can
+become a parameter, as a filtered path list and an unfiltered one do.
+
+What is not this case: finding the first element matching a predicate. That one *is* named in
+the standard library — `slices.IndexFunc` — so hand-writing the walk hides the intent among
+the walks that have no alternative.
+
 **Treating deliberate mapping as duplication.** The three representations of a thing at a
 database row, a domain entity and a wire contract are not accidental copies — they change for
 different reasons.

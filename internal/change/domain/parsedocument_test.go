@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 
@@ -83,5 +84,124 @@ func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 	want := domain.Paths{"infra/iam.tf", "internal/http/routes.go"}
 	if !slices.Equal(slices.Sorted(slices.Values(document.Diff.Paths)), want) {
 		t.Fatalf("paths are %v, want %v", document.Diff.Paths, want)
+	}
+}
+
+func TestParseDocumentGroupsChangedPathsByDirectory(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.PathsByDir{
+		"infra":         {"infra/iam.tf"},
+		"internal/auth": {"internal/auth/middleware.go", "internal/auth/session.go"},
+	}
+	if !reflect.DeepEqual(document.Diff.ByDir, want) {
+		t.Fatalf("by_dir is %+v, want %+v", document.Diff.ByDir, want)
+	}
+}
+
+func TestParseDocumentListsOnlyThePathsTheChangeAdds(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded},
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/old.tf", Action: domain.FileActionRemoved},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.Paths{"internal/auth/session.go", "infra/iam.tf"}
+	if !slices.Equal(document.Diff.NewFiles, want) {
+		t.Fatalf("new_files is %v, want %v", document.Diff.NewFiles, want)
+	}
+}
+
+func TestParseDocumentCarriesAnImportEntryForEveryChangedFile(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.Declared[domain.Import]{
+		{Path: "internal/auth/middleware.go", State: domain.ImportStateUnknown},
+		{Path: "infra/iam.tf", State: domain.ImportStateUnknown},
+	}
+	if !reflect.DeepEqual(document.Diff.Imports, want) {
+		t.Fatalf("imports is %+v, want %+v", document.Diff.Imports, want)
+	}
+}
+
+func TestParseDocumentCountsTheFilesNoExtractorClaims(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+		domain.File{Path: "README.md", Action: domain.FileActionModified},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	if document.Diff.UnresolvedImportFiles != 3 {
+		t.Fatalf("unresolved_import_files is %d, want 3",
+			document.Diff.UnresolvedImportFiles)
+	}
+}
+
+func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
+	shares := map[string]struct {
+		files []domain.File
+		want  float64
+	}{
+		"no extractor claims any of three": {
+			files: []domain.File{
+				{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+				{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+				{Path: "README.md", Action: domain.FileActionModified},
+			},
+			want: 0,
+		},
+		"no changed files at all": {files: nil, want: 0},
+	}
+
+	for form, share := range shares {
+		t.Run(form, func(t *testing.T) {
+			document := domain.ParseDocument(
+				domain.PullRequest{}, withinBounds(t, share.files...))
+
+			if document.Diff.ResolvedImportShare != share.want {
+				t.Fatalf("resolved_import_share is %v, want %v",
+					document.Diff.ResolvedImportShare, share.want)
+			}
+		})
+	}
+}
+
+func TestParseDocumentMarksTheGraphDeltaIncompleteWhileAnyImportIsUnresolved(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+	)
+
+	delta := domain.ParseDocument(domain.PullRequest{}, bounded).Diff.ModuleGraphDelta
+
+	if !delta.Incomplete {
+		t.Errorf("delta reports itself complete while an import is unresolved")
+	}
+	if len(delta.EdgesAdded) != 0 || len(delta.EdgesRemoved) != 0 {
+		t.Errorf("delta claims edges with no extractor to find them: %+v", delta)
+	}
+}
+
+func TestParseDocumentMarksTheGraphDeltaCompleteWhenThereIsNothingUnresolved(t *testing.T) {
+	delta := domain.ParseDocument(
+		domain.PullRequest{}, withinBounds(t)).Diff.ModuleGraphDelta
+
+	if delta.Incomplete {
+		t.Errorf("delta reports itself incomplete with no changed files")
 	}
 }

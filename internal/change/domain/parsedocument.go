@@ -2,7 +2,10 @@
 
 package domain
 
-import "slices"
+import (
+	"path"
+	"slices"
+)
 
 func ParseDocument(pullRequest PullRequest, bounded BoundedFiles) Document {
 	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded)}
@@ -15,20 +18,42 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 }
 
 func diffOf(bounded BoundedFiles) Diff {
+	imports := importsOf(bounded.files)
+	resolution := importResolutionIn(imports)
 	return Diff{
-		Paths:  pathsOf(bounded.files),
-		Files:  slices.Clone(bounded.files),
-		Totals: totalsOf(bounded.files),
+		Paths:                 pathsOf(bounded.files),
+		Files:                 slices.Clone(bounded.files),
+		Totals:                totalsOf(bounded.files),
+		ByDir:                 byDirOf(bounded.files),
+		NewFiles:              addedPathsOf(bounded.files),
+		Imports:               imports,
+		UnresolvedImportFiles: resolution.unresolved,
+		ResolvedImportShare:   resolution.share,
+		ModuleGraphDelta:      graphDeltaFor(resolution),
 	}
 }
 
 func pathsOf(files []File) Paths {
-	paths := make(Paths, 0, len(files))
-	for _, file := range files {
-		paths = append(paths, file.Path)
-	}
-	return paths
+	return pathsMatching(files, everyFile)
 }
+
+func addedPathsOf(files []File) Paths {
+	return pathsMatching(files, fileAdded)
+}
+
+func pathsMatching(files []File, selected func(File) bool) Paths {
+	matching := make(Paths, 0, len(files))
+	for _, file := range files {
+		if selected(file) {
+			matching = append(matching, file.Path)
+		}
+	}
+	return matching
+}
+
+func everyFile(File) bool { return true }
+
+func fileAdded(file File) bool { return file.Action == FileActionAdded }
 
 func totalsOf(files []File) Totals {
 	totals := Totals{Files: len(files)}
@@ -38,4 +63,44 @@ func totalsOf(files []File) Totals {
 		totals.PatchBytes += file.PatchBytes
 	}
 	return totals
+}
+
+func byDirOf(files []File) PathsByDir {
+	byDir := make(PathsByDir, len(files))
+	for _, file := range files {
+		directory := path.Dir(file.Path)
+		byDir[directory] = append(byDir[directory], file.Path)
+	}
+	return byDir
+}
+
+func importsOf(files []File) Declared[Import] {
+	imports := make(Declared[Import], 0, len(files))
+	for _, file := range files {
+		imports = append(imports, Import{Path: file.Path, State: ImportStateUnknown})
+	}
+	return imports
+}
+
+type importResolution struct {
+	unresolved int
+	share      float64
+}
+
+func importResolutionIn(imports Declared[Import]) importResolution {
+	unresolved := 0
+	for _, imported := range imports {
+		if imported.State != ImportStateResolved {
+			unresolved++
+		}
+	}
+	resolution := importResolution{unresolved: unresolved}
+	if len(imports) > 0 {
+		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
+	}
+	return resolution
+}
+
+func graphDeltaFor(resolution importResolution) ModuleGraphDelta {
+	return ModuleGraphDelta{Incomplete: resolution.unresolved > 0}
 }

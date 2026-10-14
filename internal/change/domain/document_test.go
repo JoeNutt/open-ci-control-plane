@@ -217,3 +217,81 @@ func TestPathsEmitLexicographicallySorted(t *testing.T) {
 		t.Fatalf("want %s in %s", want, encoded)
 	}
 }
+
+func TestZeroDocumentEmitsEmptyByDirAsObject(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"by_dir":{}`) {
+		t.Fatalf(`want "by_dir":{} in %s`, encoded)
+	}
+}
+
+func TestImportEntryDeclaresEveryFieldTheSchemaNames(t *testing.T) {
+	document := domain.Document{Diff: domain.Diff{
+		Imports: domain.Declared[domain.Import]{
+			{Path: "infra/iam.tf", State: domain.ImportStateUnknown},
+		},
+	}}
+
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal document: %v", err)
+	}
+
+	for _, declared := range []string{
+		`"path":"infra/iam.tf"`, `"state":"unknown"`,
+		`"language":null`, `"extractor":null`,
+		`"refs":[]`, `"declarations_added":[]`,
+	} {
+		if !strings.Contains(string(encoded), declared) {
+			t.Errorf("want %s in %s", declared, encoded)
+		}
+	}
+}
+
+func TestZeroDocumentDeclaresBothMasksAsLists(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	for _, mask := range []string{`"sensitive":[]`, `"unknown":[]`} {
+		if !strings.Contains(string(encoded), mask) {
+			t.Errorf("want %s in %s", mask, encoded)
+		}
+	}
+}
+
+func TestZeroDocumentDeclaresIaCResourcesAsList(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"iac_resources":[]`) {
+		t.Fatalf(`want "iac_resources":[] in %s`, encoded)
+	}
+}
+
+func TestZeroDocumentDeclaresAnalyzersBesideDiff(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+
+	var decoded struct {
+		Analyzers *struct {
+			Submitted *[]string          `json:"submitted"`
+			Findings  *[]json.RawMessage `json:"findings"`
+		} `json:"analyzers"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode %s: %v", encoded, err)
+	}
+	if decoded.Analyzers == nil {
+		t.Fatalf("analyzers absent from %s", encoded)
+	}
+	if decoded.Analyzers.Submitted == nil || decoded.Analyzers.Findings == nil {
+		t.Fatalf("submitted or findings absent from %s", encoded)
+	}
+}
