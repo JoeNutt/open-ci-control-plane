@@ -79,6 +79,18 @@ func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	}
 }
 
+func TestAViolationNamesItsRuleAndOwningTeam(t *testing.T) {
+	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
+
+	for _, named := range []string{`AUTHZ\-1`, `security\-platform`} {
+		if !strings.Contains(run.Text, named) {
+			t.Errorf("text does not name %q:\n%s", named, run.Text)
+		}
+	}
+}
+
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
 	denied := decided(t, domain.EffectBlock, domain.Violation{

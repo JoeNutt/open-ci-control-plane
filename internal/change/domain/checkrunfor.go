@@ -44,7 +44,9 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
 	for _, violation := range violations {
-		text.WriteString(markdownTextOf(violation.Message) + "\n")
+		text.WriteString("**Rule** " + markdownTextOf(violation.RuleID) + "\n\n")
+		text.WriteString(markdownTextOf(violation.Message) + "\n\n")
+		text.WriteString("- Owning team: " + markdownTextOf(violation.OwningTeam) + "\n\n")
 	}
 	return text.String()
 }
