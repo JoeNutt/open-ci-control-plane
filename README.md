@@ -70,8 +70,8 @@ nix develop            # go 1.26, opa, regal, golangci-lint, staticcheck, syft, 
 go test ./...          # inside the dev shell
 ```
 
-Without Nix, you need Go 1.26 or later and the [OPA CLI](https://www.openpolicyagent.org/docs/cli)
-on your `PATH`, because the suite calls it.
+Without Nix, you need Go 1.26 or later, the [OPA CLI](https://www.openpolicyagent.org/docs/cli)
+and `cmark-gfm` on your `PATH`, because the suite calls both.
 
 ## Documentation
 

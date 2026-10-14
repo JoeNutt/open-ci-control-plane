@@ -52,6 +52,7 @@
             pkgs.cosign
 
             pkgs.jq
+            pkgs.cmark-gfm
           ];
 
           env = {

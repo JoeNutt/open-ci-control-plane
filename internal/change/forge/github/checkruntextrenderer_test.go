@@ -4,7 +4,6 @@ package github
 
 import (
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,14 +35,11 @@ func TestCheckRunTextStaysInertThroughCmarkGFM(t *testing.T) {
 func checkRunTextCmarkGFM(t *testing.T) string {
 	t.Helper()
 
-	if onPath, err := exec.LookPath("cmark-gfm"); err == nil {
-		return onPath
+	renderer, err := exec.LookPath("cmark-gfm")
+	if err != nil {
+		t.Fatalf("cmark-gfm is not on PATH; the dev shell provides it (nix develop): %v", err)
 	}
-	inStore, err := filepath.Glob("/nix/store/*-cmark-gfm-*/bin/cmark-gfm")
-	if err != nil || len(inStore) == 0 {
-		t.Skip("cmark-gfm is neither on PATH nor in /nix/store, so GitHub's renderer cannot be exercised here")
-	}
-	return inStore[0]
+	return renderer
 }
 
 func checkRunTextHTMLOf(t *testing.T, renderer, markdown string) string {
