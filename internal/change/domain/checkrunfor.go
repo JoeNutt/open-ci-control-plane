@@ -38,10 +38,12 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided),
-		Summary:    "Decision " + id.String(),
+		Summary:    fmt.Sprintf(decisionLineLayout, id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
+
+const decisionLineLayout = "Decision %s"
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 
