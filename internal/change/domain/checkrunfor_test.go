@@ -291,6 +291,25 @@ func TestAReviewWithAWarningDoesNotClaimTheMergeIsUnprevented(t *testing.T) {
 	}
 }
 
+func TestABlockWhoseViolationsDidNotBlockDoesNotBlameThem(t *testing.T) {
+	for _, severity := range []domain.EnforcementSeverity{
+		domain.EnforcementSeverityDryRun, domain.EnforcementSeverityWarn,
+	} {
+		t.Run(string(severity), func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilySecurity,
+				decided(t, domain.EffectBlock, violationAt(severity)))
+
+			stated := "Blocked by the policy. The violations below did not cause the block."
+			if !strings.HasPrefix(run.Summary, stated) {
+				t.Errorf("summary does not open with %q:\n%s", stated, run.Summary)
+			}
+			if run.Conclusion != domain.ConclusionFailure {
+				t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+			}
+		})
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 

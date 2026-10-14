@@ -40,6 +40,10 @@ var (
 	blockedNamingNoRule = runPresentation{
 		conclusion: ConclusionFailure, title: "Blocked", headline: "Blocked. The policy named no rule.",
 	}
+	blockedDespiteViolations = runPresentation{
+		conclusion: ConclusionFailure, title: "Blocked",
+		headline: "Blocked by the policy. The violations below did not cause the block.",
+	}
 	reviewRequired = runPresentation{
 		conclusion: ConclusionSuccess, title: "Review required", headline: "Review required. No rule fired.",
 	}
@@ -63,8 +67,8 @@ var presentationByState = map[decidedState]runPresentation{
 	{EffectReview, gradeAdvisory}: reviewRequiredWithAdvisory,
 	{EffectReview, gradeBlocking}: blockedByRules,
 	{EffectBlock, gradeNone}:      blockedNamingNoRule,
-	{EffectBlock, gradeRecorded}:  blockedByRules,
-	{EffectBlock, gradeAdvisory}:  blockedByRules,
+	{EffectBlock, gradeRecorded}:  blockedDespiteViolations,
+	{EffectBlock, gradeAdvisory}:  blockedDespiteViolations,
 	{EffectBlock, gradeBlocking}:  blockedByRules,
 }
 
