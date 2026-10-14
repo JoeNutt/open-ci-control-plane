@@ -82,6 +82,10 @@ func TestADecisionAcceptingAnotherMajorIsRefused(t *testing.T) {
 			"input_wellformed": true, "effect": "allow",
 			"violations": [], "reviewers": [], "fail_closed": true
 		}`,
+		"another major with the assertion withheld": `{
+			"input_wellformed": false, "schema_version_accepted": 2, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": false
+		}`,
 	}
 
 	for form, stated := range mismatched {
