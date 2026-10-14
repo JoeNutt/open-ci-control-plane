@@ -29,6 +29,14 @@ detail here** — put it where it belongs and route to it.
 Paths above are in backticks deliberately. An unbackticked `@path` is an **import**, expanded
 into context at launch — the opposite of routing. Keep imports out of this file.
 
+## Work order
+
+Take the **Ready card with the lowest `Sequence`** on the board
+(https://github.com/users/JoeNutt/projects/2) and work only that card. The sequence is the
+dependency order: card N needs only cards before it. Cards without a `Sequence` are not work
+yet. A card closes only when every obligation in its checklist is met against the SAD — the
+full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
+
 ## Read before you change
 
 | Changing | Read first |
