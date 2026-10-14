@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,9 @@ func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 
 	if !errors.Is(err, refused) {
 		t.Fatalf("want the refusal reported, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "policy/structural") {
+		t.Errorf("the refusal does not name the check run it refused: %v", err)
 	}
 	runs := recorded.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
 	if want := len(domain.DeclaredPolicyFamilies()) - 1; len(runs) != want {

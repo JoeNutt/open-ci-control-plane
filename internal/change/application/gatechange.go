@@ -5,6 +5,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -29,9 +30,9 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
-		if err := useCase.Publisher.PublishCheckRun(
-			posting, locator, head, domain.CheckRunFor(decided, id)); err != nil {
-			failures = append(failures, err)
+		run := domain.CheckRunFor(decided, id)
+		if err := useCase.Publisher.PublishCheckRun(posting, locator, head, run); err != nil {
+			failures = append(failures, fmt.Errorf("post %s: %w", run.Name, err))
 		}
 	}
 	return errors.Join(failures...)
