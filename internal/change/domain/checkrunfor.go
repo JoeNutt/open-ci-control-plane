@@ -4,7 +4,6 @@ package domain
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 )
@@ -45,19 +44,14 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 
-const uriCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&'()*+,;=%"
+const withheldDocumentationLink = "withheld, not an https link"
 
 func documentationLinkFor(stated string) string {
-	parsed, err := url.Parse(stated)
-	if err != nil || !strings.HasPrefix(stated, "https://") || parsed.Host == "" {
-		return "withheld, not an https link"
+	link, isHTTPS := markdownHTTPSAutolinkOf(stated)
+	if !isHTTPS {
+		return withheldDocumentationLink
 	}
-	for _, character := range stated {
-		if !strings.ContainsRune(uriCharacters, character) {
-			return "withheld, not an https link"
-		}
-	}
-	return "<" + stated + ">"
+	return link
 }
 
 func violationsTextFor(violations Declared[Violation]) string {

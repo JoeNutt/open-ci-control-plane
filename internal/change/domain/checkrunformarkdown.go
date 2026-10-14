@@ -4,6 +4,7 @@ package domain
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"unicode"
 )
@@ -27,4 +28,31 @@ func markdownTextOf(stated string) string {
 		}
 	}
 	return encoded.String()
+}
+
+const httpsPrefix = "https://"
+
+// CommonMark 0.31.2 section 6.5: an autolink may not contain a space, '<', '>' or
+// an ASCII control character. RFC 3986 section 2 lists the characters a URI holds.
+const uriCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" +
+	"0123456789-._~:/?#[]@!$&'()*+,;=%"
+
+func markdownHTTPSAutolinkOf(stated string) (string, bool) {
+	parsed, err := url.Parse(stated)
+	if err != nil || !strings.HasPrefix(stated, httpsPrefix) || parsed.Host == "" {
+		return "", false
+	}
+	if !isURIText(stated) {
+		return "", false
+	}
+	return "<" + stated + ">", true
+}
+
+func isURIText(stated string) bool {
+	for _, character := range stated {
+		if !strings.ContainsRune(uriCharacters, character) {
+			return false
+		}
+	}
+	return true
 }
