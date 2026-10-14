@@ -26,10 +26,13 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	return rendering(decided, id)
 }
 
+const blockedNamingNoRuleHeadline = "Blocked. The policy named no rule."
+
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	presented := verdictOf(decided.Decision).presentation()
-	if len(decided.Decision.Violations()) == 0 && presented.conclusion == ConclusionFailure {
-		presented.headline = "Blocked. The policy named no rule."
+	reached := verdictOf(decided.Decision)
+	presented := reached.presentation()
+	if reached == verdictBlocked && len(decided.Decision.Violations()) == 0 {
+		presented.headline = blockedNamingNoRuleHeadline
 	}
 	run := presented.checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
