@@ -483,7 +483,7 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
 		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
 		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
-		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, github.ErrOutputTooLong},
+		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, github.ErrUnrenderableCheckRun},
 		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
 		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
 		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, github.ErrNotUTF8},

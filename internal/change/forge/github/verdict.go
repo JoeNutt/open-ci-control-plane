@@ -13,10 +13,10 @@ import (
 // https://docs.github.com/en/rest/checks/runs
 const MaxOutputCharacters = 65535
 
-var ErrOutputTooLong = errors.New("a check run's summary or text is longer than the forge accepts")
+var ErrUnrenderableCheckRun = errors.New("a check run cannot be rendered for the forge")
 
 func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
-	output, err := parseOutput(run)
+	output, err := renderedOutputOf(run)
 	if err != nil {
 		return checkRunVerdict{}, err
 	}
@@ -31,10 +31,10 @@ func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
 	}, nil
 }
 
-func parseOutput(run domain.CheckRun) (checkRunOutput, error) {
+func renderedOutputOf(run domain.CheckRun) (checkRunOutput, error) {
 	rendered, err := checkRunTextFor(run, MaxOutputCharacters)
 	if err != nil {
-		return checkRunOutput{}, fmt.Errorf("%w: %w", ErrOutputTooLong, err)
+		return checkRunOutput{}, fmt.Errorf("%w: %w", ErrUnrenderableCheckRun, err)
 	}
 	return checkRunOutput{Title: rendered.title, Summary: rendered.summary, Text: rendered.text}, nil
 }
