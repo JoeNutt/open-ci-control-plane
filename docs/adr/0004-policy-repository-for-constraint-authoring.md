@@ -67,18 +67,14 @@ repository and the token that could change them is not in its CI.
 Policy changes get review, history and attribution for free, which is what C-11's audit
 expectations assume and what a hand-rolled JSON call does not provide.
 
-**A separate repository is the chosen mechanism, not a requirement.** FR-20's guarantee is held by
-the operator credential, so any store a governed repository cannot write satisfies it — including
-a directory on the deployment host for a single-operator install. A repository is the right default
-because review and history are what make a policy change safe to make, but an adopter running one
-repository is not obliged to create a second one, and saying otherwise would overstate FR-20.
+A repository, rather than any other store a governed repository cannot write, because review and
+history are what make a policy change safe to make. One adopter, one policy repository.
 
-**Against a solo operator the guarantee is weaker and should be stated plainly.** Where one person
-is both operator and author, they can always change their own policy; A-1 assumes tenants are
-"teams inside an organisation whose policy passes through a reviewed central repository, not
-anonymous strangers". What survives in the single-operator case is the original defect this
-project set out to fix: an *agent* cannot reach the policy, even though the human can.
+Where one person is both operator and author they can always change their own policy, which A-1's
+assumption about teams inside an organisation already implies. What survives in that case is the
+defect this project set out to fix: an *agent* cannot reach the policy, even though the human can.
 
-The reconciler itself is unbuilt and unscheduled. This record decides the approach; it does not
-schedule the work, and the YAML shape is not specified here because it is C-11's request body with
-a different serialisation.
+**No tool is built for this.** The reconciler is a workflow in the policy repository — convert each
+file with `yq` and call the endpoint with an operator token from that repository's secrets. The
+YAML shape is C-11's request body in a different serialisation, so there is nothing to design and
+nothing to maintain beyond the workflow file.
