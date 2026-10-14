@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -14,7 +13,7 @@ import (
 )
 
 func TestAPassedDecisionIsASuccessNamedForItsFamily(t *testing.T) {
-	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow, noViolations))
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow))
 
 	if run.Name != "policy/security" {
 		t.Errorf("name is %q, want %q", run.Name, "policy/security")
@@ -25,7 +24,7 @@ func TestAPassedDecisionIsASuccessNamedForItsFamily(t *testing.T) {
 }
 
 func TestABlockingEffectIsAFailure(t *testing.T) {
-	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock, noViolations))
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock))
 
 	if run.Conclusion != domain.ConclusionFailure {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
@@ -43,7 +42,7 @@ func TestAnEngineErrorIsAFailure(t *testing.T) {
 }
 
 func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
-	denied := decided(t, domain.EffectAllow, violationsAt(domain.EnforcementSeverityDeny))
+	denied := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDeny))
 
 	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
 
@@ -53,7 +52,7 @@ func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
 }
 
 func TestAWarnIsNeutral(t *testing.T) {
-	warned := decided(t, domain.EffectAllow, violationsAt(domain.EnforcementSeverityWarn))
+	warned := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityWarn))
 
 	run := checkRunFor(t, domain.PolicyFamilySecurity, warned)
 
@@ -71,7 +70,7 @@ func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
 }
 
 func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
-	denied := decided(t, domain.EffectBlock, violationsAt(domain.EnforcementSeverityDeny))
+	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
 
 	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
 
@@ -82,10 +81,10 @@ func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
-	denied := decided(t, domain.EffectBlock, violationsJSON(t, domain.Violation{
+	denied := decided(t, domain.EffectBlock, domain.Violation{
 		RuleID: "AUTHZ1", Message: forged, Severity: domain.EnforcementSeverityDeny,
 		OwningTeam: "platform", DocsURL: "https://example.test/AUTHZ1",
-	}))
+	})
 
 	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
 
@@ -106,24 +105,14 @@ func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	}
 }
 
-const noViolations = `[]`
-
-func violationsJSON(t *testing.T, violations ...domain.Violation) string {
-	t.Helper()
-
-	stated, err := json.Marshal(violations)
-	if err != nil {
-		t.Fatalf("marshal violations: %v", err)
+func violationAt(severity domain.EnforcementSeverity) domain.Violation {
+	return domain.Violation{
+		RuleID:     "AUTHZ-1",
+		Message:    "auth middleware changed with no authz test",
+		Severity:   severity,
+		OwningTeam: "security-platform",
+		DocsURL:    "https://example.test/policy/AUTHZ-1",
 	}
-	return string(stated)
-}
-
-func violationsAt(severity domain.EnforcementSeverity) string {
-	return fmt.Sprintf(`[{
-		"rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
-		"severity": %q, "owning_team": "security-platform",
-		"docs_url": "https://example.test/policy/AUTHZ-1"
-	}]`, severity)
 }
 
 func evaluatedWith(t *testing.T, engine domain.FamilyEngine) domain.Decision {
@@ -140,14 +129,21 @@ func evaluatedWith(t *testing.T, engine domain.FamilyEngine) domain.Decision {
 	return gate.DecisionsFor(context.Background(), domain.Document{})[0].Decision
 }
 
-func decided(t *testing.T, effect domain.Effect, violations string) domain.Decision {
+func decided(t *testing.T, effect domain.Effect, violations ...domain.Violation) domain.Decision {
 	t.Helper()
 
-	stated := fmt.Sprintf(`{
-		"input_wellformed": true, "schema_version_accepted": 1, "effect": %q,
-		"violations": %s, "reviewers": [], "fail_closed": true
-	}`, effect, violations)
-	parsed, err := domain.ParseDecision([]byte(stated))
+	stated, err := json.Marshal(map[string]any{
+		"input_wellformed":        true,
+		"schema_version_accepted": 1,
+		"effect":                  effect,
+		"violations":              append([]domain.Violation{}, violations...),
+		"reviewers":               []string{},
+		"fail_closed":             true,
+	})
+	if err != nil {
+		t.Fatalf("marshal decision: %v", err)
+	}
+	parsed, err := domain.ParseDecision(stated)
 	if err != nil {
 		t.Fatalf("parse decision: %v", err)
 	}

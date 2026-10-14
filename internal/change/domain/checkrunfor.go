@@ -3,10 +3,8 @@
 package domain
 
 import (
-	"fmt"
 	"slices"
 	"strings"
-	"unicode"
 )
 
 const checkRunNamePrefix = "policy/"
@@ -49,24 +47,6 @@ func violationsTextFor(violations Declared[Violation]) string {
 		text.WriteString(markdownTextOf(violation.Message) + "\n")
 	}
 	return text.String()
-}
-
-const markdownASCIIPunctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
-
-func markdownTextOf(stated string) string {
-	var encoded strings.Builder
-	for _, character := range stated {
-		switch {
-		case strings.ContainsRune(markdownASCIIPunctuation, character):
-			encoded.WriteRune('\\')
-			encoded.WriteRune(character)
-		case unicode.IsControl(character):
-			fmt.Fprintf(&encoded, "&#%d;", character)
-		default:
-			encoded.WriteRune(character)
-		}
-	}
-	return encoded.String()
 }
 
 func conclusionFor(decided FamilyDecision) Conclusion {
