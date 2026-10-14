@@ -14,6 +14,7 @@ import (
 type Settings struct {
 	BaseURL          string
 	Token            Credential
+	AppID            int64
 	Client           *http.Client
 	MaxResponseBytes int
 }

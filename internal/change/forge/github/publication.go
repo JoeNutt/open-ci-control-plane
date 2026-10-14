@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -24,6 +25,7 @@ type publication struct {
 	head    commitSHA
 	name    string
 	verdict checkRunVerdict
+	appID   int64
 }
 
 func parsePublication(
@@ -97,7 +99,10 @@ func (pending publication) checkRunsEndpoint() string {
 }
 
 func (pending publication) listingEndpoint() string {
-	query := url.Values{"check_name": {pending.name}}
+	query := url.Values{
+		"check_name": {pending.name},
+		"app_id":     {strconv.FormatInt(pending.appID, 10)},
+	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())
 }

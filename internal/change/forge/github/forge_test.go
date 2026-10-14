@@ -16,6 +16,8 @@ import (
 
 const forgeCredential github.Credential = "s3cret"
 
+const forgeAppID = 4242
+
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
 
@@ -76,6 +78,7 @@ func wellFormedSettings() github.Settings {
 	return github.Settings{
 		BaseURL:          "https://api.example",
 		Token:            forgeCredential,
+		AppID:            forgeAppID,
 		Client:           http.DefaultClient,
 		MaxResponseBytes: 1 << 20,
 	}

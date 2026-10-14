@@ -42,6 +42,7 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
+	pending.appID = runs.forge.settings.AppID
 	if err := runs.publish(ctx, pending); err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}

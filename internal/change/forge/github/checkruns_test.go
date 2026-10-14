@@ -20,6 +20,8 @@ import (
 
 const headSHA = "6dcb09b5b57875f334f61aebed695e2e4193db5e"
 
+const otherAppID = 99
+
 type wireOutput struct {
 	Title   string `json:"title"`
 	Summary string `json:"summary"`
@@ -33,6 +35,7 @@ type wireCheckRun struct {
 	Status     string     `json:"status"`
 	Conclusion string     `json:"conclusion"`
 	Output     wireOutput `json:"output"`
+	AppID      int64      `json:"-"`
 }
 
 type checkRunForge struct {
@@ -61,7 +64,8 @@ func (held *checkRunForge) list(writer http.ResponseWriter, request *http.Reques
 	named := request.URL.Query().Get("check_name")
 	matching := []wireCheckRun{}
 	for _, run := range held.runs {
-		if run.HeadSHA == request.PathValue("ref") && run.Name == named {
+		if run.HeadSHA == request.PathValue("ref") && run.Name == named &&
+			held.isOwnedAsAsked(run, request) {
 			matching = append(matching, run)
 		}
 	}
@@ -69,6 +73,14 @@ func (held *checkRunForge) list(writer http.ResponseWriter, request *http.Reques
 		"total_count": len(matching),
 		"check_runs":  matching,
 	})
+}
+
+func (held *checkRunForge) isOwnedAsAsked(run wireCheckRun, request *http.Request) bool {
+	asked := request.URL.Query().Get("app_id")
+	if asked == "" {
+		return true
+	}
+	return strconv.FormatInt(run.AppID, 10) == asked
 }
 
 func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Request) {
@@ -82,6 +94,7 @@ func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	posted.ID = int64(len(held.runs) + 1)
+	posted.AppID = forgeAppID
 	held.runs = append(held.runs, posted)
 	held.answer(writer, http.StatusCreated, posted)
 }
@@ -173,6 +186,7 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 	return wireCheckRun{
+		AppID:      forgeAppID,
 		ID:         id,
 		Name:       run.Name,
 		HeadSHA:    headSHA,
@@ -208,6 +222,26 @@ func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) 
 	}
 
 	held.mustHoldOnly(heldAs(1, second))
+}
+
+func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
+	held := newCheckRunForge(t)
+	run := securityRun()
+	foreign := heldAs(1, run)
+	foreign.AppID = otherAppID
+	foreign.Conclusion = string(domain.ConclusionSuccess)
+	held.runs = []wireCheckRun{foreign}
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	want := []wireCheckRun{foreign, heldAs(2, run)}
+	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
+		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
 }
 
 func TestPublishCheckRunRefusesToChooseBetweenRunsOfTheSameName(t *testing.T) {
