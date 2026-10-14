@@ -241,6 +241,17 @@ func TestEveryStateIsTitled(t *testing.T) {
 	}
 }
 
+func TestABlockNamingNoRuleSaysSo(t *testing.T) {
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock))
+
+	if stated := "Blocked. The policy named no rule."; !strings.HasPrefix(run.Summary, stated) {
+		t.Errorf("summary does not open with %q:\n%s", stated, run.Summary)
+	}
+	if strings.Contains(run.Summary, "rules below") {
+		t.Errorf("a block with no rule points at rules below:\n%s", run.Summary)
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 

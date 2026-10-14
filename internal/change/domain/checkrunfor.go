@@ -27,7 +27,11 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	run := verdictOf(decided.Decision).presentation().checkRunFor(decided.Family, id)
+	presented := verdictOf(decided.Decision).presentation()
+	if len(decided.Decision.Violations()) == 0 && presented.conclusion == ConclusionFailure {
+		presented.headline = "Blocked. The policy named no rule."
+	}
+	run := presented.checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
 	return run
 }
