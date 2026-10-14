@@ -44,7 +44,10 @@ func (listed checkRunListing) soundRuns() ([]listedCheckRun, error) {
 }
 
 type listedCheckRun struct {
-	ID checkRunID `json:"id"`
+	ID  checkRunID `json:"id"`
+	App *struct {
+		ID *int64 `json:"id"`
+	} `json:"app"`
 }
 
 func newestOf(listed []listedCheckRun) listedCheckRun {

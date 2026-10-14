@@ -58,7 +58,7 @@ func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
-	chosen, err := pending.exchangeGiven(listed)
+	chosen, err := pending.exchangeGiven(listed, runs.owner)
 	if err != nil {
 		return err
 	}

@@ -58,10 +58,16 @@ func isAllUTF8(texts ...string) bool {
 	return !slices.ContainsFunc(texts, isMalformed)
 }
 
-func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
-	existing, err := listed.soundRuns()
+func (pending publication) exchangeGiven(listed checkRunListing, owner appID) (exchange, error) {
+	sound, err := listed.soundRuns()
 	if err != nil {
 		return exchange{}, err
+	}
+	var existing []listedCheckRun
+	for _, run := range sound {
+		if run.App != nil && run.App.ID != nil && *run.App.ID == int64(owner) {
+			existing = append(existing, run)
+		}
 	}
 	if len(existing) == 0 {
 		return pending.creation(), nil

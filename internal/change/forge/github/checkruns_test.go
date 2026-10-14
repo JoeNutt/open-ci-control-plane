@@ -46,7 +46,11 @@ type wireCheckRun struct {
 	Status     string     `json:"status"`
 	Conclusion string     `json:"conclusion"`
 	Output     wireOutput `json:"output"`
-	AppID      int64      `json:"-"`
+	App        wireApp    `json:"app"`
+}
+
+type wireApp struct {
+	ID int64 `json:"id"`
 }
 
 type checkRunForge struct {
@@ -54,6 +58,8 @@ type checkRunForge struct {
 	server *httptest.Server
 	mutex  sync.Mutex
 	runs   []wireCheckRun
+
+	ignoresAppID bool
 }
 
 func newCheckRunForge(t *testing.T) *checkRunForge {
@@ -88,10 +94,10 @@ func (held *checkRunForge) list(writer http.ResponseWriter, request *http.Reques
 
 func (held *checkRunForge) isOwnedAsAsked(run wireCheckRun, request *http.Request) bool {
 	asked := request.URL.Query().Get("app_id")
-	if asked == "" {
+	if asked == "" || held.ignoresAppID {
 		return true
 	}
-	return strconv.FormatInt(run.AppID, 10) == asked
+	return strconv.FormatInt(run.App.ID, 10) == asked
 }
 
 func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Request) {
@@ -105,7 +111,7 @@ func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	posted.ID = int64(len(held.runs) + 1)
-	posted.AppID = forgeAppID
+	posted.App = wireApp{ID: forgeAppID}
 	held.runs = append(held.runs, posted)
 	held.answer(writer, http.StatusCreated, posted)
 }
@@ -197,7 +203,7 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 	return wireCheckRun{
-		AppID:      forgeAppID,
+		App:        wireApp{ID: forgeAppID},
 		ID:         id,
 		Name:       run.Name,
 		HeadSHA:    headSHA,
@@ -239,7 +245,7 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	held := newCheckRunForge(t)
 	run := securityRun()
 	foreign := heldAs(1, run)
-	foreign.AppID = otherAppID
+	foreign.App = wireApp{ID: otherAppID}
 	foreign.Conclusion = string(domain.ConclusionSuccess)
 	held.runs = []wireCheckRun{foreign}
 
@@ -252,6 +258,48 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	want := []wireCheckRun{foreign, heldAs(2, run)}
 	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
 		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunChecksOwnershipEvenWhenTheForgeIgnoresTheAppFilter(t *testing.T) {
+	held := newCheckRunForge(t)
+	held.ignoresAppID = true
+	run := securityRun()
+	foreign := heldAs(1, run)
+	foreign.App = wireApp{ID: otherAppID}
+	foreign.Conclusion = string(domain.ConclusionSuccess)
+	held.runs = []wireCheckRun{foreign}
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	want := []wireCheckRun{foreign, heldAs(2, run)}
+	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
+		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunNeverUpdatesARunThatNamesNoApp(t *testing.T) {
+	ownerless := []string{
+		`{"total_count": 1, "check_runs": [{"id": 7, "app": null}]}`,
+		`{"total_count": 1, "check_runs": [{"id": 7}]}`,
+		`{"total_count": 1, "check_runs": [{"id": 7, "app": {}}]}`,
+	}
+
+	for _, listing := range ownerless {
+		t.Run(listing, func(t *testing.T) {
+			server := answeringWrite(t, failedStep{http.MethodPost, http.StatusCreated, listing}, `{}`)
+
+			err := checkRunsAt(t, server).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if err != nil {
+				t.Fatalf("publish check run: %v", err)
+			}
+		})
 	}
 }
 
@@ -451,7 +499,7 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 
 const (
 	noRunsListed = `{"total_count": 0, "check_runs": []}`
-	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7}]}`
+	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7, "app": {"id": 4242}}]}`
 )
 
 type failedStep struct {
@@ -553,7 +601,7 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 }
 
 func TestPublishCheckRunTreatsAWriteAnsweredWithALargeEchoAsDone(t *testing.T) {
-	const fitsOnlyTheListing = 64
+	fitsOnlyTheListing := max(len(noRunsListed), len(run7Listed))
 	echo := `{"output": {"text": "` + strings.Repeat("x", fitsOnlyTheListing) + `"}}`
 	writes := map[string]failedStep{
 		"create": {http.MethodPost, http.StatusCreated, noRunsListed},
