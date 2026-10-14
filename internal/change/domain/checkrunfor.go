@@ -2,17 +2,29 @@
 
 package domain
 
+import "slices"
+
 const checkRunNamePrefix = "policy/"
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	conclusion := ConclusionSuccess
-	if !decided.Decision.Outcome().CarriesVerdict() || decided.Decision.Effect() == EffectBlock {
-		conclusion = ConclusionFailure
+	return CheckRun{
+		Name:       checkRunNamePrefix + string(decided.Family),
+		Conclusion: conclusionFor(decided.Decision),
 	}
-	for _, violation := range decided.Decision.Violations() {
-		if violation.Severity == EnforcementSeverityDeny {
-			conclusion = ConclusionFailure
-		}
+}
+
+func conclusionFor(decision Decision) Conclusion {
+	if !decision.Outcome().CarriesVerdict() {
+		return ConclusionFailure
 	}
-	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: conclusion}
+	if decision.Effect() == EffectBlock || isAnyDenied(decision.Violations()) {
+		return ConclusionFailure
+	}
+	return ConclusionSuccess
+}
+
+func isAnyDenied(violations Declared[Violation]) bool {
+	return slices.ContainsFunc(violations, func(violation Violation) bool {
+		return violation.Severity == EnforcementSeverityDeny
+	})
 }
