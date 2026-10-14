@@ -27,36 +27,20 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	conclusion := verdictConclusionFor(decided.Decision)
+	presented := verdictOf(decided.Decision).presentation()
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
-		Conclusion: conclusion,
-		Summary:    verdictSummaryWithViolationsFor(decided.Decision.Violations(), conclusion, id),
+		Conclusion: presented.conclusion,
+		Summary:    verdictSummaryFor(presented.headline, id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
 
-const advisoryLine = "Advisory only. The merge is not prevented."
-
-func verdictSummaryFor(conclusion Conclusion, id DecisionID) string {
-	return verdictSummaryWithViolationsFor(nil, conclusion, id)
-}
-
-func verdictSummaryWithViolationsFor(violations Declared[Violation], conclusion Conclusion, id DecisionID) string {
-	isAnyWarned := false
-	for _, violation := range violations {
-		if violation.Severity == EnforcementSeverityWarn {
-			isAnyWarned = true
-		}
+func verdictSummaryFor(headline string, id DecisionID) string {
+	if headline == "" {
+		return decisionLineFor(id)
 	}
-	if conclusion == ConclusionNeutral && violations != nil && !isAnyWarned {
-		return "Recorded only. This policy is in dry run and did not affect your pull request.\n\n" +
-			decisionLineFor(id)
-	}
-	if conclusion == ConclusionNeutral {
-		return advisoryLine + "\n\n" + decisionLineFor(id)
-	}
-	return decisionLineFor(id)
+	return headline + "\n\n" + decisionLineFor(id)
 }
 
 var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
