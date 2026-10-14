@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -79,7 +80,43 @@ func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	}
 }
 
+func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
+	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
+	denied := decided(t, domain.EffectBlock, violationsJSON(t, domain.Violation{
+		RuleID: "AUTHZ1", Message: forged, Severity: domain.EnforcementSeverityDeny,
+		OwningTeam: "platform", DocsURL: "https://example.test/AUTHZ1",
+	}))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
+
+	encoded := `fine&#10;&#10;\# Passed&#10;\[docs\]\(javascript\:alert\(1\)\) ` +
+		`\<img src\=x onerror\=alert\(1\)\>`
+	if !strings.Contains(run.Text, encoded) {
+		t.Errorf("text does not carry the encoded message %q:\n%s", encoded, run.Text)
+	}
+	for _, line := range strings.Split(run.Text, "\n") {
+		if strings.HasPrefix(strings.TrimLeft(line, " "), "#") {
+			t.Errorf("the message forged a heading: %q", line)
+		}
+	}
+	for _, raw := range []string{"](", " <img"} {
+		if strings.Contains(run.Text, raw) {
+			t.Errorf("text carries raw %q:\n%s", raw, run.Text)
+		}
+	}
+}
+
 const noViolations = `[]`
+
+func violationsJSON(t *testing.T, violations ...domain.Violation) string {
+	t.Helper()
+
+	stated, err := json.Marshal(violations)
+	if err != nil {
+		t.Fatalf("marshal violations: %v", err)
+	}
+	return string(stated)
+}
 
 func violationsAt(severity domain.EnforcementSeverity) string {
 	return fmt.Sprintf(`[{
