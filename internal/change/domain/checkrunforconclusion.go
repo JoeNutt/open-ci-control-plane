@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain
+
+import "slices"
+
+var conclusionByPosture = map[FailurePosture]Conclusion{
+	FailurePostureOpen:              ConclusionNeutral,
+	FailurePostureClosed:            ConclusionFailure,
+	FailurePostureDeclaredPerPolicy: ConclusionFailure,
+}
+
+var conclusionByEffect = map[Effect]Conclusion{
+	EffectBlock:  ConclusionFailure,
+	EffectAllow:  ConclusionSuccess,
+	EffectReview: ConclusionSuccess,
+}
+
+var conclusionBySeverity = map[EnforcementSeverity]Conclusion{
+	EnforcementSeverityDeny:   ConclusionFailure,
+	EnforcementSeverityWarn:   ConclusionNeutral,
+	EnforcementSeverityDryRun: ConclusionNeutral,
+}
+
+var conclusionsLeastRestrictiveFirst = []Conclusion{
+	ConclusionSuccess,
+	ConclusionNeutral,
+	ConclusionFailure,
+}
+
+func verdictConclusionFor(decision Decision) Conclusion {
+	conclusion := conclusionIn(conclusionByEffect, decision.Effect())
+	for _, violation := range decision.Violations() {
+		conclusion = moreRestrictive(conclusion, conclusionIn(conclusionBySeverity, violation.Severity))
+	}
+	return conclusion
+}
+
+func conclusionIn[Key comparable](conclusions map[Key]Conclusion, key Key) Conclusion {
+	conclusion, declared := conclusions[key]
+	if !declared {
+		return ConclusionFailure
+	}
+	return conclusion
+}
+
+func moreRestrictive(held, offered Conclusion) Conclusion {
+	if slices.Index(conclusionsLeastRestrictiveFirst, offered) >
+		slices.Index(conclusionsLeastRestrictiveFirst, held) {
+		return offered
+	}
+	return held
+}
