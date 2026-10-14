@@ -9,6 +9,19 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
+func TestParseCheckRunsRefusesAnAppIDThatIsNotPositive(t *testing.T) {
+	for _, appID := range []int64{0, -1, -forgeAppID} {
+		settings := wellFormedSettings()
+		settings.AppID = appID
+
+		_, err := github.ParseCheckRuns(settings)
+
+		if !errors.Is(err, github.ErrMalformedAppID) {
+			t.Errorf("app id %d: error is %v, want %v", appID, err, github.ErrMalformedAppID)
+		}
+	}
+}
+
 func TestParseCheckRunsRefusesWhatAChangeSourceRefuses(t *testing.T) {
 	refusals := map[string]struct {
 		spoil func(*github.Settings)

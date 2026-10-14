@@ -4,12 +4,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
+
+var ErrMalformedAppID = errors.New("the forge settings carry no positive GitHub App id")
 
 type CheckRuns struct {
 	forge connection
@@ -19,6 +22,9 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	forge, err := parseConnection(settings)
 	if err != nil {
 		return CheckRuns{}, err
+	}
+	if settings.AppID <= 0 {
+		return CheckRuns{}, fmt.Errorf("%w: %d", ErrMalformedAppID, settings.AppID)
 	}
 	return CheckRuns{forge: forge}, nil
 }
