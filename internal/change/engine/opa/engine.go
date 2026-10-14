@@ -74,7 +74,7 @@ func (engine *Engine) decisionFor(
 		return domain.UndecidedDecision(), nil
 	}
 	if err != nil {
-		return domain.Decision{}, fmt.Errorf("evaluate: %w", err)
+		return domain.Decision{}, fmt.Errorf("%w: %v", domain.ErrEngineFault, err)
 	}
 	stated, err := json.Marshal(answered.Result)
 	if err != nil {
