@@ -28,10 +28,22 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
-	text := checkRunTextViolationsOf(run.Violations)
-	if run.ViolationCount > len(run.Violations) {
-		text += fmt.Sprintf(checkRunTextTruncationLayout,
-			run.ViolationCount-len(run.Violations), run.ViolationCount)
+	text := ""
+	listed := 0
+	for _, violation := range run.Violations {
+		block := checkRunTextViolationsOf([]domain.CheckRunViolation{violation})
+		closing := ""
+		if run.ViolationCount-(listed+1) > 0 {
+			closing = fmt.Sprintf(checkRunTextTruncationLayout, run.ViolationCount-(listed+1), run.ViolationCount)
+		}
+		if len(text)+len(block)+len(closing) > capacity {
+			break
+		}
+		text += block
+		listed++
+	}
+	if run.ViolationCount > listed {
+		text += fmt.Sprintf(checkRunTextTruncationLayout, run.ViolationCount-listed, run.ViolationCount)
 	}
 	return checkRunTextOutput{
 		title:   run.Title,

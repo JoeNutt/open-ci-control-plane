@@ -4,6 +4,7 @@ package github
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -77,6 +78,51 @@ func TestCheckRunTextCountsWhatTheDomainLeftOut(t *testing.T) {
 			}
 			if want.truncated == "" && strings.Contains(output.text, "truncated") {
 				t.Errorf("a complete list says it is truncated:\n%s", output.text)
+			}
+		})
+	}
+}
+
+func TestCheckRunTextListsWholeViolationsThatFitAndCountsTheRest(t *testing.T) {
+	const capacity = 600
+	oversized := checkRunTextFixture(t)
+	oversized.Violations[0].Message = strings.Repeat("m", capacity)
+	several := checkRunTextFixture(t)
+	for number := 2; number <= 5; number++ {
+		violation := several.Violations[0]
+		violation.RuleID = fmt.Sprintf("RULE%02d", number)
+		several.Violations = append(several.Violations, violation)
+	}
+	several.ViolationCount = 5
+	fitting := map[string]struct {
+		run       domain.CheckRun
+		listed    int
+		truncated string
+	}{
+		"one message beyond the capacity": {oversized, 0,
+			"and 1 more — 1 violations in total. This list is truncated.\n"},
+		"five where two fit": {several, 2,
+			"and 3 more — 5 violations in total. This list is truncated.\n"},
+	}
+
+	for form, want := range fitting {
+		t.Run(form, func(t *testing.T) {
+			output, err := checkRunTextFor(want.run, capacity)
+			if err != nil {
+				t.Fatalf("render: %v", err)
+			}
+
+			if len(output.text) > capacity {
+				t.Errorf("text is %d characters, capacity %d", len(output.text), capacity)
+			}
+			if listed := strings.Count(output.text, "**Rule**"); listed != want.listed {
+				t.Errorf("listed %d violations, want %d:\n%s", listed, want.listed, output.text)
+			}
+			if !strings.HasSuffix(output.text, want.truncated) {
+				t.Errorf("text does not end %q:\n%s", want.truncated, output.text)
+			}
+			if strings.Contains(output.text, "mmm") && want.listed == 0 {
+				t.Errorf("a cut message appears:\n%s", output.text)
 			}
 		})
 	}
