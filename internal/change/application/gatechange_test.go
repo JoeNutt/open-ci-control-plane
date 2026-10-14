@@ -4,6 +4,8 @@ package application_test
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -45,6 +47,63 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	}
 }
 
+func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	build := buildOverRecorded(locator, domain.File{
+		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+		Additions: 12, Deletions: 3, PatchBytes: 1840,
+	})
+	gate, engines := recordingGate(t)
+	useCase := application.GateChange{Build: build, Gate: gate, Publisher: &memory.CheckRuns{}}
+
+	err := useCase.Execute(context.Background(), locator,
+		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+
+	if err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+	built, err := build.Execute(context.Background(), locator)
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	for family, engine := range engines {
+		if len(engine.received) != 1 {
+			t.Fatalf("%s was asked %d times, want once", family, len(engine.received))
+		}
+		if !reflect.DeepEqual(engine.received[0], built) {
+			t.Errorf("%s decided %+v, want the built document %+v",
+				family, engine.received[0], built)
+		}
+	}
+}
+
+func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 413)
+	oversized := domain.DeclaredLimits().MaxPatchBytesPerFile + 1
+	build := buildOverRecorded(locator, domain.File{
+		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+		Additions: 1, PatchBytes: oversized,
+	})
+	gate, engines := recordingGate(t)
+	published := &memory.CheckRuns{}
+	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+
+	err := useCase.Execute(context.Background(), locator,
+		decisionIDOf(t, "dec_0123456789abcdef0123456789abcdef"))
+
+	if !errors.Is(err, domain.ErrFilePatchTooLarge) {
+		t.Fatalf("want ErrFilePatchTooLarge, got %v", err)
+	}
+	for family, engine := range engines {
+		if len(engine.received) != 0 {
+			t.Errorf("%s was asked about a change that was never built", family)
+		}
+	}
+	if runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA)); len(runs) != 0 {
+		t.Errorf("a change that was never built was published: %v", runs)
+	}
+}
+
 func decisionIDOf(t *testing.T, stated string) domain.DecisionID {
 	t.Helper()
 
@@ -63,4 +122,49 @@ func commitSHAOf(t *testing.T, stated string) domain.CommitSHA {
 		t.Fatalf("parse commit SHA: %v", err)
 	}
 	return head
+}
+
+func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordingEngine) {
+	t.Helper()
+
+	engines := map[domain.PolicyFamily]*recordingEngine{}
+	held := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = &recordingEngine{}
+		held[family] = engines[family]
+	}
+	gate, err := domain.ParseGate(held)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	return gate, engines
+}
+
+const recordedHeadSHA = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
+
+func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) application.BuildDocument {
+	return application.BuildDocument{
+		Source: memory.ChangeSource{
+			Changes: map[domain.PullRequestLocator]memory.Change{
+				locator: {
+					PullRequest: domain.PullRequest{
+						Number: locator.Number(), Repository: locator.Repository(),
+						HeadSHA: recordedHeadSHA},
+					Files: []domain.File{file},
+				},
+			},
+		},
+		Limits: domain.DeclaredLimits(),
+	}
+}
+
+type recordingEngine struct {
+	received []domain.Document
+}
+
+func (engine *recordingEngine) Decide(
+	_ context.Context, document domain.Document,
+) (domain.Decision, error) {
+	engine.received = append(engine.received, document)
+	return domain.UndecidedDecision(), nil
 }
