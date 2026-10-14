@@ -16,6 +16,8 @@ const (
 
 var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
 
+var ErrMalformedListedRun = errors.New("the forge listed a check run without a positive id")
+
 type checkRunID int64
 
 type checkRunListing struct {
@@ -27,6 +29,11 @@ func (listed checkRunListing) consistentRuns() ([]listedCheckRun, error) {
 	if listed.TotalCount != len(listed.CheckRuns) {
 		return nil, fmt.Errorf("%w: a count of %d beside %d runs",
 			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
+	}
+	for _, run := range listed.CheckRuns {
+		if run.ID <= 0 {
+			return nil, fmt.Errorf("%w: id %d", ErrMalformedListedRun, run.ID)
+		}
 	}
 	return listed.CheckRuns, nil
 }

@@ -309,6 +309,28 @@ func listingOnly(t *testing.T, status int, listing string) *httptest.Server {
 	})
 }
 
+func TestPublishCheckRunRefusesAListedRunWithoutAPositiveID(t *testing.T) {
+	malformed := []string{
+		`{"total_count": 1, "check_runs": [{}]}`,
+		`{"total_count": 1, "check_runs": [{"id": 0}]}`,
+		`{"total_count": 1, "check_runs": [{"id": -3}]}`,
+		`{"total_count": 2, "check_runs": [{"id": 9}, {"id": 0}]}`,
+	}
+
+	for _, listing := range malformed {
+		t.Run(listing, func(t *testing.T) {
+			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
+
+			err := runs.PublishCheckRun(context.Background(),
+				locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+			if !errors.Is(err, github.ErrMalformedListedRun) {
+				t.Fatalf("error is %v, want %v", err, github.ErrMalformedListedRun)
+			}
+		})
+	}
+}
+
 func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing.T) {
 	disagreeing := []string{
 		`{"total_count": 1, "check_runs": []}`,
