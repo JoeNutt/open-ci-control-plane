@@ -47,6 +47,10 @@ var (
 		conclusion: ConclusionNeutral, title: "Review required",
 		headline: "Review required. The violations below are recorded only, from a policy in dry run.",
 	}
+	reviewRequiredWithAdvisory = runPresentation{
+		conclusion: ConclusionNeutral, title: "Review required",
+		headline: "Review required. The violations below are advisory.",
+	}
 )
 
 var presentationByState = map[decidedState]runPresentation{
@@ -56,7 +60,7 @@ var presentationByState = map[decidedState]runPresentation{
 	{EffectAllow, gradeBlocking}:  blockedByRules,
 	{EffectReview, gradeNone}:     reviewRequired,
 	{EffectReview, gradeRecorded}: reviewRequiredWithRecorded,
-	{EffectReview, gradeAdvisory}: advisory,
+	{EffectReview, gradeAdvisory}: reviewRequiredWithAdvisory,
 	{EffectReview, gradeBlocking}: blockedByRules,
 	{EffectBlock, gradeNone}:      blockedNamingNoRule,
 	{EffectBlock, gradeRecorded}:  blockedByRules,

@@ -277,6 +277,20 @@ func TestAReviewWithADryRunDoesNotClaimTheChangeWasUnaffected(t *testing.T) {
 	}
 }
 
+func TestAReviewWithAWarningDoesNotClaimTheMergeIsUnprevented(t *testing.T) {
+	reviewed := decided(t, domain.EffectReview, violationAt(domain.EnforcementSeverityWarn))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, reviewed)
+
+	stated := "Review required. The violations below are advisory."
+	if !strings.HasPrefix(run.Summary, stated) {
+		t.Errorf("summary does not open with %q:\n%s", stated, run.Summary)
+	}
+	if strings.Contains(run.Summary, "not prevented") {
+		t.Errorf("a review claims the merge is not prevented:\n%s", run.Summary)
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 
