@@ -198,6 +198,43 @@ func TestAPassedOrBlockedVerdictIsStated(t *testing.T) {
 	}
 }
 
+func TestEveryStateIsTitled(t *testing.T) {
+	titled := map[string]struct {
+		family   domain.PolicyFamily
+		decision func(t *testing.T) domain.Decision
+		title    string
+	}{
+		"passed": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return decided(t, domain.EffectAllow)
+		}, "Passed"},
+		"recorded": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
+		}, "Recorded only"},
+		"warned": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityWarn))
+		}, "Advisory"},
+		"blocked": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return decided(t, domain.EffectBlock)
+		}, "Blocked"},
+		"policy error": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
+		}, "Policy failed to evaluate"},
+		"admitted without a decision": {domain.PolicyFamilyQuality, func(*testing.T) domain.Decision {
+			return domain.UndecidedDecision()
+		}, "Admitted without a decision"},
+	}
+
+	for state, want := range titled {
+		t.Run(state, func(t *testing.T) {
+			run := checkRunFor(t, want.family, want.decision(t))
+
+			if run.Title != want.title {
+				t.Errorf("title is %q, want %q", run.Title, want.title)
+			}
+		})
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 

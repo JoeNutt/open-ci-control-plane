@@ -31,6 +31,7 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: presented.conclusion,
+		Title:      presented.title,
 		Summary:    summaryWith(presented.headline, id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
@@ -57,6 +58,7 @@ func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) Chec
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: ConclusionNeutral,
+		Title:      "Admitted without a decision",
 		Summary: summaryWith(
 			fmt.Sprintf(admittedWithoutDecisionLayout, markdownTextOf(string(decided.Family))), id),
 	}
@@ -69,6 +71,7 @@ func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: ConclusionFailure,
+		Title:      "Policy failed to evaluate",
 		Summary: summaryWith(
 			fmt.Sprintf(policyErrorLayout, markdownTextOf(string(decided.Family))), id),
 	}

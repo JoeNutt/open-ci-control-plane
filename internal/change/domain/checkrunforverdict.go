@@ -25,6 +25,7 @@ var verdictBySeverity = map[EnforcementSeverity]verdict{
 
 type verdictPresentation struct {
 	conclusion Conclusion
+	title      string
 	headline   string
 }
 
@@ -36,10 +37,10 @@ const (
 )
 
 var presentationByVerdict = [...]verdictPresentation{
-	verdictPassed:   {conclusion: ConclusionSuccess, headline: passedHeadline},
-	verdictRecorded: {conclusion: ConclusionNeutral, headline: recordedOnlyHeadline},
-	verdictWarned:   {conclusion: ConclusionNeutral, headline: advisoryHeadline},
-	verdictBlocked:  {conclusion: ConclusionFailure, headline: blockedHeadline},
+	verdictPassed:   {conclusion: ConclusionSuccess, title: "Passed", headline: passedHeadline},
+	verdictRecorded: {conclusion: ConclusionNeutral, title: "Recorded only", headline: recordedOnlyHeadline},
+	verdictWarned:   {conclusion: ConclusionNeutral, title: "Advisory", headline: advisoryHeadline},
+	verdictBlocked:  {conclusion: ConclusionFailure, title: "Blocked", headline: blockedHeadline},
 }
 
 func verdictOf(decision Decision) verdict {
