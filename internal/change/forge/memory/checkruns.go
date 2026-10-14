@@ -11,7 +11,7 @@ import (
 
 type commit struct {
 	locator domain.PullRequestLocator
-	headSHA string
+	head    domain.CommitSHA
 }
 
 type CheckRuns struct {
@@ -19,12 +19,12 @@ type CheckRuns struct {
 }
 
 func (runs *CheckRuns) PublishCheckRun(
-	_ context.Context, locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
+	_ context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
 ) error {
 	if runs.published == nil {
 		runs.published = map[commit]map[string]domain.CheckRun{}
 	}
-	key := commit{locator: locator, headSHA: headSHA}
+	key := commit{locator: locator, head: head}
 	if runs.published[key] == nil {
 		runs.published[key] = map[string]domain.CheckRun{}
 	}
@@ -33,7 +33,7 @@ func (runs *CheckRuns) PublishCheckRun(
 }
 
 func (runs *CheckRuns) PublishedOn(
-	locator domain.PullRequestLocator, headSHA string,
+	locator domain.PullRequestLocator, head domain.CommitSHA,
 ) map[string]domain.CheckRun {
-	return maps.Clone(runs.published[commit{locator: locator, headSHA: headSHA}])
+	return maps.Clone(runs.published[commit{locator: locator, head: head}])
 }

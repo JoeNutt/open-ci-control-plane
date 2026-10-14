@@ -23,6 +23,14 @@ import (
 
 const headSHA = "6dcb09b5b57875f334f61aebed695e2e4193db5e"
 
+var headCommit = func() domain.CommitSHA {
+	head, err := domain.ParseCommitSHA(headSHA)
+	if err != nil {
+		panic(err)
+	}
+	return head
+}()
+
 const otherAppID = 99
 
 type wireOutput struct {
@@ -179,7 +187,7 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 	run := securityRun()
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
@@ -219,7 +227,7 @@ func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) 
 	second.Text = ""
 
 	for _, run := range []domain.CheckRun{first, second} {
-		if err := runs.PublishCheckRun(context.Background(), locator, headSHA, run); err != nil {
+		if err := runs.PublishCheckRun(context.Background(), locator, headCommit, run); err != nil {
 			t.Fatalf("publish check run: %v", err)
 		}
 	}
@@ -236,7 +244,7 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	held.runs = []wireCheckRun{foreign}
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
@@ -272,7 +280,7 @@ func mustListExactlyFor(t *testing.T, name string) {
 	run.Name = name
 
 	err := checkRunsAt(t, server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
@@ -296,7 +304,7 @@ func TestPublishCheckRunUpdatesTheNewestOfSeveralRunsOfTheSameName(t *testing.T)
 	later.Title = "no violations"
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, later)
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, later)
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
@@ -334,7 +342,7 @@ func TestPublishCheckRunRefusesAListedRunWithoutAPositiveID(t *testing.T) {
 			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
 
 			err := runs.PublishCheckRun(context.Background(),
-				locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+				locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 			if !errors.Is(err, github.ErrMalformedListedRun) {
 				t.Fatalf("error is %v, want %v", err, github.ErrMalformedListedRun)
@@ -354,7 +362,7 @@ func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing
 			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
 
 			err := runs.PublishCheckRun(context.Background(),
-				locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+				locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 			if !errors.Is(err, github.ErrInconsistentListing) {
 				t.Fatalf("error is %v, want %v", err, github.ErrInconsistentListing)
@@ -392,7 +400,7 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 			refusal.spoil(&run)
 
 			err := runs.PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 			if !errors.Is(err, refusal.want) {
 				t.Fatalf("error is %v, want %v", err, refusal.want)
@@ -408,7 +416,7 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 	run.Text = strings.Repeat("✓", github.MaxOutputCharacters)
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
@@ -453,7 +461,7 @@ func TestPublishCheckRunAcceptsOnlyTheSuccessStatusEachCallPromises(t *testing.T
 	for name, step := range otherSuccesses {
 		t.Run(name, func(t *testing.T) {
 			err := checkRunsAt(t, failingOn(t, step)).PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 			if !errors.Is(err, github.ErrUnexpectedStatus) {
 				t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
@@ -475,7 +483,7 @@ func TestPublishCheckRunNamesWhatTheForgeCouldNotFind(t *testing.T) {
 	for step, answer := range notFound {
 		t.Run(step, func(t *testing.T) {
 			err := checkRunsAt(t, failingOn(t, answer.step)).PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 			if !errors.Is(err, github.ErrCheckRunTargetNotFound) {
 				t.Fatalf("error is %v, want %v", err, github.ErrCheckRunTargetNotFound)
@@ -502,7 +510,7 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 			run := securityRun()
 
 			err := checkRunsAt(t, server).PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
 			if !errors.Is(err, github.ErrUnexpectedStatus) {
 				t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
@@ -533,7 +541,7 @@ func TestPublishCheckRunTreatsAWriteAnsweredWithALargeEchoAsDone(t *testing.T) {
 			settings.MaxResponseBytes = fitsOnlyTheListing
 
 			err := checkRunsWith(t, settings).PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 			if err != nil {
 				t.Fatalf("publish check run: %v", err)
@@ -594,7 +602,7 @@ func publishOverListing(t *testing.T, listing string, bound int) (*countedBody, 
 	settings.Client = &http.Client{Transport: listingTransport{body: body}}
 	settings.MaxResponseBytes = bound
 	err := checkRunsWith(t, settings).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 	return body, err
 }
 
@@ -626,28 +634,13 @@ func refusingEveryRequest(t *testing.T) *httptest.Server {
 	})
 }
 
-func TestPublishCheckRunRefusesAMalformedHeadSHAWithoutAsking(t *testing.T) {
-	malformed := []string{
-		"",
-		"6dcb09b",
-		"6DCB09B5B57875F334F61AEBED695E2E4193DB5E",
-		headSHA + "0",
-		headSHA[:39],
-		"6dcb09b5b57875f334f61aebed695e2e4193db5g",
-		"../../../../../user/repos?per_page=100000",
-		"6dcb09b5b57875f334f61aebed695e2e/../../x",
-		"6dcb09b5b57875f334f61aebed695e2e4193d%2f",
-	}
+func TestPublishCheckRunRefusesAnUnparsedHeadWithoutAsking(t *testing.T) {
 	runs := checkRunsAt(t, refusingEveryRequest(t))
 
-	for _, sha := range malformed {
-		t.Run(sha, func(t *testing.T) {
-			err := runs.PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), sha, securityRun())
+	err := runs.PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), domain.CommitSHA{}, securityRun())
 
-			if !errors.Is(err, github.ErrMalformedHeadSHA) {
-				t.Fatalf("error is %v, want %v", err, github.ErrMalformedHeadSHA)
-			}
-		})
+	if !errors.Is(err, github.ErrMalformedHeadSHA) {
+		t.Fatalf("error is %v, want %v", err, github.ErrMalformedHeadSHA)
 	}
 }
