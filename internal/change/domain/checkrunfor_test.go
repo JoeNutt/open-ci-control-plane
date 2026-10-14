@@ -83,18 +83,23 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 		violations []domain.Violation
 		conclusion domain.Conclusion
 		title      string
+		headline   string
 	}{
-		"block alone":            {domain.EffectBlock, nil, domain.ConclusionFailure, "Blocked"},
-		"deny under allow":       {domain.EffectAllow, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked"},
-		"warn alone":             {domain.EffectAllow, []domain.Violation{warn}, domain.ConclusionNeutral, "Advisory"},
-		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Review required"},
-		"warn then deny":         {domain.EffectAllow, []domain.Violation{warn, deny}, domain.ConclusionFailure, "Blocked"},
-		"deny then warn":         {domain.EffectAllow, []domain.Violation{deny, warn}, domain.ConclusionFailure, "Blocked"},
-		"dry run then warn":      {domain.EffectAllow, []domain.Violation{dryRun, warn}, domain.ConclusionNeutral, "Advisory"},
-		"warn then dry run":      {domain.EffectAllow, []domain.Violation{warn, dryRun}, domain.ConclusionNeutral, "Advisory"},
-		"block with a dry run":   {domain.EffectBlock, []domain.Violation{dryRun}, domain.ConclusionFailure, "Blocked"},
-		"review with a dry run":  {domain.EffectReview, []domain.Violation{dryRun}, domain.ConclusionNeutral, "Review required"},
-		"allow with a late deny": {domain.EffectAllow, []domain.Violation{dryRun, warn, deny}, domain.ConclusionFailure, "Blocked"},
+		"block alone":            {domain.EffectBlock, nil, domain.ConclusionFailure, "Blocked", ""},
+		"deny under allow":       {domain.EffectAllow, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked", ""},
+		"warn alone":             {domain.EffectAllow, []domain.Violation{warn}, domain.ConclusionNeutral, "Advisory", ""},
+		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Review required", ""},
+		"warn then deny":         {domain.EffectAllow, []domain.Violation{warn, deny}, domain.ConclusionFailure, "Blocked", ""},
+		"deny then warn":         {domain.EffectAllow, []domain.Violation{deny, warn}, domain.ConclusionFailure, "Blocked", ""},
+		"dry run then warn":      {domain.EffectAllow, []domain.Violation{dryRun, warn}, domain.ConclusionNeutral, "Advisory", ""},
+		"warn then dry run":      {domain.EffectAllow, []domain.Violation{warn, dryRun}, domain.ConclusionNeutral, "Advisory", ""},
+		"block with a dry run":   {domain.EffectBlock, []domain.Violation{dryRun}, domain.ConclusionFailure, "Blocked", ""},
+		"review with a dry run":  {domain.EffectReview, []domain.Violation{dryRun}, domain.ConclusionNeutral, "Review required", ""},
+		"allow with a late deny": {domain.EffectAllow, []domain.Violation{dryRun, warn, deny}, domain.ConclusionFailure, "Blocked", ""},
+		"deny under review": {domain.EffectReview, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked",
+			"Blocked by the rules below."},
+		"warn under review": {domain.EffectReview, []domain.Violation{warn}, domain.ConclusionNeutral, "Review required",
+			"Review required. The violations below are advisory."},
 	}
 
 	for form, want := range mixed {
@@ -104,6 +109,9 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 			if run.Conclusion != want.conclusion || run.Title != want.title {
 				t.Errorf("concluded %q titled %q, want %q titled %q",
 					run.Conclusion, run.Title, want.conclusion, want.title)
+			}
+			if want.headline != "" && run.Headline != want.headline {
+				t.Errorf("headline is %q, want %q", run.Headline, want.headline)
 			}
 		})
 	}
