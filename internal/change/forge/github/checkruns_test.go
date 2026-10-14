@@ -428,6 +428,28 @@ func failingOn(t *testing.T, step failedStep) *httptest.Server {
 	})
 }
 
+func TestPublishCheckRunAcceptsOnlyTheSuccessStatusEachCallPromises(t *testing.T) {
+	otherSuccesses := map[string]failedStep{
+		"listing created":          {http.MethodGet, http.StatusCreated, noRunsListed},
+		"listing accepted":         {http.MethodGet, http.StatusAccepted, noRunsListed},
+		"create ok":                {http.MethodPost, http.StatusOK, noRunsListed},
+		"create non-authoritative": {http.MethodPost, http.StatusNonAuthoritativeInfo, noRunsListed},
+		"update created":           {http.MethodPatch, http.StatusCreated, run7Listed},
+		"update accepted":          {http.MethodPatch, http.StatusAccepted, run7Listed},
+	}
+
+	for name, step := range otherSuccesses {
+		t.Run(name, func(t *testing.T) {
+			err := checkRunsAt(t, failingOn(t, step)).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+			if !errors.Is(err, github.ErrUnexpectedStatus) {
+				t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+			}
+		})
+	}
+}
+
 func TestPublishCheckRunNamesWhatTheForgeCouldNotFind(t *testing.T) {
 	notFound := map[string]struct {
 		step    failedStep
