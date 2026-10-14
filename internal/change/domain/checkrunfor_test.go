@@ -124,6 +124,23 @@ func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
 	}
 }
 
+func TestEveryRunCarriesItsDecisionIdentifier(t *testing.T) {
+	runs := map[string]domain.CheckRun{
+		"decided":   checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow)),
+		"undecided": checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision()),
+		"policy error": checkRunFor(t, domain.PolicyFamilySecurity,
+			evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})),
+	}
+
+	for state, run := range runs {
+		t.Run(state, func(t *testing.T) {
+			if run.DecisionID.String() != wellFormedDecisionID {
+				t.Errorf("decision identifier is %q, want %q", run.DecisionID, wellFormedDecisionID)
+			}
+		})
+	}
+}
+
 func TestTheSummaryCarriesTheDecisionIdentifier(t *testing.T) {
 	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow))
 

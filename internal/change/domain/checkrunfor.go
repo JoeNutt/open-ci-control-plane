@@ -84,6 +84,7 @@ func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID)
 		Conclusion: presented.conclusion,
 		Title:      presented.title,
 		Headline:   presented.headline,
+		DecisionID: id,
 		Summary:    fmt.Sprintf(summaryLayout, presented.headline, id),
 	}
 }

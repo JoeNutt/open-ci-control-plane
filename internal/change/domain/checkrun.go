@@ -9,4 +9,5 @@ type CheckRun struct {
 	Headline   string
 	Summary    string
 	Text       string
+	DecisionID DecisionID
 }
