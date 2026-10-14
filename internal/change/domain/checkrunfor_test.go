@@ -310,6 +310,34 @@ func TestABlockWhoseViolationsDidNotBlockDoesNotBlameThem(t *testing.T) {
 	}
 }
 
+func TestEveryStateCarriesAPlainHeadline(t *testing.T) {
+	headed := map[string]struct {
+		family   domain.PolicyFamily
+		decision func(t *testing.T) domain.Decision
+		headline string
+	}{
+		"passed": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return decided(t, domain.EffectAllow)
+		}, "Passed. No rule fired."},
+		"policy error": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
+			return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
+		}, "Policy security failed to evaluate. This is not a problem with your change."},
+		"admitted": {domain.PolicyFamilyQuality, func(*testing.T) domain.Decision {
+			return domain.UndecidedDecision()
+		}, "Policy quality could not be evaluated and this change was admitted without a decision."},
+	}
+
+	for state, want := range headed {
+		t.Run(state, func(t *testing.T) {
+			run := checkRunFor(t, want.family, want.decision(t))
+
+			if run.Headline != want.headline {
+				t.Errorf("headline is %q, want %q", run.Headline, want.headline)
+			}
+		})
+	}
+}
+
 func TestADryRunIsRecordedOnly(t *testing.T) {
 	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
 
