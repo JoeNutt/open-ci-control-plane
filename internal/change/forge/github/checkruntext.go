@@ -5,13 +5,17 @@ package github
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
 
-const checkRunTextSummaryLayout = "%s\n\nDecision `%s`"
+const (
+	checkRunTextSummaryLayout   = "%s\n\nDecision `%s`"
+	checkRunTextViolationLayout = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n\n"
+)
 
 type checkRunTextOutput struct {
 	title   string
@@ -23,15 +27,21 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
-	text := ""
-	for _, violation := range run.Violations {
-		text += "**Rule** ` " + violation.RuleID + " ` — " + violation.Marking + "\n\n" +
-			"Message: ` " + violation.Message + " `\n\n" +
-			"- Owning team: ` " + violation.OwningTeam + " `\n\n"
-	}
 	return checkRunTextOutput{
 		title:   run.Title,
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
-		text:    text,
+		text:    checkRunTextViolationsOf(run.Violations),
 	}, nil
+}
+
+func checkRunTextViolationsOf(violations []domain.CheckRunViolation) string {
+	var text strings.Builder
+	for _, violation := range violations {
+		fmt.Fprintf(&text, checkRunTextViolationLayout,
+			markdownCodeSpanOf(violation.RuleID),
+			violation.Marking,
+			markdownCodeSpanOf(violation.Message),
+			markdownCodeSpanOf(violation.OwningTeam))
+	}
+	return text.String()
 }
