@@ -4,7 +4,7 @@ package github
 
 import (
 	"errors"
-	"unicode/utf8"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -32,12 +32,9 @@ func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
 }
 
 func parseOutput(run domain.CheckRun) (checkRunOutput, error) {
-	if !fitsOutput(run.Summary) || !fitsOutput(run.Text) {
-		return checkRunOutput{}, ErrOutputTooLong
+	rendered, err := checkRunTextFor(run, MaxOutputCharacters)
+	if err != nil {
+		return checkRunOutput{}, fmt.Errorf("%w: %w", ErrOutputTooLong, err)
 	}
-	return checkRunOutput{Title: run.Title, Summary: run.Summary, Text: run.Text}, nil
-}
-
-func fitsOutput(field string) bool {
-	return utf8.RuneCountInString(field) <= MaxOutputCharacters
+	return checkRunOutput{Title: rendered.title, Summary: rendered.summary, Text: rendered.text}, nil
 }

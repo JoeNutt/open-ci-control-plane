@@ -17,6 +17,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -184,10 +185,24 @@ func securityRun() domain.CheckRun {
 		Name:       "policy/security",
 		Conclusion: domain.ConclusionFailure,
 		Title:      "1 violation",
-		Summary:    "secrets.no_plaintext refused the change",
-		Text:       "config/prod.env: a credential is committed",
+		Headline:   "secrets.no_plaintext refused the change",
+		DecisionID: decisionID,
+		Violations: []domain.CheckRunViolation{{
+			RuleID: "secrets.no_plaintext", Message: "config/prod.env: a credential is committed",
+			OwningTeam: "security-platform", DocsURL: "https://docs.example.com/secrets",
+			Marking: "blocking",
+		}},
+		ViolationCount: 1,
 	}
 }
+
+var decisionID = func() domain.DecisionID {
+	id, err := domain.ParseDecisionID("dec_0123456789abcdef0123456789abcdef")
+	if err != nil {
+		panic(err)
+	}
+	return id
+}()
 
 func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 	held := newCheckRunForge(t)
@@ -210,8 +225,16 @@ func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 		HeadSHA:    headSHA,
 		Status:     "completed",
 		Conclusion: string(run.Conclusion),
-		Output:     wireOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
+		Output:     renderedOutputOf(run),
 	}
+}
+
+func renderedOutputOf(run domain.CheckRun) wireOutput {
+	title, summary, text, err := github.RenderedForGitHub(run)
+	if err != nil {
+		panic(err)
+	}
+	return wireOutput{Title: title, Summary: summary, Text: text}
 }
 
 func (held *checkRunForge) mustHoldOnly(want wireCheckRun) {
@@ -230,8 +253,9 @@ func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) 
 	second := first
 	second.Conclusion = domain.ConclusionSuccess
 	second.Title = "no violations"
-	second.Summary = "every security policy admitted the change"
-	second.Text = ""
+	second.Headline = "every security policy admitted the change"
+	second.Violations = nil
+	second.ViolationCount = 0
 
 	for _, run := range []domain.CheckRun{first, second} {
 		if err := runs.PublishCheckRun(context.Background(), locator, headCommit, run); err != nil {
@@ -448,24 +472,21 @@ func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing
 
 func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 	const notUTF8 = "policy \xff refused"
-	overlong := strings.Repeat("x", github.MaxOutputCharacters+1)
 	unpublishable := map[string]struct {
 		spoil func(*domain.CheckRun)
 		want  error
 	}{
-		"no name":           {func(run *domain.CheckRun) { run.Name = "" }, github.ErrIncompleteCheckRun},
-		"no title":          {func(run *domain.CheckRun) { run.Title = "" }, github.ErrIncompleteCheckRun},
-		"no summary":        {func(run *domain.CheckRun) { run.Summary = "" }, github.ErrIncompleteCheckRun},
-		"no conclusion":     {func(run *domain.CheckRun) { run.Conclusion = "" }, domain.ErrUnknownConclusion},
-		"skipped":           {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
-		"action_required":   {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
-		"SUCCESS":           {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
-		"overlong summary":  {func(run *domain.CheckRun) { run.Summary = overlong }, github.ErrOutputTooLong},
-		"overlong text":     {func(run *domain.CheckRun) { run.Text = overlong }, github.ErrOutputTooLong},
-		"name not UTF-8":    {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
-		"title not UTF-8":   {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
-		"summary not UTF-8": {func(run *domain.CheckRun) { run.Summary = notUTF8 }, github.ErrNotUTF8},
-		"text not UTF-8":    {func(run *domain.CheckRun) { run.Text = notUTF8 }, github.ErrNotUTF8},
+		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, github.ErrIncompleteCheckRun},
+		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, github.ErrIncompleteCheckRun},
+		"no headline":        {func(run *domain.CheckRun) { run.Headline = "" }, github.ErrIncompleteCheckRun},
+		"no conclusion":      {func(run *domain.CheckRun) { run.Conclusion = "" }, domain.ErrUnknownConclusion},
+		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
+		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
+		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
+		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, github.ErrOutputTooLong},
+		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
+		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
+		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, github.ErrNotUTF8},
 	}
 	runs := checkRunsAt(t, refusingEveryRequest(t))
 
@@ -484,11 +505,10 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 	}
 }
 
-func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
+func TestPublishCheckRunFitsAViolationLongerThanTheForgeAcceptsWithinItsLimit(t *testing.T) {
 	held := newCheckRunForge(t)
 	run := securityRun()
-	run.Summary = strings.Repeat("é", github.MaxOutputCharacters)
-	run.Text = strings.Repeat("✓", github.MaxOutputCharacters)
+	run.Violations[0].Message = strings.Repeat("é", github.MaxOutputCharacters+1)
 
 	err := checkRunsAt(t, held.server).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
@@ -496,7 +516,20 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
-	held.mustHoldOnly(heldAs(1, run))
+	published := held.runsOn(headSHA)
+	if len(published) != 1 {
+		t.Fatalf("the forge holds %d runs, want 1", len(published))
+	}
+	for field, value := range map[string]string{
+		"summary": published[0].Output.Summary, "text": published[0].Output.Text,
+	} {
+		if characters := utf8.RuneCountInString(value); characters > github.MaxOutputCharacters {
+			t.Errorf("%s is %d characters, over the forge's %d", field, characters, github.MaxOutputCharacters)
+		}
+	}
+	if !strings.Contains(published[0].Output.Text, "1 violation in total") {
+		t.Errorf("the text does not count the violation it could not list: %q", published[0].Output.Text)
+	}
 }
 
 const (

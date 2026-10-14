@@ -3,9 +3,19 @@
 package domain
 
 type CheckRun struct {
-	Name       string
-	Conclusion Conclusion
-	Title      string
-	Summary    string
-	Text       string
+	Name           string
+	Conclusion     Conclusion
+	Title          string
+	Headline       string
+	DecisionID     DecisionID
+	Violations     []CheckRunViolation
+	ViolationCount int
+}
+
+type CheckRunViolation struct {
+	RuleID     string
+	Message    string
+	OwningTeam string
+	DocsURL    string
+	Marking    string
 }

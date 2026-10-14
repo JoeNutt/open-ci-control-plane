@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -28,11 +29,11 @@ func TestARepublishedCheckRunReplacesTheOneWithItsNameOnTheSameCommit(t *testing
 	if len(published) != 2 {
 		t.Fatalf("got %d check runs on the commit, want 2: %+v", len(published), published)
 	}
-	if published["policy/security"] != second {
+	if !reflect.DeepEqual(published["policy/security"], second) {
 		t.Errorf("policy/security is %+v, want the republished %+v",
 			published["policy/security"], second)
 	}
-	if published["policy/quality"] != other {
+	if !reflect.DeepEqual(published["policy/quality"], other) {
 		t.Errorf("policy/quality is %+v, want %+v", published["policy/quality"], other)
 	}
 	if elsewhere := runs.PublishedOn(locator, commitSHAOf(t, "0000000000000000000000000000000000000000")); len(elsewhere) != 0 {

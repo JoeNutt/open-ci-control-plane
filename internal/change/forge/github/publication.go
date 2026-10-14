@@ -14,7 +14,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
+var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a headline")
 
 var ErrNotUTF8 = errors.New("a check run's text is not valid UTF-8")
 
@@ -33,7 +33,7 @@ func parsePublication(
 	if !isComplete(run) {
 		return publication{}, ErrIncompleteCheckRun
 	}
-	if !isAllUTF8(run.Name, run.Title, run.Summary, run.Text) {
+	if !isAllUTF8(run.Name, run.Title, run.Headline) {
 		return publication{}, ErrNotUTF8
 	}
 	verdict, err := parseVerdict(run)
@@ -47,7 +47,7 @@ func parsePublication(
 }
 
 func isComplete(run domain.CheckRun) bool {
-	return run.Name != "" && run.Title != "" && run.Summary != ""
+	return run.Name != "" && run.Title != "" && run.Headline != ""
 }
 
 func (pending publication) String() string {
