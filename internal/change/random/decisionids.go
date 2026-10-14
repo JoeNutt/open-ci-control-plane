@@ -4,10 +4,17 @@
 // random number generator.
 package random
 
-import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+import (
+	"crypto/rand"
+	"encoding/hex"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
 
 type DecisionIDs struct{}
 
 func (DecisionIDs) NextDecisionID() (domain.DecisionID, error) {
-	return domain.ParseDecisionID("dec_00000000000000000000000000000000")
+	b := make([]byte, 16)
+	rand.Read(b)
+	return domain.ParseDecisionID("dec_" + hex.EncodeToString(b))
 }
