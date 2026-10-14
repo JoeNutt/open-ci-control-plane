@@ -91,11 +91,13 @@ func totalPatchBreachIn(files []File, limits Limits) error {
 func perFileBreachIn(files []File, limits Limits) error {
 	for _, bound := range perFileBounds {
 		allowed := bound.allowanceIn(limits)
-		for _, file := range files {
-			if measured := bound.measurementOf(file); measured > allowed {
-				return fmt.Errorf("%w: %q measures %d, which exceeds %d",
-					bound.breach, file.Path, measured, allowed)
-			}
+		breaching := slices.IndexFunc(files, func(file File) bool {
+			return bound.measurementOf(file) > allowed
+		})
+		if breaching >= 0 {
+			offending := files[breaching]
+			return fmt.Errorf("%w: %q measures %d, which exceeds %d",
+				bound.breach, offending.Path, bound.measurementOf(offending), allowed)
 		}
 	}
 	return nil

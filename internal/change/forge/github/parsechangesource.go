@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -41,20 +42,21 @@ func checkBaseURL(address string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %q: %w", ErrMalformedBaseURL, address, err)
 	}
-	faults := []struct {
-		reason string
-		holds  bool
-	}{
+	faults := []baseURLFault{
 		{"is not https", parsed.Scheme != "https"},
 		{"names no host", parsed.Host == ""},
 		{"ends in a slash", strings.HasSuffix(parsed.Path, "/")},
 		{"carries a query", parsed.RawQuery != ""},
 		{"carries a fragment", parsed.Fragment != ""},
 	}
-	for _, fault := range faults {
-		if fault.holds {
-			return fmt.Errorf("%w: %q %s", ErrMalformedBaseURL, address, fault.reason)
-		}
+	held := slices.IndexFunc(faults, func(fault baseURLFault) bool { return fault.holds })
+	if held < 0 {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("%w: %q %s", ErrMalformedBaseURL, address, faults[held].reason)
+}
+
+type baseURLFault struct {
+	reason string
+	holds  bool
 }
