@@ -338,6 +338,31 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 	held.mustHoldOnly(heldAs(1, run))
 }
 
+func TestPublishCheckRunRefusesTextThatIsNotUTF8WithoutAsking(t *testing.T) {
+	const invalid = "policy \xff refused"
+	malformed := map[string]func(*domain.CheckRun){
+		"name":    func(run *domain.CheckRun) { run.Name = invalid },
+		"title":   func(run *domain.CheckRun) { run.Title = invalid },
+		"summary": func(run *domain.CheckRun) { run.Summary = invalid },
+		"text":    func(run *domain.CheckRun) { run.Text = invalid },
+	}
+	runs := checkRunsAt(t, refusingEveryRequest(t))
+
+	for name, spoil := range malformed {
+		t.Run(name, func(t *testing.T) {
+			run := securityRun()
+			spoil(&run)
+
+			err := runs.PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+			if !errors.Is(err, github.ErrNotUTF8) {
+				t.Fatalf("error is %v, want %v", err, github.ErrNotUTF8)
+			}
+		})
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 

@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
+
+var ErrNotUTF8 = errors.New("a check run's text is not valid UTF-8")
 
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
@@ -27,6 +30,10 @@ func parsePublication(
 ) (publication, error) {
 	if run.Name == "" {
 		return publication{}, ErrIncompleteCheckRun
+	}
+	if !utf8.ValidString(run.Name) || !utf8.ValidString(run.Title) ||
+		!utf8.ValidString(run.Summary) || !utf8.ValidString(run.Text) {
+		return publication{}, ErrNotUTF8
 	}
 	verdict, err := parseVerdict(run)
 	if err != nil {
