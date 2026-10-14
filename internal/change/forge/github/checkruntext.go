@@ -4,11 +4,14 @@ package github
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
+
+const checkRunTextSummaryLayout = "%s\n\nDecision `%s`"
 
 type checkRunTextOutput struct {
 	title   string
@@ -22,6 +25,6 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	}
 	return checkRunTextOutput{
 		title:   run.Title,
-		summary: run.Headline + "\n\nDecision `" + run.DecisionID.String() + "`",
+		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
 	}, nil
 }
