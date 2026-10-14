@@ -55,6 +55,9 @@ func ParseDecision(stated []byte) (Decision, error) {
 	if !written.InputWellformed {
 		return UndecidedDecision(), nil
 	}
+	if _, err := ParseSchemaMajor(written.SchemaVersionAccepted); err != nil {
+		return Decision{}, err
+	}
 	return Decision{
 		outcome:    OutcomeDecided,
 		effect:     effect,
