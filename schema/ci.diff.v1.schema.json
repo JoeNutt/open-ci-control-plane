@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:open-ci-control-plane:ci.diff:v1",
+  "title": "ci.diff/v1 — the policy input contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pr", "diff", "analyzers"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "repository", "base_ref", "head_sha", "draft", "author", "labels", "approvals"],
+      "properties": {
+        "number": { "type": "integer" },
+        "repository": { "type": "string" },
+        "base_ref": { "type": "string" },
+        "head_sha": { "type": "string" },
+        "draft": { "type": "boolean" },
+        "author": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["login", "association", "is_bot"],
+          "properties": {
+            "login": { "type": "string" },
+            "association": {
+              "type": "string",
+              "enum": ["", "OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "MANNEQUIN", "NONE"]
+            },
+            "is_bot": { "type": "boolean" }
+          }
+        },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["login", "is_author"],
+            "properties": {
+              "login": { "type": "string" },
+              "is_author": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "paths", "files", "kinds", "totals", "by_dir", "new_files", "imports",
+        "unresolved_import_files", "resolved_import_share", "module_graph_delta",
+        "sensitive", "unknown", "iac_resources"
+      ],
+      "properties": {
+        "paths": { "$ref": "#/definitions/pathList" },
+        "new_files": { "$ref": "#/definitions/pathList" },
+        "files": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "action", "additions", "deletions", "patch_bytes"],
+            "properties": {
+              "path": { "$ref": "#/definitions/path" },
+              "action": {
+                "type": "string",
+                "enum": ["added", "modified", "removed", "renamed", "copied", "changed"]
+              },
+              "additions": { "type": "integer", "minimum": 0 },
+              "deletions": { "type": "integer", "minimum": 0 },
+              "patch_bytes": { "type": "integer", "minimum": 0, "maximum": 262144 }
+            }
+          }
+        },
+        "kinds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["test", "authz", "route", "iac", "ci_config", "policy_config", "lockfile", "migration", "generated"],
+          "properties": {
+            "test": { "$ref": "#/definitions/pathList" },
+            "authz": { "$ref": "#/definitions/pathList" },
+            "route": { "$ref": "#/definitions/pathList" },
+            "iac": { "$ref": "#/definitions/pathList" },
+            "ci_config": { "$ref": "#/definitions/pathList" },
+            "policy_config": { "$ref": "#/definitions/pathList" },
+            "lockfile": { "$ref": "#/definitions/pathList" },
+            "migration": { "$ref": "#/definitions/pathList" },
+            "generated": { "$ref": "#/definitions/pathList" }
+          }
+        },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files", "additions", "deletions", "patch_bytes"],
+          "properties": {
+            "files": { "type": "integer", "minimum": 0, "maximum": 1000 },
+            "additions": { "type": "integer", "minimum": 0 },
+            "deletions": { "type": "integer", "minimum": 0 },
+            "patch_bytes": { "type": "integer", "minimum": 0, "maximum": 8388608 }
+          }
+        },
+        "by_dir": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/pathList" }
+        },
+        "iac_resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "type", "actions", "has_wildcard_action"],
+            "properties": {
+              "path": { "$ref": "#/definitions/path" },
+              "type": { "type": "string" },
+              "actions": { "type": "array", "items": { "type": "string" } },
+              "has_wildcard_action": { "type": "boolean" }
+            }
+          }
+        },
+        "sensitive": { "$ref": "#/definitions/jsonPointerList" },
+        "unknown": { "$ref": "#/definitions/jsonPointerList" },
+        "imports": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "language", "extractor", "state", "refs", "declarations_added"],
+            "properties": {
+              "path": { "$ref": "#/definitions/path" },
+              "language": { "type": ["string", "null"] },
+              "extractor": { "type": ["string", "null"] },
+              "state": { "type": "string", "enum": ["resolved", "unknown", "errored"] },
+              "refs": { "type": "array", "items": { "type": "string" } },
+              "declarations_added": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "kind"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "kind": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "module_graph_delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["edges_added", "edges_removed", "incomplete"],
+          "properties": {
+            "edges_added": { "$ref": "#/definitions/edgeList" },
+            "edges_removed": { "$ref": "#/definitions/edgeList" },
+            "incomplete": { "type": "boolean" }
+          }
+        },
+        "unresolved_import_files": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "resolved_import_share": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "analyzers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submitted", "findings"],
+      "properties": {
+        "submitted": { "type": "array", "items": { "type": "string" } },
+        "findings": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["analyzer", "rule_id", "severity", "path", "line"],
+            "properties": {
+              "analyzer": { "type": "string" },
+              "rule_id": { "type": "string" },
+              "severity": {
+                "type": "string",
+                "enum": ["info", "low", "medium", "high", "critical"]
+              },
+              "path": { "$ref": "#/definitions/path" },
+              "line": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "path": { "type": "string", "maxLength": 4096 },
+    "pathList": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/definitions/path" } },
+    "jsonPointerList": { "type": "array", "items": { "type": "string" } },
+    "edgeList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" }
+        }
+      }
+    }
+  }
+}
