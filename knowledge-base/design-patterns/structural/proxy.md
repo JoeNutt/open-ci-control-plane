@@ -13,6 +13,13 @@ GoF names four intents: **virtual** (create the subject lazily), **remote** (rep
 object in another process), **protection** (enforce access rights), and **smart reference**
 (manage lifetime or count references).
 
+## Why it exists
+
+Sometimes a client must not reach an object directly — it is expensive to create, lives in
+another process, or may be used only by some callers — yet making every client handle that
+would spread the concern through all of them. The proxy stands in with the same interface and
+puts the control in one place, so clients are unchanged while access is mediated.
+
 ## When to use it
 
 - Creating the subject is expensive and may not be needed — a virtual proxy defers it until
@@ -30,15 +37,15 @@ Implement the subject's interface exactly, and keep the mediation the proxy's on
 ```go
 // RIGHT — a protection proxy: same interface, refuses before delegating.
 type authorisingPolicyStore struct {
-    inner       PolicyStore
-    permissions Permissions
+	inner       PolicyStore
+	permissions Permissions
 }
 
 func (s authorisingPolicyStore) Get(ctx context.Context, id PolicyID, caller Caller) (Policy, error) {
-    if !s.permissions.MayRead(caller, id) {
-        return Policy{}, ErrForbidden
-    }
-    return s.inner.Get(ctx, id, caller)
+	if !s.permissions.MayRead(caller, id) {
+		return Policy{}, ErrForbidden
+	}
+	return s.inner.Get(ctx, id, caller)
 }
 ```
 
@@ -67,7 +74,7 @@ export := NewExportJob(store)
 ```go
 // WRONG — a network call behind a signature with no context and no error.
 type PolicyStore interface {
-    Get(id PolicyID, caller Caller) Policy
+	Get(id PolicyID, caller Caller) Policy
 }
 // Symptom: a timeout becomes a zero Policy, and callers decide against it.
 ```
@@ -79,8 +86,8 @@ type PolicyStore interface {
 ```go
 // WRONG — the deferred construction migrates the schema.
 func (p *lazyPolicyStore) Get(ctx context.Context, id PolicyID, caller Caller) (Policy, error) {
-    p.once.Do(func() { p.inner = openAndMigrate(p.dsn) })
-    return p.inner.Get(ctx, id, caller)
+	p.once.Do(func() { p.inner = openAndMigrate(p.dsn) })
+	return p.inner.Get(ctx, id, caller)
 }
 // Symptom: the migration runs inside whichever request arrives first, under its deadline.
 ```
@@ -92,10 +99,10 @@ func (p *lazyPolicyStore) Get(ctx context.Context, id PolicyID, caller Caller) (
 ```go
 // WRONG — named for logging, but it decides whether the call happens.
 func (s loggingPolicyStore) Get(ctx context.Context, id PolicyID, caller Caller) (Policy, error) {
-    if caller.IsSuspended {
-        return Policy{}, ErrForbidden
-    }
-    return s.inner.Get(ctx, id, caller)
+	if caller.IsSuspended {
+		return Policy{}, ErrForbidden
+	}
+	return s.inner.Get(ctx, id, caller)
 }
 // Symptom: a reviewer looking for authorisation never opens a type whose name says it logs.
 ```

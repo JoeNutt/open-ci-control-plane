@@ -9,6 +9,14 @@ knows which subsystem objects to call, in what order, and with what defaults, an
 one operation that means something to the caller. The subsystem remains fully accessible to
 anyone who needs more.
 
+## Why it exists
+
+A subsystem with a correct but low-level interface makes every caller learn its sequencing —
+which objects to call, in what order, with which defaults — and each learns it slightly
+differently, so the subsystem's protocol is duplicated across its clients. The facade states
+the common path once, as one operation, and leaves the subsystem reachable for callers that
+need more.
+
 ## When to use it
 
 - A common path through a complicated subsystem is reproduced by every caller, slightly
@@ -26,24 +34,24 @@ knowledge and nothing else.
 ```go
 // RIGHT — named for what it produces; it holds the order and nothing else.
 type ChangeIngest struct {
-    forge      ChangeSource
-    extractors ImportExtractors
-    bounds     Bounds
+	forge      ChangeSource
+	extractors ImportExtractors
+	bounds     Bounds
 }
 
 func (c ChangeIngest) BuildDocument(ctx context.Context, e ForgeEvent) (ChangeDocument, error) {
-    files, err := c.forge.FilesChanged(ctx, e.PullRequest)
-    if err != nil {
-        return ChangeDocument{}, err
-    }
-    if err := c.bounds.Check(files); err != nil { // order matters, and lives here
-        return ChangeDocument{}, err
-    }
-    imports, err := c.extractors.Extract(files)
-    if err != nil {
-        return ChangeDocument{}, err
-    }
-    return assemble(e, files, imports), nil
+	files, err := c.forge.FilesChanged(ctx, e.PullRequest)
+	if err != nil {
+		return ChangeDocument{}, err
+	}
+	if err := c.bounds.Check(files); err != nil { // order matters, and lives here
+		return ChangeDocument{}, err
+	}
+	imports, err := c.extractors.Extract(files)
+	if err != nil {
+		return ChangeDocument{}, err
+	}
+	return assemble(e, files, imports), nil
 }
 ```
 
@@ -81,7 +89,7 @@ func (c ChangeIngest) FilesOnly(ctx context.Context, e ForgeEvent) ([]ChangedFil
 ```go
 // WRONG — forwards one call unchanged.
 func (c ChangeIngest) FilesChanged(ctx context.Context, pr PullRequest) ([]ChangedFile, error) {
-    return c.forge.FilesChanged(ctx, pr)
+	return c.forge.FilesChanged(ctx, pr)
 }
 // Symptom: a name and a hop that sequence nothing.
 ```
@@ -93,9 +101,9 @@ func (c ChangeIngest) FilesChanged(ctx context.Context, pr PullRequest) ([]Chang
 ```go
 // WRONG — a facade smoothing over an awkward interface this team owns.
 func (c ChangeIngest) Extract(files []ChangedFile) ([]Ref, error) {
-    c.extractors.Init()
-    defer c.extractors.Reset()
-    return c.extractors.ExtractWithOptions(files, DefaultExtractOptions())
+	c.extractors.Init()
+	defer c.extractors.Reset()
+	return c.extractors.ExtractWithOptions(files, DefaultExtractOptions())
 }
 // Symptom: every other caller still meets Init and Reset; fixing the extractors was cheaper.
 ```
