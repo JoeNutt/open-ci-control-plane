@@ -25,6 +25,7 @@ the bug.
 | `code-layout.md` | The newspaper metaphor, the stepdown rule, one level of abstraction |
 | `duplication.md` | Knowledge duplication, not text duplication |
 | `table-driven-methods.md` | When a conditional chain is data wearing a costume |
+| `optimisation.md` | Measuring before and after, and the two ways cost intuition fails |
 
 ## Failure handling
 
