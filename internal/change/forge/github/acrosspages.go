@@ -17,11 +17,11 @@ type paging struct {
 }
 
 func acrossPages[Item any](
-	ctx context.Context, source ChangeSource, over paging,
+	ctx context.Context, forge connection, over paging,
 ) ([]Item, error) {
 	var collected []Item
 	for page := 1; page <= over.maxPages; page++ {
-		onPage, err := jsonAt[[]Item](ctx, source, over.endpointAt(page))
+		onPage, err := jsonAt[[]Item](ctx, forge, over.endpointAt(page))
 		if err != nil {
 			return nil, err
 		}

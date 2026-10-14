@@ -35,6 +35,23 @@ func TestParseChangeSourceRefusesAnAddressThatIsNotAnHTTPSOrigin(t *testing.T) {
 	}
 }
 
+func TestParsingRefusesAResponseBoundThatIsNotPositive(t *testing.T) {
+	for _, bound := range []int{0, -1} {
+		settings := wellFormedSettings()
+		settings.MaxResponseBytes = bound
+
+		_, sourceErr := github.ParseChangeSource(settings)
+		_, runsErr := github.ParseCheckRuns(settings)
+
+		for parser, err := range map[string]error{"change source": sourceErr, "check runs": runsErr} {
+			if !errors.Is(err, github.ErrMalformedResponseBound) {
+				t.Errorf("%s with bound %d: error is %v, want %v",
+					parser, bound, err, github.ErrMalformedResponseBound)
+			}
+		}
+	}
+}
+
 func TestParseChangeSourceRefusesASourceWithNoClient(t *testing.T) {
 	settings := wellFormedSettings()
 	settings.Client = nil

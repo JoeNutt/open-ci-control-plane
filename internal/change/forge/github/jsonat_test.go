@@ -4,6 +4,7 @@ package github_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,22 +26,48 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	}
 }
 
-func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
+func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	settings := wellFormedSettings()
 	holders := map[string]any{
 		"credential": forgeCredential,
 		"settings":   settings,
 		"source":     sourceWith(t, settings),
+		"check runs": checkRunsWith(t, settings),
 	}
 
 	for name, holder := range holders {
-		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
-			printed := fmt.Sprintf(verb, holder)
-			if strings.Contains(printed, string(forgeCredential)) {
-				t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
-			}
+		mustNotRevealUnder(t, name, holder, everyFormatVerb)
+	}
+}
+
+func TestFormattingAnAdapterAsAPointerDoesNotRevealItsCredential(t *testing.T) {
+	settings := wellFormedSettings()
+
+	mustNotRevealUnder(t, "source", sourceWith(t, settings), []string{"%p"})
+	mustNotRevealUnder(t, "check runs", checkRunsWith(t, settings), []string{"%p"})
+}
+
+func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
+	t.Helper()
+
+	for _, verb := range verbs {
+		printed := fmt.Sprintf(verb, holder)
+		if reveals(printed, string(forgeCredential)) {
+			t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
 		}
 	}
+}
+
+var everyFormatVerb = []string{
+	"%v", "%+v", "%#v", "%T", "%s", "%q", "%x", "%X", "%d", "%t", "%o", "%O",
+	"%b", "%c", "%U", "%e", "%E", "%f", "%F", "%g", "%G",
+	"%10s", "%-20v", "%+d", "% x", "%#x", "%#q", "%08d", "%.3s", "%[1]v",
+}
+
+func reveals(printed, secret string) bool {
+	compact := strings.ToLower(strings.ReplaceAll(printed, " ", ""))
+	return strings.Contains(printed, secret) ||
+		strings.Contains(compact, hex.EncodeToString([]byte(secret)))
 }
 
 func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
@@ -66,9 +93,7 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "modified"}
 	]`)
-	settings := wellFormedSettings()
-	settings.BaseURL = server.URL
-	settings.Client = server.Client()
+	settings := settingsAt(server)
 	settings.MaxResponseBytes = 8
 
 	_, err := sourceWith(t, settings).FilesChanged(

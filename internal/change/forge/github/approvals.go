@@ -29,7 +29,7 @@ var ErrUnknownReviewState = errors.New("the forge reports a review state the ada
 func (source ChangeSource) approvalsOf(
 	ctx context.Context, locator domain.PullRequestLocator, author string,
 ) (domain.Declared[domain.Approval], error) {
-	reviewed, err := acrossPages[review](ctx, source, paging{
+	reviewed, err := acrossPages[review](ctx, source.forge, paging{
 		endpointAt: func(page int) string { return reviewsEndpoint(locator, page) },
 		perPage:    ReviewsPerPage,
 		maxPages:   maxReviewPages,
