@@ -3,6 +3,7 @@
 package random_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -45,5 +46,27 @@ func TestNextDecisionIDNeverRepeatsAnIdentifier(t *testing.T) {
 			t.Fatalf("minting %d repeated %q from minting %d", minting, minted.String(), earlier)
 		}
 		seen[minted] = minting
+	}
+}
+
+func TestEveryDigitOfAMintedIdentifierVaries(t *testing.T) {
+	const mintings = 64
+	seen := map[int]map[rune]bool{}
+
+	for range mintings {
+		digits := strings.TrimPrefix(mintedDecisionID(t).String(), "dec_")
+		for position, digit := range digits {
+			if seen[position] == nil {
+				seen[position] = map[rune]bool{}
+			}
+			seen[position][digit] = true
+		}
+	}
+
+	for position, digits := range seen {
+		if len(digits) < 2 {
+			t.Errorf("digit %d took one value across %d mintings, so it carries no randomness",
+				position, mintings)
+		}
 	}
 }
