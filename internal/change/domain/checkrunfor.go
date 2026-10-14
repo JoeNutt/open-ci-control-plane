@@ -46,7 +46,7 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	rendering, declared := checkRunRenderingByOutcome[decided.Decision.Outcome()]
 	if !declared {
-		return verdictCheckRun(decided, id)
+		return policyErrorCheckRun(decided, id)
 	}
 	return rendering(decided, id)
 }
