@@ -43,3 +43,16 @@ func TestParseCommitSHARefusesAnythingElse(t *testing.T) {
 		})
 	}
 }
+
+func TestARefusedCommitSHAOfAnyLengthIsNotEchoedWhole(t *testing.T) {
+	oversized := strings.Repeat("a", 1<<20)
+
+	_, err := domain.ParseCommitSHA(oversized)
+
+	if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+		t.Fatalf("want ErrMalformedCommitSHA, got %v", err)
+	}
+	if strings.Contains(err.Error(), strings.Repeat("a", 64)) {
+		t.Errorf("the refusal echoes the untrusted input: %d bytes of error", len(err.Error()))
+	}
+}

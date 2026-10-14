@@ -16,7 +16,10 @@ type CommitSHA struct {
 }
 
 func ParseCommitSHA(stated string) (CommitSHA, error) {
-	if len(stated) != commitSHAHexDigits || !isLowerHex(stated) {
+	if len(stated) != commitSHAHexDigits {
+		return CommitSHA{}, fmt.Errorf("%w: %d bytes", ErrMalformedCommitSHA, len(stated))
+	}
+	if !isLowerHex(stated) {
 		return CommitSHA{}, fmt.Errorf("%w: %q", ErrMalformedCommitSHA, stated)
 	}
 	return CommitSHA{value: stated}, nil
