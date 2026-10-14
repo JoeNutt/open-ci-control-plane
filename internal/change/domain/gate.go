@@ -52,18 +52,15 @@ func (gate Gate) decisionFor(
 	ctx context.Context, family PolicyFamily, document Document,
 ) Decision {
 	decided, err := gate.engines[family].Decide(ctx, document)
-	if err != nil {
-		return Decision{outcome: outcomeForFault(ctx, err)}
-	}
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	if isPastDeadline(ctx, err) {
 		return Decision{outcome: OutcomeDeadlineExceeded}
+	}
+	if err != nil {
+		return Decision{outcome: OutcomeEngineError}
 	}
 	return decided
 }
 
-func outcomeForFault(ctx context.Context, err error) Outcome {
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return OutcomeDeadlineExceeded
-	}
-	return OutcomeEngineError
+func isPastDeadline(ctx context.Context, err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)
 }
