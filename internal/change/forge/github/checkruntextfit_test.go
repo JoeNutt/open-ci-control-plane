@@ -51,6 +51,13 @@ func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
 	assertCheckRunTextLists(t, run, len(small)+200, 0)
 }
 
+func TestCheckRunTextLeastLengthNeverStopsABlockThatFits(t *testing.T) {
+	run := checkRunTextFixture(t)
+	run.Violations[0].Message = strings.Repeat("a\r\n", 300)
+
+	assertCheckRunTextLists(t, run, len(checkRunTextBlockOf(run.Violations[0])), 1)
+}
+
 func TestCheckRunTextDoesNotFormatAFieldThatCannotFit(t *testing.T) {
 	const fieldBytes = 4 << 20
 	run := checkRunTextFixture(t)
