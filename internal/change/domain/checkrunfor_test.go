@@ -24,14 +24,6 @@ func TestAPassedDecisionIsASuccessNamedForItsFamily(t *testing.T) {
 	}
 }
 
-func TestABlockingEffectIsAFailure(t *testing.T) {
-	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectBlock))
-
-	if run.Conclusion != domain.ConclusionFailure {
-		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
-	}
-}
-
 func TestAnEngineErrorIsAFailure(t *testing.T) {
 	failed := evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
 
@@ -90,16 +82,6 @@ func TestAnUndeclaredOutcomeIsAPolicyError(t *testing.T) {
 	}
 }
 
-func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
-	denied := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDeny))
-
-	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
-
-	if run.Conclusion != domain.ConclusionFailure {
-		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
-	}
-}
-
 func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T) {
 	deny := violationAt(domain.EnforcementSeverityDeny)
 	warn := violationAt(domain.EnforcementSeverityWarn)
@@ -110,6 +92,9 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 		conclusion domain.Conclusion
 		title      string
 	}{
+		"block alone":            {domain.EffectBlock, nil, domain.ConclusionFailure, "Blocked"},
+		"deny under allow":       {domain.EffectAllow, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked"},
+		"warn alone":             {domain.EffectAllow, []domain.Violation{warn}, domain.ConclusionNeutral, "Advisory"},
 		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Passed"},
 		"warn then deny":         {domain.EffectAllow, []domain.Violation{warn, deny}, domain.ConclusionFailure, "Blocked"},
 		"deny then warn":         {domain.EffectAllow, []domain.Violation{deny, warn}, domain.ConclusionFailure, "Blocked"},
@@ -129,16 +114,6 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 					run.Conclusion, run.Title, want.conclusion, want.title)
 			}
 		})
-	}
-}
-
-func TestAWarnIsNeutral(t *testing.T) {
-	warned := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityWarn))
-
-	run := checkRunFor(t, domain.PolicyFamilySecurity, warned)
-
-	if run.Conclusion != domain.ConclusionNeutral {
-		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
 	}
 }
 
