@@ -206,6 +206,23 @@ func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) 
 	held.mustHoldOnly(heldAs(1, second))
 }
 
+func TestPublishCheckRunRefusesToChooseBetweenRunsOfTheSameName(t *testing.T) {
+	held := newCheckRunForge(t)
+	run := securityRun()
+	seeded := []wireCheckRun{heldAs(1, run), heldAs(2, run)}
+	held.runs = slices.Clone(seeded)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+	if !errors.Is(err, github.ErrAmbiguousCheckRun) {
+		t.Fatalf("error is %v, want %v", err, github.ErrAmbiguousCheckRun)
+	}
+	if got := held.runsOn(headSHA); !slices.Equal(got, seeded) {
+		t.Fatalf("the forge holds %+v, want it untouched as %+v", got, seeded)
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 
