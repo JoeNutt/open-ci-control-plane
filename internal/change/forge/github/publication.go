@@ -46,6 +46,10 @@ func parsePublication(
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
 }
 
+func (pending publication) String() string {
+	return fmt.Sprintf("check run %q on %s at %s", pending.name, pending.locator, pending.head)
+}
+
 func isAllUTF8(texts ...string) bool {
 	isMalformed := func(text string) bool { return !utf8.ValidString(text) }
 	return !slices.ContainsFunc(texts, isMalformed)
@@ -53,8 +57,7 @@ func isAllUTF8(texts ...string) bool {
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
 	if listed.TotalCount > 1 {
-		return exchange{}, fmt.Errorf("%w: %d named %q on %s",
-			ErrAmbiguousCheckRun, listed.TotalCount, pending.name, pending.head)
+		return exchange{}, fmt.Errorf("%w: %d of them", ErrAmbiguousCheckRun, listed.TotalCount)
 	}
 	existing, err := listed.consistentRuns()
 	if err != nil {

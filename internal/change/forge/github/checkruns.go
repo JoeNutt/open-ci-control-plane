@@ -38,17 +38,21 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
+	if err := runs.publish(ctx, pending); err != nil {
+		return fmt.Errorf("publish %s: %w", pending, err)
+	}
+	return nil
+}
+
+func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
 	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint())
 	if err != nil {
-		return fmt.Errorf("list check run %q on %s at %s: %w", run.Name, locator, pending.head, err)
+		return fmt.Errorf("list: %w", err)
 	}
 	chosen, err := pending.exchangeGiven(listed)
 	if err != nil {
 		return err
 	}
 	_, err = exchanged[struct{}](ctx, runs.forge, chosen)
-	if err != nil {
-		return fmt.Errorf("publish check run %q on %s at %s: %w", run.Name, locator, pending.head, err)
-	}
-	return nil
+	return err
 }
