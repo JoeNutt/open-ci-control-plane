@@ -2,7 +2,10 @@
 
 package domain
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 const checkRunNamePrefix = "policy/"
 
@@ -31,15 +34,19 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	text := ""
-	for _, violation := range decided.Decision.Violations() {
-		text += violation.Message + "\n"
-	}
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided),
-		Text:       text,
+		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
+}
+
+func violationsTextFor(violations Declared[Violation]) string {
+	var text strings.Builder
+	for _, violation := range violations {
+		text.WriteString(violation.Message + "\n")
+	}
+	return text.String()
 }
 
 func conclusionFor(decided FamilyDecision) Conclusion {
