@@ -873,6 +873,45 @@ func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunKeepsTheParsedTimeoutWhenTheCallersClientChanges(t *testing.T) {
+	const (
+		clientTimeout = 200 * time.Millisecond
+		trickledBytes = 30
+		trickleGap    = 100 * time.Millisecond
+		heldAtMost    = time.Second
+	)
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet {
+			write(t, writer, noRunsListed)
+			return
+		}
+		writer.WriteHeader(http.StatusCreated)
+		for range trickledBytes {
+			select {
+			case <-request.Context().Done():
+				return
+			case <-time.After(trickleGap):
+			}
+			if !isTrickled(writer) {
+				return
+			}
+		}
+	})
+	settings := settingsAt(server)
+	settings.Client.Timeout = clientTimeout
+	runs := checkRunsWith(t, settings)
+	settings.Client.Timeout = 0
+
+	started := time.Now()
+	_ = runs.PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if held := time.Since(started); held > heldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v after the caller cleared its timeout, want at most %v",
+			held, heldAtMost)
+	}
+}
+
 func isTrickled(writer http.ResponseWriter) bool {
 	if _, err := writer.Write([]byte(" ")); err != nil {
 		return false

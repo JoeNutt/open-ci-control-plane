@@ -50,6 +50,8 @@ func parseConnection(settings Settings) (connection, error) {
 	if settings.Client.Timeout <= 0 {
 		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
+	client := *settings.Client
+	settings.Client = &client
 	token := settings.Token
 	settings.Token = Credential{}
 	return connection{settings: settings, token: token}, nil
