@@ -44,11 +44,20 @@ func TestCheckRunTextCountsTheTruncationLineItWouldLeave(t *testing.T) {
 }
 
 func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
-	run := checkRunTextWithViolations(t, 2)
-	run.Violations[0].Message = strings.Repeat("m", 500)
-	small := checkRunTextBlockOf(run.Violations[1])
+	oversized := map[string]string{
+		"too long before formatting":   strings.Repeat("m", 500),
+		"too long only once formatted": strings.Repeat(string(rune(0x200B)), 60),
+	}
 
-	assertCheckRunTextLists(t, run, len(small)+200, 0)
+	for form, message := range oversized {
+		t.Run(form, func(t *testing.T) {
+			run := checkRunTextWithViolations(t, 2)
+			run.Violations[0].Message = message
+			small := checkRunTextBlockOf(run.Violations[1])
+
+			assertCheckRunTextLists(t, run, len(small)+200, 0)
+		})
+	}
 }
 
 func TestCheckRunTextLeastLengthNeverStopsABlockThatFits(t *testing.T) {
