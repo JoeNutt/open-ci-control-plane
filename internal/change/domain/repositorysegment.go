@@ -41,6 +41,9 @@ func nameSegmentOK(segment string) bool {
 	if len(segment) == 0 || len(segment) > maxRepositorySegment {
 		return false
 	}
+	if strings.Trim(segment, ".") == "" {
+		return false
+	}
 	if !asciiAlphanumeric(segment[0]) && segment[0] != '.' {
 		return false
 	}

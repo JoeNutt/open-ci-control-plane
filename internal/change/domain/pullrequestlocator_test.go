@@ -80,3 +80,19 @@ func TestParsePullRequestLocatorAcceptsARepositoryBeginningWithAPeriod(t *testin
 		t.Errorf("name is %q, want .github", locator.Name())
 	}
 }
+
+func TestParsePullRequestLocatorRefusesANameOfNothingButPeriods(t *testing.T) {
+	refused := map[string]string{
+		"parent":  "acme/..",
+		"current": "acme/.",
+		"three":   "acme/...",
+	}
+
+	for form, repository := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := domain.ParsePullRequestLocator(repository, 1); !errors.Is(err, domain.ErrMalformedRepository) {
+				t.Fatalf("%q gave %v, want ErrMalformedRepository", repository, err)
+			}
+		})
+	}
+}
