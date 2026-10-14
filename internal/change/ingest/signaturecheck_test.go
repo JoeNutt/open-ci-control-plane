@@ -41,7 +41,8 @@ func delivery(signature string) *http.Request {
 
 func TestASignedDeliveryReachesWhatWasWaitingForIt(t *testing.T) {
 	accepted := &acceptedDelivery{}
-	checking := ingest.SignatureCheck{Accepted: accepted, Secret: appSecret}
+	checking := ingest.SignatureCheck{
+		Accepted: accepted, Secret: appSecret, Rejections: &rejectionTally{}}
 	answered := httptest.NewRecorder()
 
 	checking.ServeHTTP(answered, delivery(trueSignature))
@@ -68,7 +69,8 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 	for form, signature := range refused {
 		t.Run(form, func(t *testing.T) {
 			accepted := &acceptedDelivery{}
-			checking := ingest.SignatureCheck{Accepted: accepted, Secret: appSecret}
+			checking := ingest.SignatureCheck{
+				Accepted: accepted, Secret: appSecret, Rejections: &rejectionTally{}}
 			answered := httptest.NewRecorder()
 
 			checking.ServeHTTP(answered, delivery(signature))
@@ -81,6 +83,35 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 			}
 			if answered.Body.Len() != 0 {
 				t.Errorf("a refusal carried detail: %q", answered.Body.String())
+			}
+		})
+	}
+}
+
+type rejectionTally struct{ rejected int }
+
+func (tally *rejectionTally) CountRejectedDelivery() { tally.rejected++ }
+
+func TestEveryRefusalIsCounted(t *testing.T) {
+	tallies := map[string]struct {
+		signature string
+		want      int
+	}{
+		"a refusal is counted":           {"sha256=" + strings.Repeat("00", 32), 1},
+		"an absent signature is counted": {"", 1},
+		"an admitted delivery is not":    {trueSignature, 0},
+	}
+
+	for form, expected := range tallies {
+		t.Run(form, func(t *testing.T) {
+			tally := &rejectionTally{}
+			checking := ingest.SignatureCheck{
+				Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: tally}
+
+			checking.ServeHTTP(httptest.NewRecorder(), delivery(expected.signature))
+
+			if tally.rejected != expected.want {
+				t.Fatalf("counted %d rejections, want %d", tally.rejected, expected.want)
 			}
 		})
 	}

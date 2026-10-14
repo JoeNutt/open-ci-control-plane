@@ -13,9 +13,14 @@ import (
 
 const signatureHeader = "X-Hub-Signature-256"
 
+type RejectionCounter interface {
+	CountRejectedDelivery()
+}
+
 type SignatureCheck struct {
-	Accepted http.Handler
-	Secret   domain.WebhookSecret
+	Accepted   http.Handler
+	Secret     domain.WebhookSecret
+	Rejections RejectionCounter
 }
 
 func (checking SignatureCheck) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
@@ -27,6 +32,7 @@ func (checking SignatureCheck) ServeHTTP(answer http.ResponseWriter, asked *http
 	delivered, err := domain.ParseSignedDelivery(
 		body, asked.Header.Get(signatureHeader), checking.Secret)
 	if err != nil {
+		checking.Rejections.CountRejectedDelivery()
 		answer.WriteHeader(http.StatusUnauthorized)
 		return
 	}
