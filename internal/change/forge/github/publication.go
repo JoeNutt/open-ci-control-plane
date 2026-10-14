@@ -13,6 +13,8 @@ import (
 
 var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
 
+var ErrOutputTooLong = errors.New("a check run's summary or text is longer than the forge accepts")
+
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
 type publication struct {
@@ -27,6 +29,9 @@ func parsePublication(
 ) (publication, error) {
 	if run.Name == "" || run.Title == "" || run.Summary == "" {
 		return publication{}, ErrIncompleteCheckRun
+	}
+	if len(run.Summary) > 65535 || len(run.Text) > 65535 {
+		return publication{}, ErrOutputTooLong
 	}
 	verdict, err := parseVerdict(run)
 	if err != nil {

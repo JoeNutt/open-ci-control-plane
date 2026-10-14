@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -294,6 +295,29 @@ func TestPublishCheckRunRefusesAnUndeclaredConclusionWithoutAsking(t *testing.T)
 
 			if !errors.Is(err, domain.ErrUnknownConclusion) {
 				t.Fatalf("error is %v, want %v", err, domain.ErrUnknownConclusion)
+			}
+		})
+	}
+}
+
+func TestPublishCheckRunRefusesOutputLongerThanTheForgeAcceptsWithoutAsking(t *testing.T) {
+	overlong := strings.Repeat("x", 65535+1)
+	oversized := map[string]func(*domain.CheckRun){
+		"summary": func(run *domain.CheckRun) { run.Summary = overlong },
+		"text":    func(run *domain.CheckRun) { run.Text = overlong },
+	}
+	runs := checkRunsAt(t, refusingEveryRequest(t))
+
+	for name, spoil := range oversized {
+		t.Run(name, func(t *testing.T) {
+			run := securityRun()
+			spoil(&run)
+
+			err := runs.PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+			if !errors.Is(err, github.ErrOutputTooLong) {
+				t.Fatalf("error is %v, want %v", err, github.ErrOutputTooLong)
 			}
 		})
 	}
