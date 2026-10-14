@@ -7,8 +7,6 @@ type CheckRun struct {
 	Conclusion     Conclusion
 	Title          string
 	Headline       string
-	Summary        string
-	Text           string
 	DecisionID     DecisionID
 	Violations     []CheckRunViolation
 	ViolationCount int

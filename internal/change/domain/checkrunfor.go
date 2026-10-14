@@ -2,10 +2,7 @@
 
 package domain
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 const checkRunNamePrefix = "policy/"
 
@@ -28,7 +25,6 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
-	run.Text = violationsTextFor(decided.Decision.Violations())
 	run.ViolationCount = len(decided.Decision.Violations())
 	run.Violations = checkRunViolationsFrom(listedOf(decided.Decision.Violations()))
 	return run
@@ -66,13 +62,11 @@ const (
 )
 
 func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	run := runPresentation{
+	return runPresentation{
 		conclusion: ConclusionNeutral,
 		title:      admittedWithoutDecisionTitle,
-		headline:   fmt.Sprintf(admittedWithoutDecisionLayout, markdownTextOf(string(decided.Family))),
+		headline:   fmt.Sprintf(admittedWithoutDecisionLayout, decided.Family),
 	}.checkRunFor(decided.Family, id)
-	run.Headline = fmt.Sprintf(admittedWithoutDecisionLayout, decided.Family)
-	return run
 }
 
 const (
@@ -81,13 +75,11 @@ const (
 )
 
 func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	run := runPresentation{
+	return runPresentation{
 		conclusion: ConclusionFailure,
 		title:      policyErrorTitle,
-		headline:   fmt.Sprintf(policyErrorLayout, markdownTextOf(string(decided.Family))),
+		headline:   fmt.Sprintf(policyErrorLayout, decided.Family),
 	}.checkRunFor(decided.Family, id)
-	run.Headline = fmt.Sprintf(policyErrorLayout, decided.Family)
-	return run
 }
 
 type runPresentation struct {
@@ -96,8 +88,6 @@ type runPresentation struct {
 	headline   string
 }
 
-const summaryLayout = "%s\n\nDecision %s"
-
 func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(family),
@@ -105,7 +95,6 @@ func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID)
 		Title:      presented.title,
 		Headline:   presented.headline,
 		DecisionID: id,
-		Summary:    fmt.Sprintf(summaryLayout, presented.headline, id),
 	}
 }
 
@@ -123,36 +112,4 @@ func enforcementMarkingFor(severity EnforcementSeverity) string {
 	return marking
 }
 
-const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"
-
-const (
-	listedViolationLimit = 20
-	truncationLayout     = "and %d more — %d violations in total. This list is truncated.\n"
-)
-
-func violationsTextFor(violations Declared[Violation]) string {
-	var text strings.Builder
-	listed := listedOf(violations)
-	for _, violation := range listed {
-		fmt.Fprintf(&text, violationBlockLayout,
-			markdownTextOf(violation.RuleID),
-			markdownTextOf(violation.Message),
-			markdownTextOf(violation.OwningTeam),
-			documentationLinkFor(violation.DocsURL),
-			enforcementMarkingFor(violation.Severity))
-	}
-	if unlisted := len(violations) - len(listed); unlisted > 0 {
-		fmt.Fprintf(&text, truncationLayout, unlisted, len(violations))
-	}
-	return text.String()
-}
-
-const withheldDocumentationLink = "withheld, not an https link"
-
-func documentationLinkFor(stated string) string {
-	link, isHTTPS := markdownHTTPSAutolinkOf(stated)
-	if !isHTTPS {
-		return withheldDocumentationLink
-	}
-	return link
-}
+const listedViolationLimit = 20
