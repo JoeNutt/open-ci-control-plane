@@ -26,19 +26,8 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	return rendering(decided, id)
 }
 
-const blockedNamingNoRuleHeadline = "Blocked. The policy named no rule."
-
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	reached := verdictOf(decided.Decision)
-	presented := reached.presentation()
-	if reached == verdictBlocked && len(decided.Decision.Violations()) == 0 {
-		presented.headline = blockedNamingNoRuleHeadline
-	}
-	if reached == verdictPassed && decided.Decision.Effect() == EffectReview {
-		presented.title = "Review required"
-		presented.headline = "Review required. No rule fired."
-	}
-	run := presented.checkRunFor(decided.Family, id)
+	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
 	return run
 }
