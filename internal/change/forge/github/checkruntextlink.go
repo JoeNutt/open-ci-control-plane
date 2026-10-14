@@ -36,7 +36,11 @@ type checkRunTextLink struct {
 }
 
 func checkRunTextLinkOf(stated string) (checkRunTextLink, bool) {
-	if !checkRunTextIsPlainHTTPSLink(stated) {
+	if !checkRunTextIsLinkShaped(stated) {
+		return checkRunTextLink{}, false
+	}
+	parsed, err := url.Parse(stated)
+	if err != nil || !checkRunTextIsLinkHost(parsed) {
 		return checkRunTextLink{}, false
 	}
 	return checkRunTextLink{address: stated}, true
@@ -50,18 +54,14 @@ func checkRunTextDocumentationOf(stated string) string {
 	return fmt.Sprintf(checkRunTextAutolinkLayout, link.address)
 }
 
-func checkRunTextIsPlainHTTPSLink(stated string) bool {
-	if len(stated) > checkRunTextLinkMaxLength || !strings.HasPrefix(stated, checkRunTextLinkPrefix) {
-		return false
-	}
-	if !checkRunTextHasOnlyLinkCharacters(stated) {
-		return false
-	}
-	parsed, err := url.Parse(stated)
-	if err != nil {
-		return false
-	}
-	return parsed.Host != "" && parsed.User == nil &&
+func checkRunTextIsLinkShaped(stated string) bool {
+	return len(stated) <= checkRunTextLinkMaxLength &&
+		strings.HasPrefix(stated, checkRunTextLinkPrefix) &&
+		checkRunTextHasOnlyLinkCharacters(stated)
+}
+
+func checkRunTextIsLinkHost(parsed *url.URL) bool {
+	return parsed.User == nil &&
 		(parsed.Port() == "" || parsed.Port() == checkRunTextLinkDefaultPort) &&
 		checkRunTextIsDNSName(parsed.Hostname())
 }
