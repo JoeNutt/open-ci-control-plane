@@ -297,6 +297,47 @@ func TestADocumentationLinkThatIsNotHTTPSIsWithheld(t *testing.T) {
 	}
 }
 
+func TestPastTwentyViolationsTheListIsTruncatedButTheCountIsComplete(t *testing.T) {
+	counts := map[string]struct {
+		fired     int
+		truncated string
+	}{
+		"54 fired":         {fired: 54, truncated: "and 34 more — 54 violations in total. This list is truncated."},
+		"21 fired":         {fired: 21, truncated: "and 1 more — 21 violations in total. This list is truncated."},
+		"exactly 20 fired": {fired: 20},
+	}
+
+	for form, want := range counts {
+		t.Run(form, func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilySecurity,
+				decided(t, domain.EffectBlock, numberedViolations(want.fired)...))
+
+			if listed := strings.Count(run.Text, "**Rule**"); listed != min(want.fired, 20) {
+				t.Errorf("listed %d violations, want %d", listed, min(want.fired, 20))
+			}
+			if want.truncated != "" && !strings.Contains(run.Text, want.truncated) {
+				t.Errorf("text does not say %q:\n%s", want.truncated, run.Text)
+			}
+			if want.truncated == "" && strings.Contains(run.Text, "truncated") {
+				t.Errorf("an untruncated list says it is truncated:\n%s", run.Text)
+			}
+			if strings.Contains(run.Text, "RULE21") {
+				t.Errorf("the 21st violation is listed:\n%s", run.Text)
+			}
+		})
+	}
+}
+
+func numberedViolations(fired int) []domain.Violation {
+	violations := make([]domain.Violation, 0, fired)
+	for number := 1; number <= fired; number++ {
+		violation := violationAt(domain.EnforcementSeverityDeny)
+		violation.RuleID = fmt.Sprintf("RULE%02d", number)
+		violations = append(violations, violation)
+	}
+	return violations
+}
+
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
 	denied := decided(t, domain.EffectBlock, domain.Violation{

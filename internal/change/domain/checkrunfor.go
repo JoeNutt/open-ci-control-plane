@@ -102,13 +102,17 @@ const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Document
 
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
-	for _, violation := range violations {
+	for _, violation := range violations[:min(len(violations), 20)] {
 		fmt.Fprintf(&text, violationBlockLayout,
 			markdownTextOf(violation.RuleID),
 			markdownTextOf(violation.Message),
 			markdownTextOf(violation.OwningTeam),
 			documentationLinkFor(violation.DocsURL),
 			enforcementMarkingFor(violation.Severity))
+	}
+	if len(violations) > 20 {
+		fmt.Fprintf(&text, "and %d more — %d violations in total. This list is truncated.\n",
+			len(violations)-20, len(violations))
 	}
 	return text.String()
 }
