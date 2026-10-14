@@ -141,6 +141,19 @@ func TestEveryRunCarriesItsDecisionIdentifier(t *testing.T) {
 	}
 }
 
+func TestTheViolationCountIsAlwaysComplete(t *testing.T) {
+	for _, fired := range []int{0, 1, 20, 21, 54} {
+		t.Run(fmt.Sprint(fired), func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilySecurity,
+				decided(t, domain.EffectBlock, numberedViolations(fired)...))
+
+			if run.ViolationCount != fired {
+				t.Errorf("violation count is %d, want %d", run.ViolationCount, fired)
+			}
+		})
+	}
+}
+
 func TestTheSummaryCarriesTheDecisionIdentifier(t *testing.T) {
 	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow))
 

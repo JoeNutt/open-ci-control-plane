@@ -29,6 +29,7 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
+	run.ViolationCount = len(decided.Decision.Violations())
 	return run
 }
 
