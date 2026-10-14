@@ -42,7 +42,6 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	pending.appID = runs.forge.settings.AppID
 	if err := runs.publish(ctx, pending); err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
@@ -50,7 +49,7 @@ func (runs CheckRuns) PublishCheckRun(
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
-	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint())
+	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint(runs.forge.settings.AppID))
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}

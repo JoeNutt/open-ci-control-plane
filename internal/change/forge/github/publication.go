@@ -25,7 +25,6 @@ type publication struct {
 	head    commitSHA
 	name    string
 	verdict checkRunVerdict
-	appID   int64
 }
 
 func parsePublication(
@@ -98,10 +97,10 @@ func (pending publication) checkRunsEndpoint() string {
 		pending.locator.Owner(), pending.locator.Name())
 }
 
-func (pending publication) listingEndpoint() string {
+func (pending publication) listingEndpoint(owner int64) string {
 	query := url.Values{
 		"check_name": {pending.name},
-		"app_id":     {strconv.FormatInt(pending.appID, 10)},
+		"app_id":     {strconv.FormatInt(owner, 10)},
 	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())
