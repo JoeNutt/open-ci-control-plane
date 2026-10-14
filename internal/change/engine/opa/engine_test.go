@@ -4,6 +4,8 @@ package opa_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	sdktest "github.com/open-policy-agent/opa/v1/sdk/test"
@@ -86,5 +88,31 @@ func TestAPolicyThatDoesNotDecideIsUndefinedNotAFault(t *testing.T) {
 	}
 	if decided.Outcome().CarriesVerdict() {
 		t.Fatal("an undefined outcome was allowed to carry a verdict")
+	}
+}
+
+const nextMajorPolicy = `package ci.quality
+
+decision := {
+	"input_wellformed": true,
+	"schema_version_accepted": 2,
+	"effect": "allow",
+	"violations": [],
+	"reviewers": [],
+	"fail_closed": false
+}
+`
+
+func TestABundleAcceptingAnotherMajorIsAPolicyErrorOfItsFamily(t *testing.T) {
+	engine := engineFor(t, nextMajorPolicy, domain.PolicyFamilyQuality)
+
+	_, err := engine.Decide(context.Background(), domain.Document{})
+
+	if !errors.Is(err, domain.ErrSchemaMajorMismatch) {
+		t.Fatalf("want ErrSchemaMajorMismatch, got %v", err)
+	}
+	if !strings.Contains(err.Error(), string(domain.PolicyFamilyQuality)) {
+		t.Errorf("the policy error does not name the %q family: %v",
+			domain.PolicyFamilyQuality, err)
 	}
 }

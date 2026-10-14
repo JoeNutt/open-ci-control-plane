@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -66,6 +67,33 @@ func TestADecisionWithoutTheAssertionIsUndecidedWhateverItSays(t *testing.T) {
 			}
 			if decided.Outcome().CarriesVerdict() {
 				t.Fatal("an undecided document was allowed to carry a verdict")
+			}
+		})
+	}
+}
+
+func TestADecisionAcceptingAnotherMajorIsRefused(t *testing.T) {
+	mismatched := map[string]string{
+		"the next major": `{
+			"input_wellformed": true, "schema_version_accepted": 2, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": true
+		}`,
+		"no major declared": `{
+			"input_wellformed": true, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": true
+		}`,
+		"another major with the assertion withheld": `{
+			"input_wellformed": false, "schema_version_accepted": 2, "effect": "allow",
+			"violations": [], "reviewers": [], "fail_closed": false
+		}`,
+	}
+
+	for form, stated := range mismatched {
+		t.Run(form, func(t *testing.T) {
+			_, err := domain.ParseDecision([]byte(stated))
+
+			if !errors.Is(err, domain.ErrSchemaMajorMismatch) {
+				t.Fatalf("want ErrSchemaMajorMismatch, got %v", err)
 			}
 		})
 	}
