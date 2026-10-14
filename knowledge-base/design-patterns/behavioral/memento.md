@@ -22,17 +22,22 @@ token it cannot inspect.
 Make the memento opaque to everyone but the originator, and capture a **deep enough** copy
 that later mutation of the original cannot reach into it.
 
-```java
-final class Document {
-    private List<Block> blocks;
+Go encapsulates per package, not per type: a snapshot with unexported fields is opaque to
+every other package and readable by everything in the originator's own. Keep the caretaker in
+a different package, or the opacity is a convention.
 
-    static final class Snapshot {                  // opaque token
-        private final List<Block> blocks;          // private to the originator
-        private Snapshot(List<Block> b) { this.blocks = List.copyOf(b); }
-    }
+```go
+// RIGHT — unexported fields make the snapshot an opaque token outside this package.
+type Snapshot struct {
+    blocks []Block
+}
 
-    Snapshot save()            { return new Snapshot(blocks); }
-    void restore(Snapshot s)   { this.blocks = new ArrayList<>(s.blocks); }
+func (d *Document) Save() Snapshot {
+    return Snapshot{blocks: slices.Clone(d.blocks)}
+}
+
+func (d *Document) Restore(s Snapshot) {
+    d.blocks = slices.Clone(s.blocks)
 }
 ```
 
@@ -45,15 +50,55 @@ restoring the state you are trying to leave.
 - **Shallow copies.** The single most common defect, and the one that looks correct in
   testing until a nested object is edited. See `../creational/prototype.md` for the same
   hazard.
+
+```go
+// WRONG — the snapshot shares the document's backing array.
+func (d *Document) Save() Snapshot { return Snapshot{blocks: d.blocks} }
+// Symptom: editing a block in place edits the snapshot too, and undo restores the edit.
+```
+
 - **A caretaker that reads the memento.** Once the holder understands the contents, the state
   is public and the pattern has bought nothing over exposing fields.
+
+```go
+// WRONG — the snapshot exports its contents, so the caretaker inspects them.
+type Snapshot struct{ Blocks []Block }
+
+func (h *History) IsDocumentEmpty() bool { return len(h.latest().Blocks) == 0 }
+// Symptom: History depends on Document's layout, and changing that layout breaks undo.
+```
+
 - **Unbounded history.** Snapshots of large state, kept per edit, with nothing discarding
   them, is a memory leak attached to a feature users like. Bound the depth.
+
+```go
+// WRONG — a snapshot per edit, and nothing ever discards one.
+func (h *History) Push(s Snapshot) { h.snapshots = append(h.snapshots, s) }
+// Symptom: memory grows with every edit in a long session until the process is killed.
+```
+
 - **Snapshotting external resources.** Open handles, sockets and live connections cannot be
   captured and restored. Capture the information needed to re-establish them instead.
+
+```go
+// WRONG — the snapshot captures a live connection.
+func (s *Session) Save() Snapshot { return Snapshot{conn: s.conn, cursor: s.cursor} }
+// Symptom: restoring after a reconnect revives a closed connection, and the next write fails.
+```
+
 - **Using it to persist state across processes.** Then it is a serialisation format and needs
   versioning, compatibility and validation like any other wire format. The pattern assumes
   the originator on both sides is the same code.
+
+```go
+// WRONG — the snapshot exported and written out for another process to restore.
+type Snapshot struct {
+    Blocks []Block `json:"blocks"`
+}
+
+encoded, err := json.Marshal(doc.Save())
+// Symptom: after a release renames a Block field, old drafts restore with that field silently empty.
+```
 
 **Trade-off:** memory proportional to history depth times state size, and a capture that must
 be updated whenever a field is added — a new field omitted from `save` is a silent

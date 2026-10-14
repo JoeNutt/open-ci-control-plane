@@ -23,17 +23,23 @@ subclassing.
 Keep the factory method **protected and abstract**, return the interface, and let the base
 class's algorithm be the only caller.
 
-```java
-abstract class ReportJob {
-    protected abstract Formatter createFormatter();   // the factory method
+Go has no subclassing and no `protected`, so the classical shape does not exist, and
+embedding does not supply it: a method on an embedded struct that calls another method
+dispatches to the embedded type, never to the outer one. The Go form holds the factory as an
+unexported func field, supplied once at construction, with the algorithm as its only caller.
 
-    final String run(Data data) {
-        return createFormatter().format(data);        // base class never names a concrete type
-    }
+```go
+// RIGHT — Run never names a concrete Formatter; the constructor chose it.
+type ReportJob struct {
+    newFormatter func() Formatter
 }
 
-final class CsvReportJob extends ReportJob {
-    protected Formatter createFormatter() { return new CsvFormatter(); }
+func NewCSVReportJob() ReportJob {
+    return ReportJob{newFormatter: func() Formatter { return csvFormatter{} }}
+}
+
+func (j ReportJob) Run(d Decision) string {
+    return j.newFormatter().Format(d)
 }
 ```
 
@@ -45,14 +51,58 @@ the decision has not actually moved and the pattern is decoration.
 - **A factory method with a parameter that selects the type.** `createFormatter(String kind)`
   with a switch inside is a Simple Factory wearing this pattern's name. It centralises the
   conditional rather than removing it, and every new product edits that method.
+
+```go
+// WRONG — the parameter is the conditional the pattern was meant to remove.
+func newFormatter(kind string) Formatter {
+    switch kind {
+    case "csv":
+        return csvFormatter{}
+    case "json":
+        return jsonFormatter{}
+    }
+    return nil
+}
+// Symptom: every new format edits this switch, and an unknown kind is a nil far from its cause.
+```
+
 - **Subclassing purely to vary one object.** If the subclass overrides nothing but the
   factory method, pass the product in instead — a constructor parameter or an injected
   factory function is the same decision with no inheritance.
+
+```go
+// WRONG — a type per product, overriding nothing but the factory.
+type CSVReportJob struct{ ReportJob }
+
+func (CSVReportJob) newFormatter() Formatter { return csvFormatter{} }
+// Symptom: one type per format, and ReportJob.Run never calls this method.
+```
+
 - **In a language with first-class functions, reaching for a class hierarchy at all.** A
   `func() Formatter` field is the whole pattern. The hierarchy earns its place only when the
   base class has real algorithm to protect.
+
+```go
+// WRONG — an interface and a type per product, standing in for a func value.
+type FormatterFactory interface{ NewFormatter() Formatter }
+
+type csvFormatterFactory struct{}
+
+func (csvFormatterFactory) NewFormatter() Formatter { return csvFormatter{} }
+// Symptom: two declarations per format, protecting no algorithm.
+```
+
 - **Confusing it with Abstract Factory.** This creates *one* product; Abstract Factory
   creates a *family* whose members must match.
+
+```go
+// WRONG — two factory methods whose products must agree, and nothing makes them.
+type ReportJob struct {
+    newFormatter func() Formatter
+    newParser    func() Parser
+}
+// Symptom: a CSV formatter paired with a JSON parser compiles and fails at run time.
+```
 
 **Trade-off:** one class per product variation, and the product choice becomes visible in
 the type hierarchy rather than at the call site — which is harder to trace.

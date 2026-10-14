@@ -22,40 +22,96 @@ adding its own higher-level behaviour on top.
 Keep the implementor interface **primitive**. It exposes the small operations the abstraction
 composes; it does not mirror the abstraction's API.
 
-```kotlin
-interface Renderer {                 // implementor: primitives only
-    fun drawLine(x1: Int, y1: Int, x2: Int, y2: Int)
-    fun fill(colour: Colour)
+Go has no abstract classes, so the abstraction's "hierarchy" is a set of types satisfying one
+interface — here `Report{ Render() }` — each holding the implementor as a field.
+
+```go
+// RIGHT — Sink offers primitives; each report kind composes them through the Sink it holds.
+type Sink interface {
+    Heading(text string)
+    Row(cells ...string)
 }
 
-abstract class Shape(protected val renderer: Renderer) {   // abstraction
-    abstract fun draw()              // composed from primitives
+type DecisionReport struct {
+    sink      Sink
+    decisions []Decision
 }
 
-class Rectangle(renderer: Renderer) : Shape(renderer) {
-    override fun draw() { /* four drawLine calls, then fill */ }
+func (r DecisionReport) Render() {
+    r.sink.Heading(decisionsHeading)
+    for _, d := range r.decisions {
+        r.sink.Row(d.Policy, d.Outcome.String())
+    }
 }
 ```
 
-The invariant: **neither hierarchy names a concrete type from the other.** Adding a renderer
-must require no change to any shape, and adding a shape no change to any renderer.
+The invariant: **neither hierarchy names a concrete type from the other.** Adding a sink must
+require no change to any report, and adding a report no change to any sink.
 
 ## How not to use it
 
 - **Applying it with one implementation.** With a single implementor the indirection buys
   nothing and costs a layer. Introduce it when the second dimension actually appears, not in
   anticipation.
+
+```go
+// WRONG — the implementor interface has one implementation and no second in sight.
+type Sink interface{ Heading(text string) }
+
+type markdownSink struct{ out *strings.Builder }
+// Symptom: every report call crosses an interface that has only ever had one implementation.
+```
+
 - **An implementor interface that mirrors the abstraction method for method.** Then it is not
   a bridge, it is a delegation layer, and both hierarchies change together — which is the
   exact coupling the pattern exists to break.
+
+```go
+// WRONG — the implementor mirrors the report kinds rather than offering primitives.
+type Sink interface {
+    RenderDecisionReport(decisions []Decision)
+    RenderCoverageReport(c Coverage)
+}
+// Symptom: a new report kind edits every sink, and a new sink implements every report.
+```
+
 - **Confusing it with Adapter.** Bridge is designed up front to let two hierarchies vary;
   Adapter is applied afterwards to reconcile interfaces that already exist and disagree.
+
+```go
+// WRONG — named a bridge, but written afterwards to fit an existing client to Sink.
+type commentBridge struct{ api *github.Client }
+
+func (b commentBridge) Heading(text string) { /* translate to the forge's comment call */ }
+// Symptom: readers look for a second hierarchy that does not exist; the name hides an Adapter.
+```
+
 - **Confusing it with Strategy.** Structurally they are near-identical; the intent differs.
   Strategy swaps an algorithm behind one abstraction; Bridge exists so two hierarchies can
   grow independently. If there is only one abstraction, you have a Strategy.
+
+```go
+// WRONG — named a bridge, though DecisionReport is the only type that will hold a Sink.
+type DecisionReport struct {
+    sinkBridge Sink
+}
+// Symptom: no second abstraction exists to vary; this is a Strategy under a heavier name.
+```
+
 - **Letting state leak across the bridge.** If the abstraction reaches into implementor state,
   or the implementor calls back into the abstraction's higher-level methods, the separation is
   nominal.
+
+```go
+// WRONG — the report recovers the concrete sink and writes into its state.
+func (r DecisionReport) Render() {
+    if md, isMarkdown := r.sink.(*markdownSink); isMarkdown {
+        md.out.WriteString("<details>")
+    }
+    r.sink.Heading(decisionsHeading)
+}
+// Symptom: adding a sink means editing reports, and the two hierarchies change together.
+```
 
 **Trade-off:** one more indirection on every primitive call, and a design that is harder to
 follow than inheritance until the second dimension justifies it.

@@ -23,18 +23,35 @@ rather than with the number of logical objects. A factory hands out the shared i
 Make the shared object immutable, intern it through a factory, and pass extrinsic state as
 parameters.
 
-```java
-final class Glyph {                      // intrinsic: shared, immutable
-    private final char symbol;
-    private final Outline outline;
-    void drawAt(int x, int y, Style style) { /* extrinsic passed in */ }
+```go
+// RIGHT — Glyph has no setters; position and style arrive per call.
+type Glyph struct {
+    symbol  rune
+    outline Outline
 }
 
-final class Glyphs {
-    private static final Map<Character, Glyph> cache = new ConcurrentHashMap<>();
-    static Glyph of(char c) { return cache.computeIfAbsent(c, Glyph::new); }
+func (g *Glyph) DrawAt(x, y int, style Style) { /* extrinsic state passed in */ }
+
+type GlyphFactory struct {
+    mu     sync.Mutex
+    glyphs map[rune]*Glyph
+}
+
+func (f *GlyphFactory) Of(symbol rune) *Glyph {
+    f.mu.Lock()
+    defer f.mu.Unlock()
+    g, isInterned := f.glyphs[symbol]
+    if !isInterned {
+        g = newGlyph(symbol)
+        f.glyphs[symbol] = g
+    }
+    return g
 }
 ```
+
+Where the intrinsic state is a single comparable value — an import path, a policy family
+name — the standard library's `unique.Make` is the factory, and the `unique.Handle` it
+returns is the flyweight.
 
 The invariant: **a flyweight is immutable.** It is shared by definition, so a mutable field
 is a data race and a correctness bug across unrelated callers.
@@ -44,16 +61,59 @@ is a data race and a correctness bug across unrelated callers.
 - **Applying it without measuring.** This is the most situational pattern in the catalogue,
   and it trades clear code for memory. Without a profile showing object count dominating, it
   is a complication.
+
+```go
+// WRONG — interning a few dozen check names, with no profile asking for it.
+type CheckRun struct {
+    Name unique.Handle[string]
+}
+// Symptom: every read of a name is .Value(), and the heap profile never mentioned names.
+```
+
 - **Mutable intrinsic state.** One caller's change silently alters every other user. In a
   concurrent program this is also a race, and the resulting bug is maximally hard to trace.
+
+```go
+// WRONG — a setter on a shared glyph.
+func (g *Glyph) SetOutline(o Outline) { g.outline = o }
+// Symptom: one caller's change redraws every other caller's text, and the race detector fires.
+```
+
 - **Letting extrinsic state creep into the shared object.** The moment position, owner or
   request context is stored on the flyweight, sharing becomes incorrect — and it will appear
   to work under single-threaded testing.
+
+```go
+// WRONG — per-use position stored on the shared glyph.
+func (g *Glyph) DrawAt(x, y int, style Style) {
+    g.x, g.y = x, y
+    g.render(style)
+}
+// Symptom: concurrent draws land at each other's positions; single-threaded tests pass.
+```
+
 - **An unbounded intern cache keyed on untrusted input.** That is a memory leak reachable
   from outside. Bound the key space or bound the cache.
+
+```go
+// WRONG — every path in a webhook payload becomes a permanent factory entry.
+for _, file := range payload.Files {
+    refs = append(refs, paths.Of(file.Path))
+}
+// Symptom: a sender varying paths grows the factory's map without limit.
+```
+
 - **Confusing it with a cache or a pool.** A cache avoids recomputation; a pool reuses
   expensive mutable instances one caller at a time; a flyweight is shared *simultaneously* by
   many and therefore must be immutable.
+
+```go
+// WRONG — a pooled, mutable buffer shared by two callers at once, as if it were a flyweight.
+buf := bufferPool.Get().(*bytes.Buffer)
+go renderSummary(buf, decisions)
+go renderAnnotations(buf, findings)
+// Symptom: the two goroutines interleave writes into one buffer.
+```
 
 **Trade-off:** the object model stops matching the domain — a logical object is now a
 flyweight plus parameters — and every call site carries state the object used to hold.
