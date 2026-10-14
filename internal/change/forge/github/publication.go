@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -49,7 +50,7 @@ func parsePublication(
 }
 
 func fitsOutput(field string) bool {
-	return len(field) <= MaxOutputCharacters
+	return utf8.RuneCountInString(field) <= MaxOutputCharacters
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {

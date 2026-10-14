@@ -323,6 +323,21 @@ func TestPublishCheckRunRefusesOutputLongerThanTheForgeAcceptsWithoutAsking(t *t
 	}
 }
 
+func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
+	held := newCheckRunForge(t)
+	run := securityRun()
+	run.Summary = strings.Repeat("é", github.MaxOutputCharacters)
+	run.Text = strings.Repeat("✓", github.MaxOutputCharacters)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	held.mustHoldOnly(heldAs(1, run))
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 
