@@ -3,11 +3,12 @@
 A self-hosted gate between your git forge and your CI runner. It decides what is allowed to
 merge, and what actually needs to run.
 
-![Go](https://img.shields.io/badge/go-1.26-00ADD8) ![Licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue) ![Status](https://img.shields.io/badge/status-pre--implementation-orange)
+![Go](https://img.shields.io/badge/go-1.26-00ADD8) ![Licence](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue) ![Status](https://img.shields.io/badge/status-in--development-orange)
 
-> **Status: specification complete, no code yet.** There is no `go.mod`, no binary and nothing
-> to install. The design is finished and signed off; implementation starts next. If you are
-> looking for something runnable, come back later.
+> **Status: in development, nothing to run yet.** The specification is signed off and phase 1
+> is under way. The policy input contract, the GitHub forge adapter, webhook authentication
+> and the embedded OPA engine exist as packages under `internal/`, but there is no binary and
+> nothing to install. If you are looking for something runnable, come back later.
 
 ## The problem
 
@@ -62,13 +63,15 @@ permissions from the code it governs.** The governed party cannot exempt itself.
 
 ## Quick start
 
-There is nothing to run yet. There is a development environment:
+There is nothing to run yet. There is a development environment and a test suite:
 
 ```sh
 nix develop            # go 1.26, opa, regal, golangci-lint, staticcheck, syft, cosign
+go test ./...          # inside the dev shell
 ```
 
-Without Nix, you need Go 1.26 or later and the [OPA CLI](https://www.openpolicyagent.org/docs/cli).
+Without Nix, you need Go 1.26 or later and the [OPA CLI](https://www.openpolicyagent.org/docs/cli)
+on your `PATH`, because the suite calls it.
 
 ## Documentation
 
@@ -90,8 +93,15 @@ Two conventions are not negotiable, and both are enforced rather than requested.
 **Test first, and refactor after.** The cycle is red, green, **refactor** — a failing test
 before any code, the minimum to pass it, then restructure against the standards in
 `knowledge-base/`. A `Stop` hook refuses to end a turn that edited source without stating a
-refactor verdict, and a `PreToolUse` hook refuses a commit with a red suite, unformatted
-files, or production changes with no accompanying test. See `.claude/rules/tdd-cycle.md`.
+refactor verdict, and a git `pre-commit` hook refuses a commit with a red suite, unformatted
+files, or `go vet` failures. See `.claude/rules/tdd-cycle.md`.
+
+The git hook lives in `.githooks/`, and git does not enable it on clone. Wire it once per
+checkout:
+
+```sh
+git config core.hooksPath .githooks
+```
 
 **Comments are a last resort.** Doc comments follow the
 [Google Go style](https://google.github.io/styleguide/go/decisions): complete sentences
