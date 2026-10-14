@@ -9,6 +9,14 @@ object. Each state class implements the same interface and handles events in its
 including deciding which state comes next. The conditional over a state field disappears into
 polymorphism.
 
+## Why it exists
+
+When behaviour depends on which state an object is in, the usual form is a conditional over a
+state field in every method, so adding a state means finding and editing each of them — and a
+missed one leaves an event unhandled in that state. The pattern gives each state its own type
+implementing every event, so a state's behaviour lives together and a state missing an event
+does not compile.
+
 ## When to use it
 
 - A **conditional over the same state field appears in several methods**, and adding a state
@@ -23,26 +31,31 @@ Let each state own its **transitions**, and make the state object immutable so i
 behaviour rather than mutable data.
 
 ```go
-// RIGHT — each state is an immutable value that returns the next state.
+// RIGHT — each state is an immutable value that returns the next state, or refuses.
 type GrantState interface {
-    Use(env Env) GrantState
+	Use(env Env) (GrantState, error)
 }
 
 type Pending struct{}
 type Active struct{ Since time.Time }
 type Expired struct{}
 
-func (Pending) Use(env Env) GrantState { return Active{Since: env.Now()} }
+var ErrGrantExpired = errors.New("grant expired")
 
-func (a Active) Use(env Env) GrantState {
-    if env.Now().After(a.Since.Add(env.TTL)) {
-        return Expired{}
-    }
-    return a
+func (Pending) Use(env Env) (GrantState, error) { return Active{Since: env.Now()}, nil }
+
+func (a Active) Use(env Env) (GrantState, error) {
+	if env.Now().After(a.Since.Add(env.TTL)) {
+		return Expired{}, ErrGrantExpired
+	}
+	return a, nil
 }
 
-func (Expired) Use(Env) GrantState { return Expired{} } // terminal, and says so
+func (e Expired) Use(Env) (GrantState, error) { return e, ErrGrantExpired }
 ```
+
+Using an expired grant is refused with `ErrGrantExpired`; the terminal state never answers an
+illegal event as if it had succeeded.
 
 The invariant: **every state handles every event in the interface**, even if the handling is
 an explicit refusal. A state that cannot answer an event means the interface spans two
@@ -56,9 +69,9 @@ machines.
 ```go
 // WRONG — the context still asks which state it holds.
 if _, isExpired := g.state.(Expired); isExpired {
-    g.audit.Record("use of expired grant")
+	g.audit.Record("use of expired grant")
 }
-g.state = g.state.Use(env)
+g.state, err = g.state.Use(env)
 // Symptom: expiry behaviour lives in two places, and the next change updates one.
 ```
 
@@ -68,9 +81,9 @@ g.state = g.state.Use(env)
 
 ```go
 // WRONG — the state object owns domain data and mutates it.
-func (a *Active) Use(env Env) GrantState {
-    a.UseCount++
-    return a
+func (a *Active) Use(env Env) (GrantState, error) {
+	a.UseCount++
+	return a, nil
 }
 // Symptom: after the move to Expired the use count is gone, and nothing says whether it should be.
 ```
@@ -80,7 +93,7 @@ func (a *Active) Use(env Env) GrantState {
 
 ```go
 // WRONG — revoking a pending grant returns the same state and no error.
-func (p Pending) Revoke(Env) GrantState { return p }
+func (p Pending) Revoke(Env) (GrantState, error) { return p, nil }
 // Symptom: the caller reports the grant revoked; it activates on first use.
 ```
 
@@ -99,9 +112,9 @@ func (Disabled) Toggle() SchedulerState { return Enabled{} }
 
 ```go
 // WRONG — Active decides expiry by time; the context decides expiry by count.
-g.state = g.state.Use(env)
+g.state, err = g.state.Use(env)
 if g.useCount > g.useLimit {
-    g.state = Expired{}
+	g.state = Expired{}
 }
 // Symptom: neither Active nor Grant shows every way a grant expires.
 ```
