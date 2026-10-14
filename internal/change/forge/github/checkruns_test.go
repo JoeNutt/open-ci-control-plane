@@ -301,7 +301,7 @@ func TestPublishCheckRunRefusesAnUndeclaredConclusionWithoutAsking(t *testing.T)
 }
 
 func TestPublishCheckRunRefusesOutputLongerThanTheForgeAcceptsWithoutAsking(t *testing.T) {
-	overlong := strings.Repeat("x", 65535+1)
+	overlong := strings.Repeat("x", github.MaxOutputCharacters+1)
 	oversized := map[string]func(*domain.CheckRun){
 		"summary": func(run *domain.CheckRun) { run.Summary = overlong },
 		"text":    func(run *domain.CheckRun) { run.Text = overlong },

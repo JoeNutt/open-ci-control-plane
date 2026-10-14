@@ -13,6 +13,10 @@ import (
 
 var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
 
+// GitHub accepts at most 65535 characters in each of output.summary and output.text:
+// https://docs.github.com/en/rest/checks/runs
+const MaxOutputCharacters = 65535
+
 var ErrOutputTooLong = errors.New("a check run's summary or text is longer than the forge accepts")
 
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
@@ -30,7 +34,7 @@ func parsePublication(
 	if run.Name == "" || run.Title == "" || run.Summary == "" {
 		return publication{}, ErrIncompleteCheckRun
 	}
-	if len(run.Summary) > 65535 || len(run.Text) > 65535 {
+	if !fitsOutput(run.Summary) || !fitsOutput(run.Text) {
 		return publication{}, ErrOutputTooLong
 	}
 	verdict, err := parseVerdict(run)
@@ -42,6 +46,10 @@ func parsePublication(
 		return publication{}, err
 	}
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
+}
+
+func fitsOutput(field string) bool {
+	return len(field) <= MaxOutputCharacters
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
