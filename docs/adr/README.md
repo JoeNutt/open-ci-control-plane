@@ -14,3 +14,4 @@ be read together.
 | `0002-decision-record-retention-flag.md` | §13 contract C-8 | Accepted |
 | `0003-app-level-webhook-secret.md` | §13 contract C-1 | Accepted |
 | `0004-policy-repository-for-constraint-authoring.md` | nothing — fills a gap | Accepted |
+| `0005-self-enforcement-on-this-repository.md` | FR-21 | Accepted |
