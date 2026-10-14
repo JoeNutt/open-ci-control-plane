@@ -23,7 +23,6 @@ type Decision struct {
 	effect     Effect
 	violations Declared[Violation]
 	reviewers  Declared[string]
-	failClosed bool
 	posture    FailurePosture
 }
 
@@ -31,7 +30,6 @@ func (decided Decision) Outcome() Outcome                { return decided.outcom
 func (decided Decision) Effect() Effect                  { return decided.effect }
 func (decided Decision) Violations() Declared[Violation] { return decided.violations }
 func (decided Decision) Reviewers() Declared[string]     { return decided.reviewers }
-func (decided Decision) FailClosed() bool                { return decided.failClosed }
 func (decided Decision) FailurePosture() FailurePosture  { return decided.posture }
 
 type statedDecision struct {
@@ -64,12 +62,7 @@ func ParseDecision(stated []byte) (Decision, error) {
 	}
 	if !written.InputWellformed {
 		undecided := UndecidedDecision()
-		if written.FailClosed != nil {
-			undecided.posture = FailurePostureOpen
-			if *written.FailClosed {
-				undecided.posture = FailurePostureClosed
-			}
-		}
+		undecided.posture = declaredPostureOf(written.FailClosed)
 		return undecided, nil
 	}
 	return Decision{
@@ -77,7 +70,6 @@ func ParseDecision(stated []byte) (Decision, error) {
 		effect:     effect,
 		violations: written.Violations,
 		reviewers:  written.Reviewers,
-		failClosed: written.FailClosed != nil && *written.FailClosed,
 		posture:    declaredPostureOf(written.FailClosed),
 	}, nil
 }
