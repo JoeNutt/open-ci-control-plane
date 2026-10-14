@@ -10,7 +10,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
+var (
+	checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
+	checkRunTextErrOverCapacity = errors.New("check run output cannot fit its capacity")
+)
 
 const (
 	checkRunTextSummaryLayout    = "%s\n\nDecision `%s`"
@@ -29,11 +32,15 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
 	blocks := checkRunTextBlocksThatFit(run, capacity)
-	return checkRunTextOutput{
+	output := checkRunTextOutput{
 		title:   run.Title,
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
 		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
-	}, nil
+	}
+	if len(output.summary) > capacity || len(output.text) > capacity {
+		return checkRunTextOutput{}, checkRunTextErrOverCapacity
+	}
+	return output, nil
 }
 
 func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {

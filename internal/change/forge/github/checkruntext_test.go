@@ -128,6 +128,39 @@ func TestCheckRunTextListsWholeViolationsThatFitAndCountsTheRest(t *testing.T) {
 	}
 }
 
+func TestCheckRunTextRefusesWhatCannotFitEvenWithNothingListed(t *testing.T) {
+	cramped := map[string]int{
+		"summary beyond the capacity":         40,
+		"truncation line beyond the capacity": 60,
+		"a capacity of nothing":               0,
+	}
+
+	for form, capacity := range cramped {
+		t.Run(form, func(t *testing.T) {
+			run := checkRunTextFixture(t)
+			run.Headline = "Blocked."
+			run.Violations[0].Message = strings.Repeat("m", 200)
+
+			_, err := checkRunTextFor(run, capacity)
+
+			if !errors.Is(err, checkRunTextErrOverCapacity) {
+				t.Fatalf("got %v, want checkRunTextErrOverCapacity", err)
+			}
+		})
+	}
+}
+
+func TestCheckRunTextRefusesASummaryBeyondTheCapacityWhenTheTextIsEmpty(t *testing.T) {
+	run := checkRunTextFixture(t)
+	run.Violations, run.ViolationCount = nil, 0
+
+	_, err := checkRunTextFor(run, 40)
+
+	if !errors.Is(err, checkRunTextErrOverCapacity) {
+		t.Fatalf("got %v, want checkRunTextErrOverCapacity", err)
+	}
+}
+
 func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 	unidentified := checkRunTextFixture(t)
 	unidentified.DecisionID = domain.DecisionID{}
