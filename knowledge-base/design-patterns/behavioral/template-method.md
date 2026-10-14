@@ -8,6 +8,13 @@ A base class defines the skeleton of an operation as a sequence of calls, some o
 abstract or overridable. Subclasses supply the varying steps without changing the order or
 structure. Inversion of control through inheritance: the base class calls down.
 
+## Why it exists
+
+When several operations share a fixed sequence and differ only in some steps, writing each in
+full duplicates the sequence, and the copies drift — one gains a validation step the others
+never get. The template method keeps the sequence in one place and leaves only the varying
+steps to be supplied, so the order is defined once and no variant can change it.
+
 ## When to use it
 
 - A sequence is **genuinely invariant** and its steps are not — a build pipeline whose phases
@@ -29,19 +36,19 @@ pattern converges on Strategy, with the function as the context.
 ```go
 // RIGHT — the function is the sequence; the one hook is passed in.
 type Parser interface {
-    Parse(raw Raw) (Parsed, error)
+	Parse(raw Raw) (Parsed, error)
 }
 
 func RunExtraction(src Source, p Parser) (Result, error) {
-    raw, err := read(src) // fixed
-    if err != nil {
-        return Result{}, err
-    }
-    parsed, err := p.Parse(raw) // varies
-    if err != nil {
-        return Result{}, err
-    }
-    return summarise(parsed), nil // fixed
+	raw, err := read(src) // fixed
+	if err != nil {
+		return Result{}, err
+	}
+	parsed, err := p.Parse(raw) // varies
+	if err != nil {
+		return Result{}, err
+	}
+	return summarise(parsed), nil // fixed
 }
 ```
 
@@ -58,11 +65,11 @@ subclass can see.
 ```go
 // WRONG — so many hooks that the implementer writes the algorithm.
 type ExtractionHooks interface {
-    BeforeRead(src Source)
-    Read(src Source) (Raw, error)
-    Parse(raw Raw) (Parsed, error)
-    Filter(p Parsed) Parsed
-    Summarise(p Parsed) Result
+	BeforeRead(src Source)
+	Read(src Source) (Raw, error)
+	Parse(raw Raw) (Parsed, error)
+	Filter(p Parsed) Parsed
+	Summarise(p Parsed) Result
 }
 // Symptom: RunExtraction is a list of calls, and every behaviour lives in the implementations.
 ```
@@ -73,8 +80,8 @@ type ExtractionHooks interface {
 ```go
 // WRONG — the sequence itself is a replaceable field.
 type ExtractionRun struct {
-    Run   func(src Source) (Result, error)
-    Parse func(raw Raw) (Parsed, error)
+	Run   func(src Source) (Result, error)
+	Parse func(raw Raw) (Parsed, error)
 }
 // Symptom: any caller can replace Run, and two runs under one name follow different algorithms.
 ```
@@ -86,7 +93,7 @@ type ExtractionRun struct {
 ```go
 // WRONG — Parse ignores its argument and reads state an earlier step left behind.
 func (p *csvParser) Parse(Raw) (Parsed, error) {
-    return parseRows(p.buffer)
+	return parseRows(p.buffer)
 }
 // Symptom: Parse called before anything fills p.buffer returns no rows and no error.
 ```
@@ -99,7 +106,7 @@ func (p *csvParser) Parse(Raw) (Parsed, error) {
 type Linter struct{ ExtractionRun }
 
 func (l Linter) Lint(src Source) Findings {
-    return lint(l.normalise(l.read(src)))
+	return lint(l.normalise(l.read(src)))
 }
 // Symptom: Linter changes whenever ExtractionRun does, though it never uses the sequence.
 ```
