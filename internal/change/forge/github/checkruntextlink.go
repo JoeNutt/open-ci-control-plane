@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+// RFC 1035 section 2.3.1: a label is letters, digits and hyphens, starts and ends
+// with a letter or digit, and is at most 63 characters.
+const (
+	checkRunTextMaxLabelLength  = 63
+	checkRunTextMinimumLabels   = 2
+	checkRunTextDigits          = "0123456789"
+	checkRunTextLabelCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + checkRunTextDigits + "-"
+)
+
 const (
 	checkRunTextLinkPrefix      = "https://"
 	checkRunTextLinkDefaultPort = "443"
@@ -45,29 +54,6 @@ func checkRunTextIsPlainHTTPSLink(stated string) bool {
 		checkRunTextIsDNSName(parsed.Hostname())
 }
 
-func checkRunTextIsDNSName(host string) bool {
-	if strings.HasPrefix(host, "[") || host == "localhost" {
-		return false
-	}
-	labels := strings.Split(host, ".")
-	if len(labels) < 2 {
-		return false
-	}
-	for _, label := range labels {
-		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
-			return false
-		}
-		for _, character := range label {
-			if !(character == '-' || ('0' <= character && character <= '9') ||
-				('a' <= character && character <= 'z') || ('A' <= character && character <= 'Z')) {
-				return false
-			}
-		}
-	}
-	last := labels[len(labels)-1]
-	return strings.Trim(last, "0123456789") != ""
-}
-
 func checkRunTextHasOnlyLinkCharacters(stated string) bool {
 	for _, character := range stated {
 		if !strings.ContainsRune(checkRunTextLinkCharacters, character) {
@@ -75,4 +61,31 @@ func checkRunTextHasOnlyLinkCharacters(stated string) bool {
 		}
 	}
 	return true
+}
+
+func checkRunTextIsDNSName(host string) bool {
+	labels := strings.Split(host, ".")
+	if len(labels) < checkRunTextMinimumLabels || !checkRunTextAreDNSLabels(labels) {
+		return false
+	}
+	return strings.Trim(labels[len(labels)-1], checkRunTextDigits) != ""
+}
+
+func checkRunTextAreDNSLabels(labels []string) bool {
+	for _, label := range labels {
+		if !checkRunTextIsDNSLabel(label) {
+			return false
+		}
+	}
+	return true
+}
+
+func checkRunTextIsDNSLabel(label string) bool {
+	if label == "" || len(label) > checkRunTextMaxLabelLength {
+		return false
+	}
+	if strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+		return false
+	}
+	return strings.Trim(label, checkRunTextLabelCharacters) == ""
 }
