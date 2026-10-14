@@ -837,14 +837,17 @@ func TestPublishCheckRunDrainsAWriteBodyWithinTheBoundAndNoFurther(t *testing.T)
 	}
 }
 
-func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
-	const (
-		clientTimeout = 200 * time.Millisecond
-		trickledBytes = 30
-		trickleGap    = 100 * time.Millisecond
-		heldAtMost    = time.Second
-	)
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+const (
+	trickleClientTimeout = 200 * time.Millisecond
+	trickledBytes        = 30
+	trickleGap           = 100 * time.Millisecond
+	trickleHeldAtMost    = time.Second
+)
+
+func tricklingForge(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodGet {
 			write(t, writer, noRunsListed)
 			return
@@ -861,54 +864,35 @@ func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
 			}
 		}
 	})
-	settings := settingsAt(server)
-	settings.Client.Timeout = clientTimeout
-
-	started := time.Now()
-	_ = checkRunsWith(t, settings).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
-
-	if held := time.Since(started); held > heldAtMost {
-		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, heldAtMost)
-	}
 }
 
-func TestPublishCheckRunKeepsTheParsedTimeoutWhenTheCallersClientChanges(t *testing.T) {
-	const (
-		clientTimeout = 200 * time.Millisecond
-		trickledBytes = 30
-		trickleGap    = 100 * time.Millisecond
-		heldAtMost    = time.Second
-	)
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method == http.MethodGet {
-			write(t, writer, noRunsListed)
-			return
-		}
-		writer.WriteHeader(http.StatusCreated)
-		for range trickledBytes {
-			select {
-			case <-request.Context().Done():
-				return
-			case <-time.After(trickleGap):
-			}
-			if !isTrickled(writer) {
-				return
-			}
-		}
-	})
-	settings := settingsAt(server)
-	settings.Client.Timeout = clientTimeout
-	runs := checkRunsWith(t, settings)
-	settings.Client.Timeout = 0
+func timeHeldPublishing(t *testing.T, runs github.CheckRuns) time.Duration {
+	t.Helper()
 
 	started := time.Now()
 	_ = runs.PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+	return time.Since(started)
+}
 
-	if held := time.Since(started); held > heldAtMost {
+func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
+	settings := settingsAt(tricklingForge(t))
+	settings.Client.Timeout = trickleClientTimeout
+
+	if held := timeHeldPublishing(t, checkRunsWith(t, settings)); held > trickleHeldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, trickleHeldAtMost)
+	}
+}
+
+func TestPublishCheckRunKeepsTheParsedTimeoutWhenTheCallersClientChanges(t *testing.T) {
+	settings := settingsAt(tricklingForge(t))
+	settings.Client.Timeout = trickleClientTimeout
+	runs := checkRunsWith(t, settings)
+	settings.Client.Timeout = 0
+
+	if held := timeHeldPublishing(t, runs); held > trickleHeldAtMost {
 		t.Fatalf("a trickling forge held the publish for %v after the caller cleared its timeout, want at most %v",
-			held, heldAtMost)
+			held, trickleHeldAtMost)
 	}
 }
 
