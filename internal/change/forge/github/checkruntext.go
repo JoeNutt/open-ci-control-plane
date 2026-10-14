@@ -23,8 +23,15 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
+	text := ""
+	for _, violation := range run.Violations {
+		text += "**Rule** ` " + violation.RuleID + " ` — " + violation.Marking + "\n\n" +
+			"Message: ` " + violation.Message + " `\n\n" +
+			"- Owning team: ` " + violation.OwningTeam + " `\n\n"
+	}
 	return checkRunTextOutput{
 		title:   run.Title,
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
+		text:    text,
 	}, nil
 }

@@ -4,6 +4,7 @@ package github
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -31,6 +32,23 @@ func TestCheckRunTextSummaryIsTheHeadlineThenTheDecision(t *testing.T) {
 	want := "Blocked by the rules below.\n\nDecision `dec_0123456789abcdef0123456789abcdef`"
 	if output.summary != want {
 		t.Errorf("summary is %q, want %q", output.summary, want)
+	}
+}
+
+func TestCheckRunTextLaysOutEachViolationWithItsTenantTextInCodeSpans(t *testing.T) {
+	output, err := checkRunTextFor(checkRunTextFixture(t), checkRunTextTestCapacity)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	for _, line := range []string{
+		"**Rule** ` AUTHZ-1 ` — blocking",
+		"Message: ` auth middleware changed with no authz test `",
+		"- Owning team: ` security-platform `",
+	} {
+		if !strings.Contains(output.text, line) {
+			t.Errorf("text does not carry %q:\n%s", line, output.text)
+		}
 	}
 }
 
