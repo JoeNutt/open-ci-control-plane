@@ -327,6 +327,14 @@ func TestEveryStateCarriesAPlainHeadline(t *testing.T) {
 		}, "Policy quality could not be evaluated and this change was admitted without a decision."},
 	}
 
+	headed["punctuated family"] = struct {
+		family   domain.PolicyFamily
+		decision func(t *testing.T) domain.Decision
+		headline string
+	}{domain.PolicyFamily("supply-chain"), func(t *testing.T) domain.Decision {
+		return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
+	}, "Policy supply-chain failed to evaluate. This is not a problem with your change."}
+
 	for state, want := range headed {
 		t.Run(state, func(t *testing.T) {
 			run := checkRunFor(t, want.family, want.decision(t))

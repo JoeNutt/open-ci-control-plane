@@ -46,11 +46,13 @@ const (
 )
 
 func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	return runPresentation{
+	run := runPresentation{
 		conclusion: ConclusionNeutral,
 		title:      admittedWithoutDecisionTitle,
 		headline:   fmt.Sprintf(admittedWithoutDecisionLayout, markdownTextOf(string(decided.Family))),
 	}.checkRunFor(decided.Family, id)
+	run.Headline = fmt.Sprintf(admittedWithoutDecisionLayout, decided.Family)
+	return run
 }
 
 const (
@@ -59,11 +61,13 @@ const (
 )
 
 func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	return runPresentation{
+	run := runPresentation{
 		conclusion: ConclusionFailure,
 		title:      policyErrorTitle,
 		headline:   fmt.Sprintf(policyErrorLayout, markdownTextOf(string(decided.Family))),
 	}.checkRunFor(decided.Family, id)
+	run.Headline = fmt.Sprintf(policyErrorLayout, decided.Family)
+	return run
 }
 
 type runPresentation struct {
