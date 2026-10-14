@@ -247,17 +247,28 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 }
 
 func TestPublishCheckRunListsByNameOwnerAndLatest(t *testing.T) {
+	mustListExactlyFor(t, securityRun().Name)
+}
+
+func TestPublishCheckRunListsANameWithQuerySyntaxAsOneValue(t *testing.T) {
+	mustListExactlyFor(t, "policy/a&app_id=1 #frag 100%25 done")
+}
+
+func mustListExactlyFor(t *testing.T, name string) {
+	t.Helper()
+
 	var asked url.Values
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodGet {
 			asked = request.URL.Query()
-			write(t, writer, `{"total_count": 0, "check_runs": []}`)
+			write(t, writer, noRunsListed)
 			return
 		}
 		writer.WriteHeader(http.StatusCreated)
 		write(t, writer, `{}`)
 	})
 	run := securityRun()
+	run.Name = name
 
 	err := checkRunsAt(t, server).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
@@ -266,7 +277,7 @@ func TestPublishCheckRunListsByNameOwnerAndLatest(t *testing.T) {
 		t.Fatalf("publish check run: %v", err)
 	}
 	want := url.Values{
-		"check_name": {run.Name},
+		"check_name": {name},
 		"app_id":     {strconv.Itoa(forgeAppID)},
 		"filter":     {"latest"},
 	}
