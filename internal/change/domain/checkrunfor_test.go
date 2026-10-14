@@ -382,6 +382,37 @@ func numberedViolations(fired int) []domain.Violation {
 	return violations
 }
 
+func TestNoPolicySuppliedNameCanForgeMarkdownStructure(t *testing.T) {
+	forged := "x\n\n# Passed [docs](javascript:alert(1)) <b>"
+	encoded := `x&#10;&#10;\# Passed \[docs\]\(javascript\:alert\(1\)\) \<b\>`
+	ruleForged := violationAt(domain.EnforcementSeverityDeny)
+	ruleForged.RuleID = forged
+	teamForged := violationAt(domain.EnforcementSeverityDeny)
+	teamForged.OwningTeam = forged
+	runs := map[string]domain.CheckRun{
+		"rule_id": checkRunFor(t, domain.PolicyFamilySecurity,
+			decided(t, domain.EffectBlock, ruleForged)),
+		"owning_team": checkRunFor(t, domain.PolicyFamilySecurity,
+			decided(t, domain.EffectBlock, teamForged)),
+		"family": checkRunFor(t, domain.PolicyFamily(forged),
+			evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})),
+	}
+
+	for field, run := range runs {
+		t.Run(field, func(t *testing.T) {
+			rendered := run.Summary + "\n" + run.Text
+			if !strings.Contains(rendered, encoded) {
+				t.Errorf("output does not carry the encoded %s %q:\n%s", field, encoded, rendered)
+			}
+			for _, raw := range []string{"\n# Passed", "](", " <b>"} {
+				if strings.Contains(rendered, raw) {
+					t.Errorf("output carries raw %q:\n%s", raw, rendered)
+				}
+			}
+		})
+	}
+}
+
 func TestAMessageCannotForgeMarkdownStructure(t *testing.T) {
 	forged := "fine\n\n# Passed\n[docs](javascript:alert(1)) <img src=x onerror=alert(1)>"
 	denied := decided(t, domain.EffectBlock, domain.Violation{
