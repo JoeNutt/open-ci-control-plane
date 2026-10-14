@@ -257,6 +257,29 @@ func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing
 	}
 }
 
+func TestPublishCheckRunRefusesAnIncompleteRunWithoutAsking(t *testing.T) {
+	incomplete := map[string]func(*domain.CheckRun){
+		"no name":    func(run *domain.CheckRun) { run.Name = "" },
+		"no title":   func(run *domain.CheckRun) { run.Title = "" },
+		"no summary": func(run *domain.CheckRun) { run.Summary = "" },
+	}
+	runs := checkRunsAt(t, refusingEveryRequest(t))
+
+	for name, spoil := range incomplete {
+		t.Run(name, func(t *testing.T) {
+			run := securityRun()
+			spoil(&run)
+
+			err := runs.PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+			if !errors.Is(err, github.ErrIncompleteCheckRun) {
+				t.Fatalf("error is %v, want %v", err, github.ErrIncompleteCheckRun)
+			}
+		})
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 

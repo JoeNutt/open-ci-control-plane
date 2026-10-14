@@ -13,6 +13,8 @@ var _ domain.CheckRunPublisher = CheckRuns{}
 
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
+var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
+
 var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
 
 type CheckRuns struct {
@@ -30,6 +32,9 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 func (runs CheckRuns) PublishCheckRun(
 	ctx context.Context, locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
 ) error {
+	if run.Name == "" || run.Title == "" || run.Summary == "" {
+		return ErrIncompleteCheckRun
+	}
 	head, err := parseCommitSHA(headSHA)
 	if err != nil {
 		return err
