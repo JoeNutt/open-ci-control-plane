@@ -41,7 +41,7 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
 		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
 	}
-	if len(output.summary) > capacity || utf8.RuneCountInString(output.text) > capacity {
+	if len(output.summary) > capacity || checkRunTextCharactersIn(output.text) > capacity {
 		return checkRunTextOutput{}, errCheckRunTextOverCapacity
 	}
 	return output, nil
@@ -69,13 +69,18 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 		}
 		block := checkRunTextBlockOf(violation)
 		closing := checkRunTextTruncationOf(run.ViolationCount-len(blocks)-1, run.ViolationCount)
-		if used+utf8.RuneCountInString(block)+utf8.RuneCountInString(closing) > capacity {
+		if used+checkRunTextCharactersIn(block)+checkRunTextCharactersIn(closing) > capacity {
 			return blocks
 		}
 		blocks = append(blocks, block)
-		used += utf8.RuneCountInString(block)
+		used += checkRunTextCharactersIn(block)
 	}
 	return blocks
+}
+
+// GitHub counts output.summary and output.text in characters: https://docs.github.com/en/rest/checks/runs
+func checkRunTextCharactersIn(value string) int {
+	return utf8.RuneCountInString(value)
 }
 
 func checkRunTextLeastLengthOf(violation domain.CheckRunViolation) int {
@@ -83,7 +88,7 @@ func checkRunTextLeastLengthOf(violation domain.CheckRunViolation) int {
 	for _, field := range []string{
 		violation.RuleID, violation.Message, violation.OwningTeam, violation.DocsURL, violation.Marking,
 	} {
-		least += utf8.RuneCountInString(field) - strings.Count(field, "\r\n")
+		least += checkRunTextCharactersIn(field) - strings.Count(field, "\r\n")
 	}
 	return least
 }
