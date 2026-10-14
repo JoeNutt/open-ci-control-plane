@@ -23,14 +23,14 @@ func (pending publication) exchangeGiven(listed checkRunListing) (exchange, erro
 		return exchange{}, fmt.Errorf("%w: %d named %q on %s",
 			ErrAmbiguousCheckRun, listed.TotalCount, pending.run.Name, pending.head)
 	}
-	if listed.TotalCount != len(listed.CheckRuns) {
-		return exchange{}, fmt.Errorf("%w: a count of %d beside %d runs",
-			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
+	existing, err := listed.consistentRuns()
+	if err != nil {
+		return exchange{}, err
 	}
-	if len(listed.CheckRuns) == 0 {
+	if len(existing) == 0 {
 		return pending.creation(), nil
 	}
-	return pending.updateOf(listed.CheckRuns[0].ID), nil
+	return pending.updateOf(existing[0].ID), nil
 }
 
 func (pending publication) creation() exchange {
@@ -71,6 +71,14 @@ type checkRunID int64
 type checkRunListing struct {
 	TotalCount int              `json:"total_count"`
 	CheckRuns  []listedCheckRun `json:"check_runs"`
+}
+
+func (listed checkRunListing) consistentRuns() ([]listedCheckRun, error) {
+	if listed.TotalCount != len(listed.CheckRuns) {
+		return nil, fmt.Errorf("%w: a count of %d beside %d runs",
+			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
+	}
+	return listed.CheckRuns, nil
 }
 
 type listedCheckRun struct {
