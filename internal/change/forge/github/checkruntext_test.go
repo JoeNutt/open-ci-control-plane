@@ -53,6 +53,35 @@ func TestCheckRunTextLaysOutEachViolationWithItsTenantTextInCodeSpans(t *testing
 	}
 }
 
+func TestCheckRunTextCountsWhatTheDomainLeftOut(t *testing.T) {
+	counted := map[string]struct {
+		count     int
+		truncated string
+	}{
+		"54 counted, 1 carried": {54, "and 53 more — 54 violations in total. This list is truncated.\n"},
+		"1 counted, 1 carried":  {1, ""},
+	}
+
+	for form, want := range counted {
+		t.Run(form, func(t *testing.T) {
+			run := checkRunTextFixture(t)
+			run.ViolationCount = want.count
+
+			output, err := checkRunTextFor(run, checkRunTextTestCapacity)
+			if err != nil {
+				t.Fatalf("render: %v", err)
+			}
+
+			if want.truncated != "" && !strings.HasSuffix(output.text, want.truncated) {
+				t.Errorf("text does not end %q:\n%s", want.truncated, output.text)
+			}
+			if want.truncated == "" && strings.Contains(output.text, "truncated") {
+				t.Errorf("a complete list says it is truncated:\n%s", output.text)
+			}
+		})
+	}
+}
+
 func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 	unidentified := checkRunTextFixture(t)
 	unidentified.DecisionID = domain.DecisionID{}

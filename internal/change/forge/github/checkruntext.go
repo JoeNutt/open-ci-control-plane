@@ -27,10 +27,15 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, checkRunTextErrUnidentified
 	}
+	text := checkRunTextViolationsOf(run.Violations)
+	if run.ViolationCount > len(run.Violations) {
+		text += fmt.Sprintf("and %d more — %d violations in total. This list is truncated.\n",
+			run.ViolationCount-len(run.Violations), run.ViolationCount)
+	}
 	return checkRunTextOutput{
 		title:   run.Title,
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
-		text:    checkRunTextViolationsOf(run.Violations),
+		text:    text,
 	}, nil
 }
 
