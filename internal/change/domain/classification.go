@@ -8,6 +8,10 @@ import (
 	"slices"
 )
 
+const MaxPatternsPerKind = 16
+
+var ErrTooManyPatternsForKind = errors.New("classification rules give a kind more patterns than it may hold")
+
 var ErrUnknownPathKind = errors.New("classification rules name a kind the schema does not declare")
 
 type ClassificationRules struct {
@@ -19,6 +23,10 @@ func ParseClassificationRules(stated map[PathKind][]string) (ClassificationRules
 	for kind, written := range stated {
 		if !slices.Contains(declaredPathKinds, kind) {
 			return ClassificationRules{}, fmt.Errorf("%w: %q", ErrUnknownPathKind, kind)
+		}
+		if len(written) > MaxPatternsPerKind {
+			return ClassificationRules{}, fmt.Errorf("%w: %q holds %d, which exceeds %d",
+				ErrTooManyPatternsForKind, kind, len(written), MaxPatternsPerKind)
 		}
 		for _, one := range written {
 			parsed, err := ParsePathPattern(one)
