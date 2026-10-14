@@ -3,6 +3,8 @@
 package domain_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -66,6 +68,33 @@ func TestASpanningPatternCrossesAnyNumberOfSegments(t *testing.T) {
 				t.Fatalf("%q against %q is %v, want %v",
 					expected.pattern, expected.path,
 					pattern.Matches(expected.path), expected.want)
+			}
+		})
+	}
+}
+
+func TestParsePathPatternRefusesMoreSpansThanItWillEvaluate(t *testing.T) {
+	bounded := map[string]struct {
+		pattern string
+		refused bool
+	}{
+		"no span":                {"internal/auth/*.go", false},
+		"one span":               {"**/*_test.go", false},
+		"two spans":              {"**/testdata/**", false},
+		"two spans, apart":       {"**/internal/**/*_test.go", false},
+		"three spans":            {"**/a/**/b/**/*.go", true},
+		"a span for every level": {strings.Repeat("**/", 12) + "x.go", true},
+	}
+
+	for form, expected := range bounded {
+		t.Run(form, func(t *testing.T) {
+			_, err := domain.ParsePathPattern(expected.pattern)
+
+			if expected.refused && !errors.Is(err, domain.ErrPathPatternTooBroad) {
+				t.Fatalf("%q gave %v, want ErrPathPatternTooBroad", expected.pattern, err)
+			}
+			if !expected.refused && err != nil {
+				t.Fatalf("%q was refused: %v", expected.pattern, err)
 			}
 		})
 	}

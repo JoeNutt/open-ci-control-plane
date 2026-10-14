@@ -11,7 +11,11 @@ import (
 
 const spanningSegment = "**"
 
+const maxSpanningSegments = 2
+
 var ErrMalformedPathPattern = errors.New("path pattern is malformed")
+
+var ErrPathPatternTooBroad = errors.New("path pattern spans more segments than it will be evaluated over")
 
 type PathPattern struct {
 	segments []string
@@ -24,7 +28,21 @@ func ParsePathPattern(pattern string) (PathPattern, error) {
 			return PathPattern{}, fmt.Errorf("%w: %q: %w", ErrMalformedPathPattern, pattern, err)
 		}
 	}
+	if spanning := spanningSegmentsIn(segments); spanning > maxSpanningSegments {
+		return PathPattern{}, fmt.Errorf("%w: %q carries %d, which exceeds %d",
+			ErrPathPatternTooBroad, pattern, spanning, maxSpanningSegments)
+	}
 	return PathPattern{segments: segments}, nil
+}
+
+func spanningSegmentsIn(segments []string) int {
+	spanning := 0
+	for _, segment := range segments {
+		if segment == spanningSegment {
+			spanning++
+		}
+	}
+	return spanning
 }
 
 func (pattern PathPattern) Matches(candidate string) bool {
