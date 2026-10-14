@@ -52,6 +52,11 @@ func ParseDecision(stated []byte) (Decision, error) {
 	if err != nil {
 		return Decision{}, fmt.Errorf("%w: %w", ErrMalformedDecision, err)
 	}
+	for _, violation := range written.Violations {
+		if _, err := ParseEnforcementSeverity(string(violation.Severity)); err != nil {
+			return Decision{}, fmt.Errorf("%w: %w", ErrMalformedDecision, err)
+		}
+	}
 	if _, err := ParseSchemaMajor(written.SchemaVersionAccepted); err != nil {
 		return Decision{}, err
 	}

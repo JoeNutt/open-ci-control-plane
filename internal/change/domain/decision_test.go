@@ -119,3 +119,21 @@ func TestADecisionWhoseViolationCarriesAnUnknownSeverityIsMalformed(t *testing.T
 		t.Errorf("the refusal does not name the unknown severity: %v", err)
 	}
 }
+
+func TestADecisionWhoseViolationOmitsItsSeverityIsMalformed(t *testing.T) {
+	stated := `{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "block",
+		"violations": [
+			{ "rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
+			  "owning_team": "security-platform",
+			  "docs_url": "https://example.test/policy/AUTHZ-1" }
+		],
+		"reviewers": [], "fail_closed": true
+	}`
+
+	_, err := domain.ParseDecision([]byte(stated))
+
+	if !errors.Is(err, domain.ErrMalformedDecision) {
+		t.Fatalf("want ErrMalformedDecision, got %v", err)
+	}
+}
