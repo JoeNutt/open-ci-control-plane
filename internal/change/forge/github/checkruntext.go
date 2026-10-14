@@ -17,7 +17,8 @@ var (
 
 const (
 	checkRunTextSummaryLayout    = "%s\n\nDecision `%s`"
-	checkRunTextTruncationLayout = "and %d more — %d violations in total. This list is truncated.\n"
+	checkRunTextTruncationLayout = "and %d more — %d %s in total. This list is truncated.\n"
+	checkRunTextNoneListedLayout = "No violation could be listed here — %d %s in total. This list is truncated.\n"
 	checkRunTextViolationLayout  = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 )
 
@@ -62,13 +63,17 @@ func checkRunTextTruncationOf(leftOut, total int) string {
 	if leftOut <= 0 {
 		return ""
 	}
-	if leftOut == total && total == 1 {
-		return "No violation could be listed here \u2014 1 violation in total. This list is truncated.\n"
-	}
 	if leftOut == total {
-		return fmt.Sprintf("No violation could be listed here \u2014 %d violations in total. This list is truncated.\n", total)
+		return fmt.Sprintf(checkRunTextNoneListedLayout, total, checkRunTextViolationNounFor(total))
 	}
-	return fmt.Sprintf(checkRunTextTruncationLayout, leftOut, total)
+	return fmt.Sprintf(checkRunTextTruncationLayout, leftOut, total, checkRunTextViolationNounFor(total))
+}
+
+func checkRunTextViolationNounFor(total int) string {
+	if total == 1 {
+		return "violation"
+	}
+	return "violations"
 }
 
 func checkRunTextBlockOf(violation domain.CheckRunViolation) string {
