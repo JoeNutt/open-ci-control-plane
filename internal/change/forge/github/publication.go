@@ -3,7 +3,6 @@
 package github
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"net/http"
@@ -62,10 +61,7 @@ func (pending publication) exchangeGiven(listed checkRunListing) (exchange, erro
 	if len(existing) == 0 {
 		return pending.creation(), nil
 	}
-	newest := slices.MaxFunc(existing, func(one, other listedCheckRun) int {
-		return cmp.Compare(one.ID, other.ID)
-	})
-	return pending.updateOf(newest.ID), nil
+	return pending.updateOf(newestOf(existing).ID), nil
 }
 
 func (pending publication) creation() exchange {

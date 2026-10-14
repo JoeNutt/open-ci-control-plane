@@ -3,8 +3,10 @@
 package github
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 const (
@@ -31,6 +33,12 @@ func (listed checkRunListing) consistentRuns() ([]listedCheckRun, error) {
 
 type listedCheckRun struct {
 	ID checkRunID `json:"id"`
+}
+
+func newestOf(listed []listedCheckRun) listedCheckRun {
+	return slices.MaxFunc(listed, func(one, other listedCheckRun) int {
+		return cmp.Compare(one.ID, other.ID)
+	})
 }
 
 type checkRunOutput struct {
