@@ -27,14 +27,9 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	presented := verdictOf(decided.Decision).presentation()
-	return CheckRun{
-		Name:       checkRunNameFor(decided.Family),
-		Conclusion: presented.conclusion,
-		Title:      presented.title,
-		Summary:    summaryWith(presented.headline, id),
-		Text:       violationsTextFor(decided.Decision.Violations()),
-	}
+	run := verdictOf(decided.Decision).presentation().checkRunFor(decided.Family, id)
+	run.Text = violationsTextFor(decided.Decision.Violations())
+	return run
 }
 
 var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
@@ -51,40 +46,49 @@ func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return rendering(decided, id)
 }
 
-const admittedWithoutDecisionLayout = "Policy %s could not be evaluated and this change was " +
-	"admitted without a decision."
+const (
+	admittedWithoutDecisionTitle  = "Admitted without a decision"
+	admittedWithoutDecisionLayout = "Policy %s could not be evaluated and this change was " +
+		"admitted without a decision."
+)
 
 func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	return CheckRun{
-		Name:       checkRunNameFor(decided.Family),
-		Conclusion: ConclusionNeutral,
-		Title:      "Admitted without a decision",
-		Summary: summaryWith(
-			fmt.Sprintf(admittedWithoutDecisionLayout, markdownTextOf(string(decided.Family))), id),
-	}
+	return runPresentation{
+		conclusion: ConclusionNeutral,
+		title:      admittedWithoutDecisionTitle,
+		headline:   fmt.Sprintf(admittedWithoutDecisionLayout, markdownTextOf(string(decided.Family))),
+	}.checkRunFor(decided.Family, id)
 }
 
-const policyErrorLayout = "Policy %[1]s failed to evaluate. This is not a problem with your change.\n\n" +
-	"Owning team: %[1]s"
+const (
+	policyErrorTitle  = "Policy failed to evaluate"
+	policyErrorLayout = "Policy %[1]s failed to evaluate. This is not a problem with your change.\n\n" +
+		"Owning team: %[1]s"
+)
 
 func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	return CheckRun{
-		Name:       checkRunNameFor(decided.Family),
-		Conclusion: ConclusionFailure,
-		Title:      "Policy failed to evaluate",
-		Summary: summaryWith(
-			fmt.Sprintf(policyErrorLayout, markdownTextOf(string(decided.Family))), id),
-	}
+	return runPresentation{
+		conclusion: ConclusionFailure,
+		title:      policyErrorTitle,
+		headline:   fmt.Sprintf(policyErrorLayout, markdownTextOf(string(decided.Family))),
+	}.checkRunFor(decided.Family, id)
 }
 
-func checkRunNameFor(family PolicyFamily) string {
-	return checkRunNamePrefix + string(family)
+type runPresentation struct {
+	conclusion Conclusion
+	title      string
+	headline   string
 }
 
 const summaryLayout = "%s\n\nDecision %s"
 
-func summaryWith(headline string, id DecisionID) string {
-	return fmt.Sprintf(summaryLayout, headline, id)
+func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID) CheckRun {
+	return CheckRun{
+		Name:       checkRunNamePrefix + string(family),
+		Conclusion: presented.conclusion,
+		Title:      presented.title,
+		Summary:    fmt.Sprintf(summaryLayout, presented.headline, id),
+	}
 }
 
 var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
