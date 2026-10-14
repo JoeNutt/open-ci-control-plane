@@ -32,3 +32,25 @@ func TestAPassedDecisionIsASuccessNamedForItsFamily(t *testing.T) {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionSuccess)
 	}
 }
+
+func TestABlockingEffectIsAFailure(t *testing.T) {
+	blocked, err := domain.ParseDecision([]byte(`{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "block",
+		"violations": [], "reviewers": [], "fail_closed": true
+	}`))
+	if err != nil {
+		t.Fatalf("parse decision: %v", err)
+	}
+	id, err := domain.ParseDecisionID(wellFormedDecisionID)
+	if err != nil {
+		t.Fatalf("parse decision id: %v", err)
+	}
+
+	run := domain.CheckRunFor(domain.FamilyDecision{
+		Family: domain.PolicyFamilySecurity, Decision: blocked,
+	}, id)
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+}

@@ -5,5 +5,9 @@ package domain
 const checkRunNamePrefix = "policy/"
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: ConclusionSuccess}
+	conclusion := ConclusionSuccess
+	if decided.Decision.Effect() == EffectBlock {
+		conclusion = ConclusionFailure
+	}
+	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: conclusion}
 }
