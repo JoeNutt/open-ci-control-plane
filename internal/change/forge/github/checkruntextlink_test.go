@@ -49,6 +49,20 @@ func TestCheckRunTextShowsAnyOtherDocumentationURLAsTextNotALink(t *testing.T) {
 		"an email autolink":        "mailto:owner@example.test",
 		"too long":                 "https://example.test/" + strings.Repeat("a", 2049-len("https://example.test/")),
 		"empty":                    "",
+		"an empty host and a port": "https://:443/x",
+		"an empty host and colon":  "https://:/x",
+		"a lone dot":               "https://.",
+		"a lone hyphen":            "https://-/",
+		"an IPv4 literal":          "https://10.0.0.1/policy",
+		"an IPv6 literal":          "https://[::1]/policy",
+		"localhost":                "https://localhost/policy",
+		"a single-label host":      "https://intranet/policy",
+		"a label ending in hyphen": "https://docs-.example.test/policy",
+		"a label opening a hyphen": "https://-docs.example.test/policy",
+		"an empty label":           "https://docs..example.test/policy",
+		"a leading dot":            "https://.example.test/policy",
+		"a trailing dot":           "https://example.test./policy",
+		"an all-numeric top label": "https://example.123/policy",
 	}
 
 	for form, docsURL := range refused {

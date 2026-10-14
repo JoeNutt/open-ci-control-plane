@@ -41,7 +41,31 @@ func checkRunTextIsPlainHTTPSLink(stated string) bool {
 		return false
 	}
 	return parsed.Host != "" && parsed.User == nil &&
-		(parsed.Port() == "" || parsed.Port() == checkRunTextLinkDefaultPort)
+		(parsed.Port() == "" || parsed.Port() == checkRunTextLinkDefaultPort) &&
+		checkRunTextIsDNSName(parsed.Hostname())
+}
+
+func checkRunTextIsDNSName(host string) bool {
+	if strings.HasPrefix(host, "[") || host == "localhost" {
+		return false
+	}
+	labels := strings.Split(host, ".")
+	if len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return false
+		}
+		for _, character := range label {
+			if !(character == '-' || ('0' <= character && character <= '9') ||
+				('a' <= character && character <= 'z') || ('A' <= character && character <= 'Z')) {
+				return false
+			}
+		}
+	}
+	last := labels[len(labels)-1]
+	return strings.Trim(last, "0123456789") != ""
 }
 
 func checkRunTextHasOnlyLinkCharacters(stated string) bool {
