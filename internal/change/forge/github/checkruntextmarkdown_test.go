@@ -54,6 +54,18 @@ func TestMarkdownCodeSpanShowsFormatAndControlCharactersAsMarkers(t *testing.T) 
 	assertMarkdownCodeSpans(t, marked)
 }
 
+func TestMarkdownCodeSpanShowsAnEmptyOrBlankValueVisibly(t *testing.T) {
+	blank := map[string]markdownCodeSpanCase{
+		"empty":                {"", "` <empty> `"},
+		"one space":            {" ", "` <U+0020> `"},
+		"three spaces":         {"   ", "` <U+0020><U+0020><U+0020> `"},
+		"a line feed only":     {"\n", "` <U+0020> `"},
+		"spaces around a word": {" a ", "`  a  `"},
+	}
+
+	assertMarkdownCodeSpans(t, blank)
+}
+
 func TestMarkdownCodeSpanNeverEmitsAFenceLongerThanSixteen(t *testing.T) {
 	for run := 1; run <= 200; run++ {
 		span := markdownCodeSpanOf(strings.Repeat("`", run) + "x")

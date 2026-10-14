@@ -16,6 +16,11 @@ import (
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
 	fenceable := markdownFenceableTextOf(markdownVisibleTextOf(markdownSingleLineOf(value)))
+	if fenceable == "" {
+		fenceable = "<empty>"
+	} else if strings.Trim(fenceable, " ") == "" {
+		fenceable = strings.ReplaceAll(fenceable, " ", "<U+0020>")
+	}
 	fence := strings.Repeat("`", markdownLongestBacktickRunIn(fenceable)+1)
 	return fence + " " + fenceable + " " + fence
 }
