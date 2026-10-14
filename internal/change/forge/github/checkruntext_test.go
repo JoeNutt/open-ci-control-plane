@@ -45,6 +45,7 @@ func TestCheckRunTextLaysOutEachViolationWithItsTenantTextInCodeSpans(t *testing
 		"**Rule** ` AUTHZ-1 ` — blocking",
 		"Message: ` auth middleware changed with no authz test `",
 		"- Owning team: ` security-platform `",
+		"- Documentation: <https://example.test/policy/AUTHZ-1>",
 	} {
 		if !strings.Contains(output.text, line) {
 			t.Errorf("text does not carry %q:\n%s", line, output.text)

@@ -14,7 +14,7 @@ var checkRunTextErrUnidentified = errors.New("check run carries no decision iden
 
 const (
 	checkRunTextSummaryLayout   = "%s\n\nDecision `%s`"
-	checkRunTextViolationLayout = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n\n"
+	checkRunTextViolationLayout = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 )
 
 type checkRunTextOutput struct {
@@ -41,7 +41,8 @@ func checkRunTextViolationsOf(violations []domain.CheckRunViolation) string {
 			markdownCodeSpanOf(violation.RuleID),
 			violation.Marking,
 			markdownCodeSpanOf(violation.Message),
-			markdownCodeSpanOf(violation.OwningTeam))
+			markdownCodeSpanOf(violation.OwningTeam),
+			"<"+violation.DocsURL+">")
 	}
 	return text.String()
 }
