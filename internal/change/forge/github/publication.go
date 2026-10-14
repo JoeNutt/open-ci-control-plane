@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -58,11 +59,12 @@ func isAllUTF8(texts ...string) bool {
 	return !slices.ContainsFunc(texts, isMalformed)
 }
 
-func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
-	existing, err := listed.soundRuns()
+func (pending publication) exchangeGiven(listed checkRunListing, owner appID) (exchange, error) {
+	sound, err := listed.soundRuns()
 	if err != nil {
 		return exchange{}, err
 	}
+	existing := ownedBy(owner, sound)
 	if len(existing) == 0 {
 		return pending.creation(), nil
 	}
@@ -116,6 +118,7 @@ func (pending publication) listingEndpoint(owner appID) string {
 		"check_name": {pending.name},
 		"app_id":     {owner.String()},
 		"filter":     {filterLatest},
+		"per_page":   {strconv.Itoa(CheckRunsPerPage)},
 	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())

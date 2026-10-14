@@ -4,8 +4,10 @@ package github_test
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
@@ -19,6 +21,19 @@ func TestParseCheckRunsRefusesAnAppIDThatIsNotPositive(t *testing.T) {
 
 		if !errors.Is(err, github.ErrMalformedAppID) {
 			t.Errorf("app id %d: error is %v, want %v", appID, err, github.ErrMalformedAppID)
+		}
+	}
+}
+
+func TestParseCheckRunsRefusesAClientWithNoTimeout(t *testing.T) {
+	for _, timeout := range []time.Duration{0, -time.Second} {
+		settings := wellFormedSettings()
+		settings.Client = &http.Client{Timeout: timeout}
+
+		_, err := github.ParseCheckRuns(settings)
+
+		if !errors.Is(err, github.ErrUnboundedClient) {
+			t.Errorf("timeout %v: error is %v, want %v", timeout, err, github.ErrUnboundedClient)
 		}
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -46,7 +47,11 @@ type wireCheckRun struct {
 	Status     string     `json:"status"`
 	Conclusion string     `json:"conclusion"`
 	Output     wireOutput `json:"output"`
-	AppID      int64      `json:"-"`
+	App        wireApp    `json:"app"`
+}
+
+type wireApp struct {
+	ID int64 `json:"id"`
 }
 
 type checkRunForge struct {
@@ -54,6 +59,8 @@ type checkRunForge struct {
 	server *httptest.Server
 	mutex  sync.Mutex
 	runs   []wireCheckRun
+
+	ignoresAppID bool
 }
 
 func newCheckRunForge(t *testing.T) *checkRunForge {
@@ -88,10 +95,10 @@ func (held *checkRunForge) list(writer http.ResponseWriter, request *http.Reques
 
 func (held *checkRunForge) isOwnedAsAsked(run wireCheckRun, request *http.Request) bool {
 	asked := request.URL.Query().Get("app_id")
-	if asked == "" {
+	if asked == "" || held.ignoresAppID {
 		return true
 	}
-	return strconv.FormatInt(run.AppID, 10) == asked
+	return strconv.FormatInt(run.App.ID, 10) == asked
 }
 
 func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Request) {
@@ -105,7 +112,7 @@ func (held *checkRunForge) create(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	posted.ID = int64(len(held.runs) + 1)
-	posted.AppID = forgeAppID
+	posted.App = wireApp{ID: forgeAppID}
 	held.runs = append(held.runs, posted)
 	held.answer(writer, http.StatusCreated, posted)
 }
@@ -197,7 +204,7 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 	return wireCheckRun{
-		AppID:      forgeAppID,
+		App:        wireApp{ID: forgeAppID},
 		ID:         id,
 		Name:       run.Name,
 		HeadSHA:    headSHA,
@@ -239,7 +246,7 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	held := newCheckRunForge(t)
 	run := securityRun()
 	foreign := heldAs(1, run)
-	foreign.AppID = otherAppID
+	foreign.App = wireApp{ID: otherAppID}
 	foreign.Conclusion = string(domain.ConclusionSuccess)
 	held.runs = []wireCheckRun{foreign}
 
@@ -252,6 +259,48 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	want := []wireCheckRun{foreign, heldAs(2, run)}
 	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
 		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunChecksOwnershipEvenWhenTheForgeIgnoresTheAppFilter(t *testing.T) {
+	held := newCheckRunForge(t)
+	held.ignoresAppID = true
+	run := securityRun()
+	foreign := heldAs(1, run)
+	foreign.App = wireApp{ID: otherAppID}
+	foreign.Conclusion = string(domain.ConclusionSuccess)
+	held.runs = []wireCheckRun{foreign}
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	want := []wireCheckRun{foreign, heldAs(2, run)}
+	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
+		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunNeverUpdatesARunThatNamesNoApp(t *testing.T) {
+	ownerless := []string{
+		`{"total_count": 1, "check_runs": [{"id": 7, "app": null}]}`,
+		`{"total_count": 1, "check_runs": [{"id": 7}]}`,
+		`{"total_count": 1, "check_runs": [{"id": 7, "app": {}}]}`,
+	}
+
+	for _, listing := range ownerless {
+		t.Run(listing, func(t *testing.T) {
+			server := answeringWrite(t, failedStep{http.MethodPost, http.StatusCreated, listing}, `{}`)
+
+			err := checkRunsAt(t, server).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if err != nil {
+				t.Fatalf("publish check run: %v", err)
+			}
+		})
 	}
 }
 
@@ -289,6 +338,7 @@ func mustListExactlyFor(t *testing.T, name string) {
 		"check_name": {name},
 		"app_id":     {strconv.Itoa(forgeAppID)},
 		"filter":     {"latest"},
+		"per_page":   {strconv.Itoa(github.CheckRunsPerPage)},
 	}
 	if !maps.EqualFunc(asked, want, slices.Equal) {
 		t.Fatalf("the listing asked %v, want %v", asked, want)
@@ -327,6 +377,31 @@ func listingOnly(t *testing.T, status int, listing string) *httptest.Server {
 		writer.WriteHeader(status)
 		write(t, writer, listing)
 	})
+}
+
+func TestPublishCheckRunRefusesAListingThatDoesNotStateItsRuns(t *testing.T) {
+	unstated := []string{
+		`{}`,
+		`null`,
+		`{"message": "Bad credentials"}`,
+		`{"total_count": 0}`,
+		`{"check_runs": null}`,
+		`{"total_count": 0, "check_runs": null}`,
+		`{"total_count": null, "check_runs": []}`,
+	}
+
+	for _, listing := range unstated {
+		t.Run(listing, func(t *testing.T) {
+			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
+
+			err := runs.PublishCheckRun(context.Background(),
+				locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if !errors.Is(err, github.ErrMalformedListing) {
+				t.Fatalf("error is %v, want %v", err, github.ErrMalformedListing)
+			}
+		})
+	}
 }
 
 func TestPublishCheckRunRefusesAListedRunWithoutAPositiveID(t *testing.T) {
@@ -426,7 +501,7 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 
 const (
 	noRunsListed = `{"total_count": 0, "check_runs": []}`
-	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7}]}`
+	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7, "app": {"id": 4242}}]}`
 )
 
 type failedStep struct {
@@ -528,7 +603,7 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 }
 
 func TestPublishCheckRunTreatsAWriteAnsweredWithALargeEchoAsDone(t *testing.T) {
-	const fitsOnlyTheListing = 64
+	fitsOnlyTheListing := max(len(noRunsListed), len(run7Listed))
 	echo := `{"output": {"text": "` + strings.Repeat("x", fitsOnlyTheListing) + `"}}`
 	writes := map[string]failedStep{
 		"create": {http.MethodPost, http.StatusCreated, noRunsListed},
@@ -568,42 +643,119 @@ func answeringWrite(t *testing.T, step failedStep, body string) *httptest.Server
 }
 
 type countedBody struct {
-	unread io.Reader
-	read   int
+	unread     io.Reader
+	read       int
+	reachedEnd bool
+}
+
+func countedBodyOf(text string) *countedBody {
+	return &countedBody{unread: strings.NewReader(text)}
 }
 
 func (body *countedBody) Read(into []byte) (int, error) {
 	read, err := body.unread.Read(into)
 	body.read += read
+	body.reachedEnd = body.reachedEnd || errors.Is(err, io.EOF)
 	return read, err
 }
 
 func (body *countedBody) Close() error { return nil }
 
-type listingTransport struct{ body *countedBody }
+type countedTransport struct{ listing, written *countedBody }
 
-func (transport listingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+func (transport countedTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	if request.Method != http.MethodGet {
 		return &http.Response{
 			StatusCode: http.StatusCreated, Status: "201 Created",
-			Body: io.NopCloser(strings.NewReader(`{}`)), Request: request,
+			Body: transport.written, Request: request,
 		}, nil
 	}
 	return &http.Response{
-		StatusCode: http.StatusOK, Status: "200 OK", Body: transport.body, Request: request,
+		StatusCode: http.StatusOK, Status: "200 OK", Body: transport.listing, Request: request,
 	}, nil
+}
+
+func publishThrough(t *testing.T, transport countedTransport, bound int) error {
+	t.Helper()
+
+	settings := wellFormedSettings()
+	settings.Client = &http.Client{Transport: transport, Timeout: forgeTimeout}
+	settings.MaxResponseBytes = bound
+	return checkRunsWith(t, settings).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 }
 
 func publishOverListing(t *testing.T, listing string, bound int) (*countedBody, error) {
 	t.Helper()
 
-	body := &countedBody{unread: strings.NewReader(listing)}
-	settings := wellFormedSettings()
-	settings.Client = &http.Client{Transport: listingTransport{body: body}}
-	settings.MaxResponseBytes = bound
-	err := checkRunsWith(t, settings).PublishCheckRun(
-		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+	body := countedBodyOf(listing)
+	err := publishThrough(t, countedTransport{listing: body, written: countedBodyOf(`{}`)}, bound)
 	return body, err
+}
+
+func TestPublishCheckRunDrainsAWriteBodyWithinTheBoundAndNoFurther(t *testing.T) {
+	bound := len(noRunsListed)
+
+	shortEcho := countedBodyOf(`{}`)
+	err := publishThrough(t, countedTransport{listing: countedBodyOf(noRunsListed), written: shortEcho}, bound)
+	if err != nil {
+		t.Errorf("a short echo: %v", err)
+	}
+	if !shortEcho.reachedEnd {
+		t.Errorf("a short echo was not read to its end, so the connection cannot be reused")
+	}
+
+	longEcho := countedBodyOf(strings.Repeat("x", 10*bound))
+	err = publishThrough(t, countedTransport{listing: countedBodyOf(noRunsListed), written: longEcho}, bound)
+	if err != nil {
+		t.Errorf("an echo ten times the bound: %v", err)
+	}
+	if longEcho.read > bound+1 {
+		t.Errorf("read %d bytes of a write echo bounded at %d", longEcho.read, bound)
+	}
+}
+
+func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
+	const (
+		clientTimeout = 200 * time.Millisecond
+		trickledBytes = 30
+		trickleGap    = 100 * time.Millisecond
+		heldAtMost    = time.Second
+	)
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet {
+			write(t, writer, noRunsListed)
+			return
+		}
+		writer.WriteHeader(http.StatusCreated)
+		for range trickledBytes {
+			select {
+			case <-request.Context().Done():
+				return
+			case <-time.After(trickleGap):
+			}
+			if !isTrickled(writer) {
+				return
+			}
+		}
+	})
+	settings := settingsAt(server)
+	settings.Client.Timeout = clientTimeout
+
+	started := time.Now()
+	_ = checkRunsWith(t, settings).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if held := time.Since(started); held > heldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, heldAtMost)
+	}
+}
+
+func isTrickled(writer http.ResponseWriter) bool {
+	if _, err := writer.Write([]byte(" ")); err != nil {
+		return false
+	}
+	return http.NewResponseController(writer).Flush() == nil
 }
 
 func TestPublishCheckRunBoundsTheListingToExactlyTheResponseBound(t *testing.T) {

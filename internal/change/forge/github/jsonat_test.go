@@ -40,6 +40,20 @@ func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	}
 }
 
+func TestFormattingAHolderNestedInAnUnexportedFieldDoesNotRevealItsCredential(t *testing.T) {
+	settings := wellFormedSettings()
+	nested := map[string]any{
+		"settings":   struct{ s github.Settings }{settings},
+		"credential": struct{ c github.Credential }{settings.Token},
+		"check runs": struct{ r github.CheckRuns }{checkRunsWith(t, settings)},
+		"source":     struct{ s github.ChangeSource }{sourceWith(t, settings)},
+	}
+
+	for name, holder := range nested {
+		mustNotRevealUnder(t, "nested "+name, holder, everyFormatVerb)
+	}
+}
+
 func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 	t.Helper()
 

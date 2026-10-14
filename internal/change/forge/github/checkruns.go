@@ -4,12 +4,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
+
+var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
 
 type CheckRuns struct {
 	forge connection
@@ -20,6 +23,9 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	forge, err := parseConnection(settings)
 	if err != nil {
 		return CheckRuns{}, err
+	}
+	if settings.Client.Timeout <= 0 {
+		return CheckRuns{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
 	owner, err := parseAppID(settings.AppID)
 	if err != nil {
@@ -34,10 +40,6 @@ func (runs CheckRuns) String() string {
 
 func (runs CheckRuns) GoString() string {
 	return fmt.Sprintf("github.CheckRuns{settings: %#v}", runs.forge.settings)
-}
-
-func (runs CheckRuns) Format(state fmt.State, verb rune) {
-	formatRedacted(state, verb, runs)
 }
 
 func (runs CheckRuns) PublishCheckRun(
@@ -58,7 +60,7 @@ func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
-	chosen, err := pending.exchangeGiven(listed)
+	chosen, err := pending.exchangeGiven(listed, runs.owner)
 	if err != nil {
 		return err
 	}
