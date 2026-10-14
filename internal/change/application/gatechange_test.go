@@ -198,6 +198,37 @@ func (engine answeringEngine) Decide(context.Context, domain.Document) (domain.D
 	return engine.decided, nil
 }
 
+func TestAChangeWhoseHeadCommitIsMalformedIsNeverPublished(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	build := buildOverAnAuthChange(locator)
+	recorded := build.Source.(memory.ChangeSource).Changes[locator]
+	recorded.PullRequest.HeadSHA = "../../user/repos"
+	build.Source.(memory.ChangeSource).Changes[locator] = recorded
+	gate, _ := recordingGate(t)
+	published := &spyPublisher{}
+	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+
+	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+		t.Fatalf("want ErrMalformedCommitSHA, got %v", err)
+	}
+	if published.posts != 0 {
+		t.Errorf("published %d check runs for a malformed head commit", published.posts)
+	}
+}
+
+type spyPublisher struct {
+	posts int
+}
+
+func (publisher *spyPublisher) PublishCheckRun(
+	context.Context, domain.PullRequestLocator, domain.CommitSHA, domain.CheckRun,
+) error {
+	publisher.posts++
+	return nil
+}
+
 func decisionIDOf(t *testing.T, stated string) domain.DecisionID {
 	t.Helper()
 
