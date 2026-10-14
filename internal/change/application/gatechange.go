@@ -27,9 +27,10 @@ func (useCase GateChange) Execute(
 		return err
 	}
 	var failures []error
+	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
 		if err := useCase.Publisher.PublishCheckRun(
-			ctx, locator, head, domain.CheckRunFor(decided, id)); err != nil {
+			posting, locator, head, domain.CheckRunFor(decided, id)); err != nil {
 			failures = append(failures, err)
 		}
 	}

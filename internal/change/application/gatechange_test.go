@@ -7,6 +7,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -227,6 +228,60 @@ func (publisher *spyPublisher) PublishCheckRun(
 ) error {
 	publisher.posts++
 	return nil
+}
+
+func TestAVerdictReachedAtTheDeadlineIsStillPosted(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = stallingEngine{}
+	}
+	gate, err := domain.ParseGate(engines)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	recorded := &memory.CheckRuns{}
+	useCase := application.GateChange{
+		Build: buildOverAnAuthChange(locator), Gate: gate,
+		Publisher: honouringCancellation{rest: recorded},
+	}
+	deadline, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	err = useCase.Execute(deadline, locator, decisionIDOf(t, gatedDecisionID))
+
+	if err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+	runs := recorded.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+	if len(runs) != len(domain.DeclaredPolicyFamilies()) {
+		t.Fatalf("posted %d check runs after the deadline, want one per family", len(runs))
+	}
+	for name, run := range runs {
+		if run.Conclusion != domain.ConclusionFailure {
+			t.Errorf("%s concluded %q at the deadline, want %q", name, run.Conclusion, domain.ConclusionFailure)
+		}
+	}
+}
+
+type stallingEngine struct{}
+
+func (stallingEngine) Decide(ctx context.Context, _ domain.Document) (domain.Decision, error) {
+	<-ctx.Done()
+	return domain.Decision{}, ctx.Err()
+}
+
+type honouringCancellation struct {
+	rest domain.CheckRunPublisher
+}
+
+func (publisher honouringCancellation) PublishCheckRun(
+	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return publisher.rest.PublishCheckRun(ctx, locator, head, run)
 }
 
 func decisionIDOf(t *testing.T, stated string) domain.DecisionID {
