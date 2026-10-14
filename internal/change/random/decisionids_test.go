@@ -19,6 +19,14 @@ func mintedDecisionID(t *testing.T) domain.DecisionID {
 	return minted
 }
 
+func TestDecisionIDsStandsInWhereverTheDomainAsksForADecisionIDSource(t *testing.T) {
+	var source domain.DecisionIDSource = random.DecisionIDs{}
+
+	if _, err := source.NextDecisionID(); err != nil {
+		t.Fatalf("mint decision identifier through the domain port: %v", err)
+	}
+}
+
 func TestNextDecisionIDMintsAWellFormedIdentifier(t *testing.T) {
 	minted := mintedDecisionID(t)
 
