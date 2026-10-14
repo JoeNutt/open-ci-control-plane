@@ -7,7 +7,8 @@ import "strings"
 const (
 	repositorySeparator   = "/"
 	maxRepositorySegment  = 100
-	maxRepositoryLength   = 2*maxRepositorySegment + len(repositorySeparator)
+	maxOwnerSegment       = 39
+	maxRepositoryLength   = maxOwnerSegment + len(repositorySeparator) + maxRepositorySegment
 	repositoryPunctuation = "._-"
 )
 
@@ -56,7 +57,7 @@ func nameSegmentOK(segment string) bool {
 }
 
 func ownerSegmentOK(segment string) bool {
-	if len(segment) == 0 || len(segment) > maxRepositorySegment {
+	if len(segment) == 0 || len(segment) > maxOwnerSegment {
 		return false
 	}
 	if !asciiAlphanumeric(segment[0]) {

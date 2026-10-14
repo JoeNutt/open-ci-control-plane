@@ -111,3 +111,13 @@ func TestParsePullRequestLocatorRefusesAnOwnerOutsideTheForgesCharacterSet(t *te
 		})
 	}
 }
+
+func TestParsePullRequestLocatorRefusesAnOwnerOverTheForgesLength(t *testing.T) {
+	owner := strings.Repeat("a", 40)
+
+	_, err := domain.ParsePullRequestLocator(owner+"/payments", 1)
+
+	if !errors.Is(err, domain.ErrMalformedRepository) {
+		t.Fatalf("a %d-byte owner gave %v, want ErrMalformedRepository", len(owner), err)
+	}
+}
