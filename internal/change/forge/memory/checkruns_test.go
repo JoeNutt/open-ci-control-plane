@@ -38,3 +38,5 @@ func TestARepublishedCheckRunReplacesTheOneWithItsNameOnTheSameCommit(t *testing
 		t.Errorf("another commit shows check runs %+v, want none", elsewhere)
 	}
 }
+
+var _ domain.CheckRunPublisher = &memory.CheckRuns{}
