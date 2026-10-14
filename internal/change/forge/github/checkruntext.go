@@ -5,7 +5,6 @@ package github
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -46,17 +45,4 @@ func checkRunTextViolationsOf(violations []domain.CheckRunViolation) string {
 			checkRunTextDocumentationOf(violation.DocsURL))
 	}
 	return text.String()
-}
-
-func checkRunTextDocumentationOf(stated string) string {
-	parsed, err := url.Parse(stated)
-	allowed := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~/?=#:%"
-	onlyAllowed := strings.Trim(stated, allowed) == "" && !strings.ContainsFunc(stated, func(r rune) bool {
-		return !strings.ContainsRune(allowed, r)
-	})
-	if err == nil && strings.HasPrefix(stated, "https://") && parsed.Host != "" && parsed.User == nil &&
-		(parsed.Port() == "" || parsed.Port() == "443") && len(stated) <= 2048 && onlyAllowed {
-		return "<" + stated + ">"
-	}
-	return markdownCodeSpanOf(stated) + " (not a link)"
 }
