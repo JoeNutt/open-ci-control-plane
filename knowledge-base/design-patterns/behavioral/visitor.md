@@ -23,19 +23,29 @@ changing any node.
 Keep traversal order in one place — either every visitor or the structure, consistently — and
 make the visitor interface exhaustive.
 
-```typescript
-interface Visitor<T> {
-  visitRule(n: Rule): T;
-  visitRuleSet(n: RuleSet): T;
+Go has no method overloading, so each visit method carries the node type in its name, and
+methods cannot take type parameters, so `Accept` cannot be generic in its result. A Go visitor
+accumulates its answer in its own fields. The interface's method set still gives the safety
+property: a visitor missing a method does not satisfy `Visitor` and fails to compile.
+
+```go
+// RIGHT — Accept dispatches on the node's own type; the visitor is exhaustive.
+type Visitor interface {
+    VisitRule(r *Rule)
+    VisitRuleSet(s *RuleSet)
 }
 
-class RuleSet implements Node {
-  accept<T>(v: Visitor<T>): T { return v.visitRuleSet(this); }   // double dispatch
-}
+func (r *Rule) Accept(v Visitor)    { v.VisitRule(r) }
+func (s *RuleSet) Accept(v Visitor) { v.VisitRuleSet(s) }
 
-class CountRules implements Visitor<number> {
-  visitRule(_: Rule) { return 1; }
-  visitRuleSet(n: RuleSet) { return n.children.reduce((s, c) => s + c.accept(this), 0); }
+type ruleCounter struct{ count int }
+
+func (c *ruleCounter) VisitRule(*Rule) { c.count++ }
+
+func (c *ruleCounter) VisitRuleSet(s *RuleSet) {
+    for _, child := range s.Children {
+        child.Accept(c)
+    }
 }
 ```
 
@@ -48,18 +58,83 @@ not — because the interface has a default case or the language permits partial
 - **When node types change more often than operations.** This is the pattern's acknowledged
   weakness, and applying it against the grain means every new node edits every visitor. If
   that is your direction, put the methods on the nodes.
+
+```go
+// WRONG — the third node type this quarter, and the operations have not changed.
+type Visitor interface {
+    VisitRule(*Rule)
+    VisitRuleSet(*RuleSet)
+    VisitWaiver(*Waiver)
+}
+// Symptom: each new node edits every visitor in the same change.
+```
+
 - **A default or catch-all case in the visitor interface.** It converts a compile error into
   a silent omission, which is precisely the failure the pattern prevents.
+
+```go
+// WRONG — an embeddable default makes every visitor complete by promotion.
+type BaseVisitor struct{}
+
+func (BaseVisitor) VisitRule(*Rule)       {}
+func (BaseVisitor) VisitRuleSet(*RuleSet) {}
+func (BaseVisitor) VisitWaiver(*Waiver)   {}
+// Symptom: every visitor embedding BaseVisitor compiles, and none of them handles waivers.
+```
+
 - **Visitors that need node internals the interface does not expose**, prompting getters that
   open up the node's state to everyone. The encapsulation cost is real and should be weighed
   before adopting.
+
+```go
+// WRONG — accessors exported only so one visitor can reach inside.
+func (r *Rule) Compiled() compiledRule { return r.compiled }
+func (r *Rule) CacheKey() string       { return r.cacheKey }
+// Symptom: every package can now read the rule's compiled form and depend on it.
+```
+
 - **Inconsistent traversal.** If some visitors recurse and the structure also offers traversal,
   nodes get visited twice or not at all. Decide once, where it is documented.
+
+```go
+// WRONG — the structure recurses, and ruleCounter.VisitRuleSet recurses too.
+func (s *RuleSet) Accept(v Visitor) {
+    v.VisitRuleSet(s)
+    for _, child := range s.Children {
+        child.Accept(v)
+    }
+}
+// Symptom: every rule is counted twice.
+```
+
 - **In a language with pattern matching over sum types.** An exhaustive `match` or `switch`
   over a sealed hierarchy gives the same compile-time exhaustiveness with none of the double
-  dispatch — the pattern is largely a workaround for languages that lack it.
+  dispatch — the pattern is largely a workaround for languages that lack it. Go is one that
+  lacks it: a type switch dispatches, but the compiler does not check it for exhaustiveness.
+
+```go
+// WRONG — a Go type switch trusted as if it were an exhaustive match.
+switch n := node.(type) {
+case *Rule:
+    count++
+case *RuleSet:
+    count += countRules(n)
+}
+// Symptom: a new node type compiles, falls through, and is silently uncounted.
+```
+
 - **Stateful visitors reused across traversals** without a reset. Accumulated state from the
   previous run produces wrong answers on the second.
+
+```go
+// WRONG — one counter carried across traversals.
+counter := &ruleCounter{}
+for _, set := range sets {
+    set.Accept(counter)
+    report(set, counter.count)
+}
+// Symptom: each set's count includes every set before it.
+```
 
 **Trade-off:** node types become hard to add and operations easy — the exact inverse of
 putting methods on the nodes. Choose on which of the two actually changes.
