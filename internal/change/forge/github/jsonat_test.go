@@ -25,12 +25,17 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 	}
 }
 
-func TestFormattingASourceDoesNotRevealItsCredential(t *testing.T) {
+func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	settings := wellFormedSettings()
+	runs, err := github.ParseCheckRuns(settings)
+	if err != nil {
+		t.Fatalf("parse check runs: %v", err)
+	}
 	holders := map[string]any{
 		"credential": forgeCredential,
 		"settings":   settings,
 		"source":     sourceWith(t, settings),
+		"check runs": runs,
 	}
 
 	for name, holder := range holders {
