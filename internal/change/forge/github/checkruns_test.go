@@ -180,16 +180,24 @@ func checkRunsWith(t *testing.T, settings github.Settings) github.CheckRuns {
 	return runs
 }
 
+const (
+	securityRuleID  = "secrets.no_plaintext"
+	securityMessage = "config/prod.env: a credential is committed"
+	securityTeam    = "security-platform"
+	securityDocsURL = "https://docs.example.com/secrets"
+	decisionText    = "dec_0123456789abcdef0123456789abcdef"
+)
+
 func securityRun() domain.CheckRun {
 	return domain.CheckRun{
 		Name:       "policy/security",
 		Conclusion: domain.ConclusionFailure,
 		Title:      "1 violation",
-		Headline:   "secrets.no_plaintext refused the change",
+		Headline:   securityRuleID + " refused the change",
 		DecisionID: decisionID,
 		Violations: []domain.CheckRunViolation{{
-			RuleID: "secrets.no_plaintext", Message: "config/prod.env: a credential is committed",
-			OwningTeam: "security-platform", DocsURL: "https://docs.example.com/secrets",
+			RuleID: securityRuleID, Message: securityMessage,
+			OwningTeam: securityTeam, DocsURL: securityDocsURL,
 			Marking: "blocking",
 		}},
 		ViolationCount: 1,
@@ -197,7 +205,7 @@ func securityRun() domain.CheckRun {
 }
 
 var decisionID = func() domain.DecisionID {
-	id, err := domain.ParseDecisionID("dec_0123456789abcdef0123456789abcdef")
+	id, err := domain.ParseDecisionID(decisionText)
 	if err != nil {
 		panic(err)
 	}
@@ -227,22 +235,22 @@ func TestPublishCheckRunPostsEveryFieldOfAViolationAndTheDecision(t *testing.T) 
 		t.Fatalf("publish check run: %v", err)
 	}
 	published := held.onlyRun()
-	if published.Conclusion != "failure" {
-		t.Errorf("the conclusion is %q, want %q", published.Conclusion, "failure")
+	const wireFailure = "failure"
+	if published.Conclusion != wireFailure {
+		t.Errorf("the conclusion is %q, want %q", published.Conclusion, wireFailure)
 	}
 	for field, want := range map[string]string{
-		"rule id":       "secrets.no_plaintext",
-		"message":       "config/prod.env: a credential is committed",
-		"owning team":   "security-platform",
-		"documentation": "https://docs.example.com/secrets",
+		"rule id":       securityRuleID,
+		"message":       securityMessage,
+		"owning team":   securityTeam,
+		"documentation": securityDocsURL,
 	} {
 		if !strings.Contains(published.Output.Text, want) {
 			t.Errorf("the posted text does not carry the %s %q:\n%s", field, want, published.Output.Text)
 		}
 	}
-	const decision = "dec_0123456789abcdef0123456789abcdef"
-	if !strings.Contains(published.Output.Summary, decision) {
-		t.Errorf("the posted summary does not carry the decision %q: %q", decision, published.Output.Summary)
+	if !strings.Contains(published.Output.Summary, decisionText) {
+		t.Errorf("the posted summary does not carry the decision %q: %q", decisionText, published.Output.Summary)
 	}
 }
 
