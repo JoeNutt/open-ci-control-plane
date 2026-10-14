@@ -217,6 +217,35 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 	held.mustHoldOnly(heldAs(1, run))
 }
 
+func TestPublishCheckRunPostsEveryFieldOfAViolationAndTheDecision(t *testing.T) {
+	held := newCheckRunForge(t)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	published := held.onlyRun()
+	if published.Conclusion != "failure" {
+		t.Errorf("the conclusion is %q, want %q", published.Conclusion, "failure")
+	}
+	for field, want := range map[string]string{
+		"rule id":       "secrets.no_plaintext",
+		"message":       "config/prod.env: a credential is committed",
+		"owning team":   "security-platform",
+		"documentation": "https://docs.example.com/secrets",
+	} {
+		if !strings.Contains(published.Output.Text, want) {
+			t.Errorf("the posted text does not carry the %s %q:\n%s", field, want, published.Output.Text)
+		}
+	}
+	const decision = "dec_0123456789abcdef0123456789abcdef"
+	if !strings.Contains(published.Output.Summary, decision) {
+		t.Errorf("the posted summary does not carry the decision %q: %q", decision, published.Output.Summary)
+	}
+}
+
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 	return wireCheckRun{
 		App:        wireApp{ID: forgeAppID},
