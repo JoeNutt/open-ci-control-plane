@@ -18,7 +18,8 @@ var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check ru
 type publication struct {
 	locator domain.PullRequestLocator
 	head    commitSHA
-	run     domain.CheckRun
+	name    string
+	verdict checkRunVerdict
 }
 
 func parsePublication(
@@ -27,22 +28,21 @@ func parsePublication(
 	if run.Name == "" || run.Title == "" || run.Summary == "" {
 		return publication{}, ErrIncompleteCheckRun
 	}
-	conclusion, err := domain.ParseConclusion(string(run.Conclusion))
+	verdict, err := parseVerdict(run)
 	if err != nil {
 		return publication{}, err
 	}
-	run.Conclusion = conclusion
 	head, err := parseCommitSHA(headSHA)
 	if err != nil {
 		return publication{}, err
 	}
-	return publication{locator: locator, head: head, run: run}, nil
+	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
 	if listed.TotalCount > 1 {
 		return exchange{}, fmt.Errorf("%w: %d named %q on %s",
-			ErrAmbiguousCheckRun, listed.TotalCount, pending.run.Name, pending.head)
+			ErrAmbiguousCheckRun, listed.TotalCount, pending.name, pending.head)
 	}
 	existing, err := listed.consistentRuns()
 	if err != nil {
@@ -59,9 +59,9 @@ func (pending publication) creation() exchange {
 		method:   http.MethodPost,
 		endpoint: pending.checkRunsEndpoint(),
 		sent: newCheckRun{
-			Name:            pending.run.Name,
+			Name:            pending.name,
 			HeadSHA:         string(pending.head),
-			checkRunVerdict: verdictOf(pending.run),
+			checkRunVerdict: pending.verdict,
 		},
 		succeeded: http.StatusCreated,
 	}
@@ -71,7 +71,7 @@ func (pending publication) updateOf(id checkRunID) exchange {
 	return exchange{
 		method:    http.MethodPatch,
 		endpoint:  fmt.Sprintf("%s/%d", pending.checkRunsEndpoint(), id),
-		sent:      verdictOf(pending.run),
+		sent:      pending.verdict,
 		succeeded: http.StatusOK,
 	}
 }
@@ -82,7 +82,7 @@ func (pending publication) checkRunsEndpoint() string {
 }
 
 func (pending publication) listingEndpoint() string {
-	query := url.Values{"check_name": {pending.run.Name}}
+	query := url.Values{"check_name": {pending.name}}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())
 }

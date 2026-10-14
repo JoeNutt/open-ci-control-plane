@@ -50,10 +50,14 @@ type newCheckRun struct {
 	checkRunVerdict
 }
 
-func verdictOf(run domain.CheckRun) checkRunVerdict {
+func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
+	conclusion, err := domain.ParseConclusion(string(run.Conclusion))
+	if err != nil {
+		return checkRunVerdict{}, err
+	}
 	return checkRunVerdict{
 		Status:     statusCompleted,
-		Conclusion: string(run.Conclusion),
+		Conclusion: string(conclusion),
 		Output:     checkRunOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
-	}
+	}, nil
 }
