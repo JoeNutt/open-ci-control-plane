@@ -55,6 +55,16 @@ func (engine *Engine) Stop(ctx context.Context) { engine.opa.Stop(ctx) }
 func (engine *Engine) Decide(
 	ctx context.Context, document domain.Document,
 ) (domain.Decision, error) {
+	decided, err := engine.decisionFor(ctx, document)
+	if err != nil {
+		return domain.Decision{}, fmt.Errorf("the %q family: %w", engine.family, err)
+	}
+	return decided, nil
+}
+
+func (engine *Engine) decisionFor(
+	ctx context.Context, document domain.Document,
+) (domain.Decision, error) {
 	answered, err := engine.opa.Decision(ctx, sdk.DecisionOptions{
 		Path:                decisionPathFor(engine.family),
 		Input:               document,
@@ -64,17 +74,13 @@ func (engine *Engine) Decide(
 		return domain.UndecidedDecision(), nil
 	}
 	if err != nil {
-		return domain.Decision{}, fmt.Errorf("evaluate %q: %w", engine.family, err)
+		return domain.Decision{}, fmt.Errorf("evaluate: %w", err)
 	}
 	stated, err := json.Marshal(answered.Result)
 	if err != nil {
-		return domain.Decision{}, fmt.Errorf("re-encode the %q decision: %w", engine.family, err)
+		return domain.Decision{}, fmt.Errorf("re-encode the decision: %w", err)
 	}
-	decided, err := domain.ParseDecision(stated)
-	if err != nil {
-		return domain.Decision{}, fmt.Errorf("the %q decision: %w", engine.family, err)
-	}
-	return decided, nil
+	return domain.ParseDecision(stated)
 }
 
 func decisionPathFor(family domain.PolicyFamily) string {
