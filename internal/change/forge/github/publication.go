@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -97,10 +96,10 @@ func (pending publication) checkRunsEndpoint() string {
 		pending.locator.Owner(), pending.locator.Name())
 }
 
-func (pending publication) listingEndpoint(owner int64) string {
+func (pending publication) listingEndpoint(owner appID) string {
 	query := url.Values{
 		"check_name": {pending.name},
-		"app_id":     {strconv.FormatInt(owner, 10)},
+		"app_id":     {owner.String()},
 		"filter":     {filterLatest},
 	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",

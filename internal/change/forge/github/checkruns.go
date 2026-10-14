@@ -4,7 +4,6 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -12,10 +11,9 @@ import (
 
 var _ domain.CheckRunPublisher = CheckRuns{}
 
-var ErrMalformedAppID = errors.New("the forge settings carry no positive GitHub App id")
-
 type CheckRuns struct {
 	forge connection
+	owner appID
 }
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
@@ -23,10 +21,11 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	if err != nil {
 		return CheckRuns{}, err
 	}
-	if settings.AppID <= 0 {
-		return CheckRuns{}, fmt.Errorf("%w: %d", ErrMalformedAppID, settings.AppID)
+	owner, err := parseAppID(settings.AppID)
+	if err != nil {
+		return CheckRuns{}, err
 	}
-	return CheckRuns{forge: forge}, nil
+	return CheckRuns{forge: forge, owner: owner}, nil
 }
 
 func (runs CheckRuns) String() string {
@@ -55,7 +54,7 @@ func (runs CheckRuns) PublishCheckRun(
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
-	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint(runs.forge.settings.AppID))
+	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint(runs.owner))
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
