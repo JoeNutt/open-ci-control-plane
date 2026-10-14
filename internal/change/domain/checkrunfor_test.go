@@ -3,6 +3,8 @@
 package domain_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -28,7 +30,31 @@ func TestABlockingEffectIsAFailure(t *testing.T) {
 	}
 }
 
+func TestAnEngineErrorIsAFailure(t *testing.T) {
+	failed := evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
+
+	run := checkRunFor(t, domain.PolicyFamilyQuality, failed)
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+}
+
 const noViolations = `[]`
+
+func evaluatedWith(t *testing.T, engine domain.FamilyEngine) domain.Decision {
+	t.Helper()
+
+	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = engine
+	}
+	gate, err := domain.ParseGate(engines)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	return gate.DecisionsFor(context.Background(), domain.Document{})[0].Decision
+}
 
 func decided(t *testing.T, effect domain.Effect, violations string) domain.Decision {
 	t.Helper()

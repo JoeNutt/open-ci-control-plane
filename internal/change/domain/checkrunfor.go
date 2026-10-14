@@ -6,7 +6,7 @@ const checkRunNamePrefix = "policy/"
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	conclusion := ConclusionSuccess
-	if decided.Decision.Effect() == EffectBlock {
+	if !decided.Decision.Outcome().CarriesVerdict() || decided.Decision.Effect() == EffectBlock {
 		conclusion = ConclusionFailure
 	}
 	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: conclusion}
