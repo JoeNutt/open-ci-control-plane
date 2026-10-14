@@ -46,9 +46,9 @@ var ErrPathTooDeep = errors.New("path exceeds the path segment bound")
 var boundsOfAChange = []func([]File, Limits) error{
 	changedFileCountBreachIn,
 	filePatchBreachIn,
-	totalPatchBreachIn,
 	pathLengthBreachIn,
 	pathDepthBreachIn,
+	totalPatchBreachIn,
 }
 
 func ParseBoundedFiles(files []File, limits Limits) (BoundedFiles, error) {

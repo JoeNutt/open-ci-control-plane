@@ -117,3 +117,21 @@ func TestParseBoundedFilesDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 			document.Diff.Files[0])
 	}
 }
+
+func TestParseBoundedFilesNamesTheOffendingFileBeforeTheAggregateBound(t *testing.T) {
+	files := []domain.File{
+		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			PatchBytes: 5000},
+		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 5000},
+	}
+	limits := domain.DeclaredLimits()
+	limits.MaxPathBytes = len(files[1].Path)
+	limits.MaxTotalPatchBytes = files[0].PatchBytes + files[1].PatchBytes - 1
+
+	_, err := domain.ParseBoundedFiles(files, limits)
+
+	if !errors.Is(err, domain.ErrPathTooLong) {
+		t.Fatalf("error is %v, want %v naming the file rather than the aggregate",
+			err, domain.ErrPathTooLong)
+	}
+}
