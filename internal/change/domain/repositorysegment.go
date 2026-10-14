@@ -5,68 +5,44 @@ package domain
 import "strings"
 
 const (
-	repositorySeparator   = "/"
-	maxRepositorySegment  = 100
-	maxOwnerSegment       = 39
-	maxRepositoryLength   = maxOwnerSegment + len(repositorySeparator) + maxRepositorySegment
-	repositoryPunctuation = "._-"
+	repositorySeparator = "/"
+	asciiAlphanumerics  = "abcdefghijklmnopqrstuvwxyz" +
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"0123456789"
+	maxRepositoryLength = maxOwnerBytes + len(repositorySeparator) + maxNameBytes
+	maxOwnerBytes       = 39
+	maxNameBytes        = 100
 )
 
-func repositorySegmentOK(segment string) bool {
-	if len(segment) == 0 || len(segment) > maxRepositorySegment {
-		return false
-	}
-	if !asciiAlphanumeric(segment[0]) {
-		return false
-	}
-	for index := 1; index < len(segment); index++ {
-		if !repositoryCharacterOK(segment[index]) {
-			return false
-		}
-	}
-	return true
+type segmentRule struct {
+	maxBytes          int
+	firstCharacters   string
+	wholeCharacters   string
+	requiresOneBeyond string
 }
 
-func repositoryCharacterOK(character byte) bool {
-	return asciiAlphanumeric(character) ||
-		strings.IndexByte(repositoryPunctuation, character) >= 0
+var ownerRule = segmentRule{
+	maxBytes:        maxOwnerBytes,
+	firstCharacters: asciiAlphanumerics,
+	wholeCharacters: asciiAlphanumerics + "-",
 }
 
-func asciiAlphanumeric(character byte) bool {
-	return 'a' <= character && character <= 'z' ||
-		'A' <= character && character <= 'Z' ||
-		'0' <= character && character <= '9'
+var nameRule = segmentRule{
+	maxBytes:          maxNameBytes,
+	firstCharacters:   asciiAlphanumerics + ".",
+	wholeCharacters:   asciiAlphanumerics + "-._",
+	requiresOneBeyond: ".",
 }
 
-func nameSegmentOK(segment string) bool {
-	if len(segment) == 0 || len(segment) > maxRepositorySegment {
+func (rule segmentRule) admits(segment string) bool {
+	if len(segment) == 0 || len(segment) > rule.maxBytes {
 		return false
 	}
-	if strings.Trim(segment, ".") == "" {
+	if strings.IndexByte(rule.firstCharacters, segment[0]) < 0 {
 		return false
 	}
-	if !asciiAlphanumeric(segment[0]) && segment[0] != '.' {
+	if strings.Trim(segment, rule.requiresOneBeyond) == "" {
 		return false
 	}
-	for index := 1; index < len(segment); index++ {
-		if !repositoryCharacterOK(segment[index]) {
-			return false
-		}
-	}
-	return true
-}
-
-func ownerSegmentOK(segment string) bool {
-	if len(segment) == 0 || len(segment) > maxOwnerSegment {
-		return false
-	}
-	if !asciiAlphanumeric(segment[0]) {
-		return false
-	}
-	for index := 1; index < len(segment); index++ {
-		if !asciiAlphanumeric(segment[index]) && segment[index] != '-' {
-			return false
-		}
-	}
-	return true
+	return strings.Trim(segment, rule.wholeCharacters) == ""
 }
