@@ -55,6 +55,9 @@ func (gate Gate) decisionFor(
 	if err != nil {
 		return Decision{outcome: outcomeForFault(ctx, err)}
 	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return Decision{outcome: OutcomeDeadlineExceeded}
+	}
 	return decided
 }
 
