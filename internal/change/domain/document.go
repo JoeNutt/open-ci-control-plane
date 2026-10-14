@@ -47,6 +47,7 @@ type Diff struct {
 	Files  Declared[File] `json:"files"`
 	Kinds  Kinds          `json:"kinds"`
 	Totals Totals         `json:"totals"`
+	ByDir  PathsByDir     `json:"by_dir"`
 }
 
 type Totals struct {

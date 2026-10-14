@@ -23,3 +23,5 @@ func (paths Paths) MarshalJSON() ([]byte, error) {
 	slices.Sort(sorted)
 	return Declared[string](sorted).MarshalJSON()
 }
+
+type PathsByDir map[string]Paths

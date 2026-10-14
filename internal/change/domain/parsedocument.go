@@ -2,7 +2,10 @@
 
 package domain
 
-import "slices"
+import (
+	"path"
+	"slices"
+)
 
 func ParseDocument(pullRequest PullRequest, bounded BoundedFiles) Document {
 	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded)}
@@ -19,6 +22,7 @@ func diffOf(bounded BoundedFiles) Diff {
 		Paths:  pathsOf(bounded.files),
 		Files:  slices.Clone(bounded.files),
 		Totals: totalsOf(bounded.files),
+		ByDir:  byDirOf(bounded.files),
 	}
 }
 
@@ -38,4 +42,13 @@ func totalsOf(files []File) Totals {
 		totals.PatchBytes += file.PatchBytes
 	}
 	return totals
+}
+
+func byDirOf(files []File) PathsByDir {
+	byDir := make(PathsByDir, len(files))
+	for _, file := range files {
+		directory := path.Dir(file.Path)
+		byDir[directory] = append(byDir[directory], file.Path)
+	}
+	return byDir
 }

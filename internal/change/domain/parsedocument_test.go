@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 
@@ -83,5 +84,23 @@ func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 	want := domain.Paths{"infra/iam.tf", "internal/http/routes.go"}
 	if !slices.Equal(slices.Sorted(slices.Values(document.Diff.Paths)), want) {
 		t.Fatalf("paths are %v, want %v", document.Diff.Paths, want)
+	}
+}
+
+func TestParseDocumentGroupsChangedPathsByDirectory(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.PathsByDir{
+		"infra":         {"infra/iam.tf"},
+		"internal/auth": {"internal/auth/middleware.go", "internal/auth/session.go"},
+	}
+	if !reflect.DeepEqual(document.Diff.ByDir, want) {
+		t.Fatalf("by_dir is %+v, want %+v", document.Diff.ByDir, want)
 	}
 }
