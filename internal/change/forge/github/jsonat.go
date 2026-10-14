@@ -40,19 +40,12 @@ func exchanged[Payload any](
 	ctx context.Context, forge connection, over exchange,
 ) (Payload, error) {
 	var payload Payload
-	request, err := requestFor(ctx, forge, over)
+	response, err := answered(ctx, forge, over)
 	if err != nil {
 		return payload, err
 	}
-	response, err := forge.settings.Client.Do(request)
-	if err != nil {
-		return payload, fmt.Errorf("read: %w", err)
-	}
 	defer func() { _ = response.Body.Close() }()
 
-	if failure := failureIn(response, over); failure != nil {
-		return payload, failure
-	}
 	body, err := bodyWithinBound(response.Body, forge.settings.MaxResponseBytes)
 	if err != nil {
 		return payload, err
@@ -64,20 +57,32 @@ func exchanged[Payload any](
 }
 
 func delivered(ctx context.Context, forge connection, over exchange) error {
-	request, err := requestFor(ctx, forge, over)
+	response, err := answered(ctx, forge, over)
 	if err != nil {
 		return err
 	}
-	response, err := forge.settings.Client.Do(request)
-	if err != nil {
-		return fmt.Errorf("write: %w", err)
-	}
 	defer func() { _ = response.Body.Close() }()
-	if failure := failureIn(response, over); failure != nil {
-		return failure
-	}
+
+	// The write has already succeeded; the body is drained, bounded, only so the client
+	// can reuse the connection: https://pkg.go.dev/net/http#Client.Do
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, int64(forge.settings.MaxResponseBytes)))
 	return nil
+}
+
+func answered(ctx context.Context, forge connection, over exchange) (*http.Response, error) {
+	request, err := requestFor(ctx, forge, over)
+	if err != nil {
+		return nil, err
+	}
+	response, err := forge.settings.Client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("send %s %s: %w", over.method, over.endpoint, err)
+	}
+	if failure := failureIn(response, over); failure != nil {
+		_ = response.Body.Close()
+		return nil, failure
+	}
+	return response, nil
 }
 
 func requestFor(
