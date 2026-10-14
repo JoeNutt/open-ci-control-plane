@@ -27,16 +27,22 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	summary := decisionLineFor(id)
-	if verdictConclusionFor(decided.Decision) == ConclusionNeutral {
-		summary = "Advisory only. The merge is not prevented.\n\n" + summary
-	}
+	conclusion := verdictConclusionFor(decided.Decision)
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
-		Conclusion: verdictConclusionFor(decided.Decision),
-		Summary:    summary,
+		Conclusion: conclusion,
+		Summary:    verdictSummaryFor(conclusion, id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
+}
+
+const advisoryLine = "Advisory only. The merge is not prevented."
+
+func verdictSummaryFor(conclusion Conclusion, id DecisionID) string {
+	if conclusion == ConclusionNeutral {
+		return advisoryLine + "\n\n" + decisionLineFor(id)
+	}
+	return decisionLineFor(id)
 }
 
 var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
@@ -87,6 +93,10 @@ func decisionLineFor(id DecisionID) string {
 	return fmt.Sprintf(decisionLineLayout, id)
 }
 
+var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
+	EnforcementSeverityWarn: "advisory",
+}
+
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"
 
 func violationsTextFor(violations Declared[Violation]) string {
@@ -97,7 +107,7 @@ func violationsTextFor(violations Declared[Violation]) string {
 			markdownTextOf(violation.Message),
 			markdownTextOf(violation.OwningTeam),
 			documentationLinkFor(violation.DocsURL),
-			map[EnforcementSeverity]string{EnforcementSeverityWarn: "advisory"}[violation.Severity])
+			enforcementMarkingBySeverity[violation.Severity])
 	}
 	return text.String()
 }
