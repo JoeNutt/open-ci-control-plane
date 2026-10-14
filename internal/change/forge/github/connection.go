@@ -26,6 +26,7 @@ var ErrNoClient = errors.New("a change source is given no http client")
 
 type connection struct {
 	settings Settings
+	token    *Credential
 }
 
 func parseConnection(settings Settings) (connection, error) {
@@ -38,7 +39,9 @@ func parseConnection(settings Settings) (connection, error) {
 	if err := checkBaseURL(settings.BaseURL); err != nil {
 		return connection{}, err
 	}
-	return connection{settings: settings}, nil
+	token := settings.Token
+	settings.Token = ""
+	return connection{settings: settings, token: &token}, nil
 }
 
 func checkBaseURL(address string) error {

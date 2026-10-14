@@ -6,6 +6,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -20,6 +21,14 @@ func (source ChangeSource) String() string {
 
 func (source ChangeSource) GoString() string {
 	return fmt.Sprintf("github.ChangeSource{settings: %#v}", source.forge.settings)
+}
+
+func (source ChangeSource) Format(state fmt.State, verb rune) {
+	if verb == 'v' && state.Flag('#') {
+		_, _ = io.WriteString(state, source.GoString())
+		return
+	}
+	_, _ = io.WriteString(state, source.String())
 }
 
 func (source ChangeSource) PullRequestAt(

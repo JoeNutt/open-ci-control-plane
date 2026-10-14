@@ -5,6 +5,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -29,6 +30,14 @@ func (runs CheckRuns) String() string {
 
 func (runs CheckRuns) GoString() string {
 	return fmt.Sprintf("github.CheckRuns{settings: %#v}", runs.forge.settings)
+}
+
+func (runs CheckRuns) Format(state fmt.State, verb rune) {
+	if verb == 'v' && state.Flag('#') {
+		_, _ = io.WriteString(state, runs.GoString())
+		return
+	}
+	_, _ = io.WriteString(state, runs.String())
 }
 
 func (runs CheckRuns) PublishCheckRun(

@@ -74,7 +74,7 @@ func requestFor(
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", over.endpoint, err)
 	}
-	request.Header.Set("Authorization", "Bearer "+string(forge.settings.Token))
+	request.Header.Set("Authorization", "Bearer "+string(*forge.token))
 	return request, nil
 }
 

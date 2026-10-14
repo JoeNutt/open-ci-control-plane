@@ -4,6 +4,7 @@ package github_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,13 +36,38 @@ func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	}
 
 	for name, holder := range holders {
-		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
-			printed := fmt.Sprintf(verb, holder)
-			if strings.Contains(printed, string(forgeCredential)) {
-				t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
-			}
+		mustNotRevealUnder(t, name, holder, everyFormatVerb)
+	}
+}
+
+func TestFormattingAnAdapterAsAPointerDoesNotRevealItsCredential(t *testing.T) {
+	settings := wellFormedSettings()
+
+	mustNotRevealUnder(t, "source", sourceWith(t, settings), []string{"%p"})
+	mustNotRevealUnder(t, "check runs", checkRunsWith(t, settings), []string{"%p"})
+}
+
+func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
+	t.Helper()
+
+	for _, verb := range verbs {
+		printed := fmt.Sprintf(verb, holder)
+		if reveals(printed, string(forgeCredential)) {
+			t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
 		}
 	}
+}
+
+var everyFormatVerb = []string{
+	"%v", "%+v", "%#v", "%T", "%s", "%q", "%x", "%X", "%d", "%t", "%o", "%O",
+	"%b", "%c", "%U", "%e", "%E", "%f", "%F", "%g", "%G",
+	"%10s", "%-20v", "%+d", "% x", "%#x", "%#q", "%08d", "%.3s", "%[1]v",
+}
+
+func reveals(printed, secret string) bool {
+	compact := strings.ToLower(strings.ReplaceAll(printed, " ", ""))
+	return strings.Contains(printed, secret) ||
+		strings.Contains(compact, hex.EncodeToString([]byte(secret)))
 }
 
 func TestEveryRequestCarriesTheCredentialTheSourceHolds(t *testing.T) {
