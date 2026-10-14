@@ -80,6 +80,7 @@ Without Nix, you need Go 1.26 or later and the [OPA CLI](https://www.openpolicya
 | `knowledge-base/engineering/` | Construction standards and the red-green-refactor cycle |
 | `knowledge-base/security/` | Secure coding, and the OWASP Top 10:2025 one entry per category |
 | `knowledge-base/design-patterns/` | The Gang of Four catalogue, one file per pattern |
+| `schema/ci.diff.v1.schema.json` | The policy input contract, as a JSON Schema. Every emitted document is tested against it |
 | `CLAUDE.md` | Router for agent sessions. Read it before changing anything |
 
 ## Contributing
