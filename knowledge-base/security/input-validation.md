@@ -36,19 +36,48 @@ exactly once, and reject input still encoded afterwards rather than looping.
 
 ```go
 // RIGHT — allowlist, bounded, and the result is a domain type.
-var repoPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}/[A-Za-z0-9._-]{1,100}$`)
+const (
+    maxRepositorySegment  = 100
+    repositoryPunctuation = "._-"
+)
 
-func parseRepository(s string) (Repository, error) {
-    if len(s) > 201 {
-        return Repository{}, ErrMalformedRepository      // bound before the regex
+func parseRepository(repository string) (Repository, error) {
+    if len(repository) > 2*maxRepositorySegment+1 {
+        return Repository{}, ErrMalformedRepository      // bound before the walk
     }
-    if !repoPattern.MatchString(s) {
+    owner, name, separated := strings.Cut(repository, "/")
+    if !separated || !repositorySegmentOK(owner) || !repositorySegmentOK(name) {
         return Repository{}, ErrMalformedRepository      // reject, do not clean
     }
-    owner, name, _ := strings.Cut(s, "/")
     return Repository{Owner: owner, Name: name}, nil
 }
+
+func repositorySegmentOK(segment string) bool {
+    if len(segment) == 0 || len(segment) > maxRepositorySegment {
+        return false
+    }
+    if !asciiAlphanumeric(segment[0]) {
+        return false
+    }
+    for index := 1; index < len(segment); index++ {
+        if !repositoryCharacterOK(segment[index]) {
+            return false
+        }
+    }
+    return true
+}
+
+func repositoryCharacterOK(character byte) bool {
+    return asciiAlphanumeric(character) ||
+        strings.IndexByte(repositoryPunctuation, character) >= 0
+}
 ```
+
+The allowlist is **named predicates, not a pattern**. Byte comparison is sound where the
+accepted set is ASCII-only: every byte of a multi-byte rune fails the predicates, exactly as a
+character class would reject the rune. `golang.org/x/mod/module` validates module and import
+paths this way and imports no `regexp` at all — `checkElem` walks runes through `modPathOK` and
+`importPathOK`, which do range comparisons and a `strings.ContainsRune` against a constant.
 
 ```go
 // RIGHT — never build a path from input. Resolve, then verify containment.
@@ -113,8 +142,27 @@ if len(body) > maxBodyBytes { return ErrTooLarge }
 // declared size of an archive before decompressing rather than after.
 ```
 
-**An unbounded regex over untrusted input.** Catastrophic backtracking on crafted input is a
-denial of service. A regex over untrusted input should be linear-time or time-bounded.
+**A regex where a predicate would read better.**
+
+```go
+// WRONG — the accepted set is assembled at run time and stated nowhere a reader
+// can see it.
+var segment = fmt.Sprintf(`[A-Za-z0-9][A-Za-z0-9._-]{0,%d}`, maxSegment-1)
+var repoPattern = regexp.MustCompile("^" + segment + "/" + segment + "$")
+// Symptom: to learn what a repository is, a reader parses a pattern built by
+// Sprintf. The rule cannot be unit tested on its own, two segments with
+// genuinely different rules cannot be expressed without making it unreadable,
+// and the off-by-one between {0,99} and a hundred-byte bound is invisible.
+```
+
+Prefer a named predicate per accepted set. Reach for a pattern when the grammar is genuinely
+irregular — nested optional groups, alternation, backreferences — not merely because the input
+is a string.
+
+**An unbounded regex over untrusted input.** Where a pattern is the right tool, catastrophic
+backtracking on crafted input is a denial of service. A regex over untrusted input should be
+linear-time or time-bounded. Go's `regexp` is RE2 and linear by construction; most other
+engines are not.
 
 **Comparing unnormalised text for a security decision.** Normalise (NFC/NFKC) **before**
 validating, not after — a normalisation applied downstream can reintroduce a character your

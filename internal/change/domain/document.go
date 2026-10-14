@@ -32,9 +32,9 @@ type PullRequest struct {
 }
 
 type Author struct {
-	Login       string `json:"login"`
-	Association string `json:"association"`
-	IsBot       bool   `json:"is_bot"`
+	Login       string            `json:"login"`
+	Association AuthorAssociation `json:"association"`
+	IsBot       bool              `json:"is_bot"`
 }
 
 type Approval struct {
