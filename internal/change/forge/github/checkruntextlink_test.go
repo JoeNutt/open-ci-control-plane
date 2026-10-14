@@ -3,6 +3,7 @@
 package github
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -88,6 +89,35 @@ func TestCheckRunTextLinkOfReturnsTheParsedLinkOrNone(t *testing.T) {
 
 	if refused, isLink := checkRunTextLinkOf("javascript:alert(1)"); isLink || refused != (checkRunTextLink{}) {
 		t.Errorf("javascript: gave %+v, %v; want no link", refused, isLink)
+	}
+}
+
+func TestCheckRunTextLinkHostRefusesUserinfoOnItsOwn(t *testing.T) {
+	parsed, err := url.Parse("https://user@docs.example.test/policy")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if checkRunTextIsLinkHost(parsed) {
+		t.Error("a host with userinfo was accepted")
+	}
+}
+
+func TestCheckRunTextLinkAlphabetOnItsOwn(t *testing.T) {
+	alphabet := map[string]bool{
+		"https://example.test/~owner":  true,
+		"https://example.test/a_rule":  true,
+		"https://example.test/a@b":     false,
+		"https://example.test/[a]":     false,
+		"https://example.test/a%20b?q": true,
+	}
+
+	for stated, accepted := range alphabet {
+		t.Run(stated, func(t *testing.T) {
+			if got := checkRunTextHasOnlyLinkCharacters(stated); got != accepted {
+				t.Errorf("accepted %v, want %v", got, accepted)
+			}
+		})
 	}
 }
 
