@@ -29,6 +29,7 @@ func diffOf(bounded BoundedFiles) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
+		ModuleGraphDelta:      graphDeltaFor(resolution),
 	}
 }
 
@@ -98,4 +99,8 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
 	}
 	return resolution
+}
+
+func graphDeltaFor(resolution importResolution) ModuleGraphDelta {
+	return ModuleGraphDelta{Incomplete: resolution.unresolved > 0}
 }

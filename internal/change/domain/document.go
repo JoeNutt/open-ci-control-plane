@@ -52,6 +52,7 @@ type Diff struct {
 	Imports               Declared[Import] `json:"imports"`
 	UnresolvedImportFiles int              `json:"unresolved_import_files"`
 	ResolvedImportShare   float64          `json:"resolved_import_share"`
+	ModuleGraphDelta      ModuleGraphDelta `json:"module_graph_delta"`
 }
 
 type Totals struct {
@@ -93,4 +94,15 @@ type Import struct {
 type Declaration struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
+}
+
+type ModuleGraphDelta struct {
+	EdgesAdded   Declared[ModuleEdge] `json:"edges_added"`
+	EdgesRemoved Declared[ModuleEdge] `json:"edges_removed"`
+	Incomplete   bool                 `json:"incomplete"`
+}
+
+type ModuleEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }

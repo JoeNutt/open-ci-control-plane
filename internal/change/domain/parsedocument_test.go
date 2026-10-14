@@ -181,3 +181,27 @@ func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDocumentMarksTheGraphDeltaIncompleteWhileAnyImportIsUnresolved(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+	)
+
+	delta := domain.ParseDocument(domain.PullRequest{}, bounded).Diff.ModuleGraphDelta
+
+	if !delta.Incomplete {
+		t.Errorf("delta reports itself complete while an import is unresolved")
+	}
+	if len(delta.EdgesAdded) != 0 || len(delta.EdgesRemoved) != 0 {
+		t.Errorf("delta claims edges with no extractor to find them: %+v", delta)
+	}
+}
+
+func TestParseDocumentMarksTheGraphDeltaCompleteWhenThereIsNothingUnresolved(t *testing.T) {
+	delta := domain.ParseDocument(
+		domain.PullRequest{}, withinBounds(t)).Diff.ModuleGraphDelta
+
+	if delta.Incomplete {
+		t.Errorf("delta reports itself incomplete with no changed files")
+	}
+}
