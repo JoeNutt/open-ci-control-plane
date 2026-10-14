@@ -227,3 +227,26 @@ func TestZeroDocumentEmitsEmptyByDirAsObject(t *testing.T) {
 		t.Fatalf(`want "by_dir":{} in %s`, encoded)
 	}
 }
+
+func TestImportEntryDeclaresEveryFieldTheSchemaNames(t *testing.T) {
+	document := domain.Document{Diff: domain.Diff{
+		Imports: domain.Declared[domain.Import]{
+			{Path: "infra/iam.tf", State: domain.ImportStateUnknown},
+		},
+	}}
+
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal document: %v", err)
+	}
+
+	for _, declared := range []string{
+		`"path":"infra/iam.tf"`, `"state":"unknown"`,
+		`"language":null`, `"extractor":null`,
+		`"refs":[]`, `"declarations_added":[]`,
+	} {
+		if !strings.Contains(string(encoded), declared) {
+			t.Errorf("want %s in %s", declared, encoded)
+		}
+	}
+}

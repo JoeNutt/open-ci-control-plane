@@ -80,6 +80,15 @@ type File struct {
 }
 
 type Import struct {
-	Path  string      `json:"path"`
-	State ImportState `json:"state"`
+	Path              string                `json:"path"`
+	Language          *string               `json:"language"`
+	Extractor         *string               `json:"extractor"`
+	State             ImportState           `json:"state"`
+	Refs              Declared[string]      `json:"refs"`
+	DeclarationsAdded Declared[Declaration] `json:"declarations_added"`
+}
+
+type Declaration struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
 }
