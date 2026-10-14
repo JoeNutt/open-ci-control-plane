@@ -35,7 +35,8 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	if decided.Decision.Outcome() == OutcomeEngineError {
+	if decided.Decision.Outcome() == OutcomeEngineError ||
+		decided.Decision.Outcome() == OutcomeDeadlineExceeded {
 		return policyErrorCheckRun(decided.Family, id)
 	}
 	return CheckRun{

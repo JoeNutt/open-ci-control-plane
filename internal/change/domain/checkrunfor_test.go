@@ -62,6 +62,22 @@ func TestAnEngineErrorSaysThePolicyFailedAndNamesTheOwnerNotARule(t *testing.T) 
 	}
 }
 
+func TestAnExceededDeadlineIsAPolicyError(t *testing.T) {
+	late := evaluatedWith(t, &statedEngine{fault: context.DeadlineExceeded})
+	if late.Outcome() != domain.OutcomeDeadlineExceeded {
+		t.Fatalf("fixture outcome is %q, want %q", late.Outcome(), domain.OutcomeDeadlineExceeded)
+	}
+
+	run := checkRunFor(t, domain.PolicyFamilyQuality, late)
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+	if stated := "Policy quality failed to evaluate."; !strings.Contains(run.Summary, stated) {
+		t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+	}
+}
+
 func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
 	denied := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDeny))
 
