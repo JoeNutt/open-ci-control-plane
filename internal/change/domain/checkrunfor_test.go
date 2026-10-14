@@ -94,7 +94,7 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 		"block alone":            {domain.EffectBlock, nil, domain.ConclusionFailure, "Blocked"},
 		"deny under allow":       {domain.EffectAllow, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked"},
 		"warn alone":             {domain.EffectAllow, []domain.Violation{warn}, domain.ConclusionNeutral, "Advisory"},
-		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Passed"},
+		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Review required"},
 		"warn then deny":         {domain.EffectAllow, []domain.Violation{warn, deny}, domain.ConclusionFailure, "Blocked"},
 		"deny then warn":         {domain.EffectAllow, []domain.Violation{deny, warn}, domain.ConclusionFailure, "Blocked"},
 		"dry run then warn":      {domain.EffectAllow, []domain.Violation{dryRun, warn}, domain.ConclusionNeutral, "Advisory"},
@@ -249,6 +249,17 @@ func TestABlockNamingNoRuleSaysSo(t *testing.T) {
 	}
 	if strings.Contains(run.Summary, "rules below") {
 		t.Errorf("a block with no rule points at rules below:\n%s", run.Summary)
+	}
+}
+
+func TestAReviewWithNothingFiredSaysReviewIsRequired(t *testing.T) {
+	run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectReview))
+
+	if stated := "Review required. No rule fired."; !strings.HasPrefix(run.Summary, stated) {
+		t.Errorf("summary does not open with %q:\n%s", stated, run.Summary)
+	}
+	if strings.Contains(run.Summary, "Passed") {
+		t.Errorf("a review reads as passed:\n%s", run.Summary)
 	}
 }
 

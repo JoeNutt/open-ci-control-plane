@@ -34,6 +34,10 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	if reached == verdictBlocked && len(decided.Decision.Violations()) == 0 {
 		presented.headline = blockedNamingNoRuleHeadline
 	}
+	if reached == verdictPassed && decided.Decision.Effect() == EffectReview {
+		presented.title = "Review required"
+		presented.headline = "Review required. No rule fired."
+	}
 	run := presented.checkRunFor(decided.Family, id)
 	run.Text = violationsTextFor(decided.Decision.Violations())
 	return run
