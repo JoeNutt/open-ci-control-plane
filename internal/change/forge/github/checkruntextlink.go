@@ -31,11 +31,23 @@ const (
 const checkRunTextLinkCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" +
 	"-._~" + "/?=#:%"
 
-func checkRunTextDocumentationOf(stated string) string {
+type checkRunTextLink struct {
+	address string
+}
+
+func checkRunTextLinkOf(stated string) (checkRunTextLink, bool) {
 	if !checkRunTextIsPlainHTTPSLink(stated) {
+		return checkRunTextLink{}, false
+	}
+	return checkRunTextLink{address: stated}, true
+}
+
+func checkRunTextDocumentationOf(stated string) string {
+	link, isLink := checkRunTextLinkOf(stated)
+	if !isLink {
 		return fmt.Sprintf(checkRunTextNotALinkLayout, markdownCodeSpanOf(stated))
 	}
-	return fmt.Sprintf(checkRunTextAutolinkLayout, stated)
+	return fmt.Sprintf(checkRunTextAutolinkLayout, link.address)
 }
 
 func checkRunTextIsPlainHTTPSLink(stated string) bool {

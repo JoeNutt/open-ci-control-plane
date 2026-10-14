@@ -80,6 +80,17 @@ func TestCheckRunTextShowsAnyOtherDocumentationURLAsTextNotALink(t *testing.T) {
 	}
 }
 
+func TestCheckRunTextLinkOfReturnsTheParsedLinkOrNone(t *testing.T) {
+	link, isLink := checkRunTextLinkOf("https://example.test/policy/AUTHZ-1")
+	if !isLink || link.address != "https://example.test/policy/AUTHZ-1" {
+		t.Errorf("got %+v, %v; want the link to https://example.test/policy/AUTHZ-1", link, isLink)
+	}
+
+	if refused, isLink := checkRunTextLinkOf("javascript:alert(1)"); isLink || refused != (checkRunTextLink{}) {
+		t.Errorf("javascript: gave %+v, %v; want no link", refused, isLink)
+	}
+}
+
 func checkRunTextWithDocsURL(t *testing.T, docsURL string) string {
 	t.Helper()
 
