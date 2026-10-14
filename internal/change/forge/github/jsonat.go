@@ -23,7 +23,7 @@ type exchange struct {
 	endpoint  string
 	sent      any
 	succeeded int
-	missing   string
+	notFound  error
 }
 
 func jsonAt[Payload any](
@@ -98,8 +98,8 @@ func failureIn(response *http.Response, over exchange) error {
 	if response.StatusCode == over.succeeded {
 		return nil
 	}
-	if response.StatusCode == http.StatusNotFound && over.missing != "" {
-		return fmt.Errorf("%w: %s: %s", ErrCheckRunTargetNotFound, over.missing, response.Status)
+	if response.StatusCode == http.StatusNotFound && over.notFound != nil {
+		return fmt.Errorf("%w: %s", over.notFound, response.Status)
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {

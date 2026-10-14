@@ -17,6 +17,8 @@ var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a s
 
 var ErrNotUTF8 = errors.New("a check run's text is not valid UTF-8")
 
+var ErrCheckRunTargetNotFound = errors.New("the forge found nothing at a check-run endpoint")
+
 type publication struct {
 	locator domain.PullRequestLocator
 	head    commitSHA
@@ -64,6 +66,19 @@ func (pending publication) exchangeGiven(listed checkRunListing) (exchange, erro
 	return pending.updateOf(newestOf(existing).ID), nil
 }
 
+func (pending publication) listing(owner appID) exchange {
+	return exchange{
+		method:    http.MethodGet,
+		endpoint:  pending.listingEndpoint(owner),
+		succeeded: http.StatusOK,
+		notFound:  notFound(fmt.Sprintf("repository %s or commit %s", pending.locator.Repository(), pending.head)),
+	}
+}
+
+func notFound(missing string) error {
+	return fmt.Errorf("%w: %s", ErrCheckRunTargetNotFound, missing)
+}
+
 func (pending publication) creation() exchange {
 	return exchange{
 		method:   http.MethodPost,
@@ -74,7 +89,7 @@ func (pending publication) creation() exchange {
 			checkRunVerdict: pending.verdict,
 		},
 		succeeded: http.StatusCreated,
-		missing:   "repository " + pending.locator.Repository(),
+		notFound:  notFound("repository " + pending.locator.Repository()),
 	}
 }
 
@@ -84,7 +99,7 @@ func (pending publication) updateOf(id checkRunID) exchange {
 		endpoint:  fmt.Sprintf("%s/%d", pending.checkRunsEndpoint(), id),
 		sent:      pending.verdict,
 		succeeded: http.StatusOK,
-		missing:   fmt.Sprintf("check run %d", id),
+		notFound:  notFound(fmt.Sprintf("check run %d", id)),
 	}
 }
 

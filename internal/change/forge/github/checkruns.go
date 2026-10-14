@@ -4,16 +4,12 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
-
-var ErrCheckRunTargetNotFound = errors.New("the forge found nothing at a check-run endpoint")
 
 type CheckRuns struct {
 	forge connection
@@ -58,12 +54,7 @@ func (runs CheckRuns) PublishCheckRun(
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
-	listed, err := exchanged[checkRunListing](ctx, runs.forge, exchange{
-		method:    http.MethodGet,
-		endpoint:  pending.listingEndpoint(runs.owner),
-		succeeded: http.StatusOK,
-		missing:   fmt.Sprintf("repository %s or commit %s", pending.locator.Repository(), pending.head),
-	})
+	listed, err := exchanged[checkRunListing](ctx, runs.forge, pending.listing(runs.owner))
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
