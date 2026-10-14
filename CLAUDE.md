@@ -31,7 +31,9 @@ into context at launch — the opposite of routing. Keep imports out of this fil
 
 ## Work order
 
-Take the **Ready card with the lowest `Sequence`** on the board
+**At the start of every session, reconcile the board first** — every card in the column its
+state earns, blocked cards with their reason — as `knowledge-base/process/board-reconciliation.md`
+describes. Then take the **Ready card with the lowest `Sequence`** on the board
 (https://github.com/users/JoeNutt/projects/2) and work only that card. The sequence is the
 dependency order: card N needs only cards before it. Cards without a `Sequence` are not work
 yet. A card closes only when every obligation in its checklist is met against the SAD — the
