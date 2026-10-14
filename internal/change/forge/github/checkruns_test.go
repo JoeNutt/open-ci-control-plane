@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -558,15 +559,60 @@ func answeringWrite(t *testing.T, step failedStep, body string) *httptest.Server
 	})
 }
 
-func TestPublishCheckRunRefusesAListingLargerThanTheResponseBound(t *testing.T) {
-	settings := settingsAt(listingOnly(t, http.StatusOK, `{"total_count": 0, "check_runs": []}`))
-	settings.MaxResponseBytes = 8
+type countedBody struct {
+	unread io.Reader
+	read   int
+}
 
+func (body *countedBody) Read(into []byte) (int, error) {
+	read, err := body.unread.Read(into)
+	body.read += read
+	return read, err
+}
+
+func (body *countedBody) Close() error { return nil }
+
+type listingTransport struct{ body *countedBody }
+
+func (transport listingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.Method != http.MethodGet {
+		return &http.Response{
+			StatusCode: http.StatusCreated, Status: "201 Created",
+			Body: io.NopCloser(strings.NewReader(`{}`)), Request: request,
+		}, nil
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK, Status: "200 OK", Body: transport.body, Request: request,
+	}, nil
+}
+
+func publishOverListing(t *testing.T, listing string, bound int) (*countedBody, error) {
+	t.Helper()
+
+	body := &countedBody{unread: strings.NewReader(listing)}
+	settings := wellFormedSettings()
+	settings.Client = &http.Client{Transport: listingTransport{body: body}}
+	settings.MaxResponseBytes = bound
 	err := checkRunsWith(t, settings).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+	return body, err
+}
 
+func TestPublishCheckRunBoundsTheListingToExactlyTheResponseBound(t *testing.T) {
+	exact := len(noRunsListed)
+
+	if _, err := publishOverListing(t, noRunsListed, exact); err != nil {
+		t.Errorf("a listing of exactly the bound: %v", err)
+	}
+	if _, err := publishOverListing(t, noRunsListed+" ", exact); !errors.Is(err, github.ErrResponseTooLarge) {
+		t.Errorf("a listing one byte over the bound: error is %v, want %v", err, github.ErrResponseTooLarge)
+	}
+	body, err := publishOverListing(t, noRunsListed+strings.Repeat(" ", 10*exact), exact)
 	if !errors.Is(err, github.ErrResponseTooLarge) {
-		t.Fatalf("error is %v, want %v", err, github.ErrResponseTooLarge)
+		t.Errorf("a listing ten times the bound: error is %v, want %v", err, github.ErrResponseTooLarge)
+	}
+	if body.read > exact+1 {
+		t.Errorf("read %d bytes of a listing bounded at %d", body.read, exact)
 	}
 }
 
