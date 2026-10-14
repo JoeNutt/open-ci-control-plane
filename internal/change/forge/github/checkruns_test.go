@@ -521,7 +521,7 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 	const notUTF8 = "policy \xff refused"
 	unpublishable := map[string]struct {
 		spoil func(*domain.CheckRun)
-		want  []error
+		wants []error
 	}{
 		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, []error{github.ErrIncompleteCheckRun}},
 		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, []error{github.ErrIncompleteCheckRun}},
@@ -545,7 +545,7 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 			err := runs.PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
-			for _, want := range refusal.want {
+			for _, want := range refusal.wants {
 				if !errors.Is(err, want) {
 					t.Errorf("error is %v, want %v", err, want)
 				}
