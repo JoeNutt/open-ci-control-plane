@@ -88,8 +88,20 @@ move it to `Review` or `Blocked` before claiming another.
 
 Nothing enforces this. It is a convention, and a breach is visible on the board.
 
-`Won't` cards are not work. They are the record of what is deliberately not being built, so
-nothing drifts into it by accident.
+**A card closes on proof, and nothing else starts until it does.** Not "the code works", not
+"the tests pass" — proof that every requirement the card names is met, quoted from the
+specification and answered one obligation at a time. A requirement with three clauses needs
+three answers. Partial delivery is reported as partial and the card stays open.
+
+Merging is not closing. Five pull requests merged into card #2 without closing it, because
+one clause of FR-3 reaches into another card — which is a scoping defect to surface, not to
+work around by starting something else. If a card cannot close from inside its own scope,
+say so and fix the card before writing code.
+
+`Won't` cards are not work and are not on the board. They are closed as not planned, because
+the specification already records them: §9's table carries each with its rationale, §18
+excludes them from the estimate base, and the "Won't Have, this time" section states why each
+is out. Bringing one into scope means reopening it deliberately.
 
 ---
 
