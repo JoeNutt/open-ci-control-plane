@@ -2,7 +2,10 @@
 
 package github
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestMarkdownCodeSpanFenceOutrunsEveryBacktickRunInTheValue(t *testing.T) {
 	fenced := map[string]markdownCodeSpanCase{
@@ -49,6 +52,21 @@ func TestMarkdownCodeSpanShowsFormatAndControlCharactersAsMarkers(t *testing.T) 
 	}
 
 	assertMarkdownCodeSpans(t, marked)
+}
+
+func TestMarkdownCodeSpanNeverEmitsAFenceLongerThanSixteen(t *testing.T) {
+	for run := 1; run <= 200; run++ {
+		span := markdownCodeSpanOf(strings.Repeat("`", run) + "x")
+
+		fence := len(span) - len(strings.TrimLeft(span, "`"))
+		if fence > 16 {
+			t.Errorf("a run of %d emits a fence of %d", run, fence)
+		}
+		if run >= 16 && strings.Count(span, "<U+0060>") != run {
+			t.Errorf("a run of %d shows %d backtick markers, want %d",
+				run, strings.Count(span, "<U+0060>"), run)
+		}
+	}
 }
 
 type markdownCodeSpanCase struct{ value, span string }

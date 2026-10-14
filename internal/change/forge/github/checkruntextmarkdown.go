@@ -16,6 +16,9 @@ import (
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
 	visible := markdownVisibleTextOf(markdownSingleLineOf(value))
+	if markdownLongestBacktickRunIn(visible) >= 16 {
+		visible = strings.ReplaceAll(visible, "`", "<U+0060>")
+	}
 	fence := strings.Repeat("`", markdownLongestBacktickRunIn(visible)+1)
 	return fence + " " + visible + " " + fence
 }
