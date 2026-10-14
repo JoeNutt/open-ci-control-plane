@@ -32,3 +32,19 @@ func TestAPathLandsInTheKindWhosePatternItMatches(t *testing.T) {
 		t.Fatalf("test kind is %v, want the one test file", kinds.Test)
 	}
 }
+
+func TestAPathLandsInEveryKindItMatches(t *testing.T) {
+	rules := rulesFor(t, map[domain.PathKind][]string{
+		domain.PathKindTest:  {"**/*_test.go"},
+		domain.PathKindAuthz: {"internal/auth/**"},
+	})
+
+	kinds := rules.KindsOf(domain.Paths{"internal/auth/session_test.go"})
+
+	if len(kinds.Test) != 1 {
+		t.Errorf("test kind is %v, want the file", kinds.Test)
+	}
+	if len(kinds.Authz) != 1 {
+		t.Errorf("authz kind is %v, want the same file", kinds.Authz)
+	}
+}
