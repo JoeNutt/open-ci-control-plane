@@ -23,6 +23,10 @@ func (pending publication) exchangeGiven(listed checkRunListing) (exchange, erro
 		return exchange{}, fmt.Errorf("%w: %d named %q on %s",
 			ErrAmbiguousCheckRun, listed.TotalCount, pending.run.Name, pending.head)
 	}
+	if listed.TotalCount != len(listed.CheckRuns) {
+		return exchange{}, fmt.Errorf("%w: a count of %d beside %d runs",
+			ErrInconsistentListing, listed.TotalCount, len(listed.CheckRuns))
+	}
 	if len(listed.CheckRuns) == 0 {
 		return pending.creation(), nil
 	}

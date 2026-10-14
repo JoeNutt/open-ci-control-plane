@@ -223,6 +223,40 @@ func TestPublishCheckRunRefusesToChooseBetweenRunsOfTheSameName(t *testing.T) {
 	}
 }
 
+func listingOnly(t *testing.T, status int, listing string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			t.Errorf("the adapter sent %s %s after the listing", request.Method, request.URL)
+			writer.WriteHeader(http.StatusTeapot)
+			return
+		}
+		writer.WriteHeader(status)
+		write(t, writer, listing)
+	})
+}
+
+func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing.T) {
+	disagreeing := []string{
+		`{"total_count": 1, "check_runs": []}`,
+		`{"total_count": 0, "check_runs": [{"id": 7}]}`,
+	}
+
+	for _, listing := range disagreeing {
+		t.Run(listing, func(t *testing.T) {
+			runs := checkRunsAt(t, listingOnly(t, http.StatusOK, listing))
+
+			err := runs.PublishCheckRun(context.Background(),
+				locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+			if !errors.Is(err, github.ErrInconsistentListing) {
+				t.Fatalf("error is %v, want %v", err, github.ErrInconsistentListing)
+			}
+		})
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 

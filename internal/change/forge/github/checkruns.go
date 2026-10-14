@@ -13,6 +13,8 @@ var _ domain.CheckRunPublisher = CheckRuns{}
 
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
+var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
+
 type CheckRuns struct {
 	forge connection
 }
