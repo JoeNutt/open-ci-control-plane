@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -63,6 +64,13 @@ func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
 	var blocks []string
 	used := 0
 	for _, violation := range run.Violations {
+		least := 0
+		for _, field := range []string{violation.RuleID, violation.Message, violation.OwningTeam, violation.DocsURL, violation.Marking} {
+			least += utf8.RuneCountInString(field) - strings.Count(field, "\r\n")
+		}
+		if used+least > capacity {
+			return blocks
+		}
 		block := checkRunTextBlockOf(violation)
 		closing := checkRunTextTruncationOf(run.ViolationCount-len(blocks)-1, run.ViolationCount)
 		if used+len(block)+len(closing) > capacity {

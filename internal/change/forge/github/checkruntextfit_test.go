@@ -3,6 +3,7 @@
 package github
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -48,6 +49,28 @@ func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
 	small := checkRunTextBlockOf(run.Violations[1])
 
 	assertCheckRunTextLists(t, run, len(small)+200, 0)
+}
+
+func TestCheckRunTextDoesNotFormatAFieldThatCannotFit(t *testing.T) {
+	const fieldBytes = 4 << 20
+	run := checkRunTextFixture(t)
+	run.Violations[0].Message = strings.Repeat("m", fieldBytes)
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	output, err := checkRunTextFor(run, checkRunTextTestCapacity)
+	runtime.ReadMemStats(&after)
+
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if strings.Contains(output.text, "**Rule**") {
+		t.Fatalf("a %d-byte message was listed in a capacity of %d", fieldBytes, checkRunTextTestCapacity)
+	}
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > fieldBytes/4 {
+		t.Errorf("rendering allocated %d bytes for a field it could never list", allocated)
+	}
 }
 
 func checkRunTextWithViolations(t *testing.T, count int) domain.CheckRun {
