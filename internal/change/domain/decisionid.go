@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
+const DecisionIDEntropyBytes = 16
+
 const (
 	decisionIDPrefix    = "dec_"
-	decisionIDHexDigits = 32
+	decisionIDHexDigits = 2 * DecisionIDEntropyBytes
 )
 
 var ErrMalformedDecisionID = errors.New("decision identifier is malformed")
@@ -31,7 +33,7 @@ func ParseDecisionID(stated string) (DecisionID, error) {
 	return DecisionID{value: stated}, nil
 }
 
-func DecisionIDFrom(entropy [16]byte) DecisionID {
+func DecisionIDFrom(entropy [DecisionIDEntropyBytes]byte) DecisionID {
 	return DecisionID{value: decisionIDPrefix + hex.EncodeToString(entropy[:])}
 }
 

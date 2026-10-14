@@ -57,20 +57,23 @@ func TestEveryDigitOfAMintedIdentifierVaries(t *testing.T) {
 	seen := map[int]map[rune]bool{}
 
 	for range mintings {
-		digits := strings.TrimPrefix(mintedDecisionID(t).String(), "dec_")
-		for position, digit := range digits {
+		for position, character := range mintedDecisionID(t).String() {
 			if seen[position] == nil {
 				seen[position] = map[rune]bool{}
 			}
-			seen[position][digit] = true
+			seen[position][character] = true
 		}
 	}
 
-	for position, digits := range seen {
-		if len(digits) < 2 {
-			t.Errorf("digit %d took one value across %d mintings, so it carries no randomness",
-				position, mintings)
+	varying := 0
+	for _, characters := range seen {
+		if len(characters) > 1 {
+			varying++
 		}
+	}
+	if want := 2 * domain.DecisionIDEntropyBytes; varying < want {
+		t.Errorf("%d characters varied across %d mintings, want the %d random hex digits",
+			varying, mintings, want)
 	}
 }
 
