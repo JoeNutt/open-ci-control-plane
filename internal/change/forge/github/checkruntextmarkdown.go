@@ -2,7 +2,11 @@
 
 package github
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+	"unicode"
+)
 
 // CommonMark 0.31.2 section 6.1: "A code span begins with a backtick string and
 // ends with a backtick string of equal length", "backslash escapes do not work in
@@ -12,6 +16,15 @@ import "strings"
 // spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
 	line := markdownSingleLineOf(value)
+	var marked strings.Builder
+	for _, character := range line {
+		if unicode.Is(unicode.Cf, character) || unicode.IsControl(character) {
+			fmt.Fprintf(&marked, "<U+%04X>", character)
+			continue
+		}
+		marked.WriteRune(character)
+	}
+	line = marked.String()
 	fence := strings.Repeat("`", markdownLongestBacktickRunIn(line)+1)
 	return fence + " " + line + " " + fence
 }

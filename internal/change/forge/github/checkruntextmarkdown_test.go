@@ -32,6 +32,25 @@ func TestMarkdownCodeSpanTurnsEveryLineTerminatorIntoASpace(t *testing.T) {
 	assertMarkdownCodeSpans(t, terminated)
 }
 
+func TestMarkdownCodeSpanShowsFormatAndControlCharactersAsMarkers(t *testing.T) {
+	marked := map[string]markdownCodeSpanCase{
+		"right-to-left override":  {"a\u202Eb", "` a<U+202E>b `"},
+		"left-to-right embedding": {"a\u202Ab", "` a<U+202A>b `"},
+		"first strong isolate":    {"a\u2068b", "` a<U+2068>b `"},
+		"pop directional isolate": {"a\u2069b", "` a<U+2069>b `"},
+		"zero width space":        {"a\u200Bb", "` a<U+200B>b `"},
+		"zero width joiner":       {"a\u200Db", "` a<U+200D>b `"},
+		"byte order mark":         {"a\uFEFFb", "` a<U+FEFF>b `"},
+		"soft hyphen":             {"a\u00ADb", "` a<U+00AD>b `"},
+		"tab":                     {"a\tb", "` a<U+0009>b `"},
+		"null":                    {"a\x00b", "` a<U+0000>b `"},
+		"delete":                  {"a\x7Fb", "` a<U+007F>b `"},
+		"C1 control":              {"a\u0090b", "` a<U+0090>b `"},
+	}
+
+	assertMarkdownCodeSpans(t, marked)
+}
+
 type markdownCodeSpanCase struct{ value, span string }
 
 func assertMarkdownCodeSpans(t *testing.T, cases map[string]markdownCodeSpanCase) {
