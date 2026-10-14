@@ -7,7 +7,10 @@ import (
 	"fmt"
 )
 
-const statusCompleted = "completed"
+const (
+	statusCompleted = "completed"
+	filterLatest    = "latest"
+)
 
 var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")
 
