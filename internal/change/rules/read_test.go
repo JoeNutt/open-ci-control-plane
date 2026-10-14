@@ -35,3 +35,23 @@ func TestReadFromGivesRulesThatClassify(t *testing.T) {
 		t.Errorf("iac kind is %v, want the terraform file", kinds.IaC)
 	}
 }
+
+func TestReadFromRefusesADocumentItCannotTrust(t *testing.T) {
+	refused := map[string]string{
+		"a misspelled top-level key":          `{"kind": {"test": ["**/*_test.go"]}}`,
+		"a kind the schema does not declare":  `{"kinds": {"tests": ["**/*_test.go"]}}`,
+		"a pattern that cannot be translated": `{"kinds": {"test": ["infra/[ab].go"]}}`,
+		"more patterns than a kind may hold": `{"kinds": {"test": [` +
+			strings.TrimSuffix(strings.Repeat(`"a/**",`, domain.MaxPatternsPerKind+1), ",") + `]}}`,
+		"not an object at all": `["**/*_test.go"]`,
+		"truncated":            `{"kinds": {"test": [`,
+	}
+
+	for form, stated := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := rules.ReadFrom(strings.NewReader(stated)); err == nil {
+				t.Fatalf("%s was accepted", form)
+			}
+		})
+	}
+}
