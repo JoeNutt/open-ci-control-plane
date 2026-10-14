@@ -9,6 +9,14 @@ leaf and a whole subtree identically. A composite node holds children — leaves
 composites — and implements the shared operations by delegating to them and combining the
 results.
 
+## Why it exists
+
+Without a common interface, every client of a part-whole structure must ask whether it holds
+one element or a group and handle each differently, and that branch repeats at every level of
+every traversal. The composite gives groups and elements one interface, with the group
+implementing it by delegating to its children, so the recursion lives in the structure rather
+than in every client.
+
 ## When to use it
 
 - The data genuinely forms a **part-whole hierarchy**: a filesystem, an expression tree, a
@@ -26,7 +34,7 @@ interface, and keep child management on the composite type.
 ```go
 // RIGHT — Rule and RuleSet both satisfy Node; only RuleSet manages children.
 type Node interface {
-    Evaluate(in Input) Verdict
+	Evaluate(in Input) Verdict
 }
 
 type Rule struct{ Query string }
@@ -38,11 +46,11 @@ type RuleSet struct{ children []Node }
 func (s *RuleSet) Add(child Node) { s.children = append(s.children, child) }
 
 func (s *RuleSet) Evaluate(in Input) Verdict {
-    verdicts := make([]Verdict, 0, len(s.children))
-    for _, c := range s.children {
-        verdicts = append(verdicts, c.Evaluate(in))
-    }
-    return combine(verdicts)
+	verdicts := make([]Verdict, 0, len(s.children))
+	for _, c := range s.children {
+		verdicts = append(verdicts, c.Evaluate(in))
+	}
+	return combine(verdicts)
 }
 ```
 
@@ -51,17 +59,18 @@ it does, clients start testing which kind they hold and the uniformity is gone.
 
 ## How not to use it
 
-- **Putting `add` and `remove` on the shared interface.** GoF discusses this openly as a
-  trade between transparency and safety, and the common resolution is to accept the cast: a
-  leaf forced to implement `add` either throws — a runtime error the type system could have
-  prevented — or silently does nothing, which is worse. In Go the cast is a type assertion to
-  `*RuleSet`.
+- **Putting `Add` and `Remove` on the shared interface.** This is a trade between
+  transparency — one interface for leaf and composite alike — and safety — child management
+  only where it means something. Choosing transparency forces a leaf to implement `Add`, and
+  it either fails — a runtime error the type system could have prevented — or silently does
+  nothing, which is worse. Choosing safety, as this entry does, costs a type assertion to
+  `*RuleSet` wherever a client must add a child.
 
 ```go
 // WRONG — child management on the shared interface, so a leaf must refuse it.
 type Node interface {
-    Evaluate(in Input) Verdict
-    Add(child Node) error
+	Evaluate(in Input) Verdict
+	Add(child Node) error
 }
 
 func (Rule) Add(Node) error { return errLeafHasNoChildren }
@@ -97,7 +106,7 @@ child.Add(parent)
 // WRONG — a tenant's uploaded policy set, evaluated without a depth check.
 set, err := decodeRuleSet(upload)
 if err != nil {
-    return err
+	return err
 }
 verdict := set.Evaluate(in)
 // Symptom: one deeply nested upload is a fatal stack overflow for every tenant on the process.
@@ -109,10 +118,10 @@ verdict := set.Evaluate(in)
 ```go
 // WRONG — the count is memoised, and no child can tell its parent it changed.
 func (s *RuleSet) RuleCount() int {
-    if !s.isCountCached {
-        s.cachedCount, s.isCountCached = s.countChildren(), true
-    }
-    return s.cachedCount
+	if !s.isCountCached {
+		s.cachedCount, s.isCountCached = s.countChildren(), true
+	}
+	return s.cachedCount
 }
 // Symptom: after a nested set gains a rule, RuleCount still returns the old total.
 ```
