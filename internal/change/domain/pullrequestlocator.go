@@ -5,22 +5,10 @@ package domain
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
-const (
-	repositorySeparator    = "/"
-	maxRepositorySegment   = 100
-	firstPullRequestNumber = 1
-	maxRepositoryLength    = 2*maxRepositorySegment + len(repositorySeparator)
-)
-
-var repositorySegmentPattern = fmt.Sprintf(
-	`[A-Za-z0-9][A-Za-z0-9._-]{0,%d}`, maxRepositorySegment-1)
-
-var repositoryPattern = regexp.MustCompile(
-	"^" + repositorySegmentPattern + repositorySeparator + repositorySegmentPattern + "$")
+const firstPullRequestNumber = 1
 
 var ErrMalformedRepository = errors.New("repository is not an owner/name pair")
 
@@ -39,13 +27,13 @@ func ParsePullRequestLocator(repository string, number int) (PullRequestLocator,
 		return PullRequestLocator{}, fmt.Errorf("%w: %d bytes exceeds %d",
 			ErrMalformedRepository, len(repository), maxRepositoryLength)
 	}
-	if !repositoryPattern.MatchString(repository) {
+	owner, name, separated := strings.Cut(repository, repositorySeparator)
+	if !separated || !repositorySegmentOK(owner) || !repositorySegmentOK(name) {
 		return PullRequestLocator{}, fmt.Errorf("%w: %q", ErrMalformedRepository, repository)
 	}
 	if number < firstPullRequestNumber {
 		return PullRequestLocator{}, fmt.Errorf("%w: %d", ErrMalformedPullRequestNumber, number)
 	}
-	owner, name, _ := strings.Cut(repository, repositorySeparator)
 	return PullRequestLocator{owner: owner, name: name, number: number}, nil
 }
 
