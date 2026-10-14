@@ -25,6 +25,13 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
+	if decided.Decision.Outcome() == OutcomeUndefined &&
+		decided.Family.FailurePosture() == FailurePostureOpen {
+		return CheckRun{
+			Name:       checkRunNamePrefix + string(decided.Family),
+			Conclusion: ConclusionNeutral,
+		}
+	}
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided.Decision),

@@ -60,6 +60,14 @@ func TestAWarnIsNeutral(t *testing.T) {
 	}
 }
 
+func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
+	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision())
+
+	if run.Conclusion != domain.ConclusionNeutral {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
+	}
+}
+
 const noViolations = `[]`
 
 func violationsAt(severity domain.EnforcementSeverity) string {
