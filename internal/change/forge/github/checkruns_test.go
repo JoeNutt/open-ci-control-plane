@@ -5,6 +5,7 @@ package github_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -147,5 +148,41 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 	}
 	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
 		t.Fatalf("the forge holds %+v, want %+v", got, want)
+	}
+}
+
+func refusingEveryRequest(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		t.Errorf("the adapter sent %s %s, but should have sent nothing",
+			request.Method, request.URL)
+		writer.WriteHeader(http.StatusTeapot)
+	})
+}
+
+func TestPublishCheckRunRefusesAMalformedHeadSHAWithoutAsking(t *testing.T) {
+	malformed := []string{
+		"",
+		"6dcb09b",
+		"6DCB09B5B57875F334F61AEBED695E2E4193DB5E",
+		headSHA + "0",
+		headSHA[:39],
+		"6dcb09b5b57875f334f61aebed695e2e4193db5g",
+		"../../../../../user/repos?per_page=100000",
+		"6dcb09b5b57875f334f61aebed695e2e/../../x",
+		"6dcb09b5b57875f334f61aebed695e2e4193d%2f",
+	}
+	runs := checkRunsAt(t, refusingEveryRequest(t))
+
+	for _, sha := range malformed {
+		t.Run(sha, func(t *testing.T) {
+			err := runs.PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), sha, securityRun())
+
+			if !errors.Is(err, github.ErrMalformedHeadSHA) {
+				t.Fatalf("error is %v, want %v", err, github.ErrMalformedHeadSHA)
+			}
+		})
 	}
 }
