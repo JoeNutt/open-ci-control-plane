@@ -27,6 +27,11 @@ func parsePublication(
 	if run.Name == "" || run.Title == "" || run.Summary == "" {
 		return publication{}, ErrIncompleteCheckRun
 	}
+	conclusion, err := domain.ParseConclusion(string(run.Conclusion))
+	if err != nil {
+		return publication{}, err
+	}
+	run.Conclusion = conclusion
 	head, err := parseCommitSHA(headSHA)
 	if err != nil {
 		return publication{}, err

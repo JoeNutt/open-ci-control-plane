@@ -280,6 +280,25 @@ func TestPublishCheckRunRefusesAnIncompleteRunWithoutAsking(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunRefusesAnUndeclaredConclusionWithoutAsking(t *testing.T) {
+	undeclared := []domain.Conclusion{"", "skipped", "action_required", "SUCCESS"}
+	runs := checkRunsAt(t, refusingEveryRequest(t))
+
+	for _, conclusion := range undeclared {
+		t.Run(string(conclusion), func(t *testing.T) {
+			run := securityRun()
+			run.Conclusion = conclusion
+
+			err := runs.PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+			if !errors.Is(err, domain.ErrUnknownConclusion) {
+				t.Fatalf("error is %v, want %v", err, domain.ErrUnknownConclusion)
+			}
+		})
+	}
+}
+
 func refusingEveryRequest(t *testing.T) *httptest.Server {
 	t.Helper()
 
