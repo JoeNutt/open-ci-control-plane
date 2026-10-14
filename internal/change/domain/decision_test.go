@@ -179,3 +179,14 @@ func TestADocumentThatDeclaresNoFailurePostureIsNotReadAsOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestADecidedDocumentReportsTheFailurePostureItDeclares(t *testing.T) {
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if decided.FailurePosture() != domain.FailurePostureClosed {
+		t.Errorf("posture is %q, want %q", decided.FailurePosture(), domain.FailurePostureClosed)
+	}
+}

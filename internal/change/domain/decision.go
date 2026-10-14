@@ -78,5 +78,16 @@ func ParseDecision(stated []byte) (Decision, error) {
 		violations: written.Violations,
 		reviewers:  written.Reviewers,
 		failClosed: written.FailClosed != nil && *written.FailClosed,
+		posture:    declaredPostureOf(written.FailClosed),
 	}, nil
+}
+
+func declaredPostureOf(failClosed *bool) FailurePosture {
+	if failClosed == nil {
+		return ""
+	}
+	if *failClosed {
+		return FailurePostureClosed
+	}
+	return FailurePostureOpen
 }
