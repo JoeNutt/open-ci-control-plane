@@ -31,9 +31,14 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
+	text := ""
+	for _, violation := range decided.Decision.Violations() {
+		text += violation.Message + "\n"
+	}
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
 		Conclusion: conclusionFor(decided),
+		Text:       text,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -65,6 +66,16 @@ func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
 
 	if run.Conclusion != domain.ConclusionNeutral {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
+	}
+}
+
+func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
+	denied := decided(t, domain.EffectBlock, violationsAt(domain.EnforcementSeverityDeny))
+
+	run := checkRunFor(t, domain.PolicyFamilySecurity, denied)
+
+	if !strings.Contains(run.Text, "auth middleware changed with no authz test") {
+		t.Errorf("text does not carry the violation's message:\n%s", run.Text)
 	}
 }
 
