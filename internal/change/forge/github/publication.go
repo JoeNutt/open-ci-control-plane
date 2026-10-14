@@ -7,18 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var ErrIncompleteCheckRun = errors.New("a check run lacks a name, a title or a summary")
-
-// GitHub accepts at most 65535 characters in each of output.summary and output.text:
-// https://docs.github.com/en/rest/checks/runs
-const MaxOutputCharacters = 65535
-
-var ErrOutputTooLong = errors.New("a check run's summary or text is longer than the forge accepts")
 
 var ErrAmbiguousCheckRun = errors.New("the commit carries more than one check run of the name")
 
@@ -32,11 +25,8 @@ type publication struct {
 func parsePublication(
 	locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
 ) (publication, error) {
-	if run.Name == "" || run.Title == "" || run.Summary == "" {
+	if run.Name == "" {
 		return publication{}, ErrIncompleteCheckRun
-	}
-	if !fitsOutput(run.Summary) || !fitsOutput(run.Text) {
-		return publication{}, ErrOutputTooLong
 	}
 	verdict, err := parseVerdict(run)
 	if err != nil {
@@ -47,10 +37,6 @@ func parsePublication(
 		return publication{}, err
 	}
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
-}
-
-func fitsOutput(field string) bool {
-	return utf8.RuneCountInString(field) <= MaxOutputCharacters
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {

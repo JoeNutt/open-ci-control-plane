@@ -5,8 +5,6 @@ package github
 import (
 	"errors"
 	"fmt"
-
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const statusCompleted = "completed"
@@ -48,16 +46,4 @@ type newCheckRun struct {
 	Name    string `json:"name"`
 	HeadSHA string `json:"head_sha"`
 	checkRunVerdict
-}
-
-func parseVerdict(run domain.CheckRun) (checkRunVerdict, error) {
-	conclusion, err := domain.ParseConclusion(string(run.Conclusion))
-	if err != nil {
-		return checkRunVerdict{}, err
-	}
-	return checkRunVerdict{
-		Status:     statusCompleted,
-		Conclusion: string(conclusion),
-		Output:     checkRunOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
-	}, nil
 }
