@@ -22,10 +22,6 @@ func (source ChangeSource) GoString() string {
 	return fmt.Sprintf("github.ChangeSource{settings: %#v}", source.forge.settings)
 }
 
-func (source ChangeSource) Format(state fmt.State, verb rune) {
-	formatRedacted(state, verb, source)
-}
-
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {

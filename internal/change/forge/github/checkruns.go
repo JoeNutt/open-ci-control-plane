@@ -36,10 +36,6 @@ func (runs CheckRuns) GoString() string {
 	return fmt.Sprintf("github.CheckRuns{settings: %#v}", runs.forge.settings)
 }
 
-func (runs CheckRuns) Format(state fmt.State, verb rune) {
-	formatRedacted(state, verb, runs)
-}
-
 func (runs CheckRuns) PublishCheckRun(
 	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
 ) error {
