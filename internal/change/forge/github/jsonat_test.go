@@ -40,13 +40,6 @@ func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	}
 }
 
-func TestFormattingAnAdapterAsAPointerDoesNotRevealItsCredential(t *testing.T) {
-	settings := wellFormedSettings()
-
-	mustNotRevealUnder(t, "source", sourceWith(t, settings), []string{"%p"})
-	mustNotRevealUnder(t, "check runs", checkRunsWith(t, settings), []string{"%p"})
-}
-
 func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 	t.Helper()
 

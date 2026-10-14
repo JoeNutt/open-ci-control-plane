@@ -29,7 +29,7 @@ var ErrNoClient = errors.New("the forge settings carry no http client")
 
 type connection struct {
 	settings Settings
-	token    *Credential
+	token    Credential
 }
 
 func parseConnection(settings Settings) (connection, error) {
@@ -47,7 +47,7 @@ func parseConnection(settings Settings) (connection, error) {
 	}
 	token := settings.Token
 	settings.Token = Credential{}
-	return connection{settings: settings, token: &token}, nil
+	return connection{settings: settings, token: token}, nil
 }
 
 func checkBaseURL(address string) error {
