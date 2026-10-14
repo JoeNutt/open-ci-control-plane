@@ -16,11 +16,11 @@ func checkRunsEndpoint(locator domain.PullRequestLocator) string {
 }
 
 func checkRunsOnCommitEndpoint(
-	locator domain.PullRequestLocator, headSHA, name string,
+	locator domain.PullRequestLocator, head commitSHA, name string,
 ) string {
 	query := url.Values{"check_name": {name}}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
-		locator.Owner(), locator.Name(), headSHA, query.Encode())
+		locator.Owner(), locator.Name(), head, query.Encode())
 }
 
 type checkRunListing struct {

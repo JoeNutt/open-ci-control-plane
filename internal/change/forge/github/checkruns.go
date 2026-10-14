@@ -4,17 +4,12 @@ package github
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var _ domain.CheckRunPublisher = CheckRuns{}
-
-var ErrMalformedHeadSHA = errors.New("the head commit is not a 40-digit lowercase hex SHA")
 
 type CheckRuns struct {
 	forge connection
@@ -31,17 +26,18 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 func (runs CheckRuns) PublishCheckRun(
 	ctx context.Context, locator domain.PullRequestLocator, headSHA string, run domain.CheckRun,
 ) error {
-	if len(headSHA) != 40 || strings.Trim(headSHA, "0123456789abcdef") != "" {
-		return fmt.Errorf("%w: %q", ErrMalformedHeadSHA, headSHA)
+	head, err := parseCommitSHA(headSHA)
+	if err != nil {
+		return err
 	}
-	_, err := jsonAt[checkRunListing](ctx, runs.forge, checkRunsOnCommitEndpoint(locator, headSHA, run.Name))
+	_, err = jsonAt[checkRunListing](ctx, runs.forge, checkRunsOnCommitEndpoint(locator, head, run.Name))
 	if err != nil {
 		return err
 	}
 	_, err = exchanged[struct{}](ctx, runs.forge, exchange{
 		method:    http.MethodPost,
 		endpoint:  checkRunsEndpoint(locator),
-		sent:      newCheckRun{Name: run.Name, HeadSHA: headSHA, checkRunVerdict: verdictOf(run)},
+		sent:      newCheckRun{Name: run.Name, HeadSHA: string(head), checkRunVerdict: verdictOf(run)},
 		succeeded: http.StatusCreated,
 	})
 	return err
