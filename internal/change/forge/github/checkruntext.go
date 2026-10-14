@@ -13,8 +13,9 @@ import (
 var checkRunTextErrUnidentified = errors.New("check run carries no decision identifier")
 
 const (
-	checkRunTextSummaryLayout   = "%s\n\nDecision `%s`"
-	checkRunTextViolationLayout = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n- Documentation: %s\n\n"
+	checkRunTextSummaryLayout    = "%s\n\nDecision `%s`"
+	checkRunTextTruncationLayout = "and %d more — %d violations in total. This list is truncated.\n"
+	checkRunTextViolationLayout  = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 )
 
 type checkRunTextOutput struct {
@@ -29,7 +30,7 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	}
 	text := checkRunTextViolationsOf(run.Violations)
 	if run.ViolationCount > len(run.Violations) {
-		text += fmt.Sprintf("and %d more — %d violations in total. This list is truncated.\n",
+		text += fmt.Sprintf(checkRunTextTruncationLayout,
 			run.ViolationCount-len(run.Violations), run.ViolationCount)
 	}
 	return checkRunTextOutput{
