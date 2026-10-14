@@ -13,6 +13,7 @@ import (
 var (
 	errCheckRunTextUnidentified = errors.New("check run carries no decision identifier")
 	errCheckRunTextOverCapacity = errors.New("check run output cannot fit its capacity")
+	errCheckRunTextUndercounted = errors.New("check run counts fewer violations than it carries")
 )
 
 const (
@@ -31,6 +32,9 @@ type checkRunTextOutput struct {
 func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, error) {
 	if run.DecisionID == (domain.DecisionID{}) {
 		return checkRunTextOutput{}, errCheckRunTextUnidentified
+	}
+	if run.ViolationCount < len(run.Violations) {
+		return checkRunTextOutput{}, errCheckRunTextUndercounted
 	}
 	blocks := checkRunTextBlocksThatFit(run, capacity)
 	output := checkRunTextOutput{

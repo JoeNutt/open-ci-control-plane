@@ -181,6 +181,17 @@ func TestCheckRunTextRefusesASummaryBeyondTheCapacityWhenTheTextIsEmpty(t *testi
 	}
 }
 
+func TestCheckRunTextRefusesACountBelowTheViolationsCarried(t *testing.T) {
+	undercounted := checkRunTextFixture(t)
+	undercounted.ViolationCount = 0
+
+	_, err := checkRunTextFor(undercounted, checkRunTextTestCapacity)
+
+	if !errors.Is(err, errCheckRunTextUndercounted) {
+		t.Fatalf("got %v, want errCheckRunTextUndercounted", err)
+	}
+}
+
 func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 	unidentified := checkRunTextFixture(t)
 	unidentified.DecisionID = domain.DecisionID{}
