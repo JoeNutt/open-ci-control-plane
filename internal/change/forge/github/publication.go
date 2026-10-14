@@ -101,6 +101,7 @@ func (pending publication) listingEndpoint(owner int64) string {
 	query := url.Values{
 		"check_name": {pending.name},
 		"app_id":     {strconv.FormatInt(owner, 10)},
+		"filter":     {"latest"},
 	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())

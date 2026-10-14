@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -241,6 +243,35 @@ func TestPublishCheckRunNeverUpdatesARunAnotherAppOwns(t *testing.T) {
 	want := []wireCheckRun{foreign, heldAs(2, run)}
 	if got := held.runsOn(headSHA); !slices.Equal(got, want) {
 		t.Fatalf("the forge holds %+v, want the foreign run untouched beside ours: %+v", got, want)
+	}
+}
+
+func TestPublishCheckRunListsByNameOwnerAndLatest(t *testing.T) {
+	var asked url.Values
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet {
+			asked = request.URL.Query()
+			write(t, writer, `{"total_count": 0, "check_runs": []}`)
+			return
+		}
+		writer.WriteHeader(http.StatusCreated)
+		write(t, writer, `{}`)
+	})
+	run := securityRun()
+
+	err := checkRunsAt(t, server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	want := url.Values{
+		"check_name": {run.Name},
+		"app_id":     {strconv.Itoa(forgeAppID)},
+		"filter":     {"latest"},
+	}
+	if !maps.EqualFunc(asked, want, slices.Equal) {
+		t.Fatalf("the listing asked %v, want %v", asked, want)
 	}
 }
 
