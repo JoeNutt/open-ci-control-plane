@@ -3,13 +3,13 @@
 package github
 
 type CheckRuns struct {
-	settings Settings
+	forge connection
 }
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
-	_, err := ParseChangeSource(settings)
+	forge, err := parseConnection(settings)
 	if err != nil {
 		return CheckRuns{}, err
 	}
-	return CheckRuns{settings: settings}, nil
+	return CheckRuns{forge: forge}, nil
 }

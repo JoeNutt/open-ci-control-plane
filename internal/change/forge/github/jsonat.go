@@ -18,14 +18,14 @@ var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected stat
 var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
 
 func jsonAt[Payload any](
-	ctx context.Context, source ChangeSource, endpoint string,
+	ctx context.Context, forge connection, endpoint string,
 ) (Payload, error) {
 	var payload Payload
-	request, err := requestFor(ctx, source, endpoint)
+	request, err := requestFor(ctx, forge, endpoint)
 	if err != nil {
 		return payload, err
 	}
-	response, err := source.settings.Client.Do(request)
+	response, err := forge.settings.Client.Do(request)
 	if err != nil {
 		return payload, fmt.Errorf("read: %w", err)
 	}
@@ -34,7 +34,7 @@ func jsonAt[Payload any](
 	if failure := failureIn(response); failure != nil {
 		return payload, failure
 	}
-	body, err := bodyWithinBound(response.Body, source.settings.MaxResponseBytes)
+	body, err := bodyWithinBound(response.Body, forge.settings.MaxResponseBytes)
 	if err != nil {
 		return payload, err
 	}
@@ -45,14 +45,14 @@ func jsonAt[Payload any](
 }
 
 func requestFor(
-	ctx context.Context, source ChangeSource, endpoint string,
+	ctx context.Context, forge connection, endpoint string,
 ) (*http.Request, error) {
 	request, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, source.settings.BaseURL+endpoint, nil)
+		ctx, http.MethodGet, forge.settings.BaseURL+endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", endpoint, err)
 	}
-	request.Header.Set("Authorization", "Bearer "+string(source.settings.Token))
+	request.Header.Set("Authorization", "Bearer "+string(forge.settings.Token))
 	return request, nil
 }
 
