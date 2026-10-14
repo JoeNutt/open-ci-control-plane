@@ -143,8 +143,8 @@ func TestCheckRunTextRefusesWhatCannotFitEvenWithNothingListed(t *testing.T) {
 
 			_, err := checkRunTextFor(run, capacity)
 
-			if !errors.Is(err, checkRunTextErrOverCapacity) {
-				t.Fatalf("got %v, want checkRunTextErrOverCapacity", err)
+			if !errors.Is(err, errCheckRunTextOverCapacity) {
+				t.Fatalf("got %v, want errCheckRunTextOverCapacity", err)
 			}
 		})
 	}
@@ -156,8 +156,8 @@ func TestCheckRunTextRefusesASummaryBeyondTheCapacityWhenTheTextIsEmpty(t *testi
 
 	_, err := checkRunTextFor(run, 40)
 
-	if !errors.Is(err, checkRunTextErrOverCapacity) {
-		t.Fatalf("got %v, want checkRunTextErrOverCapacity", err)
+	if !errors.Is(err, errCheckRunTextOverCapacity) {
+		t.Fatalf("got %v, want errCheckRunTextOverCapacity", err)
 	}
 }
 
@@ -167,8 +167,8 @@ func TestCheckRunTextRefusesARunWithNoDecisionIdentifier(t *testing.T) {
 
 	_, err := checkRunTextFor(unidentified, checkRunTextTestCapacity)
 
-	if !errors.Is(err, checkRunTextErrUnidentified) {
-		t.Fatalf("got %v, want checkRunTextErrUnidentified", err)
+	if !errors.Is(err, errCheckRunTextUnidentified) {
+		t.Fatalf("got %v, want errCheckRunTextUnidentified", err)
 	}
 }
 
