@@ -552,6 +552,32 @@ func TestPublishCheckRunListsAViolationThatFitsInCharactersButNotInBytes(t *test
 	}
 }
 
+func TestPublishCheckRunAcceptsASummaryOfExactlyTheForgesCharactersAndNotOneMore(t *testing.T) {
+	held := newCheckRunForge(t)
+	runs := checkRunsAt(t, held.server)
+	locator := locatorOf(t, "acme/payments", 412)
+	short := securityRun()
+	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, short); err != nil {
+		t.Fatalf("publish a short headline: %v", err)
+	}
+	beside := utf8.RuneCountInString(held.runsOn(headSHA)[0].Output.Summary) - utf8.RuneCountInString(short.Headline)
+	exact := securityRun()
+	exact.Headline = strings.Repeat("é", github.MaxOutputCharacters-beside)
+	over := securityRun()
+	over.Headline = exact.Headline + "é"
+
+	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, exact); err != nil {
+		t.Errorf("a summary of exactly %d characters: %v", github.MaxOutputCharacters, err)
+	}
+	if got := utf8.RuneCountInString(held.runsOn(headSHA)[0].Output.Summary); got != github.MaxOutputCharacters {
+		t.Errorf("the forge holds a summary of %d characters, want %d", got, github.MaxOutputCharacters)
+	}
+	err := checkRunsAt(t, refusingEveryRequest(t)).PublishCheckRun(context.Background(), locator, headCommit, over)
+	if !errors.Is(err, github.ErrUnrenderableCheckRun) {
+		t.Errorf("a summary one character over: error is %v, want %v", err, github.ErrUnrenderableCheckRun)
+	}
+}
+
 const (
 	noRunsListed = `{"total_count": 0, "check_runs": []}`
 	run7Listed   = `{"total_count": 1, "check_runs": [{"id": 7, "app": {"id": 4242}}]}`

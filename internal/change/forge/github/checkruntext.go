@@ -41,7 +41,7 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
 		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
 	}
-	if len(output.summary) > capacity || checkRunTextCharactersIn(output.text) > capacity {
+	if checkRunTextCharactersIn(output.summary) > capacity || checkRunTextCharactersIn(output.text) > capacity {
 		return checkRunTextOutput{}, errCheckRunTextOverCapacity
 	}
 	return output, nil
