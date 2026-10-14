@@ -217,3 +217,13 @@ func TestPathsEmitLexicographicallySorted(t *testing.T) {
 		t.Fatalf("want %s in %s", want, encoded)
 	}
 }
+
+func TestZeroDocumentEmitsEmptyByDirAsObject(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"by_dir":{}`) {
+		t.Fatalf(`want "by_dir":{} in %s`, encoded)
+	}
+}

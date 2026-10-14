@@ -25,3 +25,10 @@ func (paths Paths) MarshalJSON() ([]byte, error) {
 }
 
 type PathsByDir map[string]Paths
+
+func (byDir PathsByDir) MarshalJSON() ([]byte, error) {
+	if len(byDir) == 0 {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(map[string]Paths(byDir))
+}
