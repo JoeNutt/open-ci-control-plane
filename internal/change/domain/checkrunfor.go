@@ -2,6 +2,8 @@
 
 package domain
 
+const checkRunNamePrefix = "policy/"
+
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	return CheckRun{Name: "policy/" + string(decided.Family), Conclusion: ConclusionSuccess}
+	return CheckRun{Name: checkRunNamePrefix + string(decided.Family), Conclusion: ConclusionSuccess}
 }
