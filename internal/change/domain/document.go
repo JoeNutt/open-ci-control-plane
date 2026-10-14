@@ -53,6 +53,8 @@ type Diff struct {
 	UnresolvedImportFiles int              `json:"unresolved_import_files"`
 	ResolvedImportShare   float64          `json:"resolved_import_share"`
 	ModuleGraphDelta      ModuleGraphDelta `json:"module_graph_delta"`
+	Sensitive             Declared[string] `json:"sensitive"`
+	Unknown               Declared[string] `json:"unknown"`
 }
 
 type Totals struct {

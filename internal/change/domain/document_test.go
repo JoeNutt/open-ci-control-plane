@@ -250,3 +250,15 @@ func TestImportEntryDeclaresEveryFieldTheSchemaNames(t *testing.T) {
 		}
 	}
 }
+
+func TestZeroDocumentDeclaresBothMasksAsLists(t *testing.T) {
+	encoded, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal zero document: %v", err)
+	}
+	for _, mask := range []string{`"sensitive":[]`, `"unknown":[]`} {
+		if !strings.Contains(string(encoded), mask) {
+			t.Errorf("want %s in %s", mask, encoded)
+		}
+	}
+}
