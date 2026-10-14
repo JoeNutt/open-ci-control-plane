@@ -36,6 +36,15 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+	if decided.Family.FailurePosture() == FailurePostureOpen {
+		return CheckRun{
+			Name:       checkRunNameFor(decided.Family),
+			Conclusion: ConclusionNeutral,
+			Summary: "Policy " + markdownTextOf(string(decided.Family)) +
+				" could not be evaluated and this change was admitted without a decision.\n\n" +
+				decisionLineFor(id),
+		}
+	}
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: conclusionIn(conclusionByPosture, decided.Family.FailurePosture()),

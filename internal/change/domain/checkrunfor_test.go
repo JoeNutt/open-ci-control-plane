@@ -125,6 +125,19 @@ func TestTheSummaryCarriesTheDecisionIdentifier(t *testing.T) {
 	}
 }
 
+func TestAnUndecidedFamilyThatFailsOpenSaysItAdmittedWithoutADecision(t *testing.T) {
+	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision())
+
+	for _, stated := range []string{
+		"Policy quality could not be evaluated and this change was admitted without a decision.",
+		wellFormedDecisionID,
+	} {
+		if !strings.Contains(run.Summary, stated) {
+			t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+		}
+	}
+}
+
 func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
 
