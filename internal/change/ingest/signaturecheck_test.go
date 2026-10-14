@@ -3,6 +3,7 @@
 package ingest_test
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -41,8 +42,7 @@ func delivery(signature string) *http.Request {
 
 func TestASignedDeliveryReachesWhatWasWaitingForIt(t *testing.T) {
 	accepted := &acceptedDelivery{}
-	checking := ingest.SignatureCheck{
-		Accepted: accepted, Secret: appSecret, Rejections: &rejectionTally{}}
+	checking := checkWith(t, accepted, &rejectionTally{})
 	answered := httptest.NewRecorder()
 
 	checking.ServeHTTP(answered, delivery(trueSignature))
@@ -69,8 +69,7 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 	for form, signature := range refused {
 		t.Run(form, func(t *testing.T) {
 			accepted := &acceptedDelivery{}
-			checking := ingest.SignatureCheck{
-				Accepted: accepted, Secret: appSecret, Rejections: &rejectionTally{}}
+			checking := checkWith(t, accepted, &rejectionTally{})
 			answered := httptest.NewRecorder()
 
 			checking.ServeHTTP(answered, delivery(signature))
@@ -105,8 +104,7 @@ func TestEveryRefusalIsCounted(t *testing.T) {
 	for form, expected := range tallies {
 		t.Run(form, func(t *testing.T) {
 			tally := &rejectionTally{}
-			checking := ingest.SignatureCheck{
-				Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: tally}
+			checking := checkWith(t, &acceptedDelivery{}, tally)
 
 			checking.ServeHTTP(httptest.NewRecorder(), delivery(expected.signature))
 
@@ -115,4 +113,55 @@ func TestEveryRefusalIsCounted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseSignatureCheckRefusesAnIncompleteCheck(t *testing.T) {
+	complete := ingest.Settings{
+		Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: &rejectionTally{}}
+	incomplete := map[string]func(ingest.Settings) ingest.Settings{
+		"nothing waiting for an admitted delivery": func(s ingest.Settings) ingest.Settings {
+			s.Accepted = nil
+			return s
+		},
+		"nothing counting refusals": func(s ingest.Settings) ingest.Settings {
+			s.Rejections = nil
+			return s
+		},
+		"no secret to verify against": func(s ingest.Settings) ingest.Settings {
+			s.Secret = ""
+			return s
+		},
+	}
+
+	for form, without := range incomplete {
+		t.Run(form, func(t *testing.T) {
+			_, err := ingest.ParseSignatureCheck(without(complete))
+
+			if !errors.Is(err, ingest.ErrIncompleteSignatureCheck) {
+				t.Fatalf("error is %v, want %v", err, ingest.ErrIncompleteSignatureCheck)
+			}
+		})
+	}
+}
+
+func TestParseSignatureCheckAcceptsACompleteCheck(t *testing.T) {
+	_, err := ingest.ParseSignatureCheck(ingest.Settings{
+		Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: &rejectionTally{}})
+
+	if err != nil {
+		t.Fatalf("parse a complete signature check: %v", err)
+	}
+}
+
+func checkWith(
+	t *testing.T, accepted http.Handler, rejections ingest.RejectionCounter,
+) ingest.SignatureCheck {
+	t.Helper()
+
+	checking, err := ingest.ParseSignatureCheck(ingest.Settings{
+		Accepted: accepted, Secret: appSecret, Rejections: rejections})
+	if err != nil {
+		t.Fatalf("parse signature check: %v", err)
+	}
+	return checking
 }
