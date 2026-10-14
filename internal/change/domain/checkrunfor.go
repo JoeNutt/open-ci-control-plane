@@ -49,11 +49,7 @@ func checkRunViolationsFrom(listed Declared[Violation]) []CheckRunViolation {
 }
 
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	posture := decided.Decision.FailurePosture()
-	if posture == "" {
-		posture = decided.Family.FailurePosture()
-	}
-	if posture == FailurePostureOpen {
+	if decided.FailurePosture() == FailurePostureOpen {
 		return admittedWithoutDecisionCheckRun(decided, id)
 	}
 	return policyErrorCheckRun(decided, id)
