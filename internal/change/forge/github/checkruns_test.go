@@ -338,7 +338,7 @@ func mustListExactlyFor(t *testing.T, name string) {
 		"check_name": {name},
 		"app_id":     {strconv.Itoa(forgeAppID)},
 		"filter":     {"latest"},
-		"per_page":   {"100"},
+		"per_page":   {strconv.Itoa(github.CheckRunsPerPage)},
 	}
 	if !maps.EqualFunc(asked, want, slices.Equal) {
 		t.Fatalf("the listing asked %v, want %v", asked, want)
@@ -734,8 +734,9 @@ func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
 				return
 			case <-time.After(trickleGap):
 			}
-			_, _ = writer.Write([]byte(" "))
-			http.NewResponseController(writer).Flush()
+			if !isTrickled(writer) {
+				return
+			}
 		}
 	})
 	settings := settingsAt(server)
@@ -748,6 +749,13 @@ func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
 	if held := time.Since(started); held > heldAtMost {
 		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, heldAtMost)
 	}
+}
+
+func isTrickled(writer http.ResponseWriter) bool {
+	if _, err := writer.Write([]byte(" ")); err != nil {
+		return false
+	}
+	return http.NewResponseController(writer).Flush() == nil
 }
 
 func TestPublishCheckRunBoundsTheListingToExactlyTheResponseBound(t *testing.T) {
