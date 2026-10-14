@@ -100,6 +100,38 @@ func TestADenyIsAFailureWhateverTheEffect(t *testing.T) {
 	}
 }
 
+func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T) {
+	deny := violationAt(domain.EnforcementSeverityDeny)
+	warn := violationAt(domain.EnforcementSeverityWarn)
+	dryRun := violationAt(domain.EnforcementSeverityDryRun)
+	mixed := map[string]struct {
+		effect     domain.Effect
+		violations []domain.Violation
+		conclusion domain.Conclusion
+		title      string
+	}{
+		"review alone":           {domain.EffectReview, nil, domain.ConclusionSuccess, "Passed"},
+		"warn then deny":         {domain.EffectAllow, []domain.Violation{warn, deny}, domain.ConclusionFailure, "Blocked"},
+		"deny then warn":         {domain.EffectAllow, []domain.Violation{deny, warn}, domain.ConclusionFailure, "Blocked"},
+		"dry run then warn":      {domain.EffectAllow, []domain.Violation{dryRun, warn}, domain.ConclusionNeutral, "Advisory"},
+		"warn then dry run":      {domain.EffectAllow, []domain.Violation{warn, dryRun}, domain.ConclusionNeutral, "Advisory"},
+		"block with a dry run":   {domain.EffectBlock, []domain.Violation{dryRun}, domain.ConclusionFailure, "Blocked"},
+		"review with a dry run":  {domain.EffectReview, []domain.Violation{dryRun}, domain.ConclusionNeutral, "Recorded only"},
+		"allow with a late deny": {domain.EffectAllow, []domain.Violation{dryRun, warn, deny}, domain.ConclusionFailure, "Blocked"},
+	}
+
+	for form, want := range mixed {
+		t.Run(form, func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilySecurity, decided(t, want.effect, want.violations...))
+
+			if run.Conclusion != want.conclusion || run.Title != want.title {
+				t.Errorf("concluded %q titled %q, want %q titled %q",
+					run.Conclusion, run.Title, want.conclusion, want.title)
+			}
+		})
+	}
+}
+
 func TestAWarnIsNeutral(t *testing.T) {
 	warned := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityWarn))
 
