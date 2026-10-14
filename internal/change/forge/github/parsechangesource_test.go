@@ -4,7 +4,9 @@ package github_test
 
 import (
 	"errors"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
@@ -71,5 +73,18 @@ func TestParseChangeSourceRefusesASourceWithNoCredential(t *testing.T) {
 
 	if !errors.Is(err, github.ErrNoCredential) {
 		t.Fatalf("error is %v, want %v", err, github.ErrNoCredential)
+	}
+}
+
+func TestParseChangeSourceRefusesAClientWithNoTimeout(t *testing.T) {
+	for _, timeout := range []time.Duration{0, -time.Second} {
+		settings := wellFormedSettings()
+		settings.Client = &http.Client{Timeout: timeout}
+
+		_, err := github.ParseChangeSource(settings)
+
+		if !errors.Is(err, github.ErrUnboundedClient) {
+			t.Errorf("timeout %v: error is %v, want %v", timeout, err, github.ErrUnboundedClient)
+		}
 	}
 }
