@@ -63,12 +63,7 @@ func (pending publication) exchangeGiven(listed checkRunListing, owner appID) (e
 	if err != nil {
 		return exchange{}, err
 	}
-	var existing []listedCheckRun
-	for _, run := range sound {
-		if run.App != nil && run.App.ID != nil && *run.App.ID == int64(owner) {
-			existing = append(existing, run)
-		}
-	}
+	existing := ownedBy(owner, sound)
 	if len(existing) == 0 {
 		return pending.creation(), nil
 	}

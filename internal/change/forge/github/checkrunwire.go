@@ -45,11 +45,31 @@ func (listed checkRunListing) soundRuns() ([]listedCheckRun, error) {
 
 type listedCheckRun struct {
 	ID  checkRunID `json:"id"`
-	App *struct {
-		ID *int64 `json:"id"`
-	} `json:"app"`
+	App *listedApp `json:"app"`
 }
 
+type listedApp struct {
+	ID *int64 `json:"id"`
+}
+
+func (run listedCheckRun) isOwnedBy(owner appID) bool {
+	return run.App != nil && run.App.ID != nil && appID(*run.App.ID) == owner
+}
+
+func ownedBy(owner appID, listed []listedCheckRun) []listedCheckRun {
+	var owned []listedCheckRun
+	for _, run := range listed {
+		if run.isOwnedBy(owner) {
+			owned = append(owned, run)
+		}
+	}
+	return owned
+}
+
+// GitHub documents no order for listed check runs and no meaning for their ids beyond
+// identity; this assumes ids are issued in increasing order, so the highest is the newest.
+// started_at is not used because the schema allows it to be null:
+// https://docs.github.com/en/rest/checks/runs
 func newestOf(listed []listedCheckRun) listedCheckRun {
 	return slices.MaxFunc(listed, func(one, other listedCheckRun) int {
 		return cmp.Compare(one.ID, other.ID)
