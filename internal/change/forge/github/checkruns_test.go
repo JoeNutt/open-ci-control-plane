@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -710,6 +711,41 @@ func TestPublishCheckRunDrainsAWriteBodyWithinTheBoundAndNoFurther(t *testing.T)
 	}
 	if longEcho.read > bound+1 {
 		t.Errorf("read %d bytes of a write echo bounded at %d", longEcho.read, bound)
+	}
+}
+
+func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
+	const (
+		clientTimeout = 200 * time.Millisecond
+		trickledBytes = 30
+		trickleGap    = 100 * time.Millisecond
+		heldAtMost    = time.Second
+	)
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet {
+			write(t, writer, noRunsListed)
+			return
+		}
+		writer.WriteHeader(http.StatusCreated)
+		for range trickledBytes {
+			select {
+			case <-request.Context().Done():
+				return
+			case <-time.After(trickleGap):
+			}
+			_, _ = writer.Write([]byte(" "))
+			http.NewResponseController(writer).Flush()
+		}
+	})
+	settings := settingsAt(server)
+	settings.Client.Timeout = clientTimeout
+
+	started := time.Now()
+	_ = checkRunsWith(t, settings).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if held := time.Since(started); held > heldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, heldAtMost)
 	}
 }
 
