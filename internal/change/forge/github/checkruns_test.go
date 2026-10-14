@@ -164,16 +164,25 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
-	want := wireCheckRun{
-		ID:         1,
+	held.mustHoldOnly(heldAs(1, run))
+}
+
+func heldAs(id int64, run domain.CheckRun) wireCheckRun {
+	return wireCheckRun{
+		ID:         id,
 		Name:       run.Name,
 		HeadSHA:    headSHA,
 		Status:     "completed",
 		Conclusion: string(run.Conclusion),
 		Output:     wireOutput{Title: run.Title, Summary: run.Summary, Text: run.Text},
 	}
+}
+
+func (held *checkRunForge) mustHoldOnly(want wireCheckRun) {
+	held.t.Helper()
+
 	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
-		t.Fatalf("the forge holds %+v, want %+v", got, want)
+		held.t.Fatalf("the forge holds %+v, want only %+v", got, want)
 	}
 }
 
@@ -194,17 +203,7 @@ func TestPublishCheckRunUpdatesTheRunOfTheSameNameOnTheSameCommit(t *testing.T) 
 		}
 	}
 
-	want := wireCheckRun{
-		ID:         1,
-		Name:       second.Name,
-		HeadSHA:    headSHA,
-		Status:     "completed",
-		Conclusion: string(second.Conclusion),
-		Output:     wireOutput{Title: second.Title, Summary: second.Summary, Text: second.Text},
-	}
-	if got := held.runsOn(headSHA); !slices.Equal(got, []wireCheckRun{want}) {
-		t.Fatalf("the forge holds %+v, want %+v", got, want)
-	}
+	held.mustHoldOnly(heldAs(1, second))
 }
 
 func refusingEveryRequest(t *testing.T) *httptest.Server {

@@ -4,8 +4,6 @@ package github
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -31,24 +29,18 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	listed, err := jsonAt[checkRunListing](ctx, runs.forge, checkRunsOnCommitEndpoint(locator, head, run.Name))
+	listed, err := jsonAt[checkRunListing](ctx, runs.forge,
+		checkRunsOnCommitEndpoint(locator, head, run.Name))
 	if err != nil {
 		return err
 	}
-	if len(listed.CheckRuns) > 0 {
-		_, err = exchanged[struct{}](ctx, runs.forge, exchange{
-			method:    http.MethodPatch,
-			endpoint:  fmt.Sprintf("/repos/%s/%s/check-runs/%d", locator.Owner(), locator.Name(), listed.CheckRuns[0].ID),
-			sent:      verdictOf(run),
-			succeeded: http.StatusOK,
-		})
-		return err
+	if len(listed.CheckRuns) == 0 {
+		return runs.send(ctx, creationOf(locator, head, run))
 	}
-	_, err = exchanged[struct{}](ctx, runs.forge, exchange{
-		method:    http.MethodPost,
-		endpoint:  checkRunsEndpoint(locator),
-		sent:      newCheckRun{Name: run.Name, HeadSHA: string(head), checkRunVerdict: verdictOf(run)},
-		succeeded: http.StatusCreated,
-	})
+	return runs.send(ctx, updateOf(locator, listed.CheckRuns[0].ID, run))
+}
+
+func (runs CheckRuns) send(ctx context.Context, publication exchange) error {
+	_, err := exchanged[struct{}](ctx, runs.forge, publication)
 	return err
 }
