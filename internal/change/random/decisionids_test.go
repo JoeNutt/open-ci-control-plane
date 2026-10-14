@@ -3,6 +3,9 @@
 package random_test
 
 import (
+	"go/parser"
+	"go/token"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -67,6 +70,27 @@ func TestEveryDigitOfAMintedIdentifierVaries(t *testing.T) {
 		if len(digits) < 2 {
 			t.Errorf("digit %d took one value across %d mintings, so it carries no randomness",
 				position, mintings)
+		}
+	}
+}
+
+func TestRandomnessComesOnlyFromTheCryptographicGenerator(t *testing.T) {
+	sources, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatalf("list the package's files: %v", err)
+	}
+	for _, source := range sources {
+		if strings.HasSuffix(source, "_test.go") {
+			continue
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), source, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatalf("parse %s: %v", source, err)
+		}
+		for _, spec := range parsed.Imports {
+			if strings.HasPrefix(strings.Trim(spec.Path.Value, `"`), "math/rand") {
+				t.Errorf("%s imports %s, which is predictable", source, spec.Path.Value)
+			}
 		}
 	}
 }
