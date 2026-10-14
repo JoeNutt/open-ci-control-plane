@@ -94,7 +94,9 @@ func decisionLineFor(id DecisionID) string {
 }
 
 var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
-	EnforcementSeverityWarn: "advisory",
+	EnforcementSeverityDeny:   "blocking",
+	EnforcementSeverityWarn:   "advisory",
+	EnforcementSeverityDryRun: "recorded only, dry run",
 }
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"

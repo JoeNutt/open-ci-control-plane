@@ -170,6 +170,25 @@ func TestAWarnIsMarkedAdvisoryAndDoesNotPreventTheMerge(t *testing.T) {
 	}
 }
 
+func TestEveryViolationIsMarkedWithItsEnforcement(t *testing.T) {
+	marking := map[domain.EnforcementSeverity]string{
+		domain.EnforcementSeverityDeny:   "- Enforcement: blocking",
+		domain.EnforcementSeverityWarn:   "- Enforcement: advisory",
+		domain.EnforcementSeverityDryRun: "- Enforcement: recorded only, dry run",
+	}
+
+	for severity, marked := range marking {
+		t.Run(string(severity), func(t *testing.T) {
+			run := checkRunFor(t, domain.PolicyFamilyQuality,
+				decided(t, domain.EffectAllow, violationAt(severity)))
+
+			if !strings.Contains(run.Text, marked) {
+				t.Errorf("text does not carry %q:\n%s", marked, run.Text)
+			}
+		})
+	}
+}
+
 func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
 
