@@ -62,8 +62,7 @@ func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) Chec
 
 const (
 	policyErrorTitle  = "Policy failed to evaluate"
-	policyErrorLayout = "Policy %[1]s failed to evaluate. This is not a problem with your change.\n\n" +
-		"Owning team: %[1]s"
+	policyErrorLayout = "Policy %s failed to evaluate. This is not a problem with your change."
 )
 
 func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
