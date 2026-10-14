@@ -6,6 +6,12 @@ import "slices"
 
 const checkRunNamePrefix = "policy/"
 
+var conclusionByPosture = map[FailurePosture]Conclusion{
+	FailurePostureOpen:              ConclusionNeutral,
+	FailurePostureClosed:            ConclusionFailure,
+	FailurePostureDeclaredPerPolicy: ConclusionFailure,
+}
+
 var conclusionByEffect = map[Effect]Conclusion{
 	EffectBlock:  ConclusionFailure,
 	EffectAllow:  ConclusionSuccess,
@@ -25,23 +31,26 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	if decided.Decision.Outcome() == OutcomeUndefined &&
-		decided.Family.FailurePosture() == FailurePostureOpen {
-		return CheckRun{
-			Name:       checkRunNamePrefix + string(decided.Family),
-			Conclusion: ConclusionNeutral,
-		}
-	}
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
-		Conclusion: conclusionFor(decided.Decision),
+		Conclusion: conclusionFor(decided),
 	}
 }
 
-func conclusionFor(decision Decision) Conclusion {
-	if !decision.Outcome().CarriesVerdict() {
+func conclusionFor(decided FamilyDecision) Conclusion {
+	switch decided.Decision.Outcome() {
+	case OutcomeDecided:
+		return verdictConclusionFor(decided.Decision)
+	case OutcomeUndefined:
+		return conclusionIn(conclusionByPosture, decided.Family.FailurePosture())
+	case OutcomeEngineError, OutcomeDeadlineExceeded:
+		return ConclusionFailure
+	default:
 		return ConclusionFailure
 	}
+}
+
+func verdictConclusionFor(decision Decision) Conclusion {
 	conclusion := conclusionIn(conclusionByEffect, decision.Effect())
 	for _, violation := range decision.Violations() {
 		conclusion = moreRestrictive(conclusion, conclusionIn(conclusionBySeverity, violation.Severity))
