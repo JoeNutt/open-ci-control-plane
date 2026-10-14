@@ -53,7 +53,7 @@ var (
 	}
 	reviewRequiredWithAdvisory = runPresentation{
 		conclusion: ConclusionNeutral, title: "Review required",
-		headline: "Review required. The violations below are advisory.",
+		headline: "Review required. The violations below are advisory or recorded only.",
 	}
 )
 

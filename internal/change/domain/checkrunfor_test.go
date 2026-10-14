@@ -98,8 +98,10 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 		"allow with a late deny": {domain.EffectAllow, []domain.Violation{dryRun, warn, deny}, domain.ConclusionFailure, "Blocked", ""},
 		"deny under review": {domain.EffectReview, []domain.Violation{deny}, domain.ConclusionFailure, "Blocked",
 			"Blocked by the rules below."},
+		"warn and dry run under review": {domain.EffectReview, []domain.Violation{warn, dryRun}, domain.ConclusionNeutral,
+			"Review required", "Review required. The violations below are advisory or recorded only."},
 		"warn under review": {domain.EffectReview, []domain.Violation{warn}, domain.ConclusionNeutral, "Review required",
-			"Review required. The violations below are advisory."},
+			"Review required. The violations below are advisory or recorded only."},
 	}
 
 	for form, want := range mixed {
@@ -327,7 +329,7 @@ func TestAReviewWithAWarningDoesNotClaimTheMergeIsUnprevented(t *testing.T) {
 
 	run := checkRunFor(t, domain.PolicyFamilySecurity, reviewed)
 
-	stated := "Review required. The violations below are advisory."
+	stated := "Review required. The violations below are advisory or recorded only."
 	if !strings.HasPrefix(run.Headline, stated) {
 		t.Errorf("headline does not open with %q:\n%s", stated, run.Headline)
 	}
