@@ -36,23 +36,36 @@ var conclusionsLeastRestrictiveFirst = []Conclusion{
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	if decided.Decision.Outcome() == OutcomeEngineError {
-		family := markdownTextOf(string(decided.Family))
-		return CheckRun{
-			Name:       checkRunNamePrefix + string(decided.Family),
-			Conclusion: ConclusionFailure,
-			Summary: "Policy " + family + " failed to evaluate. This is not a problem with your change.\n\n" +
-				"Owning team: " + family + "\n\n" + fmt.Sprintf(decisionLineLayout, id),
-		}
+		return policyErrorCheckRun(decided.Family, id)
 	}
 	return CheckRun{
-		Name:       checkRunNamePrefix + string(decided.Family),
+		Name:       checkRunNameFor(decided.Family),
 		Conclusion: conclusionFor(decided),
-		Summary:    fmt.Sprintf(decisionLineLayout, id),
+		Summary:    decisionLineFor(id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
 
+func checkRunNameFor(family PolicyFamily) string {
+	return checkRunNamePrefix + string(family)
+}
+
+const policyErrorLayout = "Policy %[1]s failed to evaluate. This is not a problem with your change.\n\n" +
+	"Owning team: %[1]s\n\n%[2]s"
+
+func policyErrorCheckRun(family PolicyFamily, id DecisionID) CheckRun {
+	return CheckRun{
+		Name:       checkRunNameFor(family),
+		Conclusion: ConclusionFailure,
+		Summary:    fmt.Sprintf(policyErrorLayout, markdownTextOf(string(family)), decisionLineFor(id)),
+	}
+}
+
 const decisionLineLayout = "Decision %s"
+
+func decisionLineFor(id DecisionID) string {
+	return fmt.Sprintf(decisionLineLayout, id)
+}
 
 const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n\n"
 
