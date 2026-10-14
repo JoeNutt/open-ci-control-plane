@@ -31,7 +31,7 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: conclusion,
-		Summary:    verdictSummaryFor(conclusion, id),
+		Summary:    verdictSummaryWithViolationsFor(decided.Decision.Violations(), conclusion, id),
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
@@ -39,6 +39,20 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 const advisoryLine = "Advisory only. The merge is not prevented."
 
 func verdictSummaryFor(conclusion Conclusion, id DecisionID) string {
+	return verdictSummaryWithViolationsFor(nil, conclusion, id)
+}
+
+func verdictSummaryWithViolationsFor(violations Declared[Violation], conclusion Conclusion, id DecisionID) string {
+	isAnyWarned := false
+	for _, violation := range violations {
+		if violation.Severity == EnforcementSeverityWarn {
+			isAnyWarned = true
+		}
+	}
+	if conclusion == ConclusionNeutral && violations != nil && !isAnyWarned {
+		return "Recorded only. This policy is in dry run and did not affect your pull request.\n\n" +
+			decisionLineFor(id)
+	}
 	if conclusion == ConclusionNeutral {
 		return advisoryLine + "\n\n" + decisionLineFor(id)
 	}

@@ -170,6 +170,23 @@ func TestAWarnIsMarkedAdvisoryAndDoesNotPreventTheMerge(t *testing.T) {
 	}
 }
 
+func TestADryRunIsRecordedOnly(t *testing.T) {
+	dryRun := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityDryRun))
+
+	run := checkRunFor(t, domain.PolicyFamilyQuality, dryRun)
+
+	if run.Conclusion != domain.ConclusionNeutral {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
+	}
+	stated := "Recorded only. This policy is in dry run and did not affect your pull request."
+	if !strings.Contains(run.Summary, stated) {
+		t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+	}
+	if strings.Contains(run.Summary, "Advisory") {
+		t.Errorf("a dry run is worded as advisory:\n%s", run.Summary)
+	}
+}
+
 func TestEveryViolationIsMarkedWithItsEnforcement(t *testing.T) {
 	marking := map[domain.EnforcementSeverity]string{
 		domain.EnforcementSeverityDeny:   "- Enforcement: blocking",
