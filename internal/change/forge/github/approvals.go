@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -14,6 +15,8 @@ const ReviewsPerPage = 100
 const maxReviewPages = 100
 
 const approvedReviewState = "APPROVED"
+
+var ErrUnknownReviewState = errors.New("the forge reports a review state the adapter cannot classify")
 
 func (source ChangeSource) approvalsOf(
 	ctx context.Context, locator domain.PullRequestLocator, author string,
@@ -26,7 +29,7 @@ func (source ChangeSource) approvalsOf(
 	if err != nil {
 		return nil, err
 	}
-	return approvalsIn(reviewed, author), nil
+	return approvalsIn(reviewed, author)
 }
 
 func reviewsEndpoint(locator domain.PullRequestLocator, page int) string {
@@ -39,8 +42,13 @@ type review struct {
 	State string  `json:"state"`
 }
 
-func approvalsIn(reviewed []review, author string) domain.Declared[domain.Approval] {
-	standing := standingReviewsIn(reviewed)
+func approvalsIn(
+	reviewed []review, author string,
+) (domain.Declared[domain.Approval], error) {
+	standing, err := standingReviewsIn(reviewed)
+	if err != nil {
+		return nil, err
+	}
 	approvals := make(domain.Declared[domain.Approval], 0, len(standing))
 	for _, held := range standing {
 		if held.state != approvedReviewState {
@@ -51,7 +59,7 @@ func approvalsIn(reviewed []review, author string) domain.Declared[domain.Approv
 			IsAuthor: held.reviewer == author,
 		})
 	}
-	return approvals
+	return approvals, nil
 }
 
 type standingReview struct {
@@ -59,11 +67,15 @@ type standingReview struct {
 	state    string
 }
 
-func standingReviewsIn(reviewed []review) []standingReview {
+func standingReviewsIn(reviewed []review) ([]standingReview, error) {
 	positionOf := make(map[string]int, len(reviewed))
 	var standing []standingReview
 	for _, reviewing := range reviewed {
-		if !replacesStandingReview[reviewing.State] {
+		replaces, declared := replacesStandingReview[reviewing.State]
+		if !declared {
+			return nil, fmt.Errorf("%w: %q", ErrUnknownReviewState, reviewing.State)
+		}
+		if !replaces {
 			continue
 		}
 		position, reviewedBefore := positionOf[reviewing.User.Login]
@@ -77,7 +89,7 @@ func standingReviewsIn(reviewed []review) []standingReview {
 		}
 		standing[position].state = reviewing.State
 	}
-	return standing
+	return standing, nil
 }
 
 var replacesStandingReview = map[string]bool{

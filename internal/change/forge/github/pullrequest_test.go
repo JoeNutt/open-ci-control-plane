@@ -118,3 +118,24 @@ func TestPullRequestAtRefusesAnAccountTypeItCannotClassify(t *testing.T) {
 		t.Fatalf("error is %v, want %v", err, github.ErrUnknownUserType)
 	}
 }
+
+func TestPullRequestAtRefusesAReviewStateItCannotClassify(t *testing.T) {
+	server := servingEach(t, map[string]string{
+		"/repos/acme/payments/pulls/412": `{
+			"number": 412,
+			"user": {"login": "jo", "type": "User"},
+			"author_association": "MEMBER"
+		}`,
+		"/repos/acme/payments/pulls/412/reviews": `[
+			{"user": {"login": "sam", "type": "User"}, "state": "ESCALATED"}
+		]`,
+	})
+	source := sourceAt(t, server)
+
+	_, err := source.PullRequestAt(
+		context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrUnknownReviewState) {
+		t.Fatalf("error is %v, want %v", err, github.ErrUnknownReviewState)
+	}
+}
