@@ -38,9 +38,15 @@ Board order: sequenced cards by `Sequence`; then every Must, every Should, every
 phase, then card number. Work only the Ready card with the lowest `Sequence`.
 
 ```sh
-# RIGHT — read the board's true state before acting.
-gh project item-list 2 --owner JoeNutt --limit 300 --format json --jq \
-  '.items[]|select(.content.number!=null)|[.sequence,.priority,.content.number,.status,.blockedby]|@tsv'
+# RIGHT — read the board's true state before acting. `gh project item-list` leaves text fields
+# such as "Blocked by" empty, so read every field through the API (100 items per page;
+# paginate past that).
+gh api graphql -f query='{ user(login:"JoeNutt"){ projectV2(number:2){ items(first:100){ nodes{
+  content{ ... on Issue{ number title state } }
+  status: fieldValueByName(name:"Status"){ ... on ProjectV2ItemFieldSingleSelectValue{ name } }
+  sequence: fieldValueByName(name:"Sequence"){ ... on ProjectV2ItemFieldNumberValue{ number } }
+  blockedBy: fieldValueByName(name:"Blocked by"){ ... on ProjectV2ItemFieldTextValue{ text } }
+} } } } }'
 ```
 
 ```sh
