@@ -521,19 +521,19 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 	const notUTF8 = "policy \xff refused"
 	unpublishable := map[string]struct {
 		spoil func(*domain.CheckRun)
-		want  error
+		want  []error
 	}{
-		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, github.ErrIncompleteCheckRun},
-		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, github.ErrIncompleteCheckRun},
-		"no headline":        {func(run *domain.CheckRun) { run.Headline = "" }, github.ErrIncompleteCheckRun},
-		"no conclusion":      {func(run *domain.CheckRun) { run.Conclusion = "" }, domain.ErrUnknownConclusion},
-		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
-		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
-		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
-		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, github.ErrUnrenderableCheckRun},
-		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
-		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
-		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, github.ErrNotUTF8},
+		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no headline":        {func(run *domain.CheckRun) { run.Headline = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no conclusion":      {func(run *domain.CheckRun) { run.Conclusion = "" }, []error{domain.ErrUnknownConclusion}},
+		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, []error{domain.ErrUnknownConclusion}},
+		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, []error{domain.ErrUnknownConclusion}},
+		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, []error{domain.ErrUnknownConclusion}},
+		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, []error{github.ErrUnrenderableCheckRun, github.ErrCheckRunTextUnidentified}},
+		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, []error{github.ErrNotUTF8}},
+		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, []error{github.ErrNotUTF8}},
+		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, []error{github.ErrNotUTF8}},
 	}
 	runs := checkRunsAt(t, refusingEveryRequest(t))
 
@@ -545,8 +545,10 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 			err := runs.PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
-			if !errors.Is(err, refusal.want) {
-				t.Fatalf("error is %v, want %v", err, refusal.want)
+			for _, want := range refusal.want {
+				if !errors.Is(err, want) {
+					t.Errorf("error is %v, want %v", err, want)
+				}
 			}
 		})
 	}
