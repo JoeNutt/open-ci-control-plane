@@ -10,6 +10,14 @@ calls its own factory method wherever it needs an instance; each subclass overri
 method to return the type it wants. The decision moves from the point of use to the point of
 subclassing.
 
+## Why it exists
+
+An algorithm that must create a collaborator, and calls a concrete constructor to do it, fixes
+that type for every variant of the algorithm. Varying it then means copying the algorithm, or
+adding a conditional over types at the creation site that grows with every new product. The
+pattern has the algorithm ask for the product through a method, so the choice of concrete type
+moves to whoever supplies that method and the algorithm is written once.
+
 ## When to use it
 
 - A base class contains logic that must create collaborators whose concrete types it cannot
@@ -31,15 +39,15 @@ unexported func field, supplied once at construction, with the algorithm as its 
 ```go
 // RIGHT — Run never names a concrete Formatter; the constructor chose it.
 type ReportJob struct {
-    newFormatter func() Formatter
+	newFormatter func() Formatter
 }
 
 func NewCSVReportJob() ReportJob {
-    return ReportJob{newFormatter: func() Formatter { return csvFormatter{} }}
+	return ReportJob{newFormatter: func() Formatter { return csvFormatter{} }}
 }
 
 func (j ReportJob) Run(d Decision) string {
-    return j.newFormatter().Format(d)
+	return j.newFormatter().Format(d)
 }
 ```
 
@@ -55,13 +63,13 @@ the decision has not actually moved and the pattern is decoration.
 ```go
 // WRONG — the parameter is the conditional the pattern was meant to remove.
 func newFormatter(kind string) Formatter {
-    switch kind {
-    case "csv":
-        return csvFormatter{}
-    case "json":
-        return jsonFormatter{}
-    }
-    return nil
+	switch kind {
+	case "csv":
+		return csvFormatter{}
+	case "json":
+		return jsonFormatter{}
+	}
+	return nil
 }
 // Symptom: every new format edits this switch, and an unknown kind is a nil far from its cause.
 ```
@@ -98,8 +106,8 @@ func (csvFormatterFactory) NewFormatter() Formatter { return csvFormatter{} }
 ```go
 // WRONG — two factory methods whose products must agree, and nothing makes them.
 type ReportJob struct {
-    newFormatter func() Formatter
-    newParser    func() Parser
+	newFormatter func() Formatter
+	newParser    func() Parser
 }
 // Symptom: a CSV formatter paired with a JSON parser compiles and fails at run time.
 ```
