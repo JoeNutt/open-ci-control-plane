@@ -137,3 +137,18 @@ func TestParseDocumentCarriesAnImportEntryForEveryChangedFile(t *testing.T) {
 		t.Fatalf("imports is %+v, want %+v", document.Diff.Imports, want)
 	}
 }
+
+func TestParseDocumentCountsTheFilesNoExtractorClaims(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+		domain.File{Path: "README.md", Action: domain.FileActionModified},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	if document.Diff.UnresolvedImportFiles != 3 {
+		t.Fatalf("unresolved_import_files is %d, want 3",
+			document.Diff.UnresolvedImportFiles)
+	}
+}

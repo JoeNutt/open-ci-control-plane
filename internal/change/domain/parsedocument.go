@@ -18,13 +18,15 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 }
 
 func diffOf(bounded BoundedFiles) Diff {
+	imports := importsOf(bounded.files)
 	return Diff{
-		Paths:    pathsOf(bounded.files),
-		Files:    slices.Clone(bounded.files),
-		Totals:   totalsOf(bounded.files),
-		ByDir:    byDirOf(bounded.files),
-		NewFiles: addedPathsOf(bounded.files),
-		Imports:  importsOf(bounded.files),
+		Paths:                 pathsOf(bounded.files),
+		Files:                 slices.Clone(bounded.files),
+		Totals:                totalsOf(bounded.files),
+		ByDir:                 byDirOf(bounded.files),
+		NewFiles:              addedPathsOf(bounded.files),
+		Imports:               imports,
+		UnresolvedImportFiles: unresolvedImportFilesIn(imports),
 	}
 }
 
@@ -75,4 +77,14 @@ func importsOf(files []File) Declared[Import] {
 		imports = append(imports, Import{Path: file.Path, State: ImportStateUnknown})
 	}
 	return imports
+}
+
+func unresolvedImportFilesIn(imports Declared[Import]) int {
+	unresolved := 0
+	for _, imported := range imports {
+		if imported.State != ImportStateResolved {
+			unresolved++
+		}
+	}
+	return unresolved
 }
