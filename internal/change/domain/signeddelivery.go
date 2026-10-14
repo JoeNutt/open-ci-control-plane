@@ -16,13 +16,21 @@ var ErrUnsignedDelivery = errors.New("delivery carries no usable signature")
 
 var ErrMissignedDelivery = errors.New("delivery signature does not verify")
 
+type WebhookSecret string
+
+func (secret WebhookSecret) String() string { return "[redacted]" }
+
+func (secret WebhookSecret) GoString() string { return `"[redacted]"` }
+
 type SignedDelivery struct {
 	body []byte
 }
 
 func (delivered SignedDelivery) Body() []byte { return delivered.body }
 
-func ParseSignedDelivery(body []byte, signature, secret string) (SignedDelivery, error) {
+func ParseSignedDelivery(
+	body []byte, signature string, secret WebhookSecret,
+) (SignedDelivery, error) {
 	claimed, found := strings.CutPrefix(signature, signaturePrefix)
 	if !found {
 		return SignedDelivery{}, ErrUnsignedDelivery

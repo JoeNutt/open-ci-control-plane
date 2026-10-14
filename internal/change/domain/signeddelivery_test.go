@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -56,5 +57,16 @@ func TestParseSignedDeliveryRefusesADeliveryItCannotAuthenticate(t *testing.T) {
 				t.Fatalf("a refused delivery carried a body: %q", delivered.Body())
 			}
 		})
+	}
+}
+
+func TestFormattingAWebhookSecretDoesNotRevealIt(t *testing.T) {
+	secret := domain.WebhookSecret(appSecret)
+
+	for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
+		printed := fmt.Sprintf(verb, secret)
+		if strings.Contains(printed, appSecret) {
+			t.Errorf("a webhook secret under %s revealed itself: %s", verb, printed)
+		}
 	}
 }
