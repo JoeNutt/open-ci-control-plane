@@ -2,10 +2,7 @@
 
 package domain
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestAnUndeclaredEffectOrSeverityFailsClosed(t *testing.T) {
 	undeclared := map[string]Decision{
@@ -27,8 +24,8 @@ func TestAnUndeclaredEffectOrSeverityFailsClosed(t *testing.T) {
 func TestAnUndeclaredSeverityIsMarkedBlocking(t *testing.T) {
 	run := securityCheckRunFor(undeclaredSeverityDecision())
 
-	if marked := "- Enforcement: blocking"; !strings.Contains(run.Text, marked) {
-		t.Errorf("text does not carry %q:\n%s", marked, run.Text)
+	if marked := "blocking"; run.Violations[0].Marking != marked {
+		t.Errorf("marking is %q, want %q", run.Violations[0].Marking, marked)
 	}
 }
 
