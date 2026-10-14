@@ -18,7 +18,7 @@ const maxFilePages = 30
 func (source ChangeSource) changedFilesAcrossPages(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]changedFile, error) {
-	return acrossPages[changedFile](ctx, source, paging{
+	return acrossPages[changedFile](ctx, source.forge, paging{
 		endpointAt: func(page int) string { return changedFilesEndpoint(locator, page) },
 		perPage:    FilesPerPage,
 		maxPages:   maxFilePages,

@@ -24,7 +24,7 @@ decision := {
 	"violations": [{
 		"rule_id": "AUTHZ-1",
 		"message": "auth middleware changed with no authz test",
-		"severity": "high",
+		"severity": "deny",
 		"owning_team": "security-platform",
 		"docs_url": "https://example.test/policy/AUTHZ-1"
 	}],

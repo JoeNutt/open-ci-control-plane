@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -45,11 +46,13 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 			}
 		}))
 	t.Cleanup(server.Close)
+	client := server.Client()
+	client.Timeout = 5 * time.Second
 
 	source, err := github.ParseChangeSource(github.Settings{
 		BaseURL:          server.URL,
-		Token:            "s3cret",
-		Client:           server.Client(),
+		Token:            github.NewCredential("s3cret"),
+		Client:           client,
 		MaxResponseBytes: 1 << 20,
 	})
 	if err != nil {

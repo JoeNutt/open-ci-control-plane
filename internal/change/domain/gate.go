@@ -21,6 +21,13 @@ type FamilyDecision struct {
 	Decision Decision
 }
 
+func (decided FamilyDecision) FailurePosture() FailurePosture {
+	if declared := decided.Decision.FailurePosture(); declared != "" {
+		return declared
+	}
+	return decided.Family.FailurePosture()
+}
+
 type Gate struct {
 	engines map[PolicyFamily]FamilyEngine
 }

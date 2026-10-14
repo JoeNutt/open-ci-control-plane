@@ -15,7 +15,7 @@ const wellFormedDecision = `{
 	"effect": "block",
 	"violations": [
 		{ "rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
-		  "severity": "high", "owning_team": "security-platform",
+		  "severity": "deny", "owning_team": "security-platform",
 		  "docs_url": "https://example.test/policy/AUTHZ-1" }
 	],
 	"reviewers": ["acme/security-platform"],
@@ -96,5 +96,97 @@ func TestADecisionAcceptingAnotherMajorIsRefused(t *testing.T) {
 				t.Fatalf("want ErrSchemaMajorMismatch, got %v", err)
 			}
 		})
+	}
+}
+
+func TestADecisionWhoseViolationCarriesAnUnknownSeverityIsMalformed(t *testing.T) {
+	stated := `{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "block",
+		"violations": [
+			{ "rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
+			  "severity": "high", "owning_team": "security-platform",
+			  "docs_url": "https://example.test/policy/AUTHZ-1" }
+		],
+		"reviewers": [], "fail_closed": true
+	}`
+
+	_, err := domain.ParseDecision([]byte(stated))
+
+	if !errors.Is(err, domain.ErrMalformedDecision) {
+		t.Fatalf("want ErrMalformedDecision, got %v", err)
+	}
+	if !errors.Is(err, domain.ErrUnknownEnforcementSeverity) {
+		t.Errorf("the refusal does not name the unknown severity: %v", err)
+	}
+}
+
+func TestADecisionWhoseViolationOmitsItsSeverityIsMalformed(t *testing.T) {
+	stated := `{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "block",
+		"violations": [
+			{ "rule_id": "AUTHZ-1", "message": "auth middleware changed with no authz test",
+			  "owning_team": "security-platform",
+			  "docs_url": "https://example.test/policy/AUTHZ-1" }
+		],
+		"reviewers": [], "fail_closed": true
+	}`
+
+	_, err := domain.ParseDecision([]byte(stated))
+
+	if !errors.Is(err, domain.ErrMalformedDecision) {
+		t.Fatalf("want ErrMalformedDecision, got %v", err)
+	}
+}
+
+func TestAnUndecidedDocumentKeepsTheFailurePostureItDeclares(t *testing.T) {
+	declared := map[string]domain.FailurePosture{
+		`"fail_closed": true`:  domain.FailurePostureClosed,
+		`"fail_closed": false`: domain.FailurePostureOpen,
+	}
+
+	for field, want := range declared {
+		t.Run(field, func(t *testing.T) {
+			decided, err := domain.ParseDecision([]byte(`{
+				"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
+				"violations": [], "reviewers": [], ` + field + `
+			}`))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if decided.FailurePosture() != want {
+				t.Errorf("posture is %q, want %q", decided.FailurePosture(), want)
+			}
+		})
+	}
+}
+
+func TestADocumentThatDeclaresNoFailurePostureIsNotReadAsOpen(t *testing.T) {
+	for _, wellformed := range []string{"true", "false"} {
+		t.Run("input_wellformed "+wellformed, func(t *testing.T) {
+			decided, err := domain.ParseDecision([]byte(`{
+				"input_wellformed": ` + wellformed + `, "schema_version_accepted": 1,
+				"effect": "allow", "violations": [], "reviewers": []
+			}`))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if decided.FailurePosture() != "" {
+				t.Errorf("an omitted fail_closed reads as %q, want no declaration",
+					decided.FailurePosture())
+			}
+		})
+	}
+}
+
+func TestADecidedDocumentReportsTheFailurePostureItDeclares(t *testing.T) {
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if decided.FailurePosture() != domain.FailurePostureClosed {
+		t.Errorf("posture is %q, want %q", decided.FailurePosture(), domain.FailurePostureClosed)
 	}
 }

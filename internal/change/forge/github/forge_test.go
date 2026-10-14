@@ -9,12 +9,19 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
-const forgeCredential github.Credential = "s3cret"
+const forgeToken = "s3cret"
+
+var forgeCredential = github.NewCredential(forgeToken)
+
+const forgeAppID = 4242
+
+const forgeTimeout = 5 * time.Second
 
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
@@ -76,7 +83,8 @@ func wellFormedSettings() github.Settings {
 	return github.Settings{
 		BaseURL:          "https://api.example",
 		Token:            forgeCredential,
-		Client:           http.DefaultClient,
+		AppID:            forgeAppID,
+		Client:           &http.Client{Timeout: forgeTimeout},
 		MaxResponseBytes: 1 << 20,
 	}
 }
@@ -84,10 +92,15 @@ func wellFormedSettings() github.Settings {
 func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
 	t.Helper()
 
+	return sourceWith(t, settingsAt(server))
+}
+
+func settingsAt(server *httptest.Server) github.Settings {
 	settings := wellFormedSettings()
 	settings.BaseURL = server.URL
 	settings.Client = server.Client()
-	return sourceWith(t, settings)
+	settings.Client.Timeout = forgeTimeout
+	return settings
 }
 
 func sourceWith(t *testing.T, settings github.Settings) github.ChangeSource {

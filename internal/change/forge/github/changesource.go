@@ -11,21 +11,21 @@ import (
 )
 
 type ChangeSource struct {
-	settings Settings
+	forge connection
 }
 
 func (source ChangeSource) String() string {
-	return "the forge at " + source.settings.BaseURL
+	return "the forge at " + source.forge.settings.BaseURL
 }
 
 func (source ChangeSource) GoString() string {
-	return fmt.Sprintf("github.ChangeSource{settings: %#v}", source.settings)
+	return fmt.Sprintf("github.ChangeSource{settings: %#v}", source.forge.settings)
 }
 
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) (domain.PullRequest, error) {
-	stated, err := jsonAt[pullRequest](ctx, source, pullRequestEndpoint(locator))
+	stated, err := jsonAt[pullRequest](ctx, source.forge, pullRequestEndpoint(locator))
 	if err != nil {
 		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}

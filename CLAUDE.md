@@ -100,14 +100,14 @@ Module `github.com/JoeNutt/open-ci-control-plane`, Go 1.26 — the floor OPA v1.
 dev shell. Batch them, because the shell is slow to start.
 
 ```
-nix develop --command bash -c 'gofmt -l . && go vet ./... && go test ./...'
+nix develop --command bash -c 'gofmt -l $(git ls-files "*.go") && go vet ./... && go test ./...'
 nix develop --command bash -c 'golangci-lint run ./...'
 nix develop --command go test ./internal/change/domain -run 'TestName' -v
 ```
 
 The commit gate runs `gofmt`, `go vet` and `go test` itself, inside the flake. The suite
-shells out to the `opa` CLI (the schema conformance test), which is another reason it only
-passes in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
+shells out to the `opa` CLI (the schema conformance test) and `cmark-gfm` (the check-run
+renderer test), which is another reason it only passes in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
 
 ## Code layout
 
