@@ -60,6 +60,9 @@ func (engine *Engine) Decide(
 		Input:               document,
 		StrictBuiltinErrors: true,
 	})
+	if sdk.IsUndefinedErr(err) {
+		return domain.UndecidedDecision(), nil
+	}
 	if err != nil {
 		return domain.Decision{}, fmt.Errorf("evaluate %q: %w", engine.family, err)
 	}

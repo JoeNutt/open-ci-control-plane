@@ -66,3 +66,25 @@ func TestAnEngineReturnsTheDecisionItsFamilyPublishes(t *testing.T) {
 		t.Errorf("violations are %v, want one", decided.Violations())
 	}
 }
+
+const silentPolicy = `package ci.security
+
+# No decision rule at all, so the query is undefined rather than false.
+other := true
+`
+
+func TestAPolicyThatDoesNotDecideIsUndefinedNotAFault(t *testing.T) {
+	engine := engineFor(t, silentPolicy, domain.PolicyFamilySecurity)
+
+	decided, err := engine.Decide(context.Background(), domain.Document{})
+
+	if err != nil {
+		t.Fatalf("an undefined decision was reported as a fault: %v", err)
+	}
+	if decided.Outcome() != domain.OutcomeUndefined {
+		t.Fatalf("outcome is %q, want %q", decided.Outcome(), domain.OutcomeUndefined)
+	}
+	if decided.Outcome().CarriesVerdict() {
+		t.Fatal("an undefined outcome was allowed to carry a verdict")
+	}
+}
