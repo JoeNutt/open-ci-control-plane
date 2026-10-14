@@ -4,16 +4,26 @@ package github
 
 import "strings"
 
+// CommonMark 0.31.2 section 6.1: "A code span begins with a backtick string and
+// ends with a backtick string of equal length", "backslash escapes do not work in
+// code spans", and if the content "both begins and ends with a space character ...
+// a single space character is removed from the front and back". Section 2.5:
+// "Entity and character references are not recognized in code blocks and code
+// spans." https://spec.commonmark.org/0.31.2/#code-spans
 func markdownCodeSpanOf(value string) string {
+	fence := strings.Repeat("`", markdownLongestBacktickRunIn(value)+1)
+	return fence + " " + value + " " + fence
+}
+
+func markdownLongestBacktickRunIn(value string) int {
 	longest, run := 0, 0
 	for _, character := range value {
-		if character == '`' {
-			run++
-			longest = max(longest, run)
-		} else {
+		if character != '`' {
 			run = 0
+			continue
 		}
+		run++
+		longest = max(longest, run)
 	}
-	fence := strings.Repeat("`", longest+1)
-	return fence + " " + value + " " + fence
+	return longest
 }
