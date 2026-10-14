@@ -44,6 +44,14 @@ func TestCheckRunTextCountsTheTruncationLineItWouldLeave(t *testing.T) {
 	}
 }
 
+func TestCheckRunTextCountsTheCharactersAlreadyListedNotTheirBytes(t *testing.T) {
+	run := checkRunTextWithViolations(t, 2)
+	run.Violations[0].Message = strings.Repeat("é", 100)
+	both := checkRunTextBlockOf(run.Violations[0]) + checkRunTextBlockOf(run.Violations[1])
+
+	assertCheckRunTextLists(t, run, utf8.RuneCountInString(both), 2)
+}
+
 func TestCheckRunTextStopsAtTheFirstViolationThatWillNotFit(t *testing.T) {
 	oversized := map[string]string{
 		"too long before formatting":   strings.Repeat("m", 500),
