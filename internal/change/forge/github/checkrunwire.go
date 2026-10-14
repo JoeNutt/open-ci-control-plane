@@ -14,6 +14,10 @@ const (
 	filterLatest    = "latest"
 )
 
+// GitHub serves at most 100 check runs per page of a listing:
+// https://docs.github.com/en/rest/checks/runs
+const CheckRunsPerPage = 100
+
 var ErrMalformedListing = errors.New("the forge's check run listing does not state its count and runs")
 
 var ErrInconsistentListing = errors.New("the forge's check run count disagrees with the runs it listed")

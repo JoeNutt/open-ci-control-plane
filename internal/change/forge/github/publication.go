@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -117,6 +118,7 @@ func (pending publication) listingEndpoint(owner appID) string {
 		"check_name": {pending.name},
 		"app_id":     {owner.String()},
 		"filter":     {filterLatest},
+		"per_page":   {strconv.Itoa(CheckRunsPerPage)},
 	}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
 		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())

@@ -338,6 +338,7 @@ func mustListExactlyFor(t *testing.T, name string) {
 		"check_name": {name},
 		"app_id":     {strconv.Itoa(forgeAppID)},
 		"filter":     {"latest"},
+		"per_page":   {"100"},
 	}
 	if !maps.EqualFunc(asked, want, slices.Equal) {
 		t.Fatalf("the listing asked %v, want %v", asked, want)
