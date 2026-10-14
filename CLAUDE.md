@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Open CI Control Plane
 
 A self-hosted Go service that sits between a git forge and a CI runner. Three capabilities:
@@ -30,6 +34,8 @@ into context at launch — the opposite of routing. Keep imports out of this fil
 | Changing | Read first |
 |---|---|
 | A component, boundary or dependency | the specification, §12 design and §20 decision record |
+| Anything the specification decides | `docs/adr/README.md` first. The spec is a frozen baseline; each ADR names the section it overrides |
+| Which card to pick up, or what blocks it | `docs/delivery-phases.md`, and the one-card rule in `.claude/rules/tdd-cycle.md` |
 | An HTTP contract | §13, and `D-21` before adding any endpoint |
 | The policy input document | §13 `C-2`. It is a published cross-release contract — additive only |
 | Anything touching Rego or OPA | `knowledge-base/technology/rego-overview.md`, then `technology/opa-overview.md` |
@@ -73,7 +79,7 @@ three steps in full. Two hooks make it mechanical rather than advisory:
 
 | Hook | Event | Refuses |
 |---|---|---|
-| `.claude/hooks/refactor-verdict.sh` | `Stop`, `SubagentStop` | Ending a turn that edited source without stating a refactor verdict |
+| `.claude/hooks/refactor-verdict.sh` | `Stop`, `SubagentStop` | Ending a turn that edited source without stating a refactor verdict. `mark-source-edit.sh` (`PostToolUse`) records which non-test `.go`/`.rego` files were edited |
 | `.githooks/pre-commit` | `git commit` | Unformatted files; `go vet` failures; a red suite |
 
 The second is an ordinary git hook, wired by `core.hooksPath`, so it binds humans as well as
@@ -96,6 +102,24 @@ dev shell. Batch them, because the shell is slow to start.
 ```
 nix develop --command bash -c 'gofmt -l . && go vet ./... && go test ./...'
 nix develop --command bash -c 'golangci-lint run ./...'
+nix develop --command go test ./internal/change/domain -run 'TestName' -v
 ```
 
-The commit gate runs `gofmt`, `go vet` and `go test` itself, inside the flake.
+The commit gate runs `gofmt`, `go vet` and `go test` itself, inside the flake. The suite
+shells out to the `opa` CLI (the schema conformance test), which is another reason it only
+passes in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
+
+## Code layout
+
+Everything lives under `internal/change/`, arranged as ports and adapters:
+
+- `domain/` owns the types and the ports (`ChangeSource` and others). Its constructors are
+  `Parse*`, which return domain values. `architecture_test.go` fails the suite if a domain
+  package imports anything except the standard library and other `domain` packages.
+- `application/` assembles the policy input document from what a port reports.
+- The adapters are `forge/github`, `forge/memory` (a recorded fake for tests),
+  `engine/opa` (one embedded OPA instance per policy family), `ingest` (webhook signature
+  check) and `rules` (classification rules read from outside the governed repository).
+
+`openapi.yaml` is the HTTP surface. `schema/ci.diff.v1.schema.json` is the policy input
+contract, and emitted documents are tested against it.
