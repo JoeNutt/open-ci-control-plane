@@ -12,38 +12,54 @@ import (
 
 const statusCompleted = "completed"
 
-func creationOf(locator domain.PullRequestLocator, head commitSHA, run domain.CheckRun) exchange {
+type publication struct {
+	locator domain.PullRequestLocator
+	head    commitSHA
+	run     domain.CheckRun
+}
+
+func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {
+	if listed.TotalCount > 1 {
+		return exchange{}, fmt.Errorf("%w: %d named %q on %s",
+			ErrAmbiguousCheckRun, listed.TotalCount, pending.run.Name, pending.head)
+	}
+	if len(listed.CheckRuns) == 0 {
+		return pending.creation(), nil
+	}
+	return pending.updateOf(listed.CheckRuns[0].ID), nil
+}
+
+func (pending publication) creation() exchange {
 	return exchange{
 		method:   http.MethodPost,
-		endpoint: checkRunsEndpoint(locator),
+		endpoint: pending.checkRunsEndpoint(),
 		sent: newCheckRun{
-			Name:            run.Name,
-			HeadSHA:         string(head),
-			checkRunVerdict: verdictOf(run),
+			Name:            pending.run.Name,
+			HeadSHA:         string(pending.head),
+			checkRunVerdict: verdictOf(pending.run),
 		},
 		succeeded: http.StatusCreated,
 	}
 }
 
-func updateOf(locator domain.PullRequestLocator, id checkRunID, run domain.CheckRun) exchange {
+func (pending publication) updateOf(id checkRunID) exchange {
 	return exchange{
 		method:    http.MethodPatch,
-		endpoint:  fmt.Sprintf("%s/%d", checkRunsEndpoint(locator), id),
-		sent:      verdictOf(run),
+		endpoint:  fmt.Sprintf("%s/%d", pending.checkRunsEndpoint(), id),
+		sent:      verdictOf(pending.run),
 		succeeded: http.StatusOK,
 	}
 }
 
-func checkRunsEndpoint(locator domain.PullRequestLocator) string {
-	return fmt.Sprintf("/repos/%s/%s/check-runs", locator.Owner(), locator.Name())
+func (pending publication) checkRunsEndpoint() string {
+	return fmt.Sprintf("/repos/%s/%s/check-runs",
+		pending.locator.Owner(), pending.locator.Name())
 }
 
-func checkRunsOnCommitEndpoint(
-	locator domain.PullRequestLocator, head commitSHA, name string,
-) string {
-	query := url.Values{"check_name": {name}}
+func (pending publication) listingEndpoint() string {
+	query := url.Values{"check_name": {pending.run.Name}}
 	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
-		locator.Owner(), locator.Name(), head, query.Encode())
+		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())
 }
 
 type checkRunID int64

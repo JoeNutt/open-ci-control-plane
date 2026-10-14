@@ -5,7 +5,6 @@ package github
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -33,21 +32,15 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	listed, err := jsonAt[checkRunListing](ctx, runs.forge,
-		checkRunsOnCommitEndpoint(locator, head, run.Name))
+	pending := publication{locator: locator, head: head, run: run}
+	listed, err := jsonAt[checkRunListing](ctx, runs.forge, pending.listingEndpoint())
 	if err != nil {
 		return err
 	}
-	if listed.TotalCount > 1 {
-		return fmt.Errorf("%w: %d named %q on %s", ErrAmbiguousCheckRun, listed.TotalCount, run.Name, head)
+	chosen, err := pending.exchangeGiven(listed)
+	if err != nil {
+		return err
 	}
-	if len(listed.CheckRuns) == 0 {
-		return runs.send(ctx, creationOf(locator, head, run))
-	}
-	return runs.send(ctx, updateOf(locator, listed.CheckRuns[0].ID, run))
-}
-
-func (runs CheckRuns) send(ctx context.Context, publication exchange) error {
-	_, err := exchanged[struct{}](ctx, runs.forge, publication)
+	_, err = exchanged[struct{}](ctx, runs.forge, chosen)
 	return err
 }
