@@ -24,6 +24,7 @@ type Decision struct {
 	violations Declared[Violation]
 	reviewers  Declared[string]
 	failClosed bool
+	posture    FailurePosture
 }
 
 func (decided Decision) Outcome() Outcome                { return decided.outcome }
@@ -31,6 +32,7 @@ func (decided Decision) Effect() Effect                  { return decided.effect
 func (decided Decision) Violations() Declared[Violation] { return decided.violations }
 func (decided Decision) Reviewers() Declared[string]     { return decided.reviewers }
 func (decided Decision) FailClosed() bool                { return decided.failClosed }
+func (decided Decision) FailurePosture() FailurePosture  { return decided.posture }
 
 type statedDecision struct {
 	InputWellformed       bool                `json:"input_wellformed"`
@@ -61,7 +63,12 @@ func ParseDecision(stated []byte) (Decision, error) {
 		return Decision{}, err
 	}
 	if !written.InputWellformed {
-		return UndecidedDecision(), nil
+		undecided := UndecidedDecision()
+		undecided.posture = FailurePostureOpen
+		if written.FailClosed {
+			undecided.posture = FailurePostureClosed
+		}
+		return undecided, nil
 	}
 	return Decision{
 		outcome:    OutcomeDecided,

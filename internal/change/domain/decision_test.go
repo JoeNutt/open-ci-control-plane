@@ -137,3 +137,26 @@ func TestADecisionWhoseViolationOmitsItsSeverityIsMalformed(t *testing.T) {
 		t.Fatalf("want ErrMalformedDecision, got %v", err)
 	}
 }
+
+func TestAnUndecidedDocumentKeepsTheFailurePostureItDeclares(t *testing.T) {
+	declared := map[string]domain.FailurePosture{
+		`"fail_closed": true`:  domain.FailurePostureClosed,
+		`"fail_closed": false`: domain.FailurePostureOpen,
+	}
+
+	for field, want := range declared {
+		t.Run(field, func(t *testing.T) {
+			decided, err := domain.ParseDecision([]byte(`{
+				"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
+				"violations": [], "reviewers": [], ` + field + `
+			}`))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if decided.FailurePosture() != want {
+				t.Errorf("posture is %q, want %q", decided.FailurePosture(), want)
+			}
+		})
+	}
+}
