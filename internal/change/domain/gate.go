@@ -12,6 +12,8 @@ type FamilyEngine interface {
 	Decide(ctx context.Context, document Document) (Decision, error)
 }
 
+var ErrEngineFault = errors.New("policy engine failed to evaluate")
+
 var ErrIncompleteGate = errors.New("gate is missing an engine for a declared family")
 
 type FamilyDecision struct {

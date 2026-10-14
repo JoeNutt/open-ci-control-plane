@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	sdktest "github.com/open-policy-agent/opa/v1/sdk/test"
+	"github.com/open-policy-agent/opa/v1/topdown"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/engine/opa"
@@ -114,5 +115,26 @@ func TestABundleAcceptingAnotherMajorIsAPolicyErrorOfItsFamily(t *testing.T) {
 	if !strings.Contains(err.Error(), string(domain.PolicyFamilyQuality)) {
 		t.Errorf("the policy error does not name the %q family: %v",
 			domain.PolicyFamilyQuality, err)
+	}
+}
+
+const conflictingPolicy = `package ci.quality
+
+decision := {"effect": "allow"}
+
+decision := {"effect": "block"} if { input }
+`
+
+func TestAnEvaluationFaultCrossesThePortInTheDomainsTerms(t *testing.T) {
+	engine := engineFor(t, conflictingPolicy, domain.PolicyFamilyQuality)
+
+	_, err := engine.Decide(context.Background(), domain.Document{})
+
+	if !errors.Is(err, domain.ErrEngineFault) {
+		t.Fatalf("want ErrEngineFault, got %v", err)
+	}
+	var vendor *topdown.Error
+	if errors.As(err, &vendor) {
+		t.Errorf("an OPA error type crossed the port: %v", vendor)
 	}
 }
