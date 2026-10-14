@@ -12,9 +12,11 @@ import (
 )
 
 type Settings struct {
-	BaseURL          string
-	Token            Credential
-	AppID            int64
+	BaseURL string
+	Token   Credential
+	AppID   int64
+	// Client is copied shallowly when the settings are parsed: later changes to its
+	// fields are not seen, but its Transport and Jar are shared with the caller.
 	Client           *http.Client
 	MaxResponseBytes int
 }
@@ -41,6 +43,8 @@ func parseConnection(settings Settings) (connection, error) {
 	if settings.Client == nil {
 		return connection{}, ErrNoClient
 	}
+	client := *settings.Client
+	settings.Client = &client
 	if err := checkBaseURL(settings.BaseURL); err != nil {
 		return connection{}, err
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -112,8 +113,8 @@ func TestCheckRunTextListsWholeViolationsThatFitAndCountsTheRest(t *testing.T) {
 				t.Fatalf("render: %v", err)
 			}
 
-			if len(output.text) > capacity {
-				t.Errorf("text is %d characters, capacity %d", len(output.text), capacity)
+			if characters := utf8.RuneCountInString(output.text); characters > capacity {
+				t.Errorf("text is %d characters, capacity %d", characters, capacity)
 			}
 			if listed := strings.Count(output.text, "**Rule**"); listed != want.listed {
 				t.Errorf("listed %d violations, want %d:\n%s", listed, want.listed, output.text)

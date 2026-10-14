@@ -180,16 +180,24 @@ func checkRunsWith(t *testing.T, settings github.Settings) github.CheckRuns {
 	return runs
 }
 
+const (
+	securityRuleID  = "secrets.no_plaintext"
+	securityMessage = "config/prod.env: a credential is committed"
+	securityTeam    = "security-platform"
+	securityDocsURL = "https://docs.example.com/secrets"
+	decisionText    = "dec_0123456789abcdef0123456789abcdef"
+)
+
 func securityRun() domain.CheckRun {
 	return domain.CheckRun{
 		Name:       "policy/security",
 		Conclusion: domain.ConclusionFailure,
 		Title:      "1 violation",
-		Headline:   "secrets.no_plaintext refused the change",
+		Headline:   securityRuleID + " refused the change",
 		DecisionID: decisionID,
 		Violations: []domain.CheckRunViolation{{
-			RuleID: "secrets.no_plaintext", Message: "config/prod.env: a credential is committed",
-			OwningTeam: "security-platform", DocsURL: "https://docs.example.com/secrets",
+			RuleID: securityRuleID, Message: securityMessage,
+			OwningTeam: securityTeam, DocsURL: securityDocsURL,
 			Marking: "blocking",
 		}},
 		ViolationCount: 1,
@@ -197,7 +205,7 @@ func securityRun() domain.CheckRun {
 }
 
 var decisionID = func() domain.DecisionID {
-	id, err := domain.ParseDecisionID("dec_0123456789abcdef0123456789abcdef")
+	id, err := domain.ParseDecisionID(decisionText)
 	if err != nil {
 		panic(err)
 	}
@@ -215,6 +223,35 @@ func TestPublishCheckRunCreatesARunOnACommitThatHasNone(t *testing.T) {
 		t.Fatalf("publish check run: %v", err)
 	}
 	held.mustHoldOnly(heldAs(1, run))
+}
+
+func TestPublishCheckRunPostsEveryFieldOfAViolationAndTheDecision(t *testing.T) {
+	held := newCheckRunForge(t)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	published := held.onlyRun()
+	const wireFailure = "failure"
+	if published.Conclusion != wireFailure {
+		t.Errorf("the conclusion is %q, want %q", published.Conclusion, wireFailure)
+	}
+	for field, want := range map[string]string{
+		"rule id":       securityRuleID,
+		"message":       securityMessage,
+		"owning team":   securityTeam,
+		"documentation": securityDocsURL,
+	} {
+		if !strings.Contains(published.Output.Text, want) {
+			t.Errorf("the posted text does not carry the %s %q:\n%s", field, want, published.Output.Text)
+		}
+	}
+	if !strings.Contains(published.Output.Summary, decisionText) {
+		t.Errorf("the posted summary does not carry the decision %q: %q", decisionText, published.Output.Summary)
+	}
 }
 
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
@@ -235,6 +272,16 @@ func renderedOutputOf(run domain.CheckRun) wireOutput {
 		panic(err)
 	}
 	return wireOutput{Title: title, Summary: summary, Text: text}
+}
+
+func (held *checkRunForge) onlyRun() wireCheckRun {
+	held.t.Helper()
+
+	published := held.runsOn(headSHA)
+	if len(published) != 1 {
+		held.t.Fatalf("the forge holds %d runs, want 1", len(published))
+	}
+	return published[0]
 }
 
 func (held *checkRunForge) mustHoldOnly(want wireCheckRun) {
@@ -474,19 +521,19 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 	const notUTF8 = "policy \xff refused"
 	unpublishable := map[string]struct {
 		spoil func(*domain.CheckRun)
-		want  error
+		wants []error
 	}{
-		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, github.ErrIncompleteCheckRun},
-		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, github.ErrIncompleteCheckRun},
-		"no headline":        {func(run *domain.CheckRun) { run.Headline = "" }, github.ErrIncompleteCheckRun},
-		"no conclusion":      {func(run *domain.CheckRun) { run.Conclusion = "" }, domain.ErrUnknownConclusion},
-		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
-		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
-		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
-		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, github.ErrUnrenderableCheckRun},
-		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
-		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
-		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, github.ErrNotUTF8},
+		"no name":            {func(run *domain.CheckRun) { run.Name = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no title":           {func(run *domain.CheckRun) { run.Title = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no headline":        {func(run *domain.CheckRun) { run.Headline = "" }, []error{github.ErrIncompleteCheckRun}},
+		"no conclusion":      {func(run *domain.CheckRun) { run.Conclusion = "" }, []error{domain.ErrUnknownConclusion}},
+		"skipped":            {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, []error{domain.ErrUnknownConclusion}},
+		"action_required":    {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, []error{domain.ErrUnknownConclusion}},
+		"SUCCESS":            {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, []error{domain.ErrUnknownConclusion}},
+		"no decision":        {func(run *domain.CheckRun) { run.DecisionID = domain.DecisionID{} }, []error{github.ErrUnrenderableCheckRun, github.ErrCheckRunTextUnidentified}},
+		"name not UTF-8":     {func(run *domain.CheckRun) { run.Name = notUTF8 }, []error{github.ErrNotUTF8}},
+		"title not UTF-8":    {func(run *domain.CheckRun) { run.Title = notUTF8 }, []error{github.ErrNotUTF8}},
+		"headline not UTF-8": {func(run *domain.CheckRun) { run.Headline = notUTF8 }, []error{github.ErrNotUTF8}},
 	}
 	runs := checkRunsAt(t, refusingEveryRequest(t))
 
@@ -498,8 +545,10 @@ func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
 			err := runs.PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
 
-			if !errors.Is(err, refusal.want) {
-				t.Fatalf("error is %v, want %v", err, refusal.want)
+			for _, want := range refusal.wants {
+				if !errors.Is(err, want) {
+					t.Errorf("error is %v, want %v", err, want)
+				}
 			}
 		})
 	}
@@ -516,19 +565,59 @@ func TestPublishCheckRunFitsAViolationLongerThanTheForgeAcceptsWithinItsLimit(t 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
-	published := held.runsOn(headSHA)
-	if len(published) != 1 {
-		t.Fatalf("the forge holds %d runs, want 1", len(published))
-	}
+	published := held.onlyRun()
 	for field, value := range map[string]string{
-		"summary": published[0].Output.Summary, "text": published[0].Output.Text,
+		"summary": published.Output.Summary, "text": published.Output.Text,
 	} {
 		if characters := utf8.RuneCountInString(value); characters > github.MaxOutputCharacters {
 			t.Errorf("%s is %d characters, over the forge's %d", field, characters, github.MaxOutputCharacters)
 		}
 	}
-	if !strings.Contains(published[0].Output.Text, "1 violation in total") {
-		t.Errorf("the text does not count the violation it could not list: %q", published[0].Output.Text)
+	if !strings.Contains(published.Output.Text, "1 violation in total") {
+		t.Errorf("the text does not count the violation it could not list: %q", published.Output.Text)
+	}
+}
+
+func TestPublishCheckRunListsAViolationThatFitsInCharactersButNotInBytes(t *testing.T) {
+	held := newCheckRunForge(t)
+	run := securityRun()
+	run.Violations[0].Message = strings.Repeat("é", 40000)
+
+	err := checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	published := held.onlyRun()
+	if !strings.Contains(published.Output.Text, run.Violations[0].Message) {
+		t.Errorf("the text does not list a violation of %d characters", utf8.RuneCountInString(run.Violations[0].Message))
+	}
+}
+
+func TestPublishCheckRunAcceptsASummaryOfExactlyTheForgesCharactersAndNotOneMore(t *testing.T) {
+	held := newCheckRunForge(t)
+	runs := checkRunsAt(t, held.server)
+	locator := locatorOf(t, "acme/payments", 412)
+	short := securityRun()
+	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, short); err != nil {
+		t.Fatalf("publish a short headline: %v", err)
+	}
+	besideHeadline := utf8.RuneCountInString(held.onlyRun().Output.Summary) - utf8.RuneCountInString(short.Headline)
+	exact := securityRun()
+	exact.Headline = strings.Repeat("é", github.MaxOutputCharacters-besideHeadline)
+	over := securityRun()
+	over.Headline = exact.Headline + "é"
+
+	if err := runs.PublishCheckRun(context.Background(), locator, headCommit, exact); err != nil {
+		t.Errorf("a summary of exactly %d characters: %v", github.MaxOutputCharacters, err)
+	}
+	if got := utf8.RuneCountInString(held.onlyRun().Output.Summary); got != github.MaxOutputCharacters {
+		t.Errorf("the forge holds a summary of %d characters, want %d", got, github.MaxOutputCharacters)
+	}
+	err := checkRunsAt(t, refusingEveryRequest(t)).PublishCheckRun(context.Background(), locator, headCommit, over)
+	if !errors.Is(err, github.ErrUnrenderableCheckRun) {
+		t.Errorf("a summary one character over: error is %v, want %v", err, github.ErrUnrenderableCheckRun)
 	}
 }
 
@@ -748,14 +837,17 @@ func TestPublishCheckRunDrainsAWriteBodyWithinTheBoundAndNoFurther(t *testing.T)
 	}
 }
 
-func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
-	const (
-		clientTimeout = 200 * time.Millisecond
-		trickledBytes = 30
-		trickleGap    = 100 * time.Millisecond
-		heldAtMost    = time.Second
-	)
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+const (
+	trickleClientTimeout = 200 * time.Millisecond
+	trickledBytes        = 30
+	trickleGap           = 100 * time.Millisecond
+	trickleHeldAtMost    = time.Second
+)
+
+func tricklingForge(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodGet {
 			write(t, writer, noRunsListed)
 			return
@@ -772,15 +864,35 @@ func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
 			}
 		}
 	})
-	settings := settingsAt(server)
-	settings.Client.Timeout = clientTimeout
+}
+
+func timeHeldPublishing(t *testing.T, runs github.CheckRuns) time.Duration {
+	t.Helper()
 
 	started := time.Now()
-	_ = checkRunsWith(t, settings).PublishCheckRun(
+	_ = runs.PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+	return time.Since(started)
+}
 
-	if held := time.Since(started); held > heldAtMost {
-		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, heldAtMost)
+func TestPublishCheckRunIsHeldNoLongerThanTheClientTimeout(t *testing.T) {
+	settings := settingsAt(tricklingForge(t))
+	settings.Client.Timeout = trickleClientTimeout
+
+	if held := timeHeldPublishing(t, checkRunsWith(t, settings)); held > trickleHeldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v, want at most %v", held, trickleHeldAtMost)
+	}
+}
+
+func TestPublishCheckRunKeepsTheParsedTimeoutWhenTheCallersClientChanges(t *testing.T) {
+	settings := settingsAt(tricklingForge(t))
+	settings.Client.Timeout = trickleClientTimeout
+	runs := checkRunsWith(t, settings)
+	settings.Client.Timeout = 0
+
+	if held := timeHeldPublishing(t, runs); held > trickleHeldAtMost {
+		t.Fatalf("a trickling forge held the publish for %v after the caller cleared its timeout, want at most %v",
+			held, trickleHeldAtMost)
 	}
 }
 

@@ -8,3 +8,5 @@ func RenderedForGitHub(run domain.CheckRun) (title, summary, text string, err er
 	rendered, err := checkRunTextFor(run, MaxOutputCharacters)
 	return rendered.title, rendered.summary, rendered.text, err
 }
+
+var ErrCheckRunTextUnidentified = errCheckRunTextUnidentified
