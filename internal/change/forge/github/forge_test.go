@@ -84,10 +84,14 @@ func wellFormedSettings() github.Settings {
 func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
 	t.Helper()
 
+	return sourceWith(t, settingsAt(server))
+}
+
+func settingsAt(server *httptest.Server) github.Settings {
 	settings := wellFormedSettings()
 	settings.BaseURL = server.URL
 	settings.Client = server.Client()
-	return sourceWith(t, settings)
+	return settings
 }
 
 func sourceWith(t *testing.T, settings github.Settings) github.ChangeSource {

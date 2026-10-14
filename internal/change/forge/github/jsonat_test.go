@@ -27,15 +27,11 @@ func TestFilesChangedRefusesAnAnswerTheForgeDidNotServeWith200(t *testing.T) {
 
 func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 	settings := wellFormedSettings()
-	runs, err := github.ParseCheckRuns(settings)
-	if err != nil {
-		t.Fatalf("parse check runs: %v", err)
-	}
 	holders := map[string]any{
 		"credential": forgeCredential,
 		"settings":   settings,
 		"source":     sourceWith(t, settings),
-		"check runs": runs,
+		"check runs": checkRunsWith(t, settings),
 	}
 
 	for name, holder := range holders {
@@ -71,9 +67,7 @@ func TestFilesChangedRefusesAnAnswerLargerThanTheResponseBound(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/middleware.go", "status": "modified"}
 	]`)
-	settings := wellFormedSettings()
-	settings.BaseURL = server.URL
-	settings.Client = server.Client()
+	settings := settingsAt(server)
 	settings.MaxResponseBytes = 8
 
 	_, err := sourceWith(t, settings).FilesChanged(

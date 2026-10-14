@@ -135,9 +135,12 @@ func (held *checkRunForge) runsOn(sha string) []wireCheckRun {
 func checkRunsAt(t *testing.T, server *httptest.Server) github.CheckRuns {
 	t.Helper()
 
-	settings := wellFormedSettings()
-	settings.BaseURL = server.URL
-	settings.Client = server.Client()
+	return checkRunsWith(t, settingsAt(server))
+}
+
+func checkRunsWith(t *testing.T, settings github.Settings) github.CheckRuns {
+	t.Helper()
+
 	runs, err := github.ParseCheckRuns(settings)
 	if err != nil {
 		t.Fatalf("parse check runs: %v", err)
@@ -354,6 +357,18 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 				t.Errorf("error %q reveals the credential", err)
 			}
 		})
+	}
+}
+
+func TestPublishCheckRunRefusesAListingLargerThanTheResponseBound(t *testing.T) {
+	settings := settingsAt(listingOnly(t, http.StatusOK, `{"total_count": 0, "check_runs": []}`))
+	settings.MaxResponseBytes = 8
+
+	err := checkRunsWith(t, settings).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+	if !errors.Is(err, github.ErrResponseTooLarge) {
+		t.Fatalf("error is %v, want %v", err, github.ErrResponseTooLarge)
 	}
 }
 
