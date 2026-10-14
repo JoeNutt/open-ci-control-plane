@@ -120,3 +120,20 @@ func TestParseDocumentListsOnlyThePathsTheChangeAdds(t *testing.T) {
 		t.Fatalf("new_files is %v, want %v", document.Diff.NewFiles, want)
 	}
 }
+
+func TestParseDocumentCarriesAnImportEntryForEveryChangedFile(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded)
+
+	want := domain.Declared[domain.Import]{
+		{Path: "internal/auth/middleware.go", State: domain.ImportStateUnknown},
+		{Path: "infra/iam.tf", State: domain.ImportStateUnknown},
+	}
+	if !reflect.DeepEqual(document.Diff.Imports, want) {
+		t.Fatalf("imports is %+v, want %+v", document.Diff.Imports, want)
+	}
+}

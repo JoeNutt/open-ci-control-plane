@@ -24,6 +24,7 @@ func diffOf(bounded BoundedFiles) Diff {
 		Totals:   totalsOf(bounded.files),
 		ByDir:    byDirOf(bounded.files),
 		NewFiles: addedPathsOf(bounded.files),
+		Imports:  importsOf(bounded.files),
 	}
 }
 
@@ -66,4 +67,12 @@ func byDirOf(files []File) PathsByDir {
 		byDir[directory] = append(byDir[directory], file.Path)
 	}
 	return byDir
+}
+
+func importsOf(files []File) Declared[Import] {
+	imports := make(Declared[Import], 0, len(files))
+	for _, file := range files {
+		imports = append(imports, Import{Path: file.Path, State: ImportStateUnknown})
+	}
+	return imports
 }

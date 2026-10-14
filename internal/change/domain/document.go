@@ -43,12 +43,13 @@ type Approval struct {
 }
 
 type Diff struct {
-	Paths    Paths          `json:"paths"`
-	Files    Declared[File] `json:"files"`
-	Kinds    Kinds          `json:"kinds"`
-	Totals   Totals         `json:"totals"`
-	ByDir    PathsByDir     `json:"by_dir"`
-	NewFiles Paths          `json:"new_files"`
+	Paths    Paths            `json:"paths"`
+	Files    Declared[File]   `json:"files"`
+	Kinds    Kinds            `json:"kinds"`
+	Totals   Totals           `json:"totals"`
+	ByDir    PathsByDir       `json:"by_dir"`
+	NewFiles Paths            `json:"new_files"`
+	Imports  Declared[Import] `json:"imports"`
 }
 
 type Totals struct {
@@ -76,4 +77,9 @@ type File struct {
 	Additions  int        `json:"additions"`
 	Deletions  int        `json:"deletions"`
 	PatchBytes int        `json:"patch_bytes"`
+}
+
+type Import struct {
+	Path  string      `json:"path"`
+	State ImportState `json:"state"`
 }
