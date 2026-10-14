@@ -157,6 +157,19 @@ func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
 	}
 }
 
+func TestAWarnIsMarkedAdvisoryAndDoesNotPreventTheMerge(t *testing.T) {
+	warned := decided(t, domain.EffectAllow, violationAt(domain.EnforcementSeverityWarn))
+
+	run := checkRunFor(t, domain.PolicyFamilyQuality, warned)
+
+	if marked := "- Enforcement: advisory"; !strings.Contains(run.Text, marked) {
+		t.Errorf("text does not carry %q:\n%s", marked, run.Text)
+	}
+	if stated := "Advisory only. The merge is not prevented."; !strings.Contains(run.Summary, stated) {
+		t.Errorf("summary does not say %q:\n%s", stated, run.Summary)
+	}
+}
+
 func TestAViolationIsRenderedWithItsMessage(t *testing.T) {
 	denied := decided(t, domain.EffectBlock, violationAt(domain.EnforcementSeverityDeny))
 

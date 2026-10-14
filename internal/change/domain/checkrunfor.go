@@ -27,10 +27,14 @@ func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 }
 
 func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+	summary := decisionLineFor(id)
+	if verdictConclusionFor(decided.Decision) == ConclusionNeutral {
+		summary = "Advisory only. The merge is not prevented.\n\n" + summary
+	}
 	return CheckRun{
 		Name:       checkRunNameFor(decided.Family),
 		Conclusion: verdictConclusionFor(decided.Decision),
-		Summary:    decisionLineFor(id),
+		Summary:    summary,
 		Text:       violationsTextFor(decided.Decision.Violations()),
 	}
 }
@@ -83,7 +87,7 @@ func decisionLineFor(id DecisionID) string {
 	return fmt.Sprintf(decisionLineLayout, id)
 }
 
-const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n\n"
+const violationBlockLayout = "**Rule** %s\n\n%s\n\n- Owning team: %s\n- Documentation: %s\n- Enforcement: %s\n\n"
 
 func violationsTextFor(violations Declared[Violation]) string {
 	var text strings.Builder
@@ -92,7 +96,8 @@ func violationsTextFor(violations Declared[Violation]) string {
 			markdownTextOf(violation.RuleID),
 			markdownTextOf(violation.Message),
 			markdownTextOf(violation.OwningTeam),
-			documentationLinkFor(violation.DocsURL))
+			documentationLinkFor(violation.DocsURL),
+			map[EnforcementSeverity]string{EnforcementSeverityWarn: "advisory"}[violation.Severity])
 	}
 	return text.String()
 }
