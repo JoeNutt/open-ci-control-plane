@@ -43,3 +43,16 @@ func TestParseDecisionIDRefusesAnythingElse(t *testing.T) {
 		})
 	}
 }
+
+func TestDecisionIDFromSpellsItsEntropyAsLowerHexAfterThePrefix(t *testing.T) {
+	entropy := [16]byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0xff,
+	}
+
+	minted := domain.DecisionIDFrom(entropy)
+
+	if want := "dec_000102030405060708090a0b0c0d0eff"; minted.String() != want {
+		t.Fatalf("minted %q, want %q", minted.String(), want)
+	}
+}

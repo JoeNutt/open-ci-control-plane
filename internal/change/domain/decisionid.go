@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,6 +29,10 @@ func ParseDecisionID(stated string) (DecisionID, error) {
 		return DecisionID{}, fmt.Errorf("%w: %q", ErrMalformedDecisionID, stated)
 	}
 	return DecisionID{value: stated}, nil
+}
+
+func DecisionIDFrom(entropy [16]byte) DecisionID {
+	return DecisionID{value: decisionIDPrefix + hex.EncodeToString(entropy[:])}
 }
 
 func (id DecisionID) String() string { return id.value }
