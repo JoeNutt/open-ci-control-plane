@@ -63,6 +63,23 @@ func exchanged[Payload any](
 	return payload, nil
 }
 
+func delivered(ctx context.Context, forge connection, over exchange) error {
+	request, err := requestFor(ctx, forge, over)
+	if err != nil {
+		return err
+	}
+	response, err := forge.settings.Client.Do(request)
+	if err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if failure := failureIn(response, over); failure != nil {
+		return failure
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, int64(forge.settings.MaxResponseBytes)))
+	return nil
+}
+
 func requestFor(
 	ctx context.Context, forge connection, over exchange,
 ) (*http.Request, error) {

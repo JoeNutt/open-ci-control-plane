@@ -62,6 +62,5 @@ func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
 	if err != nil {
 		return err
 	}
-	_, err = exchanged[struct{}](ctx, runs.forge, chosen)
-	return err
+	return delivered(ctx, runs.forge, chosen)
 }

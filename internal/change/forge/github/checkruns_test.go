@@ -463,6 +463,46 @@ func TestPublishCheckRunReportsAFailedExchangeWithItsContextButNotItsCredential(
 	}
 }
 
+func TestPublishCheckRunTreatsAWriteAnsweredWithALargeEchoAsDone(t *testing.T) {
+	const fitsOnlyTheListing = 64
+	echo := `{"output": {"text": "` + strings.Repeat("x", fitsOnlyTheListing) + `"}}`
+	writes := map[string]failedStep{
+		"create": {http.MethodPost, http.StatusCreated, noRunsListed},
+		"update": {http.MethodPatch, http.StatusOK, run7Listed},
+	}
+
+	for name, write := range writes {
+		t.Run(name, func(t *testing.T) {
+			settings := settingsAt(answeringWrite(t, write, echo))
+			settings.MaxResponseBytes = fitsOnlyTheListing
+
+			err := checkRunsWith(t, settings).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, securityRun())
+
+			if err != nil {
+				t.Fatalf("publish check run: %v", err)
+			}
+		})
+	}
+}
+
+func answeringWrite(t *testing.T, step failedStep, body string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		switch request.Method {
+		case http.MethodGet:
+			write(t, writer, step.listing)
+		case step.method:
+			writer.WriteHeader(step.status)
+			write(t, writer, body)
+		default:
+			t.Errorf("the adapter sent %s %s, want %s", request.Method, request.URL, step.method)
+			writer.WriteHeader(http.StatusTeapot)
+		}
+	})
+}
+
 func TestPublishCheckRunRefusesAListingLargerThanTheResponseBound(t *testing.T) {
 	settings := settingsAt(listingOnly(t, http.StatusOK, `{"total_count": 0, "check_runs": []}`))
 	settings.MaxResponseBytes = 8
