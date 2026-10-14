@@ -6,6 +6,24 @@ import "slices"
 
 const checkRunNamePrefix = "policy/"
 
+var conclusionByEffect = map[Effect]Conclusion{
+	EffectBlock:  ConclusionFailure,
+	EffectAllow:  ConclusionSuccess,
+	EffectReview: ConclusionSuccess,
+}
+
+var conclusionBySeverity = map[EnforcementSeverity]Conclusion{
+	EnforcementSeverityDeny:   ConclusionFailure,
+	EnforcementSeverityWarn:   ConclusionNeutral,
+	EnforcementSeverityDryRun: ConclusionNeutral,
+}
+
+var conclusionsLeastRestrictiveFirst = []Conclusion{
+	ConclusionSuccess,
+	ConclusionNeutral,
+	ConclusionFailure,
+}
+
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	return CheckRun{
 		Name:       checkRunNamePrefix + string(decided.Family),
@@ -17,17 +35,25 @@ func conclusionFor(decision Decision) Conclusion {
 	if !decision.Outcome().CarriesVerdict() {
 		return ConclusionFailure
 	}
-	if decision.Effect() == EffectBlock || isAnyDenied(decision.Violations()) {
-		return ConclusionFailure
+	conclusion := conclusionIn(conclusionByEffect, decision.Effect())
+	for _, violation := range decision.Violations() {
+		conclusion = moreRestrictive(conclusion, conclusionIn(conclusionBySeverity, violation.Severity))
 	}
-	if len(decision.Violations()) > 0 {
-		return ConclusionNeutral
-	}
-	return ConclusionSuccess
+	return conclusion
 }
 
-func isAnyDenied(violations Declared[Violation]) bool {
-	return slices.ContainsFunc(violations, func(violation Violation) bool {
-		return violation.Severity == EnforcementSeverityDeny
-	})
+func conclusionIn[Key comparable](conclusions map[Key]Conclusion, key Key) Conclusion {
+	conclusion, declared := conclusions[key]
+	if !declared {
+		return ConclusionFailure
+	}
+	return conclusion
+}
+
+func moreRestrictive(held, offered Conclusion) Conclusion {
+	if slices.Index(conclusionsLeastRestrictiveFirst, offered) >
+		slices.Index(conclusionsLeastRestrictiveFirst, held) {
+		return offered
+	}
+	return held
 }
