@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -66,5 +67,27 @@ func TestAFailureInOneFamilyCannotSuppressAnother(t *testing.T) {
 	}
 	if broken.asked != 1 {
 		t.Errorf("the broken family was asked %d times, want 1", broken.asked)
+	}
+}
+
+func TestADecisionReturnedAfterTheDeadlineIsDeadlineExceeded(t *testing.T) {
+	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = decidingEngine(t)
+	}
+	gate, err := domain.ParseGate(engines)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	expired, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	decisions := gate.DecisionsFor(expired, domain.Document{})
+
+	for _, decided := range decisions {
+		if decided.Decision.Outcome() != domain.OutcomeDeadlineExceeded {
+			t.Errorf("%s outcome is %q, want %q", decided.Family,
+				decided.Decision.Outcome(), domain.OutcomeDeadlineExceeded)
+		}
 	}
 }
