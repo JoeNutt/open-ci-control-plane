@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"unicode/utf8"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -31,8 +32,7 @@ func parsePublication(
 	if run.Name == "" {
 		return publication{}, ErrIncompleteCheckRun
 	}
-	if !utf8.ValidString(run.Name) || !utf8.ValidString(run.Title) ||
-		!utf8.ValidString(run.Summary) || !utf8.ValidString(run.Text) {
+	if !isAllUTF8(run.Name, run.Title, run.Summary, run.Text) {
 		return publication{}, ErrNotUTF8
 	}
 	verdict, err := parseVerdict(run)
@@ -44,6 +44,11 @@ func parsePublication(
 		return publication{}, err
 	}
 	return publication{locator: locator, head: head, name: run.Name, verdict: verdict}, nil
+}
+
+func isAllUTF8(texts ...string) bool {
+	isMalformed := func(text string) bool { return !utf8.ValidString(text) }
+	return !slices.ContainsFunc(texts, isMalformed)
 }
 
 func (pending publication) exchangeGiven(listed checkRunListing) (exchange, error) {

@@ -258,66 +258,39 @@ func TestPublishCheckRunRefusesAListingWhoseCountDisagreesWithItsRuns(t *testing
 	}
 }
 
-func TestPublishCheckRunRefusesAnIncompleteRunWithoutAsking(t *testing.T) {
-	incomplete := map[string]func(*domain.CheckRun){
-		"no name":    func(run *domain.CheckRun) { run.Name = "" },
-		"no title":   func(run *domain.CheckRun) { run.Title = "" },
-		"no summary": func(run *domain.CheckRun) { run.Summary = "" },
-	}
-	runs := checkRunsAt(t, refusingEveryRequest(t))
-
-	for name, spoil := range incomplete {
-		t.Run(name, func(t *testing.T) {
-			run := securityRun()
-			spoil(&run)
-
-			err := runs.PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
-
-			if !errors.Is(err, github.ErrIncompleteCheckRun) {
-				t.Fatalf("error is %v, want %v", err, github.ErrIncompleteCheckRun)
-			}
-		})
-	}
-}
-
-func TestPublishCheckRunRefusesAnUndeclaredConclusionWithoutAsking(t *testing.T) {
-	undeclared := []domain.Conclusion{"", "skipped", "action_required", "SUCCESS"}
-	runs := checkRunsAt(t, refusingEveryRequest(t))
-
-	for _, conclusion := range undeclared {
-		t.Run(string(conclusion), func(t *testing.T) {
-			run := securityRun()
-			run.Conclusion = conclusion
-
-			err := runs.PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
-
-			if !errors.Is(err, domain.ErrUnknownConclusion) {
-				t.Fatalf("error is %v, want %v", err, domain.ErrUnknownConclusion)
-			}
-		})
-	}
-}
-
-func TestPublishCheckRunRefusesOutputLongerThanTheForgeAcceptsWithoutAsking(t *testing.T) {
+func TestPublishCheckRunRefusesAnUnpublishableRunWithoutAsking(t *testing.T) {
+	const notUTF8 = "policy \xff refused"
 	overlong := strings.Repeat("x", github.MaxOutputCharacters+1)
-	oversized := map[string]func(*domain.CheckRun){
-		"summary": func(run *domain.CheckRun) { run.Summary = overlong },
-		"text":    func(run *domain.CheckRun) { run.Text = overlong },
+	unpublishable := map[string]struct {
+		spoil func(*domain.CheckRun)
+		want  error
+	}{
+		"no name":           {func(run *domain.CheckRun) { run.Name = "" }, github.ErrIncompleteCheckRun},
+		"no title":          {func(run *domain.CheckRun) { run.Title = "" }, github.ErrIncompleteCheckRun},
+		"no summary":        {func(run *domain.CheckRun) { run.Summary = "" }, github.ErrIncompleteCheckRun},
+		"no conclusion":     {func(run *domain.CheckRun) { run.Conclusion = "" }, domain.ErrUnknownConclusion},
+		"skipped":           {func(run *domain.CheckRun) { run.Conclusion = "skipped" }, domain.ErrUnknownConclusion},
+		"action_required":   {func(run *domain.CheckRun) { run.Conclusion = "action_required" }, domain.ErrUnknownConclusion},
+		"SUCCESS":           {func(run *domain.CheckRun) { run.Conclusion = "SUCCESS" }, domain.ErrUnknownConclusion},
+		"overlong summary":  {func(run *domain.CheckRun) { run.Summary = overlong }, github.ErrOutputTooLong},
+		"overlong text":     {func(run *domain.CheckRun) { run.Text = overlong }, github.ErrOutputTooLong},
+		"name not UTF-8":    {func(run *domain.CheckRun) { run.Name = notUTF8 }, github.ErrNotUTF8},
+		"title not UTF-8":   {func(run *domain.CheckRun) { run.Title = notUTF8 }, github.ErrNotUTF8},
+		"summary not UTF-8": {func(run *domain.CheckRun) { run.Summary = notUTF8 }, github.ErrNotUTF8},
+		"text not UTF-8":    {func(run *domain.CheckRun) { run.Text = notUTF8 }, github.ErrNotUTF8},
 	}
 	runs := checkRunsAt(t, refusingEveryRequest(t))
 
-	for name, spoil := range oversized {
+	for name, refusal := range unpublishable {
 		t.Run(name, func(t *testing.T) {
 			run := securityRun()
-			spoil(&run)
+			refusal.spoil(&run)
 
 			err := runs.PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
 
-			if !errors.Is(err, github.ErrOutputTooLong) {
-				t.Fatalf("error is %v, want %v", err, github.ErrOutputTooLong)
+			if !errors.Is(err, refusal.want) {
+				t.Fatalf("error is %v, want %v", err, refusal.want)
 			}
 		})
 	}
@@ -336,31 +309,6 @@ func TestPublishCheckRunCountsTheOutputLimitInCharactersNotBytes(t *testing.T) {
 		t.Fatalf("publish check run: %v", err)
 	}
 	held.mustHoldOnly(heldAs(1, run))
-}
-
-func TestPublishCheckRunRefusesTextThatIsNotUTF8WithoutAsking(t *testing.T) {
-	const invalid = "policy \xff refused"
-	malformed := map[string]func(*domain.CheckRun){
-		"name":    func(run *domain.CheckRun) { run.Name = invalid },
-		"title":   func(run *domain.CheckRun) { run.Title = invalid },
-		"summary": func(run *domain.CheckRun) { run.Summary = invalid },
-		"text":    func(run *domain.CheckRun) { run.Text = invalid },
-	}
-	runs := checkRunsAt(t, refusingEveryRequest(t))
-
-	for name, spoil := range malformed {
-		t.Run(name, func(t *testing.T) {
-			run := securityRun()
-			spoil(&run)
-
-			err := runs.PublishCheckRun(
-				context.Background(), locatorOf(t, "acme/payments", 412), headSHA, run)
-
-			if !errors.Is(err, github.ErrNotUTF8) {
-				t.Fatalf("error is %v, want %v", err, github.ErrNotUTF8)
-			}
-		})
-	}
 }
 
 func refusingEveryRequest(t *testing.T) *httptest.Server {
