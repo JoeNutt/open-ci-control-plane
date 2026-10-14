@@ -495,3 +495,34 @@ func checkRunFor(
 	}
 	return domain.CheckRunFor(domain.FamilyDecision{Family: family, Decision: decision}, id)
 }
+
+func TestAnUndecidedPolicyIsGovernedByThePostureItDeclaresOverItsFamilys(t *testing.T) {
+	declared := map[string]struct {
+		family domain.PolicyFamily
+		stated string
+		want   domain.Conclusion
+	}{
+		"closed in an open family": {domain.PolicyFamilyQuality, "true", domain.ConclusionFailure},
+		"open in a closed family":  {domain.PolicyFamilySecurity, "false", domain.ConclusionNeutral},
+		"open in a family that defers to its policies": {
+			domain.PolicyFamilyStructural, "false", domain.ConclusionNeutral},
+	}
+
+	for form, policy := range declared {
+		t.Run(form, func(t *testing.T) {
+			undecided, err := domain.ParseDecision([]byte(`{
+				"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
+				"violations": [], "reviewers": [], "fail_closed": ` + policy.stated + `
+			}`))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			run := checkRunFor(t, policy.family, undecided)
+
+			if run.Conclusion != policy.want {
+				t.Errorf("conclusion is %q, want %q", run.Conclusion, policy.want)
+			}
+		})
+	}
+}
