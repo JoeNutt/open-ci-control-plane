@@ -31,14 +31,8 @@ type checkRunTextOutput struct {
 }
 
 func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, error) {
-	if run.DecisionID == (domain.DecisionID{}) {
-		return checkRunTextOutput{}, errCheckRunTextUnidentified
-	}
-	if run.ViolationCount < len(run.Violations) {
-		return checkRunTextOutput{}, errCheckRunTextUndercounted
-	}
-	if len(run.Violations) > domain.ListedViolationLimit {
-		return checkRunTextOutput{}, errCheckRunTextOverlisted
+	if err := checkRunTextRefusalOf(run); err != nil {
+		return checkRunTextOutput{}, err
 	}
 	blocks := checkRunTextBlocksThatFit(run, capacity)
 	output := checkRunTextOutput{
@@ -50,6 +44,19 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 		return checkRunTextOutput{}, errCheckRunTextOverCapacity
 	}
 	return output, nil
+}
+
+func checkRunTextRefusalOf(run domain.CheckRun) error {
+	switch {
+	case run.DecisionID == (domain.DecisionID{}):
+		return errCheckRunTextUnidentified
+	case run.ViolationCount < len(run.Violations):
+		return errCheckRunTextUndercounted
+	case len(run.Violations) > domain.ListedViolationLimit:
+		return errCheckRunTextOverlisted
+	default:
+		return nil
+	}
 }
 
 func checkRunTextBlocksThatFit(run domain.CheckRun, capacity int) []string {
