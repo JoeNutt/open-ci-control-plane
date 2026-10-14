@@ -32,18 +32,11 @@ func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
 	return run
 }
 
-var undecidedRenderingByPosture = map[FailurePosture]checkRunRendering{
-	FailurePostureOpen:              admittedWithoutDecisionCheckRun,
-	FailurePostureClosed:            policyErrorCheckRun,
-	FailurePostureDeclaredPerPolicy: policyErrorCheckRun,
-}
-
 func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	rendering, declared := undecidedRenderingByPosture[decided.Family.FailurePosture()]
-	if !declared {
-		return policyErrorCheckRun(decided, id)
+	if decided.Family.FailurePosture() == FailurePostureOpen {
+		return admittedWithoutDecisionCheckRun(decided, id)
 	}
-	return rendering(decided, id)
+	return policyErrorCheckRun(decided, id)
 }
 
 const (
