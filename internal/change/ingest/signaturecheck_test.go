@@ -56,3 +56,32 @@ func TestASignedDeliveryReachesWhatWasWaitingForIt(t *testing.T) {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusAccepted)
 	}
 }
+
+func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
+	refused := map[string]string{
+		"no signature":             "",
+		"mis-signed":               "sha256=" + strings.Repeat("00", 32),
+		"signed with sha1":         "sha1=51e90d780f2a25ff6328cb24733ed9c4b05b70202696d272ab38890b3f016416",
+		"a digest of another body": "sha256=0000000000000000000000000000000000000000000000000000000000000000",
+	}
+
+	for form, signature := range refused {
+		t.Run(form, func(t *testing.T) {
+			accepted := &acceptedDelivery{}
+			checking := ingest.SignatureCheck{Accepted: accepted, Secret: appSecret}
+			answered := httptest.NewRecorder()
+
+			checking.ServeHTTP(answered, delivery(signature))
+
+			if accepted.served != 0 {
+				t.Errorf("a refused delivery was served onward %d times", accepted.served)
+			}
+			if answered.Code != http.StatusUnauthorized {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
+			}
+			if answered.Body.Len() != 0 {
+				t.Errorf("a refusal carried detail: %q", answered.Body.String())
+			}
+		})
+	}
+}
