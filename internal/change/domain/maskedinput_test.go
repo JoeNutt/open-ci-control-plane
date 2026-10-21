@@ -28,3 +28,21 @@ func TestMaskedInputOfOmitsAFieldTheMaskNames(t *testing.T) {
 		t.Errorf("masked input still carries the sensitive value: %s", encoded)
 	}
 }
+
+func TestMaskedInputOfSkipsAPointerToAFieldThatCannotExist(t *testing.T) {
+	unreachable := map[string]string{
+		"through a missing member": "/pr/missing/login",
+		"through a number":         "/pr/number/login",
+	}
+
+	for form, stated := range unreachable {
+		t.Run(form, func(t *testing.T) {
+			document := domain.Document{}
+			document.Diff.Sensitive = domain.Declared[string]{stated}
+
+			if _, err := domain.MaskedInputOf(document); err != nil {
+				t.Fatalf("mask %q: %v", stated, err)
+			}
+		})
+	}
+}
