@@ -13,6 +13,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 )
 
 func TestAConfigurationMissingARequiredItemExitsNonZeroNamingItAndServesNothing(t *testing.T) {
@@ -56,16 +59,7 @@ func TestAnythingButOneConfigurationPathExitsNonZeroSayingSo(t *testing.T) {
 }
 
 func TestACompleteConfigurationServesTheEventsRouteAndLogsWhatItServes(t *testing.T) {
-	serving, stop := context.WithCancel(context.Background())
-	var logged bytes.Buffer
-	exited := make(chan int)
-	go func() {
-		exited <- run(serving, []string{configurationFile(t, completeConfiguration(t))}, &logged)
-	}()
-
-	answered := firstAnswerFromTheListener(t)
-	stop()
-	exit := <-exited
+	answered, exit, logged := servedOnce(t)
 
 	if answered != http.StatusUnauthorized {
 		t.Errorf("an unsigned delivery was answered %d, want %d", answered, http.StatusUnauthorized)
@@ -78,6 +72,31 @@ func TestACompleteConfigurationServesTheEventsRouteAndLogsWhatItServes(t *testin
 			t.Errorf("the start-up log does not name %s: %q", named, logged.String())
 		}
 	}
+}
+
+func TestNoStartUpOrServingLogCarriesTheWebhookSecretOrTheAppKey(t *testing.T) {
+	_, _, logged := servedOnce(t)
+
+	for name, secret := range map[string]string{"the webhook secret": webhookSecret, "the App key": appKeyBody} {
+		if strings.Contains(logged.String(), secret) {
+			t.Errorf("a log line carries %s: %q", name, logged.String())
+		}
+	}
+}
+
+var _ httpapi.ChangeGate = application.GateChange{}
+
+func servedOnce(t *testing.T) (int, int, *bytes.Buffer) {
+	t.Helper()
+	serving, stop := context.WithCancel(context.Background())
+	var logged bytes.Buffer
+	exited := make(chan int)
+	go func() {
+		exited <- run(serving, []string{configurationFile(t, completeConfiguration(t))}, &logged)
+	}()
+	answered := firstAnswerFromTheListener(t)
+	stop()
+	return answered, <-exited, &logged
 }
 
 func firstAnswerFromTheListener(t *testing.T) int {
@@ -103,7 +122,11 @@ func firstAnswerFromTheListener(t *testing.T) int {
 	return 0
 }
 
-const listenAddress = "127.0.0.1:48121"
+const (
+	listenAddress = "127.0.0.1:48121"
+	webhookSecret = "the App's webhook secret"
+	appKeyBody    = "c3RhdGVkIGtleQ"
+)
 
 func assertNothingServes(t *testing.T) {
 	t.Helper()
@@ -121,8 +144,8 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 	t.Helper()
 	directory := t.TempDir()
 	appKey := writtenFile(t, directory, "app-key.pem",
-		"-----BEGIN RSA PRIVATE KEY-----\nc3RhdGVkIGtleQ\n-----END RSA PRIVATE KEY-----\n")
-	secret := writtenFile(t, directory, "webhook-secret", "the App's webhook secret\n")
+		"-----BEGIN RSA PRIVATE KEY-----\n"+appKeyBody+"\n-----END RSA PRIVATE KEY-----\n")
+	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
 		"listenAddress":     quoted(t, listenAddress),
 		"appId":             json.RawMessage(`1204331`),
