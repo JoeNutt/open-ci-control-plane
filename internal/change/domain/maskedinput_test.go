@@ -54,6 +54,30 @@ func TestMaskedInputOfOmitsAFieldInsideAnArrayElement(t *testing.T) {
 	}
 }
 
+func TestMaskedInputOfOmitsAWholeArrayElement(t *testing.T) {
+	document := domain.Document{}
+	document.Analyzers.Findings = domain.Declared[domain.Finding]{
+		{Path: "internal/kept.go"}, {Path: "internal/leaked.go"},
+	}
+	document.Diff.Sensitive = domain.Declared[string]{"/analyzers/findings/1"}
+
+	masked, err := domain.MaskedInputOf(document)
+	if err != nil {
+		t.Fatalf("mask: %v", err)
+	}
+
+	encoded, err := json.Marshal(masked)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	if strings.Contains(string(encoded), "leaked.go") {
+		t.Errorf("masked input still carries the sensitive element: %s", encoded)
+	}
+	if !strings.Contains(string(encoded), "kept.go") {
+		t.Errorf("masked input lost an element the mask did not name: %s", encoded)
+	}
+}
+
 func TestMaskedInputOfRefusesAnArrayIndexRFC6901Forbids(t *testing.T) {
 	forbidden := map[string]string{
 		"leading zero": "/analyzers/findings/01/path",

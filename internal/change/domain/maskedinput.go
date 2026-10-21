@@ -26,7 +26,30 @@ func MaskedInputOf(document Document) (MaskedInput, error) {
 			return MaskedInput{}, err
 		}
 	}
-	return MaskedInput{tree: tree}, nil
+	return MaskedInput{tree: sweep(tree).(map[string]any)}, nil
+}
+
+type removedElement struct{}
+
+func sweep(node any) any {
+	switch container := node.(type) {
+	case map[string]any:
+		for key, child := range container {
+			container[key] = sweep(child)
+		}
+		return container
+	case []any:
+		kept := []any{}
+		for _, child := range container {
+			if _, removed := child.(removedElement); removed {
+				continue
+			}
+			kept = append(kept, sweep(child))
+		}
+		return kept
+	default:
+		return node
+	}
 }
 
 func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(masked.tree) }
@@ -56,11 +79,23 @@ func removeAt(tree map[string]any, pointer JSONPointer) error {
 		}
 		node = child
 	}
+	last := tokens[len(tokens)-1]
+	if elements, isArray := node.([]any); isArray {
+		_, exists, err := arrayElement(elements, last)
+		if err != nil {
+			return err
+		}
+		if exists {
+			index, _ := strconv.Atoi(last)
+			elements[index] = removedElement{}
+		}
+		return nil
+	}
 	parent, isObject := node.(map[string]any)
 	if !isObject {
 		return nil
 	}
-	delete(parent, tokens[len(tokens)-1])
+	delete(parent, last)
 	return nil
 }
 
