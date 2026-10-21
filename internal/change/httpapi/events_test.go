@@ -250,6 +250,26 @@ func TestAFailedEvaluationIsNotAcceptedAndIsLoggedWithItsCause(t *testing.T) {
 	}
 }
 
+func TestADecisionIDThatCannotBeMintedEvaluatesNothing(t *testing.T) {
+	gate := &recordingGate{}
+	var logged bytes.Buffer
+	settings := listenerSettings(slog.New(slog.NewJSONHandler(&logged, nil)), gate)
+	settings.DecisionIDs = unmintableDecisions{}
+	answered := httptest.NewRecorder()
+
+	parsedRoutes(t, settings).ServeHTTP(answered, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if answered.Code != http.StatusInternalServerError {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusInternalServerError)
+	}
+	if len(gate.evaluated) != 0 {
+		t.Errorf("the gate evaluated %v with no decision ID", gate.evaluated)
+	}
+	if !strings.Contains(logged.String(), errUnmintable.Error()) || !strings.Contains(logged.String(), statedDeliveryID) {
+		t.Errorf("the failure is not logged with its delivery and cause: %q", logged.String())
+	}
+}
+
 func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing.T) {
 	unparseable := map[string]string{
 		"no number":         `{"action":"opened","repository":{"full_name":"JoeNutt/open-ci-control-plane"},"installation":{"id":41}}`,
@@ -351,13 +371,22 @@ func routed(t *testing.T, log *slog.Logger) http.Handler {
 
 func routedWith(t *testing.T, log *slog.Logger, gate *recordingGate) http.Handler {
 	t.Helper()
-	routes, err := httpapi.ParseRoutes(httpapi.Settings{
+	return parsedRoutes(t, listenerSettings(log, gate))
+}
+
+func listenerSettings(log *slog.Logger, gate *recordingGate) httpapi.Settings {
+	return httpapi.Settings{
 		Log:           log,
 		Secret:        domain.WebhookSecret(webhookSecret),
 		Installations: []int64{allowlistedInstallation},
 		Gate:          gate,
 		DecisionIDs:   mintedDecisions{},
-	})
+	}
+}
+
+func parsedRoutes(t *testing.T, settings httpapi.Settings) http.Handler {
+	t.Helper()
+	routes, err := httpapi.ParseRoutes(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,6 +447,14 @@ func gatedPullRequest(t *testing.T) domain.PullRequestLocator {
 		t.Fatal(err)
 	}
 	return locator
+}
+
+var errUnmintable = errors.New("no decision ID can be minted")
+
+type unmintableDecisions struct{}
+
+func (unmintableDecisions) NextDecisionID() (domain.DecisionID, error) {
+	return domain.DecisionID{}, errUnmintable
 }
 
 func signatureOf(body string) string {

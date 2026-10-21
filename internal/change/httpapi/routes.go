@@ -96,7 +96,12 @@ func (stage admitted) evaluatedAnswer(ctx context.Context, received delivery, st
 	if err != nil {
 		return unparseablePullRequestProblem()
 	}
-	id, _ := stage.ids.NextDecisionID()
+	id, err := stage.ids.NextDecisionID()
+	if err != nil {
+		stage.log.LogAttrs(ctx, slog.LevelError, failedEvaluationLine, slog.String(deliveryIDKey, received.id),
+			slog.String(reasonKey, err.Error()))
+		return failedEvaluationProblem()
+	}
 	if err := stage.gate.Execute(ctx, locator, id); err != nil {
 		stage.log.LogAttrs(ctx, slog.LevelError, failedEvaluationLine, slog.String(deliveryIDKey, received.id),
 			slog.String(decisionIDKey, id.String()), slog.String(reasonKey, err.Error()))
