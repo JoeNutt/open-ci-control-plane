@@ -2,9 +2,15 @@
 
 package configuration
 
-func familiesPresentIn(stated []string) error {
+import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+
+func familiesIn(stated []string) ([]domain.PolicyFamily, error) {
 	if len(stated) == 0 {
-		return families.missing()
+		return nil, families.missing()
 	}
-	return nil
+	named := make([]domain.PolicyFamily, 0, len(stated))
+	for _, name := range stated {
+		named = append(named, domain.PolicyFamily(name))
+	}
+	return named, nil
 }

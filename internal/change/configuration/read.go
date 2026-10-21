@@ -63,14 +63,8 @@ func (configured Configuration) InstallationIDs() []int64 {
 	return slices.Clone(configured.installationIDs)
 }
 
-func (configured Configuration) Families() []domain.PolicyFamily { return configured.families }
-
-func castFamilies(stated []string) []domain.PolicyFamily {
-	var out []domain.PolicyFamily
-	for _, name := range stated {
-		out = append(out, domain.PolicyFamily(name))
-	}
-	return out
+func (configured Configuration) Families() []domain.PolicyFamily {
+	return slices.Clone(configured.families)
 }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
@@ -85,13 +79,14 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
-	if err := errors.Join(secretErr, keyErr, installationsErr, familiesPresentIn(stated.Families)); err != nil {
+	named, familiesErr := familiesIn(stated.Families)
+	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{
 		webhookSecret:   secret,
 		appKey:          secretOf(key),
 		installationIDs: installations,
-		families:        castFamilies(stated.Families),
+		families:        named,
 	}, nil
 }
