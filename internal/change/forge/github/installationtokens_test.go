@@ -271,6 +271,18 @@ func TestAGrantWithNoTokenOrNoExpiryIsRefused(t *testing.T) {
 	}
 }
 
+func TestAGrantAlreadyPastItsExpiryIsNeverPresented(t *testing.T) {
+	expired := recordedGrant(recordedInstallationToken, mintedAt.Add(-time.Second))
+	tokens := installationTokensAt(t, answering(t, http.StatusCreated, expired), mintedAt)
+
+	authorization, err := github.AuthorizationOf(context.Background(), tokens)
+
+	if !errors.Is(err, github.ErrExpiredGrant) || authorization != "" {
+		t.Fatalf("error is %v and an authorization was presented, want %v and none",
+			err, github.ErrExpiredGrant)
+	}
+}
+
 func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testing.T) {
 	tokens := installationTokensAt(t, answering(t, http.StatusNotFound, `{"message": "Not Found"}`), mintedAt)
 

@@ -15,6 +15,8 @@ var ErrNoSuchInstallation = errors.New("the forge found no App installation with
 
 var ErrIncompleteGrant = errors.New("the forge granted an installation token with no token or no expiry")
 
+var ErrExpiredGrant = errors.New("expired")
+
 type Installation struct {
 	Key   AppKey
 	ID    int64
@@ -55,6 +57,9 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 	minted, err := tokens.exchanged(ctx)
 	if err != nil {
 		return Credential{}, err
+	}
+	if !minted.expiresAt.After(tokens.clock()) {
+		return Credential{}, ErrExpiredGrant
 	}
 	tokens.held = minted
 	return minted.credential, nil
