@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var ErrNoSuchInstallation = errors.New("no installation")
+var ErrNoSuchInstallation = errors.New("the forge found no App installation with the configured installation id")
 
 type Installation struct {
 	Key   AppKey
@@ -38,7 +38,7 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
 	granted, err := exchanged[accessTokenGrant](ctx, tokens.asApp, exchange{
 		method:    http.MethodPost,
-		endpoint:  fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation),
+		endpoint:  tokens.accessTokensEndpoint(),
 		sent:      accessTokenRequest{Permissions: leastPrivilege},
 		succeeded: http.StatusCreated,
 		notFound:  ErrNoSuchInstallation,
@@ -47,6 +47,10 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 		return Credential{}, err
 	}
 	return NewCredential(granted.Token), nil
+}
+
+func (tokens *InstallationTokens) accessTokensEndpoint() string {
+	return fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation)
 }
 
 const (
