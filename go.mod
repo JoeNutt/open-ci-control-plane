@@ -3,6 +3,7 @@ module github.com/JoeNutt/open-ci-control-plane
 go 1.26.0
 
 require (
+	github.com/lestrrat-go/jwx/v3 v3.3.0
 	github.com/open-policy-agent/opa v1.21.2
 	go.yaml.in/yaml/v3 v3.0.5
 )
@@ -28,7 +29,6 @@ require (
 	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc/v3 v3.0.6 // indirect
-	github.com/lestrrat-go/jwx/v3 v3.3.0 // indirect
 	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
