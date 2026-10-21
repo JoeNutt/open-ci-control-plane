@@ -21,6 +21,8 @@ const webhookSecretFileItem = "webhookSecretFile"
 
 var ErrMissingItem = errors.New("the configuration is missing a required item")
 
+var ErrInvalidItem = errors.New("a configuration item is invalid")
+
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
@@ -72,6 +74,9 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	content, err := boundedContentOf(path, MaxSecretFileBytes)
 	if err != nil {
 		return "", fmt.Errorf("read the %s: %w", webhookSecretFileItem, err)
+	}
+	if len(content) == 0 {
+		return "", fmt.Errorf("%w: %s", ErrInvalidItem, webhookSecretFileItem)
 	}
 	return domain.WebhookSecret(content), nil
 }

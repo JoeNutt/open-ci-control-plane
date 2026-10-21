@@ -56,6 +56,14 @@ func TestAWebhookSecretFileAboveTheBoundIsRefused(t *testing.T) {
 	}
 }
 
+func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
+	_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "")}))
+
+	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
+		t.Fatalf("refusal is not an invalid webhookSecretFile: %v", err)
+	}
+}
+
 type statedItems struct {
 	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
 }
