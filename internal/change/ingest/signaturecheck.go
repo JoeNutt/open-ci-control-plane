@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package ingest accepts forge events, admitting only deliveries it can authenticate.
 package ingest
 
 import (
