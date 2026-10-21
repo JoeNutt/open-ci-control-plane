@@ -23,6 +23,7 @@ const (
 	appKeyFile        item = "appKeyFile"
 	installationIDs   item = "installationIds"
 	families          item = "families"
+	listenAddress     item = "listenAddress"
 )
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -81,10 +82,7 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
 	named, familiesErr := familiesIn(stated.Families)
-	var listenErr error
-	if stated.ListenAddress == "" {
-		listenErr = fmt.Errorf("%w: listenAddress", ErrMissingItem)
-	}
+	listenErr := listenAddressPresentIn(stated.ListenAddress)
 	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr); err != nil {
 		return Configuration{}, err
 	}
