@@ -23,3 +23,7 @@ func ParseRepository(repository string) (Repository, error) {
 	}
 	return Repository{owner: owner, name: name}, nil
 }
+
+func (repository Repository) String() string {
+	return repository.owner + repositorySeparator + repository.name
+}
