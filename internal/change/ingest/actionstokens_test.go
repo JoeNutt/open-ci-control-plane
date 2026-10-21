@@ -141,6 +141,17 @@ func TestActionsTokensRefuseATokenOverTheBoundBeforeParsingIt(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefuseAKeySetOverTheBound(t *testing.T) {
+	issuer := newIssuer(t)
+	issuer.publish([]byte(`{"keys":[],"padding":"` + strings.Repeat("a", ingest.MaxIssuerDocumentBytes) + `"}`))
+
+	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+
+	if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
+		t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
+	}
+}
+
 func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
@@ -217,6 +228,7 @@ type issuer struct {
 	signingKey    jwk.Key
 	keySetFetches atomic.Int64
 	instant       time.Time
+	published     []byte
 }
 
 type discoveryDocument struct {
@@ -240,6 +252,12 @@ func (minted *issuer) rotate(t *testing.T, keyID string) {
 	minted.guard.Lock()
 	defer minted.guard.Unlock()
 	minted.signingKey = rotated
+}
+
+func (minted *issuer) publish(keySet []byte) {
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
+	minted.published = keySet
 }
 
 func (minted *issuer) advance(elapsed time.Duration) {
@@ -281,6 +299,12 @@ func (minted *issuer) discovery() []byte {
 }
 
 func (minted *issuer) publishedKeys() []byte {
+	minted.guard.Lock()
+	replacement := minted.published
+	minted.guard.Unlock()
+	if replacement != nil {
+		return replacement
+	}
 	public, err := jwk.PublicKeyOf(minted.currentKey())
 	if err != nil {
 		minted.t.Errorf("derive public key: %v", err)

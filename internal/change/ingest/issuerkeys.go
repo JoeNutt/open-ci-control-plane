@@ -16,9 +16,13 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
+const MaxIssuerDocumentBytes = 64 << 10
+
+var ErrIssuerKeysUnavailable = errors.New("the token issuer's signing keys could not be read")
+
 const (
 	discoveryPath         = "/.well-known/openid-configuration"
-	maxDiscoveryBytes     = 64 << 10
+	maxDiscoveryBytes     = MaxIssuerDocumentBytes
 	keySetRefetchInterval = time.Minute
 )
 
@@ -76,9 +80,21 @@ func (keys *issuerKeys) published(ctx context.Context) (jwk.Set, error) {
 	if err != nil {
 		return nil, err
 	}
-	published, err := jwk.Fetch(ctx, location, jwk.WithHTTPClient(keys.client))
+	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetch the issuer's key set: %w", err)
+	}
+	answer, err := keys.client.Do(asked)
+	if err != nil {
+		return nil, fmt.Errorf("fetch the issuer's key set: %w", err)
+	}
+	document, err := boundedBodyOf(answer)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrIssuerKeysUnavailable, err)
+	}
+	published, err := jwk.Parse(document)
+	if err != nil {
+		return nil, fmt.Errorf("parse the issuer's key set: %w", err)
 	}
 	return published, nil
 }
