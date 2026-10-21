@@ -3,9 +3,11 @@
 package golang_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
@@ -24,6 +26,20 @@ func TestImportsInReadsEveryImportAsWritten(t *testing.T) {
 	}
 	if !slices.Equal(imports, want) {
 		t.Fatalf("imports are %q, want %q", imports, want)
+	}
+}
+
+func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
+	const quotedFromTheSource = "hunter2ApiKey"
+	source := []byte("package fixture\n\nimport (\n\t\"context\" " + quotedFromTheSource + "\n)\n")
+
+	_, err := golang.ImportsIn(source)
+
+	if !errors.Is(err, golang.ErrUnparsableSource) {
+		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
+	}
+	if strings.Contains(err.Error(), quotedFromTheSource) {
+		t.Fatalf("the error quotes the source: %v", err)
 	}
 }
 
