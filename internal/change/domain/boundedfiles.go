@@ -21,6 +21,7 @@ type Limits struct {
 	MaxImportsPerFile    int
 	MaxImportsPerChange  int
 	MaxGraphEdges        int
+	MaxStructuralBytes   int
 }
 
 func DeclaredLimits() Limits {
@@ -34,6 +35,7 @@ func DeclaredLimits() Limits {
 		MaxImportsPerFile:    2000,
 		MaxImportsPerChange:  50000,
 		MaxGraphEdges:        20000,
+		MaxStructuralBytes:   4 << 20,
 	}
 }
 
