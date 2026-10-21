@@ -18,24 +18,45 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 )
 
-func TestAConfigurationMissingARequiredItemExitsNonZeroNamingItAndServesNothing(t *testing.T) {
-	for _, item := range []string{"appKeyFile", "webhookSecretFile", "installationIds"} {
-		t.Run(item, func(t *testing.T) {
+func TestAConfigurationMissingOrInvalidInARequiredItemExitsNonZeroNamingItAndServesNothing(t *testing.T) {
+	refused := map[string]struct {
+		item  string
+		state func(t *testing.T, stated map[string]json.RawMessage)
+	}{
+		"no App key":            {"appKeyFile", without("appKeyFile")},
+		"no webhook secret":     {"webhookSecretFile", without("webhookSecretFile")},
+		"no allowlist":          {"installationIds", without("installationIds")},
+		"an unreadable App key": {"appKeyFile", stating("appKeyFile", `"/nonexistent/app-key.pem"`)},
+		"an empty webhook secret": {"webhookSecretFile", func(t *testing.T, stated map[string]json.RawMessage) {
+			stated["webhookSecretFile"] = quoted(t, writtenFile(t, t.TempDir(), "empty", "\n"))
+		}},
+		"an empty allowlist": {"installationIds", stating("installationIds", `[]`)},
+	}
+	for form, configured := range refused {
+		t.Run(form, func(t *testing.T) {
 			stated := completeConfiguration(t)
-			delete(stated, item)
+			configured.state(t, stated)
 			var logged bytes.Buffer
 
 			exit := run(context.Background(), []string{configurationFile(t, stated)}, &logged)
 
 			if exit == 0 {
-				t.Errorf("exit is 0 for a configuration with no %s", item)
+				t.Errorf("exit is 0 for %s", form)
 			}
-			if !strings.Contains(logged.String(), item) {
-				t.Errorf("the refusal does not name %s: %q", item, logged.String())
+			if !strings.Contains(logged.String(), configured.item) {
+				t.Errorf("the refusal does not name %s: %q", configured.item, logged.String())
 			}
 			assertNothingServes(t)
 		})
 	}
+}
+
+func without(item string) func(*testing.T, map[string]json.RawMessage) {
+	return func(_ *testing.T, stated map[string]json.RawMessage) { delete(stated, item) }
+}
+
+func stating(item, value string) func(*testing.T, map[string]json.RawMessage) {
+	return func(_ *testing.T, stated map[string]json.RawMessage) { stated[item] = json.RawMessage(value) }
 }
 
 func TestAnythingButOneConfigurationPathExitsNonZeroSayingSo(t *testing.T) {
