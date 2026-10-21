@@ -2,18 +2,11 @@
 
 package policy
 
-import (
-	"errors"
-
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-)
+import "errors"
 
 var ErrNoPolicyLoaded = errors.New("no policy loaded")
 
-type AcceptedRevision struct {
-	revision domain.CommitSHA
-	model    domain.PolicyModel
-}
+type AcceptedRevision struct{}
 
 type ActivePolicy struct{}
 
