@@ -17,21 +17,21 @@ var errEmptySecret = errors.New("the secret is empty once its line break is remo
 
 var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
-func webhookSecretIn(path string) (Secret, error) {
-	content, err := webhookSecretFile.contentAt(path, MaxSecretFileBytes)
+func webhookSecretIn(stated statedItems) (Secret, error) {
+	content, err := fileContentOf(stated, webhookSecretFileItem, MaxSecretFileBytes)
 	if err != nil {
 		return Secret{}, err
 	}
 	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
 	if len(secret) == 0 {
-		return Secret{}, webhookSecretFile.invalid(errEmptySecret)
+		return Secret{}, webhookSecretFileItem.invalid(errEmptySecret)
 	}
-	if bytes.ContainsFunc(secret, isControlOrBeyondASCII) {
-		return Secret{}, webhookSecretFile.invalid(errUnprintableSecret)
+	if bytes.ContainsFunc(secret, isOutsidePrintableASCII) {
+		return Secret{}, webhookSecretFileItem.invalid(errUnprintableSecret)
 	}
 	return secretOf(secret), nil
 }
 
-func isControlOrBeyondASCII(character rune) bool {
+func isOutsidePrintableASCII(character rune) bool {
 	return character < firstPrintableASCII || character > lastPrintableASCII
 }

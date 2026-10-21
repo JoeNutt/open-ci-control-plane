@@ -39,6 +39,31 @@ func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	}
 }
 
+func TestAnItemStatedEmptyOrAsTheWrongTypeIsRefusedAsInvalidNamingIt(t *testing.T) {
+	for _, stated := range []struct{ item, value string }{
+		{"listenAddress", `""`},
+		{"listenAddress", `8080`},
+		{"appId", `"1204331"`},
+		{"appId", `1.5`},
+		{"appKeyFile", `""`},
+		{"webhookSecretFile", `""`},
+		{"webhookSecretFile", `["s3cret"]`},
+		{"installationIds", `[]`},
+		{"installationIds", `["52311907"]`},
+		{"families", `[]`},
+		{"families", `"structural"`},
+	} {
+		t.Run(stated.item+" "+stated.value, func(t *testing.T) {
+			raw := rawItemsOf(t, completeItems(t))
+			raw[stated.item] = json.RawMessage(stated.value)
+
+			_, err := configuration.Read(rawConfigurationFile(t, raw))
+
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, stated.item)
+		})
+	}
+}
+
 func TestAConfigurationWithAnUnknownKeyOrTrailingContentIsRefused(t *testing.T) {
 	complete, err := json.Marshal(completeItems(t))
 	if err != nil {
@@ -370,6 +395,28 @@ func assertRefusedNaming(t *testing.T, err error, refusal error, item string) {
 	if !errors.Is(err, refusal) || !strings.Contains(err.Error(), item) {
 		t.Fatalf("refusal is not %v naming %s: %v", refusal, item, err)
 	}
+}
+
+func rawItemsOf(t *testing.T, stated statedItems) map[string]json.RawMessage {
+	t.Helper()
+	content, err := json.Marshal(stated)
+	if err != nil {
+		t.Fatalf("encode the configuration: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(content, &raw); err != nil {
+		t.Fatalf("decode the configuration: %v", err)
+	}
+	return raw
+}
+
+func rawConfigurationFile(t *testing.T, raw map[string]json.RawMessage) string {
+	t.Helper()
+	content, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatalf("encode the configuration: %v", err)
+	}
+	return writtenFile(t, string(content))
 }
 
 func writtenFile(t *testing.T, content string) string {

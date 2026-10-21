@@ -12,18 +12,23 @@ var errTooManyInstallations = errors.New("the allowlist names too many installat
 
 var errRepeatedInstallation = errors.New("an installation ID is named twice")
 
-func installationIDsIn(stated []int64) ([]int64, error) {
-	if len(stated) == 0 {
-		return nil, installationIDs.missing()
+func installationIDsIn(stated statedItems) ([]int64, error) {
+	installationIDs, err := valueOf[[]int64](stated, installationIDsItem)
+	if err != nil {
+		return nil, err
 	}
-	if len(stated) > MaxInstallations {
-		return nil, installationIDs.invalid(fmt.Errorf("%w: more than %d", errTooManyInstallations, MaxInstallations))
+	if len(installationIDs) == 0 {
+		return nil, installationIDsItem.invalid(errEmptyList)
 	}
-	if slices.Min(stated) < firstGitHubID {
-		return nil, installationIDs.invalid(errNonPositiveID)
+	if len(installationIDs) > MaxInstallations {
+		return nil, installationIDsItem.invalid(
+			fmt.Errorf("%w: more than %d", errTooManyInstallations, MaxInstallations))
 	}
-	if repeatsAnEntry(stated) {
-		return nil, installationIDs.invalid(errRepeatedInstallation)
+	if slices.Min(installationIDs) < firstGitHubID {
+		return nil, installationIDsItem.invalid(errNonPositiveID)
 	}
-	return slices.Clone(stated), nil
+	if repeatsAnEntry(installationIDs) {
+		return nil, installationIDsItem.invalid(errRepeatedInstallation)
+	}
+	return installationIDs, nil
 }

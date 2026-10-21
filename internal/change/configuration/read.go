@@ -3,11 +3,8 @@
 package configuration
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/netip"
 	"slices"
 
@@ -22,19 +19,24 @@ const (
 )
 
 const (
-	listenAddress     item = "listenAddress"
-	appID             item = "appId"
-	appKeyFile        item = "appKeyFile"
-	webhookSecretFile item = "webhookSecretFile"
-	installationIDs   item = "installationIds"
-	families          item = "families"
+	listenAddressItem     item = "listenAddress"
+	appIDItem             item = "appId"
+	appKeyFileItem        item = "appKeyFile"
+	webhookSecretFileItem item = "webhookSecretFile"
+	installationIDsItem   item = "installationIds"
+	familiesItem          item = "families"
 )
 
+var items = []item{
+	listenAddressItem,
+	appIDItem,
+	appKeyFileItem,
+	webhookSecretFileItem,
+	installationIDsItem,
+	familiesItem,
+}
+
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
-
-var errTrailingContent = errors.New("content follows the configuration object")
-
-var items = []item{listenAddress, appID, appKeyFile, webhookSecretFile, installationIDs, families}
 
 type Configuration struct {
 	listenAddress   netip.AddrPort
@@ -45,23 +47,14 @@ type Configuration struct {
 	families        []domain.PolicyFamily
 }
 
-type statedConfiguration struct {
-	ListenAddress     string   `json:"listenAddress"`
-	AppID             *int64   `json:"appId"`
-	AppKeyFile        string   `json:"appKeyFile"`
-	WebhookSecretFile string   `json:"webhookSecretFile"`
-	InstallationIDs   []int64  `json:"installationIds"`
-	Families          []string `json:"families"`
-}
-
 func Read(path string) (Configuration, error) {
 	content, err := boundedContentOf(path, MaxFileBytes)
 	if err != nil {
 		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
 	}
-	stated, err := statedConfigurationIn(content)
+	stated, err := statedItemsIn(content)
 	if err != nil {
-		return Configuration{}, err
+		return Configuration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
 	}
 	return stated.configuration()
 }
@@ -84,42 +77,23 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
 
-func statedConfigurationIn(content []byte) (statedConfiguration, error) {
-	if err := keysCheckedIn(content); err != nil {
-		return statedConfiguration{}, malformed(err)
-	}
-	decoding := json.NewDecoder(bytes.NewReader(content))
-	decoding.DisallowUnknownFields()
-	var stated statedConfiguration
-	if err := decoding.Decode(&stated); err != nil {
-		return statedConfiguration{}, malformed(err)
-	}
-	if _, err := decoding.Token(); !errors.Is(err, io.EOF) {
-		return statedConfiguration{}, malformed(errors.Join(errTrailingContent, err))
-	}
-	return stated, nil
-}
-
-func (stated statedConfiguration) configuration() (Configuration, error) {
-	address, addressErr := listenAddressIn(stated.ListenAddress)
-	app, appErr := appIDIn(stated.AppID)
-	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
-	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
-	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
-	policyFamilies, familiesErr := familiesIn(stated.Families)
-	if err := errors.Join(addressErr, appErr, keyErr, secretErr, installationsErr, familiesErr); err != nil {
-		return Configuration{}, err
+func (stated statedItems) configuration() (Configuration, error) {
+	address, addressErr := listenAddressIn(stated)
+	appID, appIDErr := appIDIn(stated)
+	appKey, appKeyErr := appKeyIn(stated)
+	webhookSecret, webhookSecretErr := webhookSecretIn(stated)
+	installationIDs, installationIDsErr := installationIDsIn(stated)
+	families, familiesErr := familiesIn(stated)
+	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr)
+	if refusals != nil {
+		return Configuration{}, refusals
 	}
 	return Configuration{
 		listenAddress:   address,
-		appID:           app,
-		appKey:          secretOf(key),
-		webhookSecret:   secret,
-		installationIDs: installations,
-		families:        policyFamilies,
+		appID:           appID,
+		appKey:          appKey,
+		webhookSecret:   webhookSecret,
+		installationIDs: installationIDs,
+		families:        families,
 	}, nil
-}
-
-func malformed(reason error) error {
-	return fmt.Errorf("%w: %w", ErrMalformedConfiguration, reason)
 }

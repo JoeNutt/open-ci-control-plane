@@ -2,12 +2,13 @@
 
 package configuration
 
-func appIDIn(stated *int64) (int64, error) {
-	if stated == nil {
-		return 0, appID.missing()
+func appIDIn(stated statedItems) (int64, error) {
+	appID, err := valueOf[int64](stated, appIDItem)
+	if err != nil {
+		return 0, err
 	}
-	if *stated < firstGitHubID {
-		return 0, appID.invalid(errNonPositiveID)
+	if appID < firstGitHubID {
+		return 0, appIDItem.invalid(errNonPositiveID)
 	}
-	return *stated, nil
+	return appID, nil
 }

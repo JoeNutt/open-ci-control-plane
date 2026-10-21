@@ -10,20 +10,24 @@ import (
 
 var errRepeatedFamily = errors.New("a policy family is named twice")
 
-func familiesIn(stated []string) ([]domain.PolicyFamily, error) {
-	if len(stated) == 0 {
-		return nil, families.missing()
+func familiesIn(stated statedItems) ([]domain.PolicyFamily, error) {
+	names, err := valueOf[[]string](stated, familiesItem)
+	if err != nil {
+		return nil, err
 	}
-	named := make([]domain.PolicyFamily, 0, len(stated))
-	for _, name := range stated {
+	if len(names) == 0 {
+		return nil, familiesItem.invalid(errEmptyList)
+	}
+	families := make([]domain.PolicyFamily, 0, len(names))
+	for _, name := range names {
 		family, err := domain.ParsePolicyFamily(name)
 		if err != nil {
-			return nil, families.invalid(err)
+			return nil, familiesItem.invalid(err)
 		}
-		named = append(named, family)
+		families = append(families, family)
 	}
-	if repeatsAnEntry(named) {
-		return nil, families.invalid(errRepeatedFamily)
+	if repeatsAnEntry(families) {
+		return nil, familiesItem.invalid(errRepeatedFamily)
 	}
-	return named, nil
+	return families, nil
 }

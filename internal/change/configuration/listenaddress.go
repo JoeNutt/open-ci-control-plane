@@ -13,19 +13,20 @@ var errOffLoopback = errors.New("the address is not a loopback address")
 
 var errUnchosenPort = errors.New("the address leaves its port to the operating system")
 
-func listenAddressIn(stated string) (netip.AddrPort, error) {
-	if stated == "" {
-		return netip.AddrPort{}, listenAddress.missing()
-	}
-	parsed, err := netip.ParseAddrPort(stated)
+func listenAddressIn(stated statedItems) (netip.AddrPort, error) {
+	text, err := valueOf[string](stated, listenAddressItem)
 	if err != nil {
-		return netip.AddrPort{}, listenAddress.invalid(err)
+		return netip.AddrPort{}, err
 	}
-	if !parsed.Addr().IsLoopback() {
-		return netip.AddrPort{}, listenAddress.invalid(errOffLoopback)
+	address, err := netip.ParseAddrPort(text)
+	if err != nil {
+		return netip.AddrPort{}, listenAddressItem.invalid(err)
 	}
-	if parsed.Port() == unchosenPort {
-		return netip.AddrPort{}, listenAddress.invalid(errUnchosenPort)
+	if !address.Addr().IsLoopback() {
+		return netip.AddrPort{}, listenAddressItem.invalid(errOffLoopback)
 	}
-	return parsed, nil
+	if address.Port() == unchosenPort {
+		return netip.AddrPort{}, listenAddressItem.invalid(errUnchosenPort)
+	}
+	return address, nil
 }
