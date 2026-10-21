@@ -32,14 +32,20 @@ func (useCase GateChange) Execute(
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
 		failures = append(failures,
-			useCase.record(posting, decided, id),
+			useCase.record(posting, decided, document, id),
 			useCase.publish(posting, locator, head, domain.CheckRunFor(decided, id)))
 	}
 	return errors.Join(failures...)
 }
 
-func (useCase GateChange) record(ctx context.Context, decided domain.FamilyDecision, id domain.DecisionID) error {
-	if err := useCase.Recorder.RecordDecision(ctx, domain.RecordFor(decided, id)); err != nil {
+func (useCase GateChange) record(
+	ctx context.Context, decided domain.FamilyDecision, document domain.Document, id domain.DecisionID,
+) error {
+	record, err := domain.RecordFor(decided, document, id)
+	if err != nil {
+		return fmt.Errorf("record %s: %w", decided.Family, err)
+	}
+	if err := useCase.Recorder.RecordDecision(ctx, record); err != nil {
 		return fmt.Errorf("record %s: %w", decided.Family, err)
 	}
 	return nil

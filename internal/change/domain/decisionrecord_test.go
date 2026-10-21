@@ -41,7 +41,11 @@ func TestARecordOfAFaultPublishesNoRevisionRatherThanAnEmptyOne(t *testing.T) {
 		t.Fatalf("parse decision id: %v", err)
 	}
 
-	encoded, err := json.Marshal(domain.RecordFor(faulted, id))
+	record, err := domain.RecordFor(faulted, domain.Document{}, id)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	encoded, err := json.Marshal(record)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -87,7 +91,11 @@ func encodedRecordOf(t *testing.T, decided domain.FamilyDecision) []byte {
 	if err != nil {
 		t.Fatalf("parse decision id: %v", err)
 	}
-	encoded, err := json.Marshal(domain.RecordFor(decided, id))
+	record, err := domain.RecordFor(decided, domain.Document{}, id)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	encoded, err := json.Marshal(record)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

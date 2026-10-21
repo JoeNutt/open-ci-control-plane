@@ -12,10 +12,15 @@ var ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decis
 type DecisionRecord struct {
 	decisionID DecisionID
 	revision   BundleRevision
+	masked     MaskedInput
 }
 
-func RecordFor(decided FamilyDecision, id DecisionID) DecisionRecord {
-	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision()}
+func RecordFor(decided FamilyDecision, document Document, id DecisionID) (DecisionRecord, error) {
+	masked, err := MaskedInputOf(document)
+	if err != nil {
+		return DecisionRecord{}, err
+	}
+	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision(), masked: masked}, nil
 }
 
 func (record DecisionRecord) MarshalJSON() ([]byte, error) {
@@ -23,14 +28,18 @@ func (record DecisionRecord) MarshalJSON() ([]byte, error) {
 		return nil, ErrUnidentifiedDecisionRecord
 	}
 	return json.Marshal(publishedRecord{
-		DecisionID:     record.decisionID.String(),
-		BundleRevision: publishedRevisionOf(record.revision),
+		DecisionID:       record.decisionID.String(),
+		BundleRevision:   publishedRevisionOf(record.revision),
+		MaskedInput:      record.masked,
+		RedactedPointers: record.masked.RedactedPointers(),
 	})
 }
 
 type publishedRecord struct {
-	DecisionID     string  `json:"decisionId"`
-	BundleRevision *string `json:"bundleRevision,omitempty"`
+	DecisionID       string      `json:"decisionId"`
+	BundleRevision   *string     `json:"bundleRevision,omitempty"`
+	MaskedInput      MaskedInput `json:"maskedInput"`
+	RedactedPointers []string    `json:"redactedPointers"`
 }
 
 func publishedRevisionOf(revision BundleRevision) *string {
