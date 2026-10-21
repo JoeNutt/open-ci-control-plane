@@ -24,9 +24,7 @@ import (
 func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	delivery.Header.Set("X-GitHub-Delivery", statedDeliveryID)
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	answered := answerTo(t, delivery)
 
 	if answered.Code != http.StatusBadRequest {
 		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -39,9 +37,7 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	delivery.Header.Set("X-GitHub-Event", statedEvent)
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	answered := answerTo(t, delivery)
 
 	if answered.Code != http.StatusBadRequest {
 		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -52,9 +48,7 @@ func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 }
 
 func TestADeliveryWithoutEitherHeaderIsAnsweredWithOneRefusal(t *testing.T) {
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, eventDelivery(`{}`))
+	answered := answerTo(t, eventDelivery(`{}`))
 
 	decoding := json.NewDecoder(answered.Body)
 	var first, second map[string]string
@@ -79,9 +73,8 @@ func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
 		t.Run(form, func(t *testing.T) {
 			delivery := headedDelivery(strings.NewReader(`{}`))
 			delivery.Header.Set(stated.header, stated.value)
-			answered := httptest.NewRecorder()
 
-			routed(t, discardedLog()).ServeHTTP(answered, delivery)
+			answered := answerTo(t, delivery)
 
 			if answered.Code != http.StatusBadRequest {
 				t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -97,9 +90,7 @@ func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	unread := &untouchedBody{}
 	delivery := headedDelivery(unread)
 	delivery.ContentLength = ingest.MaxDeliveryBytes + 1
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	answered := answerTo(t, delivery)
 
 	if answered.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
@@ -112,14 +103,22 @@ func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	}
 }
 
+func TestADeliveryDeclaringExactlyTheBoundIsReadAndChecked(t *testing.T) {
+	delivery := headedDelivery(strings.NewReader(strings.Repeat(" ", ingest.MaxDeliveryBytes)))
+	answered := answerTo(t, delivery)
+
+	if answered.Code != http.StatusUnauthorized {
+		t.Errorf("status is %d, want %d: a body at the bound was not read and checked",
+			answered.Code, http.StatusUnauthorized)
+	}
+}
+
 func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 	unread := &untouchedBody{}
 	delivery := headedDelivery(unread)
 	delivery.ContentLength = -1
 	delivery.TransferEncoding = []string{"chunked"}
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	answered := answerTo(t, delivery)
 
 	if answered.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
@@ -133,9 +132,7 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 }
 
 func TestAnUnsignedDeliveryIsRefusedWithoutDetail(t *testing.T) {
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, headedDelivery(strings.NewReader(`{}`)))
+	answered := answerTo(t, headedDelivery(strings.NewReader(`{}`)))
 
 	if answered.Code != http.StatusUnauthorized {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
@@ -148,9 +145,7 @@ func TestAnUnsignedDeliveryIsRefusedWithoutDetail(t *testing.T) {
 func TestACorrectlySignedDeliveryIsAdmitted(t *testing.T) {
 	delivery := headedDelivery(strings.NewReader(`{}`))
 	delivery.Header.Set("X-Hub-Signature-256", signatureOf(`{}`))
-	answered := httptest.NewRecorder()
-
-	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	answered := answerTo(t, delivery)
 
 	if answered.Code == http.StatusUnauthorized {
 		t.Error("a correctly signed delivery was refused")
@@ -175,13 +170,6 @@ func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
 	}
 }
 
-type untouchedBody struct{ isRead bool }
-
-func (body *untouchedBody) Read([]byte) (int, error) {
-	body.isRead = true
-	return 0, io.EOF
-}
-
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer
@@ -202,6 +190,13 @@ func (hungUpForge) Header() http.Header { return http.Header{} }
 func (hungUpForge) Write([]byte) (int, error) { return 0, errHungUp }
 
 func (hungUpForge) WriteHeader(int) {}
+
+type untouchedBody struct{ isRead bool }
+
+func (body *untouchedBody) Read([]byte) (int, error) {
+	body.isRead = true
+	return 0, io.EOF
+}
 
 const (
 	eventsPath       = "/v1/forge/github/events"
@@ -229,6 +224,13 @@ func routed(t *testing.T, log *slog.Logger) http.Handler {
 		t.Fatal(err)
 	}
 	return routes
+}
+
+func answerTo(t *testing.T, delivery *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
+	answered := httptest.NewRecorder()
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+	return answered
 }
 
 func signatureOf(body string) string {
