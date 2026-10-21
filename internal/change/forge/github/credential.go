@@ -27,6 +27,8 @@ func (credential Credential) authorization(context.Context) (Credential, error) 
 
 func (Credential) Format(state fmt.State, _ rune) { writeRedactionMarker(state) }
 
+func (Credential) MarshalJSON() ([]byte, error) { return []byte(`"[redacted]"`), nil }
+
 func writeRedactionMarker(state fmt.State) {
 	_, _ = fmt.Fprint(state, redactionMarker)
 }
