@@ -42,6 +42,16 @@ func TestThePublishedCatalogSchemaRefusesEveryCatalogRefusedByItsShape(t *testin
 	}
 }
 
+func TestThePublishedBindingSchemaRefusesEveryBindingRefusedByItsShape(t *testing.T) {
+	for form, refusal := range bindingsRefusedByTheirShape(t) {
+		t.Run(form, func(t *testing.T) {
+			if faults := schemaFaultsOf(t, refusal.written, bindingSchemaPath); len(faults) == 0 {
+				t.Errorf("a binding with %s matches %s", form, bindingSchemaPath)
+			}
+		})
+	}
+}
+
 func schemaFaultsOf(t *testing.T, written, schemaPath string) []string {
 	t.Helper()
 
