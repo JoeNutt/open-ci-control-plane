@@ -3,6 +3,7 @@
 package ingest_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -141,14 +142,34 @@ func TestActionsTokensRefuseATokenOverTheBoundBeforeParsingIt(t *testing.T) {
 	}
 }
 
-func TestActionsTokensRefuseAKeySetOverTheBound(t *testing.T) {
-	issuer := newIssuer(t)
-	issuer.publish([]byte(`{"keys":[],"padding":"` + strings.Repeat("a", ingest.MaxIssuerDocumentBytes) + `"}`))
+func TestActionsTokensRefuseAnIssuerTheyCannotRead(t *testing.T) {
+	notJSON := []byte("<html>")
+	for name, misanswering := range map[string]func(*issuer){
+		"configuration over the bound": func(minted *issuer) {
+			minted.answer(discoveryPath, http.StatusOK, padded(minted.discovery()))
+		},
+		"configuration refused": func(minted *issuer) {
+			minted.answer(discoveryPath, http.StatusServiceUnavailable, minted.discovery())
+		},
+		"configuration not JSON": func(minted *issuer) { minted.answer(discoveryPath, http.StatusOK, notJSON) },
+		"key set over the bound": func(minted *issuer) {
+			minted.answer(keySetPath, http.StatusOK, padded(minted.publishedKeys()))
+		},
+		"key set refused": func(minted *issuer) {
+			minted.answer(keySetPath, http.StatusServiceUnavailable, minted.publishedKeys())
+		},
+		"key set not a key set": func(minted *issuer) { minted.answer(keySetPath, http.StatusOK, notJSON) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			issuer := newIssuer(t)
+			misanswering(issuer)
 
-	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
 
-	if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
-		t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
+			if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
+				t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
+			}
+		})
 	}
 }
 
@@ -228,7 +249,12 @@ type issuer struct {
 	signingKey    jwk.Key
 	keySetFetches atomic.Int64
 	instant       time.Time
-	published     []byte
+	misanswers    map[string]misanswer
+}
+
+type misanswer struct {
+	status int
+	body   []byte
 }
 
 type discoveryDocument struct {
@@ -239,7 +265,8 @@ type discoveryDocument struct {
 func newIssuer(t *testing.T) *issuer {
 	t.Helper()
 
-	minted := &issuer{t: t, signingKey: newSigningKey(t, signingKeyID), instant: issuedAt}
+	minted := &issuer{
+		t: t, signingKey: newSigningKey(t, signingKeyID), instant: issuedAt, misanswers: map[string]misanswer{}}
 	minted.server = httptest.NewTLSServer(http.HandlerFunc(minted.serve))
 	t.Cleanup(minted.server.Close)
 	return minted
@@ -254,10 +281,15 @@ func (minted *issuer) rotate(t *testing.T, keyID string) {
 	minted.signingKey = rotated
 }
 
-func (minted *issuer) publish(keySet []byte) {
+func (minted *issuer) answer(path string, status int, body []byte) {
 	minted.guard.Lock()
 	defer minted.guard.Unlock()
-	minted.published = keySet
+	minted.misanswers[path] = misanswer{status: status, body: body}
+}
+
+func padded(document []byte) []byte {
+	padding := `,"padding":"` + strings.Repeat("a", ingest.MaxIssuerDocumentBytes) + `"}`
+	return append(bytes.TrimSuffix(document, []byte("}")), padding...)
 }
 
 func (minted *issuer) advance(elapsed time.Duration) {
@@ -279,15 +311,29 @@ func (minted *issuer) currentKey() jwk.Key {
 }
 
 func (minted *issuer) serve(answer http.ResponseWriter, asked *http.Request) {
+	if asked.URL.Path == keySetPath {
+		minted.keySetFetches.Add(1)
+	}
+	if wrong, isMisanswered := minted.misanswerFor(asked.URL.Path); isMisanswered {
+		answer.WriteHeader(wrong.status)
+		minted.write(answer, wrong.body)
+		return
+	}
 	switch asked.URL.Path {
 	case discoveryPath:
 		minted.write(answer, minted.discovery())
 	case keySetPath:
-		minted.keySetFetches.Add(1)
 		minted.write(answer, minted.publishedKeys())
 	default:
 		answer.WriteHeader(http.StatusNotFound)
 	}
+}
+
+func (minted *issuer) misanswerFor(path string) (misanswer, bool) {
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
+	wrong, isMisanswered := minted.misanswers[path]
+	return wrong, isMisanswered
 }
 
 func (minted *issuer) discovery() []byte {
@@ -299,12 +345,6 @@ func (minted *issuer) discovery() []byte {
 }
 
 func (minted *issuer) publishedKeys() []byte {
-	minted.guard.Lock()
-	replacement := minted.published
-	minted.guard.Unlock()
-	if replacement != nil {
-		return replacement
-	}
 	public, err := jwk.PublicKeyOf(minted.currentKey())
 	if err != nil {
 		minted.t.Errorf("derive public key: %v", err)
