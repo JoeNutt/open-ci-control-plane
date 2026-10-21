@@ -29,6 +29,7 @@ func DeclaredLimits() Limits {
 		MaxPathBytes:         4096,
 		MaxPathSegments:      20,
 		MaxSourceBytes:       1 << 20,
+		MaxImportsPerFile:    2000,
 	}
 }
 
