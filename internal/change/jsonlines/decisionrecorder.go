@@ -12,15 +12,11 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var ErrNoRecordOutput = errors.New("decision recorder has nowhere to write")
+
 type DecisionRecorder struct {
 	output io.Writer
 }
-
-func NewDecisionRecorder(output io.Writer) DecisionRecorder {
-	return DecisionRecorder{output: output}
-}
-
-var ErrNoRecordOutput = errors.New("decision recorder has nowhere to write")
 
 func ParseDecisionRecorder(output io.Writer) (DecisionRecorder, error) {
 	if output == nil {

@@ -30,9 +30,7 @@ func TestARecorderWithNowhereToWriteIsRefused(t *testing.T) {
 
 func TestARecordedDecisionIsWrittenAsExactlyOneJSONLine(t *testing.T) {
 	var written bytes.Buffer
-	recorder := jsonlines.NewDecisionRecorder(&written)
-
-	if err := recorder.RecordDecision(context.Background(), recordOf(t)); err != nil {
+	if err := recorderWritingTo(t, &written).RecordDecision(context.Background(), recordOf(t)); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
@@ -65,7 +63,7 @@ func TestASensitiveValueReachesNoWrittenLineAndItsPointerIsListedAsRedacted(t *t
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	if err := jsonlines.NewDecisionRecorder(&written).RecordDecision(context.Background(), record); err != nil {
+	if err := recorderWritingTo(t, &written).RecordDecision(context.Background(), record); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -85,6 +83,15 @@ func TestASensitiveValueReachesNoWrittenLineAndItsPointerIsListedAsRedacted(t *t
 	if !slices.Contains(published.RedactedPointers, sensitivePointer) {
 		t.Errorf("redactedPointers is %q, want it to list %s", published.RedactedPointers, sensitivePointer)
 	}
+}
+
+func recorderWritingTo(t *testing.T, output *bytes.Buffer) jsonlines.DecisionRecorder {
+	t.Helper()
+	recorder, err := jsonlines.ParseDecisionRecorder(output)
+	if err != nil {
+		t.Fatalf("parse recorder: %v", err)
+	}
+	return recorder
 }
 
 func recordOf(t *testing.T) domain.DecisionRecord {
