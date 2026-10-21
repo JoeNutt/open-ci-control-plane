@@ -13,7 +13,7 @@ import (
 func TestParseStructuralFactsRefusesOneImportOverTheChangeLimit(t *testing.T) {
 	limits := domain.DeclaredLimits()
 
-	_, err := domain.ParseStructuralFacts(filesDeclaring(t, limits.MaxImportsPerChange+1), limits)
+	_, err := domain.ParseStructuralFacts(filesKeeping(t, limits.MaxImportsPerChange+1), limits)
 
 	if !errors.Is(err, domain.ErrTooManyImportsInChange) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyImportsInChange)
@@ -22,7 +22,7 @@ func TestParseStructuralFactsRefusesOneImportOverTheChangeLimit(t *testing.T) {
 
 func TestParseStructuralFactsPublishesEveryImportOfAChangeAtTheLimit(t *testing.T) {
 	limits := domain.DeclaredLimits()
-	imported := filesDeclaring(t, limits.MaxImportsPerChange)
+	imported := filesKeeping(t, limits.MaxImportsPerChange)
 
 	facts, err := domain.ParseStructuralFacts(imported, limits)
 
@@ -36,6 +36,16 @@ func TestParseStructuralFactsPublishesEveryImportOfAChangeAtTheLimit(t *testing.
 	}
 	if published != limits.MaxImportsPerChange {
 		t.Fatalf("published %d imports, want %d", published, limits.MaxImportsPerChange)
+	}
+}
+
+func TestParseStructuralFactsRefusesOneEdgeOverTheDeltaLimit(t *testing.T) {
+	limits := domain.DeclaredLimits()
+
+	_, err := domain.ParseStructuralFacts(filesAdding(t, limits.MaxGraphEdges+1), limits)
+
+	if !errors.Is(err, domain.ErrTooManyEdges) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyEdges)
 	}
 }
 
@@ -57,21 +67,42 @@ func changedFilesOf(imported []domain.ImportedFile) []domain.File {
 	return files
 }
 
-func filesDeclaring(t *testing.T, total int) []domain.ImportedFile {
+func filesKeeping(t *testing.T, total int) []domain.ImportedFile {
 	t.Helper()
 
-	perFile := domain.DeclaredLimits().MaxImportsPerFile
 	var imported []domain.ImportedFile
+	for index, declared := range importPathsInFilesOf(total) {
+		file := domain.File{Path: generatedPath(index), Action: domain.FileActionModified}
+		kept := fileImportsOf(t, declared...)
+		imported = append(imported, domain.ImportedFile{File: file, Base: kept, Head: kept})
+	}
+	return imported
+}
+
+func filesAdding(t *testing.T, total int) []domain.ImportedFile {
+	t.Helper()
+
+	var imported []domain.ImportedFile
+	for index, declared := range importPathsInFilesOf(total) {
+		file := domain.File{Path: generatedPath(index), Action: domain.FileActionAdded}
+		imported = append(imported, domain.ImportedFile{File: file, Head: fileImportsOf(t, declared...)})
+	}
+	return imported
+}
+
+func importPathsInFilesOf(total int) [][]string {
+	perFile := domain.DeclaredLimits().MaxImportsPerFile
+	var files [][]string
 	for first := 0; first < total; first += perFile {
-		file := domain.File{
-			Path:   fmt.Sprintf("internal/generated/file%d.go", first/perFile),
-			Action: domain.FileActionAdded,
-		}
 		declared := make([]string, 0, perFile)
 		for index := first; index < min(first+perFile, total); index++ {
 			declared = append(declared, fmt.Sprintf("example.com/module/package%d", index))
 		}
-		imported = append(imported, domain.ImportedFile{File: file, Head: fileImportsOf(t, declared...)})
+		files = append(files, declared)
 	}
-	return imported
+	return files
+}
+
+func generatedPath(index int) string {
+	return fmt.Sprintf("internal/generated/file%d.go", index)
 }
