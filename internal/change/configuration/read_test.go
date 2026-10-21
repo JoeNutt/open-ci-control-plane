@@ -42,15 +42,15 @@ func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 }
 
 func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
-	secretFile := writtenFile(t, "s3cret")
+	stated := completeItems(t)
 
-	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile, AppKeyFile: writtenFile(t, "key")}))
+	configured, err := configuration.Read(configurationFile(t, stated))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 
-	if configured.WebhookSecret() != domain.WebhookSecret("s3cret") {
-		t.Errorf("the webhook secret is not the content of %s", secretFile)
+	if configured.WebhookSecret() != statedWebhookSecret {
+		t.Errorf("the webhook secret is not the content of %s", stated.WebhookSecretFile)
 	}
 }
 
@@ -73,12 +73,15 @@ func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
 }
 
 func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
-	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "s3cret\n"), AppKeyFile: writtenFile(t, "key")}))
+	stated := completeItems(t)
+	stated.WebhookSecretFile = writtenFile(t, string(statedWebhookSecret)+"\n")
+
+	configured, err := configuration.Read(configurationFile(t, stated))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 
-	if configured.WebhookSecret() != domain.WebhookSecret("s3cret") {
+	if configured.WebhookSecret() != statedWebhookSecret {
 		t.Error("the trailing line break was taken as part of the webhook secret")
 	}
 }
@@ -97,6 +100,16 @@ func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) 
 				t.Fatalf("refusal is not an invalid webhookSecretFile: %v", err)
 			}
 		})
+	}
+}
+
+const statedWebhookSecret = domain.WebhookSecret("s3cret")
+
+func completeItems(t *testing.T) statedItems {
+	t.Helper()
+	return statedItems{
+		WebhookSecretFile: writtenFile(t, string(statedWebhookSecret)),
+		AppKeyFile:        writtenFile(t, "key"),
 	}
 }
 

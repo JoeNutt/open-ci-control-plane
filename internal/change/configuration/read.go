@@ -18,7 +18,10 @@ const (
 	MaxSecretFileBytes = 4 << 10
 )
 
-const webhookSecretFile item = "webhookSecretFile"
+const (
+	webhookSecretFile item = "webhookSecretFile"
+	appKeyFile        item = "appKeyFile"
+)
 
 const (
 	textFileEnd         = "\n"
@@ -68,15 +71,18 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 }
 
 func (stated statedConfiguration) configuration() (Configuration, error) {
-	secret, err := webhookSecretIn(stated.WebhookSecretFile)
-	var keyErr error
-	if stated.AppKeyFile == "" {
-		keyErr = fmt.Errorf("%w: appKeyFile", ErrMissingItem)
-	}
-	if err := errors.Join(err, keyErr); err != nil {
+	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
+	if err := errors.Join(secretErr, appKeyIn(stated.AppKeyFile)); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{webhookSecret: secret}, nil
+}
+
+func appKeyIn(path string) error {
+	if path == "" {
+		return appKeyFile.missing()
+	}
+	return nil
 }
 
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {
