@@ -76,31 +76,17 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 
 func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
-	key, keyErr := appKeyIn(stated.AppKeyFile)
+	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	if err := errors.Join(secretErr, keyErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{webhookSecret: secret, appKey: key}, nil
 }
 
-func appKeyIn(path string) ([]byte, error) {
-	if path == "" {
-		return nil, appKeyFile.missing()
-	}
-	key, err := boundedContentOf(path, MaxAppKeyFileBytes)
-	if err != nil {
-		return nil, appKeyFile.invalid(err)
-	}
-	return key, nil
-}
-
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {
-	if path == "" {
-		return "", webhookSecretFile.missing()
-	}
-	content, err := boundedContentOf(path, MaxSecretFileBytes)
+	content, err := webhookSecretFile.contentAt(path, MaxSecretFileBytes)
 	if err != nil {
-		return "", webhookSecretFile.invalid(err)
+		return "", err
 	}
 	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
 	if len(secret) == 0 {

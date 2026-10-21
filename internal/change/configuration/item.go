@@ -20,3 +20,14 @@ func (absent item) missing() error {
 func (refused item) invalid(reason error) error {
 	return fmt.Errorf("%w: %s: %w", ErrInvalidItem, refused, reason)
 }
+
+func (named item) contentAt(path string, maxBytes int) ([]byte, error) {
+	if path == "" {
+		return nil, named.missing()
+	}
+	content, err := boundedContentOf(path, maxBytes)
+	if err != nil {
+		return nil, named.invalid(err)
+	}
+	return content, nil
+}
