@@ -66,6 +66,25 @@ func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 	}
 }
 
+func TestParseActionsTokensRefusesAnIssuerOrAudienceThatIsNotAnHTTPSURL(t *testing.T) {
+	for form, malformed := range map[string]ingest.ActionsTokenSettings{
+		"plain-text issuer":   {Issuer: "http://token.actions.githubusercontent.com", Audience: instanceURL},
+		"issuer with no host": {Issuer: "https://", Audience: instanceURL},
+		"plain-text audience": {Issuer: "https://token.actions.githubusercontent.com", Audience: "http://control-plane.example"},
+		"audience not a URL":  {Issuer: "https://token.actions.githubusercontent.com", Audience: "control-plane"},
+	} {
+		t.Run(form, func(t *testing.T) {
+			malformed.Client, malformed.Now = &http.Client{}, time.Now
+
+			_, err := ingest.ParseActionsTokens(malformed)
+
+			if !errors.Is(err, ingest.ErrMalformedActionsTokens) {
+				t.Fatalf("want ErrMalformedActionsTokens, got %v", err)
+			}
+		})
+	}
+}
+
 func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)

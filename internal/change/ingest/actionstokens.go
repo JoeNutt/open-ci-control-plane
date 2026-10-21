@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -22,6 +23,8 @@ const (
 )
 
 var ErrIncompleteActionsTokens = errors.New("token verification is missing a part it cannot work without")
+
+var ErrMalformedActionsTokens = errors.New("token verification settings name no https issuer or audience")
 
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
@@ -67,6 +70,12 @@ type ActionsTokens struct {
 func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 	if err := incompletenessOf(settings); err != nil {
 		return nil, err
+	}
+	for _, stated := range []string{settings.Issuer, settings.Audience} {
+		parsed, err := url.Parse(stated)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			return nil, ErrMalformedActionsTokens
+		}
 	}
 	return &ActionsTokens{
 		issuer:   settings.Issuer,
