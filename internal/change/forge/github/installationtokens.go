@@ -15,7 +15,7 @@ var ErrNoSuchInstallation = errors.New("the forge found no App installation with
 
 var ErrIncompleteGrant = errors.New("the forge granted an installation token with no token or no expiry")
 
-var ErrExpiredGrant = errors.New("expired")
+var ErrExpiredGrant = errors.New("the forge granted an installation token already past its expiry")
 
 type Installation struct {
 	Key   AppKey
@@ -51,21 +51,19 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 	tokens.mutex.Lock()
 	defer tokens.mutex.Unlock()
 
-	if tokens.held.isUsableAt(tokens.clock()) {
+	now := tokens.clock()
+	if tokens.held.isUsableAt(now) {
 		return tokens.held.credential, nil
 	}
-	minted, err := tokens.exchanged(ctx)
+	minted, err := tokens.exchangedAt(ctx, now)
 	if err != nil {
 		return Credential{}, err
-	}
-	if !minted.expiresAt.After(tokens.clock()) {
-		return Credential{}, ErrExpiredGrant
 	}
 	tokens.held = minted
 	return minted.credential, nil
 }
 
-func (tokens *InstallationTokens) exchanged(ctx context.Context) (installationToken, error) {
+func (tokens *InstallationTokens) exchangedAt(ctx context.Context, now time.Time) (installationToken, error) {
 	granted, err := exchanged[accessTokenGrant](ctx, tokens.asApp, exchange{
 		method:    http.MethodPost,
 		endpoint:  tokens.accessTokensEndpoint(),
@@ -76,7 +74,7 @@ func (tokens *InstallationTokens) exchanged(ctx context.Context) (installationTo
 	if err != nil {
 		return installationToken{}, fmt.Errorf("exchange the App JWT for an installation token: %w", err)
 	}
-	return parseGrant(granted)
+	return parseGrantAt(granted, now)
 }
 
 func (tokens *InstallationTokens) accessTokensEndpoint() string {
@@ -118,9 +116,13 @@ type installationToken struct {
 	expiresAt  time.Time
 }
 
-func parseGrant(granted accessTokenGrant) (installationToken, error) {
+func parseGrantAt(granted accessTokenGrant, now time.Time) (installationToken, error) {
 	if granted.Token == "" || granted.ExpiresAt.IsZero() {
 		return installationToken{}, ErrIncompleteGrant
+	}
+	if !granted.ExpiresAt.After(now) {
+		return installationToken{}, fmt.Errorf("%w: expired at %s, now %s",
+			ErrExpiredGrant, granted.ExpiresAt.Format(time.RFC3339), now.Format(time.RFC3339))
 	}
 	return installationToken{credential: NewCredential(granted.Token), expiresAt: granted.ExpiresAt}, nil
 }
