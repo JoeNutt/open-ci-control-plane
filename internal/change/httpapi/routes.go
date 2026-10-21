@@ -13,12 +13,18 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
-func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []int64) (http.Handler, error) {
-	refusing := problems{log: log}
+type Settings struct {
+	Log           *slog.Logger
+	Secret        domain.WebhookSecret
+	Installations []int64
+}
+
+func ParseRoutes(settings Settings) (http.Handler, error) {
+	refusing := problems{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{allowed: allowlist(slices.Clone(installations)), refusing: refusing},
-		Secret:   secret,
-		Refusals: refusals{log: log},
+		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing},
+		Secret:   settings.Secret,
+		Refusals: refusals{log: settings.Log},
 	})
 	if err != nil {
 		return nil, err

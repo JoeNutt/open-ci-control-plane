@@ -258,7 +258,11 @@ const (
 
 func routed(t *testing.T, log *slog.Logger) http.Handler {
 	t.Helper()
-	routes, err := httpapi.ParseRoutes(log, domain.WebhookSecret(webhookSecret), []int64{allowlistedInstallation})
+	routes, err := httpapi.ParseRoutes(httpapi.Settings{
+		Log:           log,
+		Secret:        domain.WebhookSecret(webhookSecret),
+		Installations: []int64{allowlistedInstallation},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
