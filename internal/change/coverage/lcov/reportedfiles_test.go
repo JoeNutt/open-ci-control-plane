@@ -83,6 +83,27 @@ func TestReportedFilesInRefusesARecordOutOfOrder(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInRefusesAMalformedLine(t *testing.T) {
+	refused := map[string]string{
+		"an unknown tag":                  "XX:1",
+		"line data with no count":         "DA:7",
+		"line data with a word for count": "DA:7,many",
+		"line data with a negative count": "DA:7,-1",
+	}
+
+	for form, line := range refused {
+		t.Run(form, func(t *testing.T) {
+			artifact := "SF:internal/change/domain/effect.go\n" + line + "\nend_of_record\n"
+
+			_, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+
+			if !errors.Is(err, lcov.ErrMalformedArtifact) {
+				t.Fatalf("want ErrMalformedArtifact, got %v", err)
+			}
+		})
+	}
+}
+
 func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
 	t.Helper()
 

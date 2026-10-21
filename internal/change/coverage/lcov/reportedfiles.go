@@ -95,7 +95,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 		return errUnreadableLineData
 	}
 	executions, err := strconv.Atoi(fields[executionCountSlot])
-	if err != nil {
+	if err != nil || executions < 0 {
 		return errUnreadableLineData
 	}
 	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
