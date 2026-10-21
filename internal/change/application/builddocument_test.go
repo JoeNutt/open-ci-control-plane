@@ -265,3 +265,26 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 		t.Fatalf("a document was returned beside the refusal: %+v", document.Diff.Imports)
 	}
 }
+
+func TestBuildDocumentAdmitsAGoFileImportingAPathWithAPlusAndPublishesItsEdges(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
+	useCase := application.BuildDocument{
+		Source:    changeSourceOver(locator, file),
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, "package auth\n\nimport \"example.com/c++\"\n"),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.Declared[domain.ModuleEdge]{{From: file.Path, To: "example.com/c++"}}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta.EdgesAdded, want) {
+		t.Fatalf("edges added are %+v, want %+v",
+			document.Diff.ModuleGraphDelta.EdgesAdded, want)
+	}
+}
