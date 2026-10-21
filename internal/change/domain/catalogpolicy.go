@@ -27,8 +27,8 @@ func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
 	if err != nil {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy: %w", err)
 	}
-	if stated.Rule != DirectionRule {
-		return CatalogPolicy{}, ErrUnknownPolicyRule
+	if !stated.Rule.isShipped() {
+		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w: %d", name, ErrUnknownPolicyRule, stated.Rule)
 	}
 	groups, err := policyGroupsOf(stated.Groups)
 	if err != nil {
