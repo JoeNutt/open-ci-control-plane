@@ -86,7 +86,11 @@ func appKeyIn(path string) ([]byte, error) {
 	if path == "" {
 		return nil, appKeyFile.missing()
 	}
-	return os.ReadFile(path)
+	key, err := os.ReadFile(path)
+	if err != nil {
+		return nil, appKeyFile.invalid(err)
+	}
+	return key, nil
 }
 
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {
