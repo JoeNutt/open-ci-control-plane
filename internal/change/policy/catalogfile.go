@@ -4,18 +4,12 @@ package policy
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"slices"
 
 	"go.yaml.in/yaml/v3"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
-
-var ErrMalformedPolicyFile = errors.New("policy file is not YAML of the declared shape")
-
-var ErrAliasOrAnchor = errors.New("policy file contains a YAML alias or anchor")
 
 var policyRuleByWord = map[string]domain.PolicyRule{
 	"direction": domain.DirectionRule,
@@ -59,12 +53,8 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func decodedCatalog(content []byte) (catalogDocument, error) {
-	var root yaml.Node
-	if err := yaml.Unmarshal(content, &root); err != nil {
-		return catalogDocument{}, ErrMalformedPolicyFile
-	}
-	if containsAliasOrAnchor(&root) {
-		return catalogDocument{}, ErrAliasOrAnchor
+	if err := refuseAliasOrAnchor(content); err != nil {
+		return catalogDocument{}, err
 	}
 	var document catalogDocument
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
@@ -73,13 +63,6 @@ func decodedCatalog(content []byte) (catalogDocument, error) {
 		return catalogDocument{}, ErrMalformedPolicyFile
 	}
 	return document, nil
-}
-
-func containsAliasOrAnchor(node *yaml.Node) bool {
-	if node.Kind == yaml.AliasNode || node.Anchor != "" {
-		return true
-	}
-	return slices.ContainsFunc(node.Content, containsAliasOrAnchor)
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
