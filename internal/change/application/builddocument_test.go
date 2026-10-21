@@ -15,6 +15,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
+const sourceThatDoesNotParse = "package auth\n\nimport (\n\t\"context\" unterminated\n)\n"
+
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
 
@@ -239,5 +241,27 @@ func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
 
 	if !errors.Is(err, domain.ErrTooManyEdges) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyEdges)
+	}
+}
+
+func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
+			sourceThatDoesNotParse),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, golang.ErrUnparsableSource) {
+		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
+	}
+	if !reflect.DeepEqual(document, domain.Document{}) {
+		t.Fatalf("a document was returned beside the refusal: %+v", document.Diff.Imports)
 	}
 }
