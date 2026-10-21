@@ -20,6 +20,8 @@ const (
 
 const webhookSecretFile item = "webhookSecretFile"
 
+const textFileEnd = "\n"
+
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
@@ -74,11 +76,11 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if err != nil {
 		return "", webhookSecretFile.invalid(err)
 	}
-	content = bytes.TrimSuffix(content, []byte("\n"))
-	if len(content) == 0 {
+	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
+	if len(secret) == 0 {
 		return "", webhookSecretFile.invalid(errEmptyFile)
 	}
-	return domain.WebhookSecret(content), nil
+	return domain.WebhookSecret(secret), nil
 }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
