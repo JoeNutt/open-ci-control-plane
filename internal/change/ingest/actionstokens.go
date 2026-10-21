@@ -33,6 +33,7 @@ var (
 	errExpired               = fmt.Errorf("%w: it has expired", ErrUnverifiedToken)
 	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", ErrUnverifiedToken)
 	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", ErrUnverifiedToken)
+	errNoRepository          = fmt.Errorf("%w: it names no repository", ErrUnverifiedToken)
 )
 
 type unverifiedReason struct {
@@ -84,7 +85,7 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	}
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
-		return domain.Repository{}, ErrUnverifiedToken
+		return domain.Repository{}, errNoRepository
 	}
 	return domain.ParseRepository(claimed)
 }

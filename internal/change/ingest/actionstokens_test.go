@@ -27,6 +27,7 @@ const (
 	discoveryPath      = "/.well-known/openid-configuration"
 	keySetPath         = "/.well-known/jwks"
 	tokenLifetime      = 5 * time.Minute
+	repositoryClaim    = "repository"
 )
 
 var issuedAt = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
@@ -56,7 +57,7 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		"no not-before":    issuer.signWithout(t, issuer.claims(governedRepository), jwt.NotBeforeKey),
 		"unpublished key":  issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, signingKeyID)),
 		"unsigned":         issuer.unsigned(t, issuer.claims(governedRepository)),
-		"no repository":    issuer.signWithout(t, issuer.claims(governedRepository), "repository"),
+		"no repository":    issuer.signWithout(t, issuer.claims(governedRepository), repositoryClaim),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), unverifiable)
@@ -151,7 +152,7 @@ func (minted *issuer) claims(repository string) *jwt.Builder {
 		Audience([]string{instanceURL}).
 		NotBefore(issuedAt.Add(-time.Minute)).
 		Expiration(issuedAt.Add(tokenLifetime)).
-		Claim("repository", repository)
+		Claim(repositoryClaim, repository)
 }
 
 func (minted *issuer) sign(t *testing.T, claims *jwt.Builder) string {
