@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package policy_test
+
+import (
+	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
+)
+
+const (
+	liveCatalogFile = "catalog/clean-architecture.yaml"
+	liveBindingFile = "bindings/JoeNutt/open-ci-control-plane.yaml"
+)
+
+func TestParseRevisionParsesTheLivePolicyRepository(t *testing.T) {
+	model, err := policy.ParseRevision(liveFiles(t))
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	if len(model.Catalog()) != 1 || len(model.Bindings()) != 1 {
+		t.Errorf("model holds %d catalog policies and %d bindings, want one of each",
+			len(model.Catalog()), len(model.Bindings()))
+	}
+}
+
+func liveFiles(t *testing.T) []domain.PolicyFile {
+	t.Helper()
+
+	return []domain.PolicyFile{
+		{Path: liveCatalogFile, Content: fixture(t, liveCatalogPath)},
+		{Path: liveBindingFile, Content: fixture(t, liveBindingPath)},
+	}
+}
