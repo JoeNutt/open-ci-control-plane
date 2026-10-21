@@ -30,10 +30,17 @@ func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
 	if len(files) > MaxPolicyFiles {
 		return BoundedPolicyFiles{}, fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, len(files), MaxPolicyFiles)
 	}
-	for _, file := range files {
-		if len(file.Content) > MaxPolicyFileBytes {
-			return BoundedPolicyFiles{}, ErrPolicyFileTooLarge
-		}
+	if breach := oversizedPolicyFileIn(files); breach != nil {
+		return BoundedPolicyFiles{}, breach
 	}
 	return BoundedPolicyFiles{files: slices.Clone(files)}, nil
+}
+
+func oversizedPolicyFileIn(files []PolicyFile) error {
+	oversized := slices.IndexFunc(files, func(file PolicyFile) bool { return len(file.Content) > MaxPolicyFileBytes })
+	if oversized < 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: file %d of %d holds %d bytes, exceeding %d",
+		ErrPolicyFileTooLarge, oversized+1, len(files), len(files[oversized].Content), MaxPolicyFileBytes)
 }
