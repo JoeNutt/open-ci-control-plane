@@ -19,7 +19,7 @@ func (useCase ReplaceCoverage) Execute(
 ) error {
 	known, err := useCase.Paths.KnownPathsOf(ctx, repository)
 	if err != nil {
-		return err
+		return fmt.Errorf("read the paths %s holds: %w", repository, err)
 	}
 	coverage, err := domain.ParseSuiteCoverage(reported, known)
 	if err != nil {
