@@ -20,37 +20,23 @@ type Installation struct {
 
 type InstallationTokens struct {
 	asApp        connection
-	installation int64
+	installation installationID
 }
 
-var ErrMalformedInstallationID = errors.New("bad installation id")
-
-var ErrNoAppKey = errors.New("no key")
-
-var ErrNoClock = errors.New("no clock")
-
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
-	if settings.AppID <= 0 {
-		return nil, ErrMalformedAppID
-	}
-	if installation.ID <= 0 {
-		return nil, ErrMalformedInstallationID
-	}
-	if installation.Key.key == nil {
-		return nil, ErrNoAppKey
-	}
-	if installation.Clock == nil {
-		return nil, ErrNoClock
-	}
-	asApp, err := parseConnection(settings, appJWTIssuer{
-		key:   installation.Key,
-		app:   appID(settings.AppID),
-		clock: installation.Clock,
-	})
+	issuer, err := parseAppJWTIssuer(settings, installation)
 	if err != nil {
 		return nil, err
 	}
-	return &InstallationTokens{asApp: asApp, installation: installation.ID}, nil
+	installed, err := parseInstallationID(installation.ID)
+	if err != nil {
+		return nil, err
+	}
+	asApp, err := parseConnection(settings, issuer)
+	if err != nil {
+		return nil, err
+	}
+	return &InstallationTokens{asApp: asApp, installation: installed}, nil
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
@@ -68,7 +54,7 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 }
 
 func (tokens *InstallationTokens) accessTokensEndpoint() string {
-	return fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation)
+	return fmt.Sprintf("/app/installations/%s/access_tokens", tokens.installation)
 }
 
 const (
