@@ -34,6 +34,12 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded,
 					Additions: 35, PatchBytes: 7280},
 			)}, domain.ClassificationRules{}),
+		"a change whose Go file declares imports at head": domain.ParseDocument(
+			domain.PullRequest{Number: 412, Repository: "acme/payments", HeadSHA: "9f1cabc"},
+			changeImporting(t, domain.File{
+				Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+				"context", "github.com/acme/payments/internal/session"),
+			domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {
@@ -42,6 +48,15 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				t.Errorf("%s", fault)
 			}
 		})
+	}
+}
+
+func changeImporting(t *testing.T, file domain.File, imports ...string) domain.Change {
+	t.Helper()
+
+	return domain.Change{
+		Files:    boundedFor(t, file),
+		Imported: []domain.ImportedFile{{File: file, Head: fileImportsOf(t, imports...)}},
 	}
 }
 
