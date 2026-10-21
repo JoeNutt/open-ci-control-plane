@@ -13,12 +13,7 @@ import (
 )
 
 func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "controlplane.json")
-	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
-		t.Fatalf("write the configuration: %v", err)
-	}
-
-	_, err := configuration.Read(path)
+	_, err := configuration.Read(writtenFile(t, `{}`))
 
 	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
 		t.Fatalf("refusal is not a missing webhookSecretFile: %v", err)
@@ -28,14 +23,19 @@ func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
+
+	_, err := configuration.Read(writtenFile(t, padded))
+
+	if !errors.Is(err, configuration.ErrOversizedFile) {
+		t.Fatalf("a %d-byte configuration was not refused as oversized: %v", len(padded), err)
+	}
+}
+
+func writtenFile(t *testing.T, content string) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "controlplane.json")
-	if err := os.WriteFile(path, []byte(padded), 0o600); err != nil {
-		t.Fatalf("write the configuration: %v", err)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
 	}
-
-	_, err := configuration.Read(path)
-
-	if err == nil {
-		t.Fatalf("a %d-byte configuration was read", len(padded))
-	}
+	return path
 }

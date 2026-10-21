@@ -18,6 +18,8 @@ var ErrMissingItem = errors.New("the configuration is missing a required item")
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
+var ErrOversizedFile = errors.New("the file exceeds its byte bound")
+
 type Configuration struct{}
 
 type statedConfiguration struct {
@@ -25,17 +27,9 @@ type statedConfiguration struct {
 }
 
 func Read(path string) (Configuration, error) {
-	file, err := os.Open(path)
+	content, err := boundedContentOf(path, MaxFileBytes)
 	if err != nil {
 		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
-	}
-	defer file.Close()
-	content, err := io.ReadAll(io.LimitReader(file, MaxFileBytes+1))
-	if err != nil {
-		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
-	}
-	if len(content) > MaxFileBytes {
-		return Configuration{}, errors.New("too big")
 	}
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
@@ -45,4 +39,19 @@ func Read(path string) (Configuration, error) {
 		return Configuration{}, fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
 	}
 	return Configuration{}, nil
+}
+
+func boundedContentOf(path string, maxBytes int) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	content, readErr := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
+	if err := errors.Join(readErr, file.Close()); err != nil {
+		return nil, err
+	}
+	if len(content) > maxBytes {
+		return nil, fmt.Errorf("%w: more than %d bytes", ErrOversizedFile, maxBytes)
+	}
+	return content, nil
 }
