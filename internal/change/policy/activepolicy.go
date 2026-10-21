@@ -50,3 +50,5 @@ type AcceptedRevision struct {
 }
 
 func (accepted AcceptedRevision) Revision() domain.CommitSHA { return accepted.revision }
+
+func (accepted AcceptedRevision) Model() domain.PolicyModel { return accepted.model }

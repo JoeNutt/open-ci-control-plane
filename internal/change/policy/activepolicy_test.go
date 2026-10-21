@@ -34,6 +34,18 @@ func TestActivePolicyAcceptsAValidCandidateAtItsCommit(t *testing.T) {
 	}
 }
 
+func TestActivePolicyServesTheModelParsedAtTheAcceptedCommit(t *testing.T) {
+	accepted, err := activeAtFirstCommit(t).Accepted()
+	if err != nil {
+		t.Fatalf("accepted revision: %v", err)
+	}
+
+	bindings := accepted.Model().Bindings()
+	if len(bindings) != 1 || bindings[0].Repository().String() != "JoeNutt/open-ci-control-plane" {
+		t.Errorf("accepted model binds %v, want the live binding for JoeNutt/open-ci-control-plane", bindings)
+	}
+}
+
 func TestActivePolicyKeepsThePreviousRevisionWhenACandidateIsRefused(t *testing.T) {
 	active := activeAtFirstCommit(t)
 	candidate := liveFiles(t)
