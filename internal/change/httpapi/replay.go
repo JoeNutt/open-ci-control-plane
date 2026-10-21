@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
+const replayWindow = 24 * time.Hour
+
 type heldAcceptance struct {
 	answered acceptance
 	heldAt   time.Time
+}
+
+func (held heldAcceptance) isLapsedAt(now time.Time) bool {
+	return !now.Before(held.heldAt.Add(replayWindow))
 }
 
 type acceptedDeliveries struct {
@@ -26,10 +32,10 @@ func (accepted *acceptedDeliveries) originalOf(received delivery) (acceptance, b
 	accepted.mutex.Lock()
 	defer accepted.mutex.Unlock()
 	original, isHeld := accepted.byID[received.id]
-	if isHeld && !accepted.clock().Before(original.heldAt.Add(24*time.Hour)) {
+	if !isHeld || original.isLapsedAt(accepted.clock()) {
 		return acceptance{}, false
 	}
-	return original.answered, isHeld
+	return original.answered, true
 }
 
 func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
