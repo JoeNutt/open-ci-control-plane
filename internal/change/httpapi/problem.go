@@ -4,6 +4,7 @@ package httpapi
 
 const (
 	eventHeader       = "X-GitHub-Event"
+	deliveryHeader    = "X-GitHub-Delivery"
 	contentTypeHeader = "Content-Type"
 	jsonMediaType     = "application/json"
 	unwrittenAnswer   = "the answer to a delivery could not be written"
