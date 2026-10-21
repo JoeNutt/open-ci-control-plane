@@ -125,3 +125,24 @@ func TestUploadRateAdmitsExactlyTheLimitFromConcurrentUploads(t *testing.T) {
 		t.Fatalf("admitted %d concurrent uploads, want %d", admitted.Load(), limits.MaxUploadsPerMinute)
 	}
 }
+
+func TestParseUploadRateRefusesNoClockOrNoAllowance(t *testing.T) {
+	declared := domain.DeclaredCoverageLimits()
+	noAllowance := declared
+	noAllowance.MaxUploadsPerMinute = 0
+	for form, settings := range map[string]struct {
+		limits domain.CoverageLimits
+		now    func() time.Time
+	}{
+		"no clock":     {limits: declared, now: nil},
+		"no allowance": {limits: noAllowance, now: time.Now},
+	} {
+		t.Run(form, func(t *testing.T) {
+			_, err := application.ParseUploadRate(settings.limits, settings.now)
+
+			if !errors.Is(err, application.ErrIncompleteUploadRate) {
+				t.Fatalf("want ErrIncompleteUploadRate, got %v", err)
+			}
+		})
+	}
+}

@@ -23,6 +23,15 @@ type UploadRate struct {
 	admitted map[domain.GovernedRepository][]time.Time
 }
 
+var ErrIncompleteUploadRate = errors.New("the upload rate is missing a part it cannot work without")
+
+func ParseUploadRate(limits domain.CoverageLimits, now func() time.Time) (*UploadRate, error) {
+	if now == nil || limits.MaxUploadsPerMinute < 1 {
+		return nil, ErrIncompleteUploadRate
+	}
+	return NewUploadRate(limits, now), nil
+}
+
 func NewUploadRate(limits domain.CoverageLimits, now func() time.Time) *UploadRate {
 	return &UploadRate{limits: limits, now: now, admitted: map[domain.GovernedRepository][]time.Time{}}
 }
