@@ -19,6 +19,8 @@ var ErrSecondDocument = errors.New("policy file holds more than one YAML documen
 
 var ErrUnsupportedSchemaVersion = errors.New("policy file states no schema version this control plane reads")
 
+const readSchemaVersion = 1
+
 type policyDocument interface {
 	catalogDocument
 }
@@ -39,6 +41,10 @@ func decodedStrictly[Document policyDocument](content []byte) (Document, error) 
 		return refused, ErrSecondDocument
 	}
 	return document, nil
+}
+
+func isReadSchemaVersion(stated *int) bool {
+	return stated != nil && *stated == readSchemaVersion
 }
 
 func refuseAliasOrAnchor(content []byte) error {

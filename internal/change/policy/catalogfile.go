@@ -17,7 +17,7 @@ var policyDirectionByWord = map[string]domain.PolicyDirection{
 }
 
 type catalogDocument struct {
-	SchemaVersion int                 `yaml:"schema_version"`
+	SchemaVersion *int                `yaml:"schema_version"`
 	Name          string              `yaml:"name"`
 	Rule          string              `yaml:"rule"`
 	Direction     string              `yaml:"direction"`
@@ -50,7 +50,7 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
-	if document.SchemaVersion != 1 {
+	if !isReadSchemaVersion(document.SchemaVersion) {
 		return domain.CatalogPolicyStatement{}, ErrUnsupportedSchemaVersion
 	}
 	rule, isKnownRule := policyRuleByWord[document.Rule]
