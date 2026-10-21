@@ -14,10 +14,10 @@ func TestParseBindingKeepsWhatItStates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse binding: %v", err)
 	}
-	if binding.Repository().String() != "JoeNutt/open-ci-control-plane" {
+	if binding.Repository().String() != thisRepository {
 		t.Errorf("repository is %q", binding.Repository())
 	}
-	if binding.Workflow().String() != "open-ci-tests.yml" {
+	if binding.Workflow().String() != thisRepositorysWorkflow {
 		t.Errorf("workflow is %q", binding.Workflow())
 	}
 	alwaysRun := binding.AlwaysRun()
@@ -128,14 +128,16 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 }
 
 const (
-	thisRepositorysModule = "github.com/JoeNutt/open-ci-control-plane"
-	thisRepositorysDomain = thisRepositorysModule + "/internal/change/domain"
+	thisRepository          = "JoeNutt/open-ci-control-plane"
+	thisRepositorysWorkflow = "open-ci-tests.yml"
+	thisRepositorysModule   = "github.com/" + thisRepository
+	thisRepositorysDomain   = thisRepositorysModule + "/internal/change/domain"
 )
 
 func thisRepositorysBinding() domain.BindingStatement {
 	return domain.BindingStatement{
-		Repository: "JoeNutt/open-ci-control-plane",
-		Workflow:   "open-ci-tests.yml",
+		Repository: thisRepository,
+		Workflow:   thisRepositorysWorkflow,
 		AlwaysRun:  []string{thisRepositorysDomain},
 		Policies: []domain.BoundPolicyStatement{{
 			Use:         "clean-architecture",

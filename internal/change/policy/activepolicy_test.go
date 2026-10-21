@@ -64,7 +64,7 @@ func TestActivePolicyLogsARefusalWithItsReasonAndNoFileContent(t *testing.T) {
 	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
 	const contentMarker = "unlogged_content_marker"
 	candidate := liveFiles(t)
-	candidate[1].Content = []byte(liveBindingWith(t, "  workflow: open-ci-tests.yml", "  workflow: open-ci-tests.yml\n  "+contentMarker+": 5"))
+	candidate[1].Content = []byte(liveBindingWithUnknownKey(t, contentMarker))
 
 	if err := active.Offer(policyCommit(t, secondPolicyCommit), candidate); !errors.Is(err, policy.ErrMalformedPolicyFile) {
 		t.Fatalf("a binding with an unknown key gave %v, want ErrMalformedPolicyFile", err)

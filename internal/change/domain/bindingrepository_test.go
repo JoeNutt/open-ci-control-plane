@@ -11,12 +11,12 @@ import (
 )
 
 func TestParseGovernedRepositoryKeepsTheRepository(t *testing.T) {
-	parsed, err := domain.ParseGovernedRepository("JoeNutt/open-ci-control-plane")
+	parsed, err := domain.ParseGovernedRepository(thisRepository)
 	if err != nil {
 		t.Fatalf("parse repository: %v", err)
 	}
-	if parsed.String() != "JoeNutt/open-ci-control-plane" {
-		t.Errorf("repository is %q, want JoeNutt/open-ci-control-plane", parsed)
+	if parsed.String() != thisRepository {
+		t.Errorf("repository is %q, want %s", parsed, thisRepository)
 	}
 }
 

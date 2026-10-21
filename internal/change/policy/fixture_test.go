@@ -15,6 +15,8 @@ const (
 	liveCatalogPath  = fixtureDirectory + liveCatalogFile
 	liveBindingPath  = fixtureDirectory + liveBindingFile
 	liveRepository   = "JoeNutt/open-ci-control-plane"
+	liveWorkflow     = "open-ci-tests.yml"
+	liveWorkflowLine = "  workflow: " + liveWorkflow
 )
 
 func fixtureWith(t *testing.T, path, written, replacement string) string {
