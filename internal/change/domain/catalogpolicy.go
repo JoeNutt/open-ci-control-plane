@@ -2,6 +2,8 @@
 
 package domain
 
+import "fmt"
+
 type CatalogPolicyStatement struct {
 	Name string
 }
@@ -12,7 +14,10 @@ type CatalogPolicy struct {
 
 func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
 	name, err := ParsePolicyName(stated.Name)
-	return CatalogPolicy{name: name}, err
+	if err != nil {
+		return CatalogPolicy{}, fmt.Errorf("catalog policy: %w", err)
+	}
+	return CatalogPolicy{name: name}, nil
 }
 
 func (policy CatalogPolicy) Name() PolicyName { return policy.name }
