@@ -8,9 +8,9 @@ import (
 )
 
 func ParseDocument(
-	pullRequest PullRequest, bounded BoundedFiles, rules ClassificationRules,
+	pullRequest PullRequest, change Change, rules ClassificationRules,
 ) Document {
-	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded, rules)}
+	return Document{PR: cloneOf(pullRequest), Diff: diffOf(change.Files, change.Imported, rules)}
 }
 
 func cloneOf(pullRequest PullRequest) PullRequest {
@@ -19,9 +19,12 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 	return pullRequest
 }
 
-func diffOf(bounded BoundedFiles, rules ClassificationRules) Diff {
+func diffOf(bounded BoundedFiles, imported []ImportedFile, rules ClassificationRules) Diff {
 	paths := pathsOf(bounded.files)
 	imports := Declared[Import]{}
+	for _, file := range imported {
+		imports = append(imports, Import{Path: file.File.Path, State: ImportStateResolved, Refs: file.Head.ImportPaths()})
+	}
 	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 paths,
