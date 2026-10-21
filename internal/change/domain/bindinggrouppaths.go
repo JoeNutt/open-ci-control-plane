@@ -13,12 +13,12 @@ var ErrPathInTwoGroups = errors.New("binding places one path in two groups")
 
 type GroupPaths struct {
 	group    GroupName
-	patterns []PathPattern
+	patterns []BoundGlob
 }
 
 func (paths GroupPaths) Group() GroupName { return paths.group }
 
-func (paths GroupPaths) Patterns() []PathPattern { return slices.Clone(paths.patterns) }
+func (paths GroupPaths) Patterns() []BoundGlob { return slices.Clone(paths.patterns) }
 
 func groupPathsOf(stated map[string][]string) ([]GroupPaths, error) {
 	groups := make([]GroupPaths, 0, len(stated))
@@ -40,7 +40,7 @@ func parseGroupPaths(stated string, written []string) (GroupPaths, error) {
 	if err != nil {
 		return GroupPaths{}, fmt.Errorf("paths: %w", err)
 	}
-	patterns, err := pathPatternsOf(written)
+	patterns, err := boundGlobsOf(written)
 	if err != nil {
 		return GroupPaths{}, fmt.Errorf("paths of %s: %w", group, err)
 	}
@@ -51,18 +51,18 @@ func (paths GroupPaths) sharesAPatternWith(other GroupPaths) bool {
 	return slices.ContainsFunc(paths.patterns, other.holds)
 }
 
-func (paths GroupPaths) holds(pattern PathPattern) bool {
-	return slices.ContainsFunc(paths.patterns, pattern.translatesLike)
+func (paths GroupPaths) holds(glob BoundGlob) bool {
+	return slices.ContainsFunc(paths.patterns, glob.translatesLike)
 }
 
-func pathPatternsOf(written []string) ([]PathPattern, error) {
-	patterns := make([]PathPattern, 0, len(written))
-	for _, pattern := range written {
-		parsed, err := ParsePathPattern(pattern)
+func boundGlobsOf(written []string) ([]BoundGlob, error) {
+	globs := make([]BoundGlob, 0, len(written))
+	for _, glob := range written {
+		parsed, err := parseBoundGlob(glob)
 		if err != nil {
 			return nil, err
 		}
-		patterns = append(patterns, parsed)
+		globs = append(globs, parsed)
 	}
-	return patterns, nil
+	return globs, nil
 }

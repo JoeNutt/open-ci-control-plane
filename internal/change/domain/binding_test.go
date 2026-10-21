@@ -54,7 +54,10 @@ func TestParseBindingKeepsEachGroupsPathsInGroupOrder(t *testing.T) {
 	}
 	patterns := groups[1].Patterns()
 	if len(patterns) != 1 || !patterns[0].Matches("internal/change/domain/effect.go") {
-		t.Errorf("domain patterns are %v, want one matching the domain package", patterns)
+		t.Fatalf("domain patterns are %v, want one matching the domain package", patterns)
+	}
+	if patterns[0].Glob() != "internal/change/domain/**" {
+		t.Errorf("domain glob is %q, want it as the binding wrote it", patterns[0].Glob())
 	}
 }
 
