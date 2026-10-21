@@ -2,7 +2,10 @@
 
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 type DecisionRecord struct {
 	decisionID DecisionID
@@ -13,7 +16,12 @@ func RecordFor(decided FamilyDecision, id DecisionID) DecisionRecord {
 	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision()}
 }
 
+var ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decision identifier")
+
 func (record DecisionRecord) MarshalJSON() ([]byte, error) {
+	if record.decisionID == (DecisionID{}) {
+		return nil, ErrUnidentifiedDecisionRecord
+	}
 	return json.Marshal(publishedRecord{
 		DecisionID:     record.decisionID.String(),
 		BundleRevision: publishedRevisionOf(record.revision),

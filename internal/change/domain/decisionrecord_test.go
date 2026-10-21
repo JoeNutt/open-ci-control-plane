@@ -56,6 +56,14 @@ func TestARecordOfAFaultPublishesNoRevisionRatherThanAnEmptyOne(t *testing.T) {
 	}
 }
 
+func TestARecordWithNoDecisionIDRefusesToEncode(t *testing.T) {
+	encoded, err := json.Marshal(domain.DecisionRecord{})
+
+	if !errors.Is(err, domain.ErrUnidentifiedDecisionRecord) {
+		t.Fatalf("encoded %s with %v, want ErrUnidentifiedDecisionRecord", encoded, err)
+	}
+}
+
 func undecidedStructuralDecision(t *testing.T) domain.FamilyDecision {
 	t.Helper()
 	return domain.FamilyDecision{
