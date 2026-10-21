@@ -29,5 +29,8 @@ func (named item) contentAt(path string, maxBytes int) ([]byte, error) {
 	if err != nil {
 		return nil, named.invalid(err)
 	}
+	if len(content) == 0 {
+		return nil, named.invalid(errEmptyFile)
+	}
 	return content, nil
 }

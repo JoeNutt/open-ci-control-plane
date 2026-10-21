@@ -129,6 +129,17 @@ func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestAnEmptyAppKeyFileIsRefusedNamingIt(t *testing.T) {
+	stated := completeItems(t)
+	stated.AppKeyFile = writtenFile(t, "")
+
+	_, err := configuration.Read(configurationFile(t, stated))
+
+	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "appKeyFile") {
+		t.Fatalf("refusal is not an invalid appKeyFile: %v", err)
+	}
+}
+
 func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
 	configured, err := configuration.Read(configurationFile(t, completeItems(t)))
 	if err != nil {
