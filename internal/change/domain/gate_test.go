@@ -110,3 +110,28 @@ func TestAGateDecidesOnlyTheFamiliesItWasConfiguredWith(t *testing.T) {
 		t.Errorf("the structural engine was asked %d times, want 1", structural.asked)
 	}
 }
+
+func TestParseGateRefusesAConfigurationItCannotDecideWith(t *testing.T) {
+	refused := map[string]struct {
+		engines map[domain.PolicyFamily]domain.FamilyEngine
+		want    error
+	}{
+		"no family": {map[domain.PolicyFamily]domain.FamilyEngine{}, domain.ErrEmptyGate},
+		"an undeclared family": {map[domain.PolicyFamily]domain.FamilyEngine{
+			domain.PolicyFamilyStructural:    decidingEngine(t),
+			domain.PolicyFamily("licensing"): decidingEngine(t),
+		}, domain.ErrUnknownPolicyFamily},
+		"a family with no engine": {map[domain.PolicyFamily]domain.FamilyEngine{
+			domain.PolicyFamilyStructural: nil,
+		}, domain.ErrIncompleteGate},
+	}
+	for form, configured := range refused {
+		t.Run(form, func(t *testing.T) {
+			_, err := domain.ParseGate(configured.engines)
+
+			if !errors.Is(err, configured.want) {
+				t.Errorf("error is %v, want %v", err, configured.want)
+			}
+		})
+	}
+}

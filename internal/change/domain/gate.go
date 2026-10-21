@@ -15,6 +15,8 @@ type FamilyEngine interface {
 
 var ErrEngineFault = errors.New("policy engine failed to evaluate")
 
+var ErrEmptyGate = errors.New("gate is configured with no policy family")
+
 var ErrIncompleteGate = errors.New("gate is configured with a family that has no engine")
 
 type FamilyDecision struct {
@@ -35,8 +37,14 @@ type Gate struct {
 }
 
 func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
+	if len(engines) == 0 {
+		return Gate{}, ErrEmptyGate
+	}
 	held := make(map[PolicyFamily]FamilyEngine, len(engines))
 	for family, engine := range engines {
+		if _, err := ParsePolicyFamily(string(family)); err != nil {
+			return Gate{}, err
+		}
 		if engine == nil {
 			return Gate{}, fmt.Errorf("%w: %q", ErrIncompleteGate, family)
 		}
