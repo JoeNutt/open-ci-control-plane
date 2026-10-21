@@ -22,6 +22,14 @@ func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestAConfigurationWithoutTheAppKeyIsRefusedNamingIt(t *testing.T) {
+	_, err := configuration.Read(writtenFile(t, `{}`))
+
+	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "appKeyFile") {
+		t.Fatalf("refusal is not a missing appKeyFile: %v", err)
+	}
+}
+
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
@@ -36,7 +44,7 @@ func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 	secretFile := writtenFile(t, "s3cret")
 
-	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile}))
+	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile, AppKeyFile: writtenFile(t, "key")}))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -65,7 +73,7 @@ func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
 }
 
 func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
-	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "s3cret\n")}))
+	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "s3cret\n"), AppKeyFile: writtenFile(t, "key")}))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -94,6 +102,7 @@ func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) 
 
 type statedItems struct {
 	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
+	AppKeyFile        string `json:"appKeyFile,omitempty"`
 }
 
 func configurationFile(t *testing.T, stated statedItems) string {
