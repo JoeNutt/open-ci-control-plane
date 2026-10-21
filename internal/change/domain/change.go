@@ -15,6 +15,10 @@ type ImportedFile struct {
 
 func (imported ImportedFile) existsAtHead() bool { return imported.File.Action.ExistsAtHead() }
 
+func (imported ImportedFile) hasErroredEnd() bool {
+	return imported.Base.isErrored || imported.Head.isErrored
+}
+
 func (imported ImportedFile) headImport() Import {
 	if imported.Head.isErrored {
 		return Import{Path: imported.File.Path, State: ImportStateErrored}
@@ -35,7 +39,7 @@ func (imported ImportedFile) edgesRemoved() []ModuleEdge {
 }
 
 func (imported ImportedFile) edgesTo(targets []string) []ModuleEdge {
-	if imported.Base.isErrored || imported.Head.isErrored {
+	if imported.hasErroredEnd() {
 		return nil
 	}
 	edges := make([]ModuleEdge, 0, len(targets))
