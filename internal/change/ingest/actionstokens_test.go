@@ -35,6 +35,37 @@ const (
 
 var issuedAt = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 
+func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
+	complete := ingest.ActionsTokenSettings{
+		Issuer: "https://token.actions.githubusercontent.com", Audience: instanceURL, Client: &http.Client{}, Now: time.Now}
+	for form, without := range map[string]func(ingest.ActionsTokenSettings) ingest.ActionsTokenSettings{
+		"no issuer": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Issuer = ""
+			return settings
+		},
+		"no audience": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Audience = ""
+			return settings
+		},
+		"no client": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Client = nil
+			return settings
+		},
+		"no clock": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Now = nil
+			return settings
+		},
+	} {
+		t.Run(form, func(t *testing.T) {
+			_, err := ingest.ParseActionsTokens(without(complete))
+
+			if !errors.Is(err, ingest.ErrIncompleteActionsTokens) {
+				t.Fatalf("want ErrIncompleteActionsTokens, got %v", err)
+			}
+		})
+	}
+}
+
 func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)

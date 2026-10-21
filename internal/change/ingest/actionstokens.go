@@ -21,6 +21,8 @@ const (
 	repositoryClaim      = "repository"
 )
 
+var ErrIncompleteActionsTokens = errors.New("token verification is missing a part it cannot work without")
+
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
 var (
@@ -63,6 +65,9 @@ type ActionsTokens struct {
 }
 
 func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
+	if settings.Issuer == "" || settings.Audience == "" || settings.Client == nil || settings.Now == nil {
+		return nil, ErrIncompleteActionsTokens
+	}
 	return &ActionsTokens{
 		issuer:   settings.Issuer,
 		audience: settings.Audience,
