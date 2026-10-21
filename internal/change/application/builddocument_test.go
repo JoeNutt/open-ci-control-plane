@@ -96,6 +96,41 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	}
 }
 
+const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
+
+func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases: memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{
+			locator: commitSHAOf(t, recordedBaseSHA),
+		}},
+		Contents: memory.FileContents{Files: map[domain.FileAtCommit][]byte{
+			{Repository: locator.Repository(), Commit: commitSHAOf(t, recordedBaseSHA), Path: file.Path}: []byte(
+				"package domain\n\nimport \"context\"\n"),
+			{Repository: locator.Repository(), Commit: commitSHAOf(t, recordedHeadSHA), Path: file.Path}: []byte(
+				"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
+		}},
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.ModuleGraphDelta{
+		EdgesAdded: domain.Declared[domain.ModuleEdge]{
+			{From: file.Path, To: "github.com/acme/payments/internal/forge"},
+		},
+	}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta, want) {
+		t.Fatalf("delta is %+v, want %+v", document.Diff.ModuleGraphDelta, want)
+	}
+}
+
 func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *testing.T) {
 	const quotedFromTheFile = "hunter2ApiKey"
 	locator := locatorOf(t, "acme/payments", 412)
