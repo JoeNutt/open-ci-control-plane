@@ -63,6 +63,9 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
+	if _, err := domain.ParseRepositoryPath(path); err != nil {
+		return err
+	}
 	reading.current = domain.ReportedFile{Path: path}
 	return nil
 }
