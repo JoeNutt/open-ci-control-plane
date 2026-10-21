@@ -24,9 +24,8 @@ const (
 )
 
 const (
-	refusedConfiguration = "configuration refused"
-	refusedUsage         = "usage refused"
-	reasonKey            = "reason"
+	readHeaderBound = 10 * time.Second
+	shutdownBound   = 10 * time.Second
 )
 
 var errNotOnePath = errors.New("the control plane takes one configuration file path")
@@ -47,7 +46,24 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	log.Info("configuration read", "families", configured.Families(), "installations", configured.InstallationIDs())
+	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
+		slog.Any(installationsKey, configured.InstallationIDs()))
+	server, err := serverFor(configured, log)
+	if err != nil {
+		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	return servedUntil(ctx, server, log)
+}
+
+func configurationPathIn(arguments []string) (string, error) {
+	if len(arguments) != 1 {
+		return "", errNotOnePath
+	}
+	return arguments[0], nil
+}
+
+func serverFor(configured configuration.Configuration, log *slog.Logger) (*http.Server, error) {
 	routes, err := httpapi.ParseRoutes(httpapi.Settings{
 		Log:           log,
 		Secret:        domain.WebhookSecret(configured.WebhookSecret().Reveal()),
@@ -56,32 +72,30 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 		DecisionIDs:   random.DecisionIDs{},
 	})
 	if err != nil {
-		log.Error("listener refused", "reason", err.Error())
-		return exitRefused
+		return nil, err
 	}
-	server := &http.Server{Addr: configured.ListenAddress().String(), Handler: routes, ReadHeaderTimeout: 10 * time.Second}
+	return &http.Server{
+		Addr:              configured.ListenAddress().String(),
+		Handler:           routes,
+		ReadHeaderTimeout: readHeaderBound,
+	}, nil
+}
+
+func servedUntil(ctx context.Context, server *http.Server, log *slog.Logger) int {
+	stopped := make(chan error, 1)
 	go func() {
 		<-ctx.Done()
-		_ = server.Shutdown(context.Background())
+		stopping, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownBound)
+		defer cancel()
+		stopped <- server.Shutdown(stopping)
 	}()
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Error("listener failed", "reason", err.Error())
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Error(failedListener, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	if err := <-stopped; err != nil {
+		log.Error(failedShutdown, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
 	return exitServed
-}
-
-var errEvaluationUnwired = errors.New("evaluation is not wired: the forge credential arrives with #120 and the policy bundle with step 4")
-
-type unwiredEvaluation struct{}
-
-func (unwiredEvaluation) Execute(context.Context, domain.PullRequestLocator, domain.DecisionID) error {
-	return errEvaluationUnwired
-}
-
-func configurationPathIn(arguments []string) (string, error) {
-	if len(arguments) != 1 {
-		return "", errNotOnePath
-	}
-	return arguments[0], nil
 }
