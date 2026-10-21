@@ -7,7 +7,7 @@ type PolicyName struct {
 }
 
 func ParsePolicyName(stated string) (PolicyName, error) {
-	return PolicyName{value: "clean-architecture"}, nil
+	return PolicyName{value: stated}, nil
 }
 
 func (name PolicyName) String() string { return name.value }
