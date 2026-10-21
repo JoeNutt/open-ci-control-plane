@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -33,6 +34,27 @@ func TestParseRepositoryPathRefusesAPathNotInCanonicalForm(t *testing.T) {
 
 			if !errors.Is(err, domain.ErrPathOutsideRepository) {
 				t.Fatalf("want ErrPathOutsideRepository for %q, got %v", path, err)
+			}
+		})
+	}
+}
+
+func TestParseRepositoryPathRefusesWhatThePathSegmentRuleRefuses(t *testing.T) {
+	refused := map[string]string{
+		"a space":             "internal/change domain/effect.go",
+		"a backslash":         `internal\change\effect.go`,
+		"a colon":             "internal/change:domain/effect.go",
+		"a NUL byte":          "internal/change\x00/effect.go",
+		"a non-ASCII letter":  "internal/chånge/effect.go",
+		"one byte over bound": strings.Repeat("a", domain.DeclaredLimits().MaxPathBytes+1),
+	}
+
+	for form, path := range refused {
+		t.Run(form, func(t *testing.T) {
+			_, err := domain.ParseRepositoryPath(path)
+
+			if !errors.Is(err, domain.ErrPathOutsideRepository) {
+				t.Fatalf("want ErrPathOutsideRepository, got %v", err)
 			}
 		})
 	}

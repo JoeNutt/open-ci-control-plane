@@ -26,7 +26,7 @@ func ParseRepositoryPath(path string) (RepositoryPath, error) {
 	if strings.HasPrefix(path, pathSeparator) {
 		return RepositoryPath{}, errAbsolutePath
 	}
-	if !isCanonicalSlashPath(path) {
+	if !isCanonicalSlashPath(path) || !isRepositoryPath(path) {
 		return RepositoryPath{}, errNonCanonicalPath
 	}
 	return RepositoryPath{path: path}, nil
