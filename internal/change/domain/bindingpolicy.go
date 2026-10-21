@@ -40,6 +40,9 @@ func importRootsOf(stated []ImportRootStatement) ([]ImportRoot, error) {
 		if err != nil {
 			return nil, err
 		}
+		if slices.ContainsFunc(roots, root.sharesPrefixWith) {
+			return nil, fmt.Errorf("%w: %s", ErrSharedImportRootPrefix, root.prefix)
+		}
 		roots = append(roots, root)
 	}
 	return roots, nil
