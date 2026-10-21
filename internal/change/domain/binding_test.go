@@ -102,6 +102,12 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			stated: func(s *domain.BindingStatement) { s.Policies[0].Paths["domain"] = []string{"internal/[ab]/**"} },
 			reason: domain.ErrUnsupportedPathPattern,
 		},
+		"one path bound to two groups": {
+			stated: func(s *domain.BindingStatement) {
+				s.Policies[0].Paths["domain"] = append(s.Policies[0].Paths["domain"], "internal/change/forge/**")
+			},
+			reason: domain.ErrPathInTwoGroups,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
