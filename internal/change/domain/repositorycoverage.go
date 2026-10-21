@@ -10,29 +10,29 @@ import (
 var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
 
 type RepositoryCoverage struct {
-	suites map[SuiteName]SuiteCoverage
+	suites map[GoImportPath]SuiteCoverage
 }
 
 func (repositoryCoverage RepositoryCoverage) Replacing(
-	suite SuiteName, coverage SuiteCoverage, limits CoverageLimits,
+	suite GoImportPath, coverage SuiteCoverage, limits CoverageLimits,
 ) (RepositoryCoverage, error) {
 	if breach := limits.SuitesBreach(repositoryCoverage.suiteCountWith(suite)); breach != nil {
 		return RepositoryCoverage{}, breach
 	}
-	suites := make(map[SuiteName]SuiteCoverage, len(repositoryCoverage.suites)+1)
+	suites := make(map[GoImportPath]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
 	return RepositoryCoverage{suites: suites}, nil
 }
 
-func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite SuiteName) int {
+func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite GoImportPath) int {
 	if _, isHeld := repositoryCoverage.suites[suite]; isHeld {
 		return len(repositoryCoverage.suites)
 	}
 	return len(repositoryCoverage.suites) + 1
 }
 
-func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite SuiteName) (SuiteCoverage, error) {
+func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite GoImportPath) (SuiteCoverage, error) {
 	coverage, isHeld := repositoryCoverage.suites[suite]
 	if !isHeld {
 		return SuiteCoverage{}, ErrNoCoverageMap

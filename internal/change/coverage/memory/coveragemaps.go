@@ -21,7 +21,7 @@ func NewCoverageMaps(limits domain.CoverageLimits) *CoverageMaps {
 }
 
 func (store *CoverageMaps) ReplaceSuiteCoverage(
-	_ context.Context, repository domain.GovernedRepository, suite domain.SuiteName, coverage domain.SuiteCoverage,
+	_ context.Context, repository domain.GovernedRepository, suite domain.GoImportPath, coverage domain.SuiteCoverage,
 ) error {
 	store.guard.Lock()
 	defer store.guard.Unlock()
@@ -35,7 +35,7 @@ func (store *CoverageMaps) ReplaceSuiteCoverage(
 }
 
 func (store *CoverageMaps) SuiteCoverageOf(
-	_ context.Context, repository domain.GovernedRepository, suite domain.SuiteName,
+	_ context.Context, repository domain.GovernedRepository, suite domain.GoImportPath,
 ) (domain.SuiteCoverage, error) {
 	store.guard.RLock()
 	defer store.guard.RUnlock()

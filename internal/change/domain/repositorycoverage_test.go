@@ -16,7 +16,7 @@ const (
 )
 
 func TestRepositoryCoverageServesTheMapASuiteWasReplacedWith(t *testing.T) {
-	suite := mustParseSuiteName(t, domainSuite)
+	suite := mustParseSuite(t, domainSuite)
 	uploaded := twoFileSuiteOf(t)
 
 	replaced := mustReplace(t, domain.RepositoryCoverage{}, suite, uploaded.coverage)
@@ -31,7 +31,7 @@ func TestRepositoryCoverageServesTheMapASuiteWasReplacedWith(t *testing.T) {
 }
 
 func TestRepositoryCoverageRefusesASuiteItHoldsNoMapFor(t *testing.T) {
-	_, err := domain.RepositoryCoverage{}.SuiteCoverageOf(mustParseSuiteName(t, domainSuite))
+	_, err := domain.RepositoryCoverage{}.SuiteCoverageOf(mustParseSuite(t, domainSuite))
 
 	if !errors.Is(err, domain.ErrNoCoverageMap) {
 		t.Fatalf("want ErrNoCoverageMap, got %v", err)
@@ -39,8 +39,8 @@ func TestRepositoryCoverageRefusesASuiteItHoldsNoMapFor(t *testing.T) {
 }
 
 func TestRepositoryCoverageReplacingOneSuiteKeepsTheOthersAndChangesNothingHeld(t *testing.T) {
-	first := mustParseSuiteName(t, domainSuite)
-	second := mustParseSuiteName(t, lcovSuite)
+	first := mustParseSuite(t, domainSuite)
+	second := mustParseSuite(t, lcovSuite)
 	uploaded := twoFileSuiteOf(t)
 	before := mustReplace(t, domain.RepositoryCoverage{}, first, uploaded.coverage)
 
@@ -88,7 +88,7 @@ func coverageOfSuites(t *testing.T, count int) domain.RepositoryCoverage {
 }
 
 func mustReplace(
-	t *testing.T, held domain.RepositoryCoverage, suite domain.SuiteName, coverage domain.SuiteCoverage,
+	t *testing.T, held domain.RepositoryCoverage, suite domain.GoImportPath, coverage domain.SuiteCoverage,
 ) domain.RepositoryCoverage {
 	t.Helper()
 
@@ -99,16 +99,16 @@ func mustReplace(
 	return replaced
 }
 
-func generatedSuite(t *testing.T, index int) domain.SuiteName {
+func generatedSuite(t *testing.T, index int) domain.GoImportPath {
 	t.Helper()
 
-	return mustParseSuiteName(t, fmt.Sprintf("github.com/JoeNutt/open-ci-control-plane/generated/suite%d", index))
+	return mustParseSuite(t, fmt.Sprintf("github.com/JoeNutt/open-ci-control-plane/generated/suite%d", index))
 }
 
-func mustParseSuiteName(t *testing.T, name string) domain.SuiteName {
+func mustParseSuite(t *testing.T, name string) domain.GoImportPath {
 	t.Helper()
 
-	parsed, err := domain.ParseSuiteName(name)
+	parsed, err := domain.ParseGoImportPath(name)
 	if err != nil {
 		t.Fatalf("parse suite name %q: %v", name, err)
 	}

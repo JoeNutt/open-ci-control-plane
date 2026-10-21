@@ -21,12 +21,12 @@ type ReplaceCoverage struct {
 type CoverageUpload struct {
 	Token      domain.IdentityToken
 	Repository domain.GovernedRepository
-	Suite      domain.SuiteName
+	Suite      domain.GoImportPath
 	Report     domain.CoverageReport
 }
 
 type ReplacedCoverage struct {
-	Suite          domain.SuiteName
+	Suite          domain.GoImportPath
 	FileEntryCount int
 }
 

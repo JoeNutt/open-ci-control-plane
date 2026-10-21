@@ -218,7 +218,7 @@ func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.GovernedR
 }
 
 func assertNothingStored(
-	t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.SuiteName,
+	t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.GoImportPath,
 ) {
 	t.Helper()
 
@@ -267,10 +267,10 @@ func parsedStranger(t *testing.T) domain.GovernedRepository {
 	return stranger
 }
 
-func parsedSuite(t *testing.T) domain.SuiteName {
+func parsedSuite(t *testing.T) domain.GoImportPath {
 	t.Helper()
 
-	suite, err := domain.ParseSuiteName(uploadedSuite)
+	suite, err := domain.ParseGoImportPath(uploadedSuite)
 	if err != nil {
 		t.Fatalf("parse suite: %v", err)
 	}
