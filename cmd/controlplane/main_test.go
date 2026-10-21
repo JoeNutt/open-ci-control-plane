@@ -32,6 +32,26 @@ func TestAConfigurationMissingARequiredItemExitsNonZeroNamingItAndServesNothing(
 	}
 }
 
+func TestAnythingButOneConfigurationPathExitsNonZeroSayingSo(t *testing.T) {
+	for form, arguments := range map[string][]string{
+		"no argument":   nil,
+		"two arguments": {"one.json", "two.json"},
+	} {
+		t.Run(form, func(t *testing.T) {
+			var logged bytes.Buffer
+
+			exit := run(arguments, &logged)
+
+			if exit == 0 {
+				t.Errorf("exit is 0 for %s", form)
+			}
+			if !strings.Contains(logged.String(), "one configuration file path") {
+				t.Errorf("the refusal does not say what is expected: %q", logged.String())
+			}
+		})
+	}
+}
+
 const listenAddress = "127.0.0.1:48121"
 
 func assertNothingServes(t *testing.T) {

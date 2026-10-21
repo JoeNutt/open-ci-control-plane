@@ -26,6 +26,10 @@ func main() {
 
 func run(arguments []string, logs io.Writer) int {
 	log := slog.New(slog.NewJSONHandler(logs, nil))
+	if len(arguments) != 1 {
+		log.Error("usage refused", "reason", "the control plane takes one configuration file path")
+		return 2
+	}
 	if _, err := configuration.Read(arguments[0]); err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
