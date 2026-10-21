@@ -21,7 +21,7 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 
 func diffOf(bounded BoundedFiles, rules ClassificationRules) Diff {
 	paths := pathsOf(bounded.files)
-	imports := importsOf(bounded.files)
+	imports := Declared[Import]{}
 	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 paths,
@@ -76,10 +76,6 @@ func byDirOf(files []File) PathsByDir {
 		byDir[directory] = append(byDir[directory], file.Path)
 	}
 	return byDir
-}
-
-func importsOf(files []File) Declared[Import] {
-	return Declared[Import]{}
 }
 
 type importResolution struct {
