@@ -2,7 +2,12 @@
 
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrSharedImportRootPrefix = errors.New("two import roots share one prefix")
 
 type ImportRootStatement struct {
 	Prefix string
@@ -29,3 +34,5 @@ func parseImportRoot(stated ImportRootStatement) (ImportRoot, error) {
 func (root ImportRoot) Prefix() GoImportPath { return root.prefix }
 
 func (root ImportRoot) Directory() RepositoryDirectory { return root.directory }
+
+func (root ImportRoot) sharesPrefixWith(other ImportRoot) bool { return root.prefix == other.prefix }

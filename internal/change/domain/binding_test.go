@@ -71,6 +71,13 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			stated: func(s *domain.BindingStatement) { s.Policies[0].ImportRoots[0].Path = "../elsewhere" },
 			reason: domain.ErrMalformedRepositoryDirectory,
 		},
+		"two import roots sharing a prefix": {
+			stated: func(s *domain.BindingStatement) {
+				s.Policies[0].ImportRoots = append(s.Policies[0].ImportRoots,
+					domain.ImportRootStatement{Prefix: thisRepositorysModule, Path: "internal"})
+			},
+			reason: domain.ErrSharedImportRootPrefix,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
