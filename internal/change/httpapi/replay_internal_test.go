@@ -40,3 +40,15 @@ func TestTheOldestDeliveryGivesWayWhenTheBoundIsReached(t *testing.T) {
 		t.Error("the newest delivery was not held")
 	}
 }
+
+func TestTheBoundHoldsWhenEveryDeliveryArrivesAtOneInstant(t *testing.T) {
+	now := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
+	accepted := newAcceptedDeliveries(func() time.Time { return now })
+	for held := range maxHeldDeliveries + 1 {
+		accepted.held(acceptance{DeliveryID: fmt.Sprintf("delivery-%d", held)})
+	}
+
+	if len(accepted.byID) != maxHeldDeliveries {
+		t.Errorf("%d deliveries are held, want the bound, %d", len(accepted.byID), maxHeldDeliveries)
+	}
+}

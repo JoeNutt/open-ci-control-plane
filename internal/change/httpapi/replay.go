@@ -47,7 +47,7 @@ func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
 	now := accepted.clock()
 	accepted.dropLapsedAt(now)
 	if len(accepted.byID) >= maxHeldDeliveries {
-		delete(accepted.byID, accepted.oldestIDBefore(now))
+		delete(accepted.byID, accepted.oldestID())
 	}
 	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: now}
 	return answered
@@ -57,10 +57,11 @@ func (accepted *acceptedDeliveries) dropLapsedAt(now time.Time) {
 	maps.DeleteFunc(accepted.byID, func(_ string, held heldAcceptance) bool { return held.isLapsedAt(now) })
 }
 
-func (accepted *acceptedDeliveries) oldestIDBefore(now time.Time) string {
-	oldestID, oldestAt := "", now
+func (accepted *acceptedDeliveries) oldestID() string {
+	var oldestID string
+	var oldestAt time.Time
 	for id, held := range accepted.byID {
-		if held.heldAt.Before(oldestAt) {
+		if oldestID == "" || held.heldAt.Before(oldestAt) {
 			oldestID, oldestAt = id, held.heldAt
 		}
 	}
