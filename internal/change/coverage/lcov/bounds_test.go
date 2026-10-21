@@ -3,8 +3,11 @@
 package lcov_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -40,6 +43,35 @@ func TestReportedFilesInAcceptsABodyAtTheBound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("want a body at the bound accepted, got %v", err)
 	}
+}
+
+func TestReportedFilesInReadsAGzippedArtifact(t *testing.T) {
+	compressed := gzipped(t, strings.NewReader(record(effectPath, lineHit)))
+	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
+
+	reported, err := lcov.ReportedFilesIn(artifact, domain.DeclaredCoverageLimits())
+
+	if err != nil {
+		t.Fatalf("parse a gzipped record: %v", err)
+	}
+	want := []domain.ReportedFile{domain.NewReportedFile(repositoryPath(t, effectPath), true)}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
+func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
+	t.Helper()
+
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err := io.Copy(writer, plain); err != nil {
+		t.Fatalf("compress: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("finish compressing: %v", err)
+	}
+	return &compressed
 }
 
 func paddedRecord(totalBytes int64) io.Reader {
