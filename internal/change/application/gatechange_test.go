@@ -365,7 +365,7 @@ func (engine *recordingEngine) Decide(
 
 func revisionForTest(t *testing.T) domain.BundleRevision {
 	t.Helper()
-	revision, err := domain.ParseBundleRevision("revision-the-gate-is-tested-against")
+	revision, err := domain.ParseBundleRevision("a11ce0ffee0000000000000000000000000000a1")
 	if err != nil {
 		t.Fatalf("parse revision: %v", err)
 	}

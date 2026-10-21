@@ -2,19 +2,28 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrMissingBundleRevision = errors.New("decision carries no bundle revision")
 
 type BundleRevision struct {
-	value string
+	commit CommitSHA
 }
 
 func ParseBundleRevision(stated string) (BundleRevision, error) {
 	if stated == "" {
 		return BundleRevision{}, ErrMissingBundleRevision
 	}
-	return BundleRevision{value: stated}, nil
+	commit, err := ParseCommitSHA(stated)
+	if err != nil {
+		return BundleRevision{}, fmt.Errorf("bundle revision: %w", err)
+	}
+	return BundleRevision{commit: commit}, nil
 }
 
-func (revision BundleRevision) String() string { return revision.value }
+func (revision BundleRevision) String() string { return revision.commit.String() }
+
+func (revision BundleRevision) isKnown() bool { return revision != BundleRevision{} }
