@@ -3,14 +3,14 @@
 package configuration_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path/filepath"
-	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,66 +18,73 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const (
+	listenAddressKey     = "listenAddress"
+	appIDKey             = "appId"
+	appKeyFileKey        = "appKeyFile"
+	webhookSecretFileKey = "webhookSecretFile"
+	installationIDsKey   = "installationIds"
+	familiesKey          = "families"
+)
+
+const (
+	statedListenAddress  = "127.0.0.1:8080"
+	statedAppID          = 1_204_331
+	statedInstallationID = 52_311_907
+	statedWebhookSecret  = domain.WebhookSecret("s3cret")
+	statedAppKeyBody     = "c3RhdGVkIGtleQ"
+	statedAppKey         = "-----BEGIN RSA PRIVATE KEY-----\n" + statedAppKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
+)
+
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
-	removals := map[string]func(*statedItems){
-		"webhookSecretFile": func(stated *statedItems) { stated.WebhookSecretFile = "" },
-		"appKeyFile":        func(stated *statedItems) { stated.AppKeyFile = "" },
-		"installationIds":   func(stated *statedItems) { stated.InstallationIDs = nil },
-		"families":          func(stated *statedItems) { stated.Families = nil },
-		"listenAddress":     func(stated *statedItems) { stated.ListenAddress = "" },
-		"appId":             func(stated *statedItems) { stated.AppID = nil },
-	}
-	for item, remove := range removals {
-		t.Run(item, func(t *testing.T) {
-			stated := completeItems(t)
-			remove(&stated)
-
-			_, err := configuration.Read(configurationFile(t, stated))
-
-			assertRefusedNaming(t, err, configuration.ErrMissingItem, item)
-		})
-	}
-}
-
-func TestAnItemStatedEmptyOrAsTheWrongTypeIsRefusedAsInvalidNamingIt(t *testing.T) {
-	for _, stated := range []struct{ item, value string }{
-		{"listenAddress", `""`},
-		{"listenAddress", `8080`},
-		{"appId", `"1204331"`},
-		{"appId", `1.5`},
-		{"appKeyFile", `""`},
-		{"webhookSecretFile", `""`},
-		{"webhookSecretFile", `["s3cret"]`},
-		{"installationIds", `[]`},
-		{"installationIds", `["52311907"]`},
-		{"families", `[]`},
-		{"families", `"structural"`},
+	for _, key := range []string{
+		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey,
 	} {
-		t.Run(stated.item+" "+stated.value, func(t *testing.T) {
-			raw := rawItemsOf(t, completeItems(t))
-			raw[stated.item] = json.RawMessage(stated.value)
+		t.Run(key, func(t *testing.T) {
+			stated := completeItems(t)
+			delete(stated, key)
 
-			_, err := configuration.Read(rawConfigurationFile(t, raw))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, stated.item)
+			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrMissingItem, key)
 		})
 	}
 }
 
-func TestAConfigurationWithAnUnknownKeyOrTrailingContentIsRefused(t *testing.T) {
-	complete, err := json.Marshal(completeItems(t))
-	if err != nil {
-		t.Fatalf("encode the configuration: %v", err)
+func TestAnItemStatedEmptyNullOrAsTheWrongTypeIsRefusedAsInvalidNamingIt(t *testing.T) {
+	for _, stated := range []struct{ key, value string }{
+		{listenAddressKey, `""`},
+		{listenAddressKey, `8080`},
+		{appIDKey, `"1204331"`},
+		{appIDKey, `1.5`},
+		{appIDKey, `null`},
+		{appKeyFileKey, `""`},
+		{webhookSecretFileKey, `""`},
+		{webhookSecretFileKey, `["s3cret"]`},
+		{installationIDsKey, `[]`},
+		{installationIDsKey, `["52311907"]`},
+		{familiesKey, `[]`},
+		{familiesKey, `"structural"`},
+	} {
+		t.Run(stated.key+" "+stated.value, func(t *testing.T) {
+			items := completeItems(t)
+			items[stated.key] = json.RawMessage(stated.value)
+
+			assertOnlyRefusal(t, refusalOf(t, items), configuration.ErrInvalidItem, stated.key)
+		})
 	}
+}
+
+func TestAConfigurationThatIsNotExactlyOneObjectOfItemsIsRefusedAsMalformed(t *testing.T) {
+	complete := encoded(t, completeItems(t))
 	for form, content := range map[string]string{
-		"an inline secret":  strings.Replace(string(complete), "{", `{"webhookSecret":"s3cret",`, 1),
-		"a second document": string(complete) + `{}`,
-		"trailing text":     string(complete) + ` trailing`,
-		"a key in capitals": strings.Replace(string(complete), `"appId"`, `"APPID"`, 1),
-		"a key given twice": strings.Replace(string(complete), "{", `{"appId":1,`, 1),
+		"an inline secret":  strings.Replace(complete, "{", `{"webhookSecret":"s3cret",`, 1),
+		"a key in capitals": strings.Replace(complete, `"appId"`, `"APPID"`, 1),
+		"a key given twice": strings.Replace(complete, "{", `{"appId":1,`, 1),
+		"a second document": complete + `{}`,
+		"trailing text":     complete + ` trailing`,
+		"an array":          `[` + complete + `]`,
 	} {
 		t.Run(form, func(t *testing.T) {
-			_, err := configuration.Read(writtenFile(t, content))
+			_, err := configuration.Read(writtenFile(t, "controlplane.json", content))
 
 			if !errors.Is(err, configuration.ErrMalformedConfiguration) {
 				t.Fatalf("refusal is not a malformed configuration: %v", err)
@@ -86,236 +93,29 @@ func TestAConfigurationWithAnUnknownKeyOrTrailingContentIsRefused(t *testing.T) 
 	}
 }
 
-func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
-	stated := `{"webhookSecretFile":"secret"}`
-	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
+func TestAConfigurationFileAtTheBoundIsReadAndOneByteMoreIsRefused(t *testing.T) {
+	complete := encoded(t, completeItems(t))
+	atBound := complete + strings.Repeat(" ", configuration.MaxFileBytes-len(complete))
 
-	_, err := configuration.Read(writtenFile(t, padded))
-
+	if _, err := configuration.Read(writtenFile(t, "controlplane.json", atBound)); err != nil {
+		t.Fatalf("a configuration of exactly %d bytes was refused: %v", len(atBound), err)
+	}
+	_, err := configuration.Read(writtenFile(t, "controlplane.json", atBound+" "))
 	if !errors.Is(err, configuration.ErrOversizedFile) {
-		t.Fatalf("a %d-byte configuration was not refused as oversized: %v", len(padded), err)
+		t.Fatalf("a configuration one byte over the bound was not refused as oversized: %v", err)
 	}
 }
 
-func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
-	stated := completeItems(t)
+func TestAConfigurationFileThatCannotBeOpenedIsRefused(t *testing.T) {
+	_, err := configuration.Read(filepath.Join(t.TempDir(), "absent.json"))
 
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("an absent configuration file was not refused as absent: %v", err)
 	}
-
-	if configured.WebhookSecret() != statedWebhookSecret {
-		t.Errorf("the webhook secret is not the content of %s", stated.WebhookSecretFile)
-	}
-}
-
-func TestAWebhookSecretFileAboveTheBoundIsRefused(t *testing.T) {
-	secretFile := writtenFile(t, strings.Repeat("s", configuration.MaxSecretFileBytes+1))
-
-	_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile}))
-
-	if !errors.Is(err, configuration.ErrOversizedFile) {
-		t.Fatalf("an oversized webhook secret file was not refused as oversized: %v", err)
-	}
-}
-
-func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "")}))
-
-	assertRefusedNaming(t, err, configuration.ErrInvalidItem, "webhookSecretFile")
-}
-
-func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
-	stated := completeItems(t)
-	stated.WebhookSecretFile = writtenFile(t, string(statedWebhookSecret)+"\n")
-
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	if configured.WebhookSecret() != statedWebhookSecret {
-		t.Error("the trailing line break was taken as part of the webhook secret")
-	}
-}
-
-func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) {
-	for form, secret := range map[string]string{
-		"a CRLF line end": "s3cret\r\n",
-		"a NUL":           "s3c\x00ret",
-		"a tab":           "s3c\tret",
-		"non-ASCII":       "s3crét",
-	} {
-		t.Run(form, func(t *testing.T) {
-			_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, secret)}))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "webhookSecretFile")
-		})
-	}
-}
-
-func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
-	stated := completeItems(t)
-
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	if string(configured.AppKey().Reveal()) != statedAppKey {
-		t.Errorf("the App key is not the content of %s", stated.AppKeyFile)
-	}
-}
-
-func TestTheInstallationAllowlistIsTheOneTheConfigurationStates(t *testing.T) {
-	stated := completeItems(t)
-	stated.InstallationIDs = []int64{statedInstallationID, statedInstallationID + 1}
-
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	if !slices.Equal(configured.InstallationIDs(), stated.InstallationIDs) {
-		t.Errorf("the allowlist is %v, want %v", configured.InstallationIDs(), stated.InstallationIDs)
-	}
-}
-
-func TestAnInvalidInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
-	refused := map[string][]int64{
-		"a zero ID":           {0},
-		"a negative ID":       {-statedInstallationID},
-		"a repeated ID":       {statedInstallationID, statedInstallationID},
-		"more than the bound": slices.Repeat([]int64{statedInstallationID}, configuration.MaxInstallations+1),
-	}
-	for form, ids := range refused {
-		t.Run(form, func(t *testing.T) {
-			stated := completeItems(t)
-			stated.InstallationIDs = ids
-
-			_, err := configuration.Read(configurationFile(t, stated))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "installationIds")
-		})
-	}
-}
-
-func TestThePolicyFamiliesAreTheOnesTheConfigurationNames(t *testing.T) {
-	stated := completeItems(t)
-	stated.Families = []string{string(domain.PolicyFamilyStructural), string(domain.PolicyFamilySecurity)}
-
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	want := []domain.PolicyFamily{domain.PolicyFamilyStructural, domain.PolicyFamilySecurity}
-	if !slices.Equal(configured.Families(), want) {
-		t.Errorf("the families are %v, want %v", configured.Families(), want)
-	}
-}
-
-func TestAnUnknownOrRepeatedPolicyFamilyIsRefusedNamingIt(t *testing.T) {
-	structural := string(domain.PolicyFamilyStructural)
-	for form, named := range map[string][]string{
-		"an unknown family": {structural, "selection"},
-		"a repeated family": {structural, structural},
-		"an empty name":     {""},
-	} {
-		t.Run(form, func(t *testing.T) {
-			stated := completeItems(t)
-			stated.Families = named
-
-			_, err := configuration.Read(configurationFile(t, stated))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "families")
-		})
-	}
-}
-
-func TestTheListenAddressIsTheLoopbackAddressTheConfigurationStates(t *testing.T) {
-	stated := completeItems(t)
-	stated.ListenAddress = "[::1]:8443"
-
-	configured, err := configuration.Read(configurationFile(t, stated))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	if configured.ListenAddress() != netip.MustParseAddrPort(stated.ListenAddress) {
-		t.Errorf("the listen address is %s, want %s", configured.ListenAddress(), stated.ListenAddress)
-	}
-}
-
-func TestAListenAddressOffLoopbackOrWithoutAPortIsRefusedNamingIt(t *testing.T) {
-	for _, address := range []string{
-		"0.0.0.0:8080",
-		"[::]:8080",
-		"192.0.2.10:8080",
-		"localhost:8080",
-		"127.0.0.1",
-		"127.0.0.1:0",
-		"127.0.0.1:http",
-	} {
-		t.Run(address, func(t *testing.T) {
-			stated := completeItems(t)
-			stated.ListenAddress = address
-
-			_, err := configuration.Read(configurationFile(t, stated))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "listenAddress")
-		})
-	}
-}
-
-func TestTheAppIDIsTheOneTheConfigurationStates(t *testing.T) {
-	configured, err := configuration.Read(configurationFile(t, completeItems(t)))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	if configured.AppID() != statedAppID {
-		t.Errorf("the App ID is %d, want %d", configured.AppID(), statedAppID)
-	}
-}
-
-func TestANonPositiveAppIDIsRefusedNamingIt(t *testing.T) {
-	for _, stated := range []int64{0, -statedAppID} {
-		t.Run(fmt.Sprint(stated), func(t *testing.T) {
-			items := completeItems(t)
-			items.AppID = &stated
-
-			_, err := configuration.Read(configurationFile(t, items))
-
-			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "appId")
-		})
-	}
-}
-
-func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
-	stated := completeItems(t)
-	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
-
-	_, err := configuration.Read(configurationFile(t, stated))
-
-	assertRefusedNaming(t, err, configuration.ErrOversizedFile, "appKeyFile")
-}
-
-func TestAnEmptyAppKeyFileIsRefusedNamingIt(t *testing.T) {
-	stated := completeItems(t)
-	stated.AppKeyFile = writtenFile(t, "")
-
-	_, err := configuration.Read(configurationFile(t, stated))
-
-	assertRefusedNaming(t, err, configuration.ErrInvalidItem, "appKeyFile")
 }
 
 func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
-	configured, err := configuration.Read(configurationFile(t, completeItems(t)))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
+	configured := readConfiguration(t, completeItems(t))
 	held := map[string]any{
 		"the configuration":              configured,
 		"a pointer to the configuration": &configured,
@@ -348,80 +148,86 @@ func printedFormsOf(secrets ...string) []string {
 	return forms
 }
 
-const statedAppID = 1_204_331
-
-const statedListenAddress = "127.0.0.1:8080"
-
-const statedInstallationID = 52_311_907
-
-const statedWebhookSecret = domain.WebhookSecret("s3cret")
-
-const statedAppKeyBody = "c3RhdGVkIGtleQ"
-
-const statedAppKey = "-----BEGIN RSA PRIVATE KEY-----\n" + statedAppKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
+type statedItems map[string]json.RawMessage
 
 func completeItems(t *testing.T) statedItems {
 	t.Helper()
 	return statedItems{
-		WebhookSecretFile: writtenFile(t, string(statedWebhookSecret)),
-		AppKeyFile:        writtenFile(t, statedAppKey),
-		InstallationIDs:   []int64{statedInstallationID},
-		Families:          []string{string(domain.PolicyFamilyStructural)},
-		ListenAddress:     statedListenAddress,
-		AppID:             new(int64(statedAppID)),
+		listenAddressKey:     quoted(t, statedListenAddress),
+		appIDKey:             number(statedAppID),
+		appKeyFileKey:        quoted(t, writtenFile(t, "app-key.pem", statedAppKey)),
+		webhookSecretFileKey: quoted(t, writtenFile(t, "webhook-secret", string(statedWebhookSecret))),
+		installationIDsKey:   listOf(number(statedInstallationID)),
+		familiesKey:          listOf(quoted(t, string(domain.PolicyFamilyStructural))),
 	}
 }
 
-type statedItems struct {
-	WebhookSecretFile string   `json:"webhookSecretFile,omitempty"`
-	AppKeyFile        string   `json:"appKeyFile,omitempty"`
-	InstallationIDs   []int64  `json:"installationIds,omitempty"`
-	Families          []string `json:"families,omitempty"`
-	ListenAddress     string   `json:"listenAddress,omitempty"`
-	AppID             *int64   `json:"appId,omitempty"`
+func quoted(t *testing.T, text string) json.RawMessage {
+	t.Helper()
+	content, err := json.Marshal(text)
+	if err != nil {
+		t.Fatalf("encode %q: %v", text, err)
+	}
+	return content
 }
 
-func configurationFile(t *testing.T, stated statedItems) string {
+func listOf(values ...[]byte) json.RawMessage {
+	return json.RawMessage("[" + string(bytes.Join(values, []byte(","))) + "]")
+}
+
+func number(stated int64) json.RawMessage {
+	return json.RawMessage(strconv.FormatInt(stated, 10))
+}
+
+func readConfiguration(t *testing.T, stated statedItems) configuration.Configuration {
+	t.Helper()
+	configured, err := configuration.Read(writtenFile(t, "controlplane.json", encoded(t, stated)))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	return configured
+}
+
+func refusalOf(t *testing.T, stated statedItems) error {
+	t.Helper()
+	_, err := configuration.Read(writtenFile(t, "controlplane.json", encoded(t, stated)))
+	if err == nil {
+		t.Fatal("the configuration was read, want a refusal")
+	}
+	return err
+}
+
+func assertOnlyRefusal(t *testing.T, err error, refusal error, key string) {
+	t.Helper()
+	parts := refusalsIn(err)
+	if len(parts) != 1 {
+		t.Fatalf("want one refusal, got %d: %v", len(parts), err)
+	}
+	if !errors.Is(parts[0], refusal) || !strings.Contains(parts[0].Error(), key) {
+		t.Fatalf("refusal is not %v naming %s: %v", refusal, key, parts[0])
+	}
+}
+
+func refusalsIn(err error) []error {
+	joined, isJoined := err.(interface{ Unwrap() []error })
+	if !isJoined {
+		return []error{err}
+	}
+	return joined.Unwrap()
+}
+
+func encoded(t *testing.T, stated statedItems) string {
 	t.Helper()
 	content, err := json.Marshal(stated)
 	if err != nil {
 		t.Fatalf("encode the configuration: %v", err)
 	}
-	return writtenFile(t, string(content))
+	return string(content)
 }
 
-func assertRefusedNaming(t *testing.T, err error, refusal error, item string) {
+func writtenFile(t *testing.T, name, content string) string {
 	t.Helper()
-	if !errors.Is(err, refusal) || !strings.Contains(err.Error(), item) {
-		t.Fatalf("refusal is not %v naming %s: %v", refusal, item, err)
-	}
-}
-
-func rawItemsOf(t *testing.T, stated statedItems) map[string]json.RawMessage {
-	t.Helper()
-	content, err := json.Marshal(stated)
-	if err != nil {
-		t.Fatalf("encode the configuration: %v", err)
-	}
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(content, &raw); err != nil {
-		t.Fatalf("decode the configuration: %v", err)
-	}
-	return raw
-}
-
-func rawConfigurationFile(t *testing.T, raw map[string]json.RawMessage) string {
-	t.Helper()
-	content, err := json.Marshal(raw)
-	if err != nil {
-		t.Fatalf("encode the configuration: %v", err)
-	}
-	return writtenFile(t, string(content))
-}
-
-func writtenFile(t *testing.T, content string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "controlplane.json")
+	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
