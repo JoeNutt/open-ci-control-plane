@@ -34,6 +34,7 @@ var (
 	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", ErrUnverifiedToken)
 	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", ErrUnverifiedToken)
 	errNoRepository          = fmt.Errorf("%w: it names no repository", ErrUnverifiedToken)
+	errNotARepository        = fmt.Errorf("%w: its repository claim is not an owner/name pair", ErrUnverifiedToken)
 )
 
 type unverifiedReason struct {
@@ -83,13 +84,17 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	if err != nil {
 		return domain.Repository{}, unverifiedReasonOf(err)
 	}
+	return repositoryClaimedBy(verified)
+}
+
+func repositoryClaimedBy(verified jwt.Token) (domain.Repository, error) {
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
 		return domain.Repository{}, errNoRepository
 	}
 	repository, err := domain.ParseRepository(claimed)
 	if err != nil {
-		return domain.Repository{}, ErrUnverifiedToken
+		return domain.Repository{}, errNotARepository
 	}
 	return repository, nil
 }
