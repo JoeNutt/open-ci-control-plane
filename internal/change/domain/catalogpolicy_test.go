@@ -63,6 +63,13 @@ func TestParseCatalogPolicyRefusesAPolicyItCannotTrust(t *testing.T) {
 			},
 			reason: domain.ErrNegativeGroupOrder,
 		},
+		"two groups with one name": {
+			stated: domain.CatalogPolicyStatement{
+				Name:   "clean-architecture",
+				Groups: []domain.GroupStatement{{Name: "domain", Order: 0}, {Name: "domain", Order: 1}},
+			},
+			reason: domain.ErrDuplicateGroup,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {

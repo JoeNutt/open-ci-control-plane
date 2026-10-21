@@ -3,9 +3,12 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
+
+var ErrDuplicateGroup = errors.New("catalog policy declares one group twice")
 
 type CatalogPolicyStatement struct {
 	Name   string
@@ -39,6 +42,11 @@ func policyGroupsOf(stated []GroupStatement) ([]PolicyGroup, error) {
 		parsed, err := parsePolicyGroup(group)
 		if err != nil {
 			return nil, err
+		}
+		for _, g := range groups {
+			if g.name == parsed.name {
+				return nil, ErrDuplicateGroup
+			}
 		}
 		groups = append(groups, parsed)
 	}
