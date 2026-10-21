@@ -80,6 +80,18 @@ func TestParseStructuralFactsRefusesFactsOneByteOverTheSerialisedLimit(t *testin
 	}
 }
 
+func TestParseStructuralFactsAdmitsFactsAtTheSerialisedLimitWhole(t *testing.T) {
+	limits := domain.DeclaredLimits()
+	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, fileImportingPadded(t, 0))
+	atTheLimit := fileImportingPadded(t, padding)
+
+	_, err := domain.ParseStructuralFacts([]domain.ImportedFile{atTheLimit}, limits)
+
+	if err != nil {
+		t.Fatalf("parse facts serialising to %d bytes: %v", limits.MaxStructuralBytes, err)
+	}
+}
+
 func fileImportingPadded(t *testing.T, padding int) domain.ImportedFile {
 	t.Helper()
 
@@ -99,14 +111,19 @@ func serialisedSizeOf(t *testing.T, imported domain.ImportedFile) int {
 	}
 	change := domain.Change{Files: withinBounds(t, imported.File), Structure: facts}
 	diff := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff
-	published, err := json.Marshal(struct {
-		Imports          domain.Declared[domain.Import] `json:"imports"`
-		ModuleGraphDelta domain.ModuleGraphDelta        `json:"module_graph_delta"`
-	}{diff.Imports, diff.ModuleGraphDelta})
+	return serialisedLengthOf(t, diff.Imports) + serialisedLengthOf(t, diff.ModuleGraphDelta)
+}
+
+func serialisedLengthOf[Published domain.Declared[domain.Import] | domain.ModuleGraphDelta](
+	t *testing.T, published Published,
+) int {
+	t.Helper()
+
+	serialised, err := json.Marshal(published)
 	if err != nil {
-		t.Fatalf("marshal the published structural facts: %v", err)
+		t.Fatalf("marshal %T: %v", published, err)
 	}
-	return len(published)
+	return len(serialised)
 }
 
 func structureOf(t *testing.T, imported ...domain.ImportedFile) domain.StructuralFacts {
