@@ -70,15 +70,24 @@ func childOf(node any, token string) (any, bool, error) {
 		child, exists := container[token]
 		return child, exists, nil
 	case []any:
-		if len(token) > 1 && token[0] == '0' || strings.HasPrefix(token, "+") {
-			return nil, false, ErrMalformedJSONPointer
-		}
-		index, err := strconv.Atoi(token)
-		if err != nil || index < 0 || index >= len(container) {
-			return nil, false, nil
-		}
-		return container[index], true, nil
+		return arrayElement(container, token)
 	default:
 		return nil, false, nil
 	}
+}
+
+func arrayElement(elements []any, token string) (any, bool, error) {
+	if hasForbiddenIndexSpelling(token) {
+		return nil, false, ErrMalformedJSONPointer
+	}
+	index, err := strconv.Atoi(token)
+	if err != nil || index < 0 || index >= len(elements) {
+		return nil, false, nil
+	}
+	return elements[index], true, nil
+}
+
+func hasForbiddenIndexSpelling(token string) bool {
+	hasLeadingZero := len(token) > 1 && strings.HasPrefix(token, "0")
+	return hasLeadingZero || strings.HasPrefix(token, "+")
 }
