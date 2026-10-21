@@ -34,7 +34,7 @@ func diffOf(change Change, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution, change.Structure),
+		ModuleGraphDelta:      change.Structure.moduleGraphDelta(),
 	}
 }
 
@@ -96,12 +96,4 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
 	}
 	return resolution
-}
-
-func graphDeltaFor(resolution importResolution, facts StructuralFacts) ModuleGraphDelta {
-	return ModuleGraphDelta{
-		EdgesAdded:   slices.Clone(facts.edgesAdded),
-		EdgesRemoved: slices.Clone(facts.edgesRemoved),
-		Incomplete:   resolution.unresolved > 0,
-	}
 }
