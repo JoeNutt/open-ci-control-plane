@@ -12,9 +12,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const MaxFileBytes = 64 << 10
-
-const MaxSecretFileBytes = 4 << 10
+const (
+	MaxFileBytes       = 64 << 10
+	MaxSecretFileBytes = 4 << 10
+)
 
 const webhookSecretFileItem = "webhookSecretFile"
 

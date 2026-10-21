@@ -3,6 +3,7 @@
 package configuration_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -35,12 +36,12 @@ func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 	secretFile := writtenFile(t, "s3cret")
 
-	read, err := configuration.Read(writtenFile(t, `{"webhookSecretFile":"`+secretFile+`"}`))
+	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile}))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
 
-	if read.WebhookSecret() != domain.WebhookSecret("s3cret") {
+	if configured.WebhookSecret() != domain.WebhookSecret("s3cret") {
 		t.Errorf("the webhook secret is not the content of %s", secretFile)
 	}
 }
@@ -48,11 +49,24 @@ func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 func TestAWebhookSecretFileAboveTheBoundIsRefused(t *testing.T) {
 	secretFile := writtenFile(t, strings.Repeat("s", configuration.MaxSecretFileBytes+1))
 
-	_, err := configuration.Read(writtenFile(t, `{"webhookSecretFile":"`+secretFile+`"}`))
+	_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: secretFile}))
 
 	if !errors.Is(err, configuration.ErrOversizedFile) {
 		t.Fatalf("an oversized webhook secret file was not refused as oversized: %v", err)
 	}
+}
+
+type statedItems struct {
+	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
+}
+
+func configurationFile(t *testing.T, stated statedItems) string {
+	t.Helper()
+	content, err := json.Marshal(stated)
+	if err != nil {
+		t.Fatalf("encode the configuration: %v", err)
+	}
+	return writtenFile(t, string(content))
 }
 
 func writtenFile(t *testing.T, content string) string {
