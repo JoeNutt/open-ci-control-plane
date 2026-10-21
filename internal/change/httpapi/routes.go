@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,32 +15,9 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
-var ErrIncompleteRoutes = errors.New("the listener is missing a part it cannot work without")
-
-type ChangeGate interface {
-	Execute(ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID) error
-}
-
-type Settings struct {
-	Log           *slog.Logger
-	Secret        domain.WebhookSecret
-	Installations []int64
-	Gate          ChangeGate
-	DecisionIDs   domain.DecisionIDSource
-}
-
 func ParseRoutes(settings Settings) (http.Handler, error) {
-	if settings.Log == nil {
-		return nil, fmt.Errorf("%w: no log", ErrIncompleteRoutes)
-	}
-	if settings.Gate == nil {
-		return nil, fmt.Errorf("%w: no gate", ErrIncompleteRoutes)
-	}
-	if settings.DecisionIDs == nil {
-		return nil, fmt.Errorf("%w: no decision IDs", ErrIncompleteRoutes)
-	}
-	if len(settings.Installations) == 0 {
-		return nil, fmt.Errorf("%w: no installations", ErrIncompleteRoutes)
+	if missing := slices.IndexFunc(requiredParts, isMissingFrom(settings)); missing >= 0 {
+		return nil, fmt.Errorf("%w: %s", ErrIncompleteRoutes, requiredParts[missing].name)
 	}
 	answering := answers{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
@@ -56,7 +32,7 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 		Refusals: refusals{log: settings.Log},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build the listener's signature check: %w", err)
 	}
 	routes := http.NewServeMux()
 	routes.Handle(eventsRoute, events{answering: answering, check: check})
