@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -70,10 +71,26 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 	}
 }
 
+func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
+	issuer := newIssuer(t)
+	tokens := issuer.tokensFor(t, instanceURL)
+
+	for range 2 {
+		if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+			t.Fatalf("verify a token GitHub Actions issued: %v", err)
+		}
+	}
+
+	if fetches := issuer.keySetFetches.Load(); fetches != 1 {
+		t.Fatalf("fetched the key set %d times, want 1", fetches)
+	}
+}
+
 type issuer struct {
-	t          *testing.T
-	server     *httptest.Server
-	signingKey jwk.Key
+	t             *testing.T
+	server        *httptest.Server
+	signingKey    jwk.Key
+	keySetFetches atomic.Int64
 }
 
 type discoveryDocument struct {
@@ -95,6 +112,7 @@ func (minted *issuer) serve(answer http.ResponseWriter, asked *http.Request) {
 	case discoveryPath:
 		minted.write(answer, minted.discovery())
 	case keySetPath:
+		minted.keySetFetches.Add(1)
 		minted.write(answer, minted.publishedKeys())
 	default:
 		answer.WriteHeader(http.StatusNotFound)
