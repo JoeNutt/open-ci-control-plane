@@ -44,11 +44,11 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrMissingKey,
 		},
 		"a later schema version": {
-			written: liveBindingWith(t, "schema_version: 1", "schema_version: 2"),
+			written: liveBindingWith(t, liveSchemaVersionLine, laterSchemaVersionLine),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"no schema version": {
-			written: liveBindingWith(t, "schema_version: 1\n", ""),
+			written: liveBindingWith(t, liveSchemaVersionLine+"\n", ""),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"an unknown key": {
