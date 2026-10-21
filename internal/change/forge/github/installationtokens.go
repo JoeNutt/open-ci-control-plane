@@ -49,7 +49,7 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 	tokens.mutex.Lock()
 	defer tokens.mutex.Unlock()
 
-	if tokens.held.isPresent() && tokens.clock().Before(tokens.held.expiresAt.Add(-5*time.Minute)) {
+	if tokens.held.isUsableAt(tokens.clock()) {
 		return tokens.held.credential, nil
 	}
 	minted, err := tokens.exchanged(ctx)
@@ -106,6 +106,8 @@ type accessTokenGrant struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+const tokenRefreshLead = 5 * time.Minute
+
 type installationToken struct {
 	credential Credential
 	expiresAt  time.Time
@@ -118,6 +120,6 @@ func parseGrant(granted accessTokenGrant) (installationToken, error) {
 	return installationToken{credential: NewCredential(granted.Token), expiresAt: granted.ExpiresAt}, nil
 }
 
-func (token installationToken) isPresent() bool {
-	return token.credential.isPresent()
+func (token installationToken) isUsableAt(now time.Time) bool {
+	return token.credential.isPresent() && now.Before(token.expiresAt.Add(-tokenRefreshLead))
 }

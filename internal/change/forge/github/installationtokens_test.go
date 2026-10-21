@@ -265,7 +265,16 @@ func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testin
 	}
 }
 
-func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
+type exchangedOnce struct {
+	clock    *forgeClock
+	endpoint *tokenForge
+	tokens   *github.InstallationTokens
+	first    string
+}
+
+func tokensExchangedOnce(t *testing.T) exchangedOnce {
+	t.Helper()
+
 	clock := clockAt(mintedAt)
 	endpoint := newTokenForge(t, clock)
 	tokens := installationTokensOn(t, endpoint.server, clock)
@@ -273,36 +282,36 @@ func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first exchange: %v", err)
 	}
-	clock.advance(grantedLifetime / 2)
+	return exchangedOnce{clock: clock, endpoint: endpoint, tokens: tokens, first: first}
+}
 
-	second, err := github.AuthorizationOf(context.Background(), tokens)
+func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
+	held := tokensExchangedOnce(t)
+	held.clock.advance(grantedLifetime / 2)
+
+	second, err := github.AuthorizationOf(context.Background(), held.tokens)
 
 	if err != nil {
 		t.Fatalf("second call: %v", err)
 	}
-	if second != first || endpoint.exchangeCount() != 1 {
+	if second != held.first || held.endpoint.exchangeCount() != 1 {
 		t.Errorf("half an hour before expiry the token was exchanged again: %d exchanges",
-			endpoint.exchangeCount())
+			held.endpoint.exchangeCount())
 	}
 }
 
 func TestACallNearExpiryGetsAFreshToken(t *testing.T) {
-	clock := clockAt(mintedAt)
-	endpoint := newTokenForge(t, clock)
-	tokens := installationTokensOn(t, endpoint.server, clock)
-	if _, err := github.AuthorizationOf(context.Background(), tokens); err != nil {
-		t.Fatalf("first exchange: %v", err)
-	}
-	clock.advance(grantedLifetime - time.Minute)
+	held := tokensExchangedOnce(t)
+	held.clock.advance(grantedLifetime - time.Minute)
 
-	authorization, err := github.AuthorizationOf(context.Background(), tokens)
+	authorization, err := github.AuthorizationOf(context.Background(), held.tokens)
 
 	if err != nil {
 		t.Fatalf("call near expiry: %v", err)
 	}
 	if authorization != "Bearer "+grantedToken(2) {
 		t.Errorf("a minute before expiry the old token was presented: %d exchanges",
-			endpoint.exchangeCount())
+			held.endpoint.exchangeCount())
 	}
 }
 
