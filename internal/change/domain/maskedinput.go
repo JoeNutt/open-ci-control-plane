@@ -41,8 +41,8 @@ func removeAt(tree map[string]any, pointer JSONPointer) {
 	tokens := pointer.Tokens()
 	parent := tree
 	for _, token := range tokens[:len(tokens)-1] {
-		child, ok := parent[token].(map[string]any)
-		if !ok {
+		child, isObject := parent[token].(map[string]any)
+		if !isObject {
 			return
 		}
 		parent = child
