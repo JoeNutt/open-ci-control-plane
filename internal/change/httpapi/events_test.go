@@ -19,7 +19,7 @@ import (
 
 func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery := eventDelivery(`{}`)
-	delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
+	delivery.Header.Set("X-GitHub-Delivery", statedDeliveryID)
 	answered := httptest.NewRecorder()
 
 	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
@@ -34,7 +34,7 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 
 func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery := eventDelivery(`{}`)
-	delivery.Header.Set("X-GitHub-Event", "pull_request")
+	delivery.Header.Set("X-GitHub-Event", statedEvent)
 	answered := httptest.NewRecorder()
 
 	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
@@ -73,9 +73,7 @@ func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
 	}
 	for form, stated := range malformed {
 		t.Run(form, func(t *testing.T) {
-			delivery := eventDelivery(`{}`)
-			delivery.Header.Set("X-GitHub-Event", "pull_request")
-			delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
+			delivery := headedDelivery(strings.NewReader(`{}`))
 			delivery.Header.Set(stated.header, stated.value)
 			answered := httptest.NewRecorder()
 
@@ -93,9 +91,7 @@ func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
 
 func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	unread := &untouchedBody{}
-	delivery := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", unread)
-	delivery.Header.Set("X-GitHub-Event", "pull_request")
-	delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
+	delivery := headedDelivery(unread)
 	delivery.ContentLength = ingest.MaxDeliveryBytes + 1
 	answered := httptest.NewRecorder()
 
@@ -140,8 +136,21 @@ func (hungUpForge) Write([]byte) (int, error) { return 0, errHungUp }
 
 func (hungUpForge) WriteHeader(int) {}
 
+const (
+	eventsPath       = "/v1/forge/github/events"
+	statedEvent      = "pull_request"
+	statedDeliveryID = "72d3162e-cc78-11e3-81ab-4c9367dc0958"
+)
+
+func headedDelivery(body io.Reader) *http.Request {
+	delivery := httptest.NewRequest(http.MethodPost, eventsPath, body)
+	delivery.Header.Set("X-GitHub-Event", statedEvent)
+	delivery.Header.Set("X-GitHub-Delivery", statedDeliveryID)
+	return delivery
+}
+
 func eventDelivery(body string) *http.Request {
-	return httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", strings.NewReader(body))
+	return httptest.NewRequest(http.MethodPost, eventsPath, strings.NewReader(body))
 }
 
 func discardedLog() *slog.Logger { return slog.New(slog.DiscardHandler) }
