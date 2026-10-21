@@ -36,6 +36,6 @@ func (bound BoundGlob) Directory() RepositoryDirectory { return bound.directory 
 
 func (bound BoundGlob) Matches(candidate string) bool { return bound.pattern.Matches(candidate) }
 
-func (bound BoundGlob) translatesLike(other BoundGlob) bool {
+func (bound BoundGlob) namesSameDirectoryAs(other BoundGlob) bool {
 	return bound.directory == other.directory
 }
