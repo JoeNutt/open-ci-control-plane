@@ -22,7 +22,7 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 func diffOf(change Change, rules ClassificationRules) Diff {
 	bounded := change.Files
 	paths := pathsOf(bounded.files)
-	imported := append(slices.Clone(change.Imported), change.Structure.imported...)
+	imported := change.Structure.imported
 	imports := importsOf(imported)
 	resolution := importResolutionIn(imports)
 	return Diff{

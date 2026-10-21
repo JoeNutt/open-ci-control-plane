@@ -39,7 +39,11 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
 	}
-	change := domain.Change{Files: bounded, Imported: imported}
+	facts, err := domain.ParseStructuralFacts(imported, useCase.Limits)
+	if err != nil {
+		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
+	}
+	change := domain.Change{Files: bounded, Structure: facts}
 	return domain.ParseDocument(pullRequest, change, useCase.Rules), nil
 }
 

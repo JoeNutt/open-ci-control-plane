@@ -5,6 +5,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 var ErrTooManyImportsInChange = errors.New("change exceeds the per-change import bound")
@@ -17,7 +18,7 @@ func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFac
 		return StructuralFacts{}, fmt.Errorf("%w: %d imports exceeds %d",
 			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
 	}
-	return StructuralFacts{imported: imported}, nil
+	return StructuralFacts{imported: slices.Clone(imported)}, nil
 }
 
 func headImportCountOf(imported []ImportedFile) int {
