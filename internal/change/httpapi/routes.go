@@ -27,6 +27,7 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 			log:       settings.Log,
 			gate:      settings.Gate,
 			ids:       settings.DecisionIDs,
+			refusing:  refusals{log: settings.Log},
 		},
 		Secret:   settings.Secret,
 		Refusals: refusals{log: settings.Log},
@@ -35,13 +36,14 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 		return nil, fmt.Errorf("build the listener's signature check: %w", err)
 	}
 	routes := http.NewServeMux()
-	routes.Handle(eventsRoute, events{answering: answering, check: check})
+	routes.Handle(eventsRoute, events{answering: answering, check: check, refusing: refusals{log: settings.Log}})
 	return routes, nil
 }
 
 type events struct {
 	answering answers
 	check     ingest.SignatureCheck
+	refusing  refusals
 }
 
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
@@ -51,6 +53,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		return
 	}
 	if refused := lengthRefusalOf(asked.ContentLength); refused != nil {
+		receiving.refusing.record(asked.Context(), received, "the declared length")
 		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}
@@ -63,21 +66,24 @@ type admitted struct {
 	log       *slog.Logger
 	gate      ChangeGate
 	ids       domain.DecisionIDSource
+	refusing  refusals
 }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
+	received, err := deliveryOf(asked.Context())
+	if err != nil {
+		stage.answering.write(asked.Context(), answer, stage.failedEvaluationAnswer(asked.Context(), err))
+		return
+	}
 	stated, err := payloadOf(asked.Body)
 	if err != nil {
+		stage.refusing.record(asked.Context(), received, "malformed payload")
 		stage.answering.write(asked.Context(), answer, malformedPayloadProblem())
 		return
 	}
 	if !stage.allowed.admits(stated) {
+		stage.refusing.record(asked.Context(), received, "installation not allowlisted")
 		answer.WriteHeader(http.StatusNotFound)
-		return
-	}
-	received, err := deliveryOf(asked.Context())
-	if err != nil {
-		stage.answering.write(asked.Context(), answer, stage.failedEvaluationAnswer(asked.Context(), err))
 		return
 	}
 	if !isEvaluated(received.event, stated.Action) {
@@ -90,6 +96,7 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 func (stage admitted) evaluatedAnswer(ctx context.Context, received delivery, stated payload) answerBody {
 	locator, err := stated.pullRequest()
 	if err != nil {
+		stage.refusing.record(ctx, received, "unparseable pull request")
 		return unparseablePullRequestProblem()
 	}
 	id, err := stage.ids.NextDecisionID()
