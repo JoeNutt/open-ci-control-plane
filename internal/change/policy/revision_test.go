@@ -10,11 +10,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-const (
-	liveCatalogFile = "catalog/clean-architecture.yaml"
-	liveBindingFile = "bindings/JoeNutt/open-ci-control-plane.yaml"
-)
-
 func TestParseRevisionParsesTheLivePolicyRepository(t *testing.T) {
 	model, err := policy.ParseRevision(liveFiles(t))
 	if err != nil {

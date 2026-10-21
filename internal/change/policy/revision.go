@@ -5,18 +5,32 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const catalogDirectory = "catalog/"
+const (
+	catalogDirectory  = "catalog/"
+	bindingsDirectory = "bindings/"
+)
 
 var ErrUnplacedPolicyFile = errors.New("policy file is neither in catalog/ nor in bindings/")
 
 type parsedFiles struct {
 	catalog  []domain.CatalogPolicy
 	bindings []domain.Binding
+}
+
+type placement struct {
+	directory string
+	add       func(*parsedFiles, []byte) error
+}
+
+var placementsOfPolicyFiles = []placement{
+	{directory: catalogDirectory, add: (*parsedFiles).addCatalogPolicy},
+	{directory: bindingsDirectory, add: (*parsedFiles).addBinding},
 }
 
 func ParseRevision(files []domain.PolicyFile) (domain.PolicyModel, error) {
@@ -38,18 +52,26 @@ func ParseRevision(files []domain.PolicyFile) (domain.PolicyModel, error) {
 }
 
 func (parsed *parsedFiles) add(file domain.PolicyFile) error {
-	if strings.HasPrefix(file.Path, catalogDirectory) {
-		policy, err := ParseCatalogFile(file.Content)
-		if err != nil {
-			return err
-		}
-		parsed.catalog = append(parsed.catalog, policy)
-		return nil
-	}
-	if !strings.HasPrefix(file.Path, "bindings/") {
+	placed := slices.IndexFunc(placementsOfPolicyFiles, func(candidate placement) bool {
+		return strings.HasPrefix(file.Path, candidate.directory)
+	})
+	if placed < 0 {
 		return ErrUnplacedPolicyFile
 	}
-	binding, err := ParseBindingFile(file.Content)
+	return placementsOfPolicyFiles[placed].add(parsed, file.Content)
+}
+
+func (parsed *parsedFiles) addCatalogPolicy(content []byte) error {
+	policy, err := ParseCatalogFile(content)
+	if err != nil {
+		return err
+	}
+	parsed.catalog = append(parsed.catalog, policy)
+	return nil
+}
+
+func (parsed *parsedFiles) addBinding(content []byte) error {
+	binding, err := ParseBindingFile(content)
 	if err != nil {
 		return err
 	}
