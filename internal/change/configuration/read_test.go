@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -210,6 +211,20 @@ func TestAnUnknownOrRepeatedPolicyFamilyIsRefusedNamingIt(t *testing.T) {
 				t.Fatalf("refusal is not an invalid families: %v", err)
 			}
 		})
+	}
+}
+
+func TestTheListenAddressIsTheLoopbackAddressTheConfigurationStates(t *testing.T) {
+	stated := completeItems(t)
+	stated.ListenAddress = "[::1]:8443"
+
+	configured, err := configuration.Read(configurationFile(t, stated))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if configured.ListenAddress() != netip.MustParseAddrPort(stated.ListenAddress) {
+		t.Errorf("the listen address is %s, want %s", configured.ListenAddress(), stated.ListenAddress)
 	}
 }
 

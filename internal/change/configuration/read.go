@@ -71,6 +71,8 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
 
+func (configured Configuration) ListenAddress() netip.AddrPort { return configured.listenAddress }
+
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
