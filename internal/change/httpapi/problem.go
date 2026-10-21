@@ -28,6 +28,8 @@ const (
 	unparseablePullRequestCode    = "unparseable_pull_request"
 	unparseablePullRequestMessage = "the payload names no pull request this service accepts"
 	pullRequestFields             = "repository.full_name, number"
+	failedEvaluationCode          = "evaluation_failed"
+	failedEvaluationMessage       = "the change could not be evaluated"
 	undeclaredLengthCode          = "undeclared_length"
 	undeclaredLengthMessage       = "the delivery declares no length"
 )
@@ -49,6 +51,13 @@ type limitProblem struct {
 }
 
 func (limitProblem) status() int { return http.StatusRequestEntityTooLarge }
+
+type serverProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (serverProblem) status() int { return http.StatusInternalServerError }
 
 func missingHeaderProblem(header string) fieldProblem {
 	return fieldProblem{Code: missingHeaderCode, Message: missingHeaderMessage, Field: header}
@@ -76,4 +85,8 @@ func oversizedBodyProblem() limitProblem {
 
 func undeclaredLengthProblem() limitProblem {
 	return limitProblem{Code: undeclaredLengthCode, Message: undeclaredLengthMessage, Limit: deliveryLimit}
+}
+
+func failedEvaluationProblem() serverProblem {
+	return serverProblem{Code: failedEvaluationCode, Message: failedEvaluationMessage}
 }

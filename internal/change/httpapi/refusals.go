@@ -7,13 +7,6 @@ import (
 	"net/http"
 )
 
-const (
-	refusedDelivery  = "delivery refused"
-	uncarriedRefusal = "a delivery was refused without the headers the listener parsed"
-	deliveryIDKey    = "deliveryId"
-	reasonKey        = "reason"
-)
-
 type refusals struct{ log *slog.Logger }
 
 func (recording refusals) RecordRefusal(refused *http.Request, reason error) {
