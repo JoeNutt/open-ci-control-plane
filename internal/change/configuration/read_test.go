@@ -48,6 +48,8 @@ func TestAConfigurationWithAnUnknownKeyOrTrailingContentIsRefused(t *testing.T) 
 		"an inline secret":  strings.Replace(string(complete), "{", `{"webhookSecret":"s3cret",`, 1),
 		"a second document": string(complete) + `{}`,
 		"trailing text":     string(complete) + ` trailing`,
+		"a key in capitals": strings.Replace(string(complete), `"appId"`, `"APPID"`, 1),
+		"a key given twice": strings.Replace(string(complete), "{", `{"appId":1,`, 1),
 	} {
 		t.Run(form, func(t *testing.T) {
 			_, err := configuration.Read(writtenFile(t, content))

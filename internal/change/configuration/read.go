@@ -83,6 +83,27 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
+	walking := json.NewDecoder(bytes.NewReader(content))
+	if _, err := walking.Token(); err != nil {
+		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+	}
+	seen := map[string]bool{}
+	for walking.More() {
+		key, err := walking.Token()
+		if err != nil {
+			return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+		}
+		name, _ := key.(string)
+		known := map[string]bool{"listenAddress": true, "appId": true, "appKeyFile": true, "webhookSecretFile": true, "installationIds": true, "families": true}
+		if seen[name] || !known[name] {
+			return statedConfiguration{}, fmt.Errorf("%w: key %q", ErrMalformedConfiguration, name)
+		}
+		seen[name] = true
+		var skipped json.RawMessage
+		if err := walking.Decode(&skipped); err != nil {
+			return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+		}
+	}
 	decoding := json.NewDecoder(bytes.NewReader(content))
 	decoding.DisallowUnknownFields()
 	var stated statedConfiguration
