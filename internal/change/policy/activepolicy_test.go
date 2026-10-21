@@ -47,19 +47,6 @@ func TestActivePolicyServesTheModelParsedAtTheAcceptedCommit(t *testing.T) {
 	}
 }
 
-func TestActivePolicyKeepsThePreviousRevisionWhenACandidateIsRefused(t *testing.T) {
-	active := activeAtFirstCommit(t)
-	candidate := liveFiles(t)
-	candidate[1].Content = []byte(liveBindingPlacingOnePathInTwoGroups(t))
-
-	if err := active.Offer(policyCommit(t, secondPolicyCommit), candidate); !errors.Is(err, domain.ErrPathInTwoGroups) {
-		t.Fatalf("a binding placing one path in two groups gave %v, want ErrPathInTwoGroups", err)
-	}
-	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
-		t.Errorf("accepted revision %s after a refusal, want the previous %s", revision, firstPolicyCommit)
-	}
-}
-
 func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T) {
 	refused := map[string]struct {
 		candidate []domain.PolicyFile
@@ -68,8 +55,8 @@ func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T)
 		"an unknown key":                     {liveFilesWithBinding(t, liveBindingWithUnknownKey(t, "timeout")), policy.ErrMalformedPolicyFile},
 		"a YAML alias":                       {liveFilesWithBinding(t, liveBindingWithAlias(t)), policy.ErrAliasOrAnchor},
 		"a YAML anchor":                      {liveFilesWithCatalog(t, liveCatalogWithAnchor(t)), policy.ErrAliasOrAnchor},
-		"two bindings for one repository":    {liveFilesAnd(liveFiles(t)[1], "bindings/JoeNutt/copy.yaml"), domain.ErrDuplicateBinding},
-		"two catalog policies with one name": {liveFilesAnd(liveFiles(t)[0], "catalog/copy.yaml"), domain.ErrDuplicateCatalogPolicy},
+		"two bindings for one repository":    {liveFilesPlus(t, "bindings/JoeNutt/copy.yaml", liveBindingPath), domain.ErrDuplicateBinding},
+		"two catalog policies with one name": {liveFilesPlus(t, "catalog/copy.yaml", liveCatalogPath), domain.ErrDuplicateCatalogPolicy},
 		"a binding naming an unknown policy": {liveFilesWithBinding(t, liveBindingWith(t, "use: clean-architecture", "use: mvvm")), domain.ErrUnknownCatalogPolicy},
 		"a binding naming an undeclared group": {
 			liveFilesWithBinding(t, liveBindingWith(t, liveDriverPaths, liveDriverPaths+"\n      infrastructure: [\"deploy/**\"]")),
@@ -79,7 +66,7 @@ func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T)
 		"an empty import-root prefix":    {liveFilesWithBinding(t, liveBindingWith(t, "prefix: "+liveModule, `prefix: ""`)), domain.ErrMalformedGoImportPath},
 		"two roots sharing one prefix":   {liveFilesWithBinding(t, liveBindingWithImportRoots(t, 1)), domain.ErrSharedImportRootPrefix},
 		"one path in two groups":         {liveFilesWithBinding(t, liveBindingPlacingOnePathInTwoGroups(t)), domain.ErrPathInTwoGroups},
-		"a file outside the directories": {liveFilesAnd(liveFiles(t)[1], "templates/copy.yaml"), policy.ErrUnplacedPolicyFile},
+		"a file outside the directories": {liveFilesPlus(t, "templates/copy.yaml", liveBindingPath), policy.ErrUnplacedPolicyFile},
 		"a file above 1 MiB": {
 			liveFilesWithBinding(t, string(fixture(t, liveBindingPath))+strings.Repeat(" ", domain.MaxPolicyFileBytes)),
 			domain.ErrPolicyFileTooLarge,
@@ -170,8 +157,10 @@ func liveFilesWithCatalog(t *testing.T, catalog string) []domain.PolicyFile {
 	return files
 }
 
-func liveFilesAnd(copied domain.PolicyFile, path string) []domain.PolicyFile {
-	return []domain.PolicyFile{copied, {Path: path, Content: copied.Content}}
+func liveFilesPlus(t *testing.T, path, copiedFixture string) []domain.PolicyFile {
+	t.Helper()
+
+	return append(liveFiles(t), domain.PolicyFile{Path: path, Content: fixture(t, copiedFixture)})
 }
 
 func policyFilesBeyondTheBound(t *testing.T) []domain.PolicyFile {
