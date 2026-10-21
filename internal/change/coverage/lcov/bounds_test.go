@@ -4,6 +4,7 @@ package lcov_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
@@ -15,6 +16,20 @@ type unreadBody struct{ t *testing.T }
 func (body unreadBody) Read([]byte) (int, error) {
 	body.t.Fatal("the body was read although its declared length is over the bound")
 	return 0, nil
+}
+
+func TestReportedFilesInAcceptsADeclaredLengthAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	artifact := lcov.Artifact{
+		DeclaredBytes: limits.MaxCompressedBytes,
+		Body:          strings.NewReader(record(effectPath, lineHit)),
+	}
+
+	_, err := lcov.ReportedFilesIn(artifact, limits)
+
+	if err != nil {
+		t.Fatalf("want an artifact declared at the bound accepted, got %v", err)
+	}
 }
 
 func TestReportedFilesInRefusesAnOversizedDeclaredLengthBeforeReading(t *testing.T) {
