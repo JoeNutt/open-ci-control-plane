@@ -3,16 +3,16 @@
 package httpapi
 
 const (
-	eventHeader       = "X-GitHub-Event"
-	deliveryHeader    = "X-GitHub-Delivery"
 	contentTypeHeader = "Content-Type"
 	jsonMediaType     = "application/json"
 	unwrittenAnswer   = "the answer to a delivery could not be written"
 )
 
 const (
-	missingHeaderCode    = "missing_header"
-	missingHeaderMessage = "the delivery carries no such header"
+	missingHeaderCode      = "missing_header"
+	missingHeaderMessage   = "the delivery carries no such header"
+	malformedHeaderCode    = "malformed_header"
+	malformedHeaderMessage = "the header exceeds its length or holds a character outside its set"
 )
 
 type fieldProblem struct {
@@ -23,4 +23,8 @@ type fieldProblem struct {
 
 func missingHeaderProblem(header string) fieldProblem {
 	return fieldProblem{Code: missingHeaderCode, Message: missingHeaderMessage, Field: header}
+}
+
+func malformedHeaderProblem(header string) fieldProblem {
+	return fieldProblem{Code: malformedHeaderCode, Message: malformedHeaderMessage, Field: header}
 }
