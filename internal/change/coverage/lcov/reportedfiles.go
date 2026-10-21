@@ -185,3 +185,7 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	}
 	return reading.reported, nil
 }
+
+func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+	return ReportedFilesIn(artifact, limits)
+}

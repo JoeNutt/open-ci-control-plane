@@ -35,6 +35,22 @@ func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
 	}
 }
 
+func TestAnArtifactIsReadThroughTheCoverageReportPort(t *testing.T) {
+	artifact := record(effectPath, lineHit)
+	var report domain.CoverageReport = lcov.Artifact{
+		DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+
+	reported, err := report.ReportedFiles(domain.DeclaredCoverageLimits())
+
+	if err != nil {
+		t.Fatalf("read the artifact through the port: %v", err)
+	}
+	want := []domain.ReportedFile{domain.NewReportedFile(repositoryPath(t, effectPath), true)}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
 	artifact := record(effectPath, lineHit) + record(gatePath, lineMissed, "DA:8,0")
 
