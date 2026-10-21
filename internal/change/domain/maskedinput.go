@@ -9,7 +9,8 @@ import (
 )
 
 type MaskedInput struct {
-	tree map[string]any
+	tree     map[string]any
+	redacted []string
 }
 
 func MaskedInputOf(document Document) (MaskedInput, error) {
@@ -17,16 +18,21 @@ func MaskedInputOf(document Document) (MaskedInput, error) {
 	if err != nil {
 		return MaskedInput{}, err
 	}
+	var redacted []string
 	for _, stated := range document.Diff.Sensitive {
 		pointer, err := ParseJSONPointer(stated)
 		if err != nil {
 			return MaskedInput{}, err
 		}
-		if err := removeAt(tree, pointer); err != nil {
+		removed, err := removeAt(tree, pointer)
+		if err != nil {
 			return MaskedInput{}, err
 		}
+		if removed {
+			redacted = append(redacted, stated)
+		}
 	}
-	return MaskedInput{tree: sweep(tree).(map[string]any)}, nil
+	return MaskedInput{tree: sweep(tree).(map[string]any), redacted: redacted}, nil
 }
 
 type removedElement struct{}
@@ -54,6 +60,8 @@ func sweep(node any) any {
 
 func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(masked.tree) }
 
+func (masked MaskedInput) RedactedPointers() []string { return masked.redacted }
+
 func treeOf(document Document) (map[string]any, error) {
 	encoded, err := json.Marshal(document)
 	if err != nil {
@@ -66,16 +74,16 @@ func treeOf(document Document) (map[string]any, error) {
 	return tree, nil
 }
 
-func removeAt(tree map[string]any, pointer JSONPointer) error {
+func removeAt(tree map[string]any, pointer JSONPointer) (bool, error) {
 	tokens := pointer.Tokens()
 	var node any = tree
 	for _, token := range tokens[:len(tokens)-1] {
 		child, exists, err := childOf(node, token)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !exists {
-			return nil
+			return false, nil
 		}
 		node = child
 	}
@@ -98,18 +106,21 @@ func childOf(node any, token string) (any, bool, error) {
 	}
 }
 
-func removeChild(node any, token string) error {
+func removeChild(node any, token string) (bool, error) {
 	switch container := node.(type) {
 	case map[string]any:
+		_, exists := container[token]
 		delete(container, token)
+		return exists, nil
 	case []any:
 		index, exists, err := arrayIndex(container, token)
 		if !exists {
-			return err
+			return false, err
 		}
 		container[index] = removedElement{}
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
 
 func arrayIndex(elements []any, token string) (int, bool, error) {

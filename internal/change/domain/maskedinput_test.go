@@ -5,6 +5,7 @@ package domain_test
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,6 +28,22 @@ func TestMaskedInputOfOmitsAFieldTheMaskNames(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "octocat") {
 		t.Errorf("masked input still carries the sensitive value: %s", encoded)
+	}
+}
+
+func TestMaskedInputOfListsOnlyThePointersItRemoved(t *testing.T) {
+	document := domain.Document{}
+	document.PR.Author.Login = "octocat"
+	document.Diff.Sensitive = domain.Declared[string]{"/pr/author/login", "/pr/missing"}
+
+	masked, err := domain.MaskedInputOf(document)
+	if err != nil {
+		t.Fatalf("mask: %v", err)
+	}
+
+	want := []string{"/pr/author/login"}
+	if !slices.Equal(masked.RedactedPointers(), want) {
+		t.Errorf("redacted %q, want %q", masked.RedactedPointers(), want)
 	}
 }
 
