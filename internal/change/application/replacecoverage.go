@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -19,7 +20,7 @@ func (useCase ReplaceCoverage) Execute(
 	known, _ := useCase.Paths.KnownPathsOf(ctx, repository)
 	coverage, err := domain.ParseSuiteCoverage(reported, known)
 	if err != nil {
-		return err
+		return fmt.Errorf("refuse coverage of %s for %s: %w", suite, repository, err)
 	}
 	return useCase.Maps.ReplaceSuiteCoverage(ctx, repository, suite, coverage)
 }
