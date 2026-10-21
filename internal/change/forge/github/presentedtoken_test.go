@@ -4,9 +4,26 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
+
+func TestATokenEndpointErrorFailsTheForgeCallWithNoRequestUnauthenticated(t *testing.T) {
+	clock := clockAt(mintedAt)
+	endpoint := newTokenForge(t, clock)
+	endpoint.refuseFromNowOn()
+	settings := settingsAt(endpoint.server)
+	settings.Token = installationTokensOn(t, endpoint.server, clock)
+
+	_, err := sourceWith(t, settings).FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, github.ErrUnexpectedStatus) {
+		t.Fatalf("error is %v, want %v from the token endpoint", err, github.ErrUnexpectedStatus)
+	}
+}
 
 func TestCheckRunsPresentTheMintedInstallationToken(t *testing.T) {
 	clock := clockAt(mintedAt)
