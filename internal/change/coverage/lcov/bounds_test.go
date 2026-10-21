@@ -28,6 +28,20 @@ func TestReportedFilesInRefusesABodyLongerThanTheBoundWhateverItDeclares(t *test
 	}
 }
 
+func TestReportedFilesInAcceptsABodyAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	artifact := lcov.Artifact{
+		DeclaredBytes: limits.MaxCompressedBytes,
+		Body:          paddedRecord(limits.MaxCompressedBytes),
+	}
+
+	_, err := lcov.ReportedFilesIn(artifact, limits)
+
+	if err != nil {
+		t.Fatalf("want a body at the bound accepted, got %v", err)
+	}
+}
+
 func paddedRecord(totalBytes int64) io.Reader {
 	head := "SF:" + effectPath + "\n"
 	tail := recordClose + "\n"
