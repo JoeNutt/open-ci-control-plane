@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 
@@ -50,6 +51,9 @@ type events struct {
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	received, refused := deliveryIn(asked.Header)
 	if refused != nil {
+		problem, _ := refused.(fieldProblem)
+		receiving.refusing.log.LogAttrs(asked.Context(), slog.LevelWarn, refusedDelivery,
+			slog.String(reasonKey, problem.Code), slog.String("field", problem.Field))
 		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}

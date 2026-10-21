@@ -53,6 +53,30 @@ func TestEveryRefusalOfADeliveryIsOneLineNamingItAndTheReason(t *testing.T) {
 	}
 }
 
+func TestAHeaderRefusalIsOneLineNamingTheReasonAndTheHeader(t *testing.T) {
+	refused := map[string]struct{ header, value string }{
+		"no event header":      {"X-GitHub-Event", ""},
+		"no delivery header":   {"X-GitHub-Delivery", ""},
+		"a malformed delivery": {"X-GitHub-Delivery", "../72d3162e"},
+		"a malformed event":    {"X-GitHub-Event", "Pull_request"},
+	}
+	for form, stated := range refused {
+		t.Run(form, func(t *testing.T) {
+			delivery := headedDelivery(strings.NewReader(`{}`))
+			delivery.Header.Set(stated.header, stated.value)
+
+			lines := loggedLinesOf(t, delivery)
+
+			if len(lines) != 1 {
+				t.Fatalf("logged %d lines, want 1: %v", len(lines), lines)
+			}
+			if lines[0]["msg"] != "delivery refused" || lines[0]["reason"] == "" || lines[0]["field"] != stated.header {
+				t.Errorf("the line is %v, want a refusal naming a reason and %s", lines[0], stated.header)
+			}
+		})
+	}
+}
+
 func loggedLinesOf(t *testing.T, delivery *http.Request) []map[string]string {
 	t.Helper()
 	var logged bytes.Buffer
