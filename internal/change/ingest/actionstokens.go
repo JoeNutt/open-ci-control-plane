@@ -84,7 +84,7 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	}
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
-		return domain.Repository{}, fmt.Errorf("read the %s claim: %w", repositoryClaim, err)
+		return domain.Repository{}, ErrUnverifiedToken
 	}
 	return domain.ParseRepository(claimed)
 }
