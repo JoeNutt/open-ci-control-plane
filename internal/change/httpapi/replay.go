@@ -10,6 +10,8 @@ import (
 
 const replayWindow = 24 * time.Hour
 
+const maxHeldDeliveries = 10_000
+
 type heldAcceptance struct {
 	answered acceptance
 	heldAt   time.Time
@@ -44,6 +46,16 @@ func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
 	defer accepted.mutex.Unlock()
 	now := accepted.clock()
 	accepted.dropLapsedAt(now)
+	if len(accepted.byID) >= maxHeldDeliveries {
+		oldestID := ""
+		oldestAt := now
+		for id, held := range accepted.byID {
+			if held.heldAt.Before(oldestAt) {
+				oldestID, oldestAt = id, held.heldAt
+			}
+		}
+		delete(accepted.byID, oldestID)
+	}
 	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: now}
 	return answered
 }
