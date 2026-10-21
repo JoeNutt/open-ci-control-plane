@@ -18,6 +18,7 @@ const (
 	MaxFileBytes       = 64 << 10
 	MaxSecretFileBytes = 4 << 10
 	MaxAppKeyFileBytes = 16 << 10
+	MaxInstallations   = 256
 )
 
 const (
@@ -116,6 +117,16 @@ func webhookSecretIn(path string) (Secret, error) {
 func installationIDsIn(stated []int64) ([]int64, error) {
 	if len(stated) == 0 {
 		return nil, installationIDs.missing()
+	}
+	if len(stated) > MaxInstallations {
+		return nil, installationIDs.invalid(errors.New("too many"))
+	}
+	seen := map[int64]bool{}
+	for _, id := range stated {
+		if id <= 0 || seen[id] {
+			return nil, installationIDs.invalid(errors.New("bad id"))
+		}
+		seen[id] = true
 	}
 	return slices.Clone(stated), nil
 }

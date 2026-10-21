@@ -141,6 +141,27 @@ func TestTheInstallationAllowlistIsTheOneTheConfigurationStates(t *testing.T) {
 	}
 }
 
+func TestAnInvalidInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
+	refused := map[string][]int64{
+		"a zero ID":           {0},
+		"a negative ID":       {-statedInstallationID},
+		"a repeated ID":       {statedInstallationID, statedInstallationID},
+		"more than the bound": slices.Repeat([]int64{statedInstallationID}, configuration.MaxInstallations+1),
+	}
+	for form, ids := range refused {
+		t.Run(form, func(t *testing.T) {
+			stated := completeItems(t)
+			stated.InstallationIDs = ids
+
+			_, err := configuration.Read(configurationFile(t, stated))
+
+			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "installationIds") {
+				t.Fatalf("refusal is not an invalid installationIds: %v", err)
+			}
+		})
+	}
+}
+
 func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	stated := completeItems(t)
 	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
