@@ -42,8 +42,9 @@ var errEmptySecret = errors.New("the secret is empty once its line break is remo
 var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
 type Configuration struct {
-	webhookSecret Secret
-	appKey        Secret
+	webhookSecret   Secret
+	appKey          Secret
+	installationIDs []int64
 }
 
 type statedConfiguration struct {
@@ -70,6 +71,8 @@ func (configured Configuration) WebhookSecret() domain.WebhookSecret {
 
 func (configured Configuration) AppKey() Secret { return configured.appKey }
 
+func (configured Configuration) InstallationIDs() []int64 { return configured.installationIDs }
+
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
@@ -84,7 +87,7 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	if err := errors.Join(secretErr, keyErr, installationsPresentIn(stated.InstallationIDs)); err != nil {
 		return Configuration{}, err
 	}
-	return Configuration{webhookSecret: secret, appKey: secretOf(key)}, nil
+	return Configuration{webhookSecret: secret, appKey: secretOf(key), installationIDs: stated.InstallationIDs}, nil
 }
 
 func webhookSecretIn(path string) (Secret, error) {

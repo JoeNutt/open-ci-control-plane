@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -123,6 +124,20 @@ func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 
 	if string(configured.AppKey().Reveal()) != statedAppKey {
 		t.Errorf("the App key is not the content of %s", stated.AppKeyFile)
+	}
+}
+
+func TestTheInstallationAllowlistIsTheOneTheConfigurationStates(t *testing.T) {
+	stated := completeItems(t)
+	stated.InstallationIDs = []int64{statedInstallationID, statedInstallationID + 1}
+
+	configured, err := configuration.Read(configurationFile(t, stated))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if !slices.Equal(configured.InstallationIDs(), stated.InstallationIDs) {
+		t.Errorf("the allowlist is %v, want %v", configured.InstallationIDs(), stated.InstallationIDs)
 	}
 }
 
