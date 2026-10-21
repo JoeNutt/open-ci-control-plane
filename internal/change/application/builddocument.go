@@ -12,6 +12,7 @@ import (
 
 type BuildDocument struct {
 	Source    domain.ChangeSource
+	Bases     domain.ChangeBase
 	Contents  domain.FileContents
 	Extractor domain.ImportExtractor
 	Limits    domain.Limits
@@ -61,7 +62,18 @@ func (useCase BuildDocument) importedFilesOf(
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", file.Path, err)
 		}
-		imported = append(imported, domain.ImportedFile{File: file, Head: head})
+		var base domain.FileImports
+		if useCase.Bases != nil && file.Action.ExistsAtBase() {
+			baseCommit, err := useCase.Bases.BaseCommitOf(ctx, locator)
+			if err != nil {
+				return nil, err
+			}
+			base, err = useCase.importsAt(ctx, domain.FileAtCommit{Repository: locator.Repository(), Commit: baseCommit, Path: file.Path})
+			if err != nil {
+				return nil, err
+			}
+		}
+		imported = append(imported, domain.ImportedFile{File: file, Base: base, Head: head})
 	}
 	return imported, nil
 }
