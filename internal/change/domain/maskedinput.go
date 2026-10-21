@@ -89,5 +89,5 @@ func arrayElement(elements []any, token string) (any, bool, error) {
 
 func hasForbiddenIndexSpelling(token string) bool {
 	hasLeadingZero := len(token) > 1 && strings.HasPrefix(token, "0")
-	return hasLeadingZero || strings.HasPrefix(token, "+")
+	return hasLeadingZero || strings.HasPrefix(token, "+") || len(token) > 1 && strings.HasPrefix(token, "-")
 }

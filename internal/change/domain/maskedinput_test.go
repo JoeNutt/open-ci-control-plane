@@ -58,6 +58,7 @@ func TestMaskedInputOfRefusesAnArrayIndexRFC6901Forbids(t *testing.T) {
 	forbidden := map[string]string{
 		"leading zero": "/analyzers/findings/01/path",
 		"plus sign":    "/analyzers/findings/+1/path",
+		"minus sign":   "/analyzers/findings/-1/path",
 	}
 
 	for form, stated := range forbidden {
