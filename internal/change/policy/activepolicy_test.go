@@ -19,6 +19,12 @@ const (
 	secondPolicyCommit = "2222222222222222222222222222222222222222"
 )
 
+func TestParseActivePolicyRefusesANilLogger(t *testing.T) {
+	if _, err := policy.ParseActivePolicy(nil); !errors.Is(err, policy.ErrNoPolicyLog) {
+		t.Fatalf("a nil logger gave %v, want ErrNoPolicyLog", err)
+	}
+}
+
 func TestActivePolicyHoldsNoRevisionBeforeOneIsAccepted(t *testing.T) {
 	active := policy.NewActivePolicy(slog.New(slog.DiscardHandler))
 
