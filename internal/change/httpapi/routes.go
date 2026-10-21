@@ -13,6 +13,8 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
+const undeclaredLength = -1
+
 func Routes(log *slog.Logger) http.Handler {
 	routes := http.NewServeMux()
 	routes.Handle(eventsRoute, events{log: log})
@@ -28,10 +30,14 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		receiving.refuse(asked.Context(), answer, refusal)
 		return
 	}
-	if asked.ContentLength > ingest.MaxDeliveryBytes || asked.ContentLength == -1 {
+	if !isDeclaredWithinBound(asked.ContentLength) {
 		receiving.refuse(asked.Context(), answer, oversizedBodyProblem())
 		return
 	}
+}
+
+func isDeclaredWithinBound(declared int64) bool {
+	return declared != undeclaredLength && declared <= ingest.MaxDeliveryBytes
 }
 
 func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
