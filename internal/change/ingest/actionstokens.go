@@ -67,6 +67,7 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
 		jwt.WithIssuer(tokens.settings.Issuer),
+		jwt.WithAudience(tokens.settings.Audience),
 		jwt.WithClock(jwt.ClockFunc(tokens.settings.Now)))
 	if err != nil {
 		return domain.Repository{}, unverifiedReasonOf(err)

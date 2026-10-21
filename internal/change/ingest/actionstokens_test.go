@@ -56,6 +56,17 @@ func TestActionsTokensRefuseATokenFromAnotherIssuer(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefuseATokenForAnotherAudience(t *testing.T) {
+	issuer := newIssuer(t)
+	claims := issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"})
+
+	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, claims))
+
+	if !errors.Is(err, ingest.ErrUnverifiedToken) {
+		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+	}
+}
+
 type issuer struct {
 	t          *testing.T
 	server     *httptest.Server
