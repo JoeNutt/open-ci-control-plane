@@ -11,15 +11,17 @@ import (
 var ErrDuplicateGroup = errors.New("catalog policy declares one group twice")
 
 type CatalogPolicyStatement struct {
-	Name   string
-	Rule   PolicyRule
-	Groups []GroupStatement
+	Name      string
+	Rule      PolicyRule
+	Direction PolicyDirection
+	Groups    []GroupStatement
 }
 
 type CatalogPolicy struct {
-	name   PolicyName
-	rule   PolicyRule
-	groups []PolicyGroup
+	name      PolicyName
+	rule      PolicyRule
+	direction PolicyDirection
+	groups    []PolicyGroup
 }
 
 func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
@@ -30,12 +32,17 @@ func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
 	if !stated.Rule.isShipped() {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w: %d", name, ErrUnknownPolicyRule, stated.Rule)
 	}
+	if !stated.Direction.isShipped() {
+		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w: %d", name, ErrUnknownPolicyDirection, stated.Direction)
+	}
 	groups, err := policyGroupsOf(stated.Groups)
 	if err != nil {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w", name, err)
 	}
-	return CatalogPolicy{name: name, rule: stated.Rule, groups: groups}, nil
+	return CatalogPolicy{name: name, rule: stated.Rule, direction: stated.Direction, groups: groups}, nil
 }
+
+func (policy CatalogPolicy) Direction() PolicyDirection { return policy.direction }
 
 func (policy CatalogPolicy) Name() PolicyName { return policy.name }
 
