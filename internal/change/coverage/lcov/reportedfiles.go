@@ -64,7 +64,7 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 		return nil, breach
 	}
 	var reading recordReading
-	lines := bufio.NewScanner(artifact.Body)
+	lines := bufio.NewScanner(&boundedBody{body: artifact.Body, max: limits.MaxCompressedBytes})
 	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
 		if err := reading.take(lines.Text()); err != nil {
 			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
@@ -117,6 +117,21 @@ func (reading *recordReading) closeRecord(string) error {
 		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	reading.isRecordOpen = false
 	return nil
+}
+
+type boundedBody struct {
+	body io.Reader
+	read int64
+	max  int64
+}
+
+func (b *boundedBody) Read(p []byte) (int, error) {
+	n, err := b.body.Read(p)
+	b.read += int64(n)
+	if b.read > b.max {
+		return 0, domain.ErrCompressedArtifactTooLarge
+	}
+	return n, err
 }
 
 func carryingNothing(*recordReading, string) error { return nil }
