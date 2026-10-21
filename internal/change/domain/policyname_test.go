@@ -31,18 +31,7 @@ func TestParsePolicyNameRefusesWhatIsNotAnIdentifier(t *testing.T) {
 }
 
 func TestParsePolicyNameAdmitsANameAtTheBound(t *testing.T) {
-	if _, err := domain.ParsePolicyName(strings.Repeat("a", domain.MaxPolicyNameBytes)); err != nil {
+	if _, err := domain.ParsePolicyName(strings.Repeat("a", domain.MaxPolicyIdentifierBytes)); err != nil {
 		t.Fatalf("a name at the bound was refused: %v", err)
-	}
-}
-
-func malformedIdentifiers() map[string]string {
-	return map[string]string{
-		"empty":               "",
-		"a space":             "clean architecture",
-		"a leading hyphen":    "-clean",
-		"a path separator":    "clean/architecture",
-		"a non-ASCII letter":  "cléan",
-		"one byte over bound": strings.Repeat("a", domain.MaxPolicyNameBytes+1),
 	}
 }

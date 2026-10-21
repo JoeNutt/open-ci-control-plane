@@ -2,30 +2,20 @@
 
 package domain
 
-import (
-	"errors"
-	"fmt"
-)
-
-const MaxPolicyNameBytes = 64
+import "errors"
 
 var ErrMalformedPolicyName = errors.New("policy name is not an identifier")
-
-var policyIdentifierRule = segmentRule{
-	maxBytes:        MaxPolicyNameBytes,
-	firstCharacters: asciiAlphanumerics,
-	wholeCharacters: asciiAlphanumerics + "-_",
-}
 
 type PolicyName struct {
 	value string
 }
 
 func ParsePolicyName(stated string) (PolicyName, error) {
-	if !policyIdentifierRule.admits(stated) {
-		return PolicyName{}, fmt.Errorf("%w: %d bytes", ErrMalformedPolicyName, len(stated))
+	admitted, err := admittedPolicyIdentifier(stated, ErrMalformedPolicyName)
+	if err != nil {
+		return PolicyName{}, err
 	}
-	return PolicyName{value: stated}, nil
+	return PolicyName{value: admitted}, nil
 }
 
 func (name PolicyName) String() string { return name.value }

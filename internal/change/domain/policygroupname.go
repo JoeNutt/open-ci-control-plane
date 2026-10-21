@@ -2,10 +2,7 @@
 
 package domain
 
-import (
-	"errors"
-	"fmt"
-)
+import "errors"
 
 var ErrMalformedGroupName = errors.New("group name is not an identifier")
 
@@ -14,10 +11,11 @@ type GroupName struct {
 }
 
 func ParseGroupName(stated string) (GroupName, error) {
-	if !policyIdentifierRule.admits(stated) {
-		return GroupName{}, fmt.Errorf("%w: %d bytes", ErrMalformedGroupName, len(stated))
+	admitted, err := admittedPolicyIdentifier(stated, ErrMalformedGroupName)
+	if err != nil {
+		return GroupName{}, err
 	}
-	return GroupName{value: stated}, nil
+	return GroupName{value: admitted}, nil
 }
 
 func (name GroupName) String() string { return name.value }
