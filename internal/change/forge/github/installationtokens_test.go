@@ -265,6 +265,27 @@ func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testin
 	}
 }
 
+func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
+	clock := clockAt(mintedAt)
+	endpoint := newTokenForge(t, clock)
+	tokens := installationTokensOn(t, endpoint.server, clock)
+	first, err := github.AuthorizationOf(context.Background(), tokens)
+	if err != nil {
+		t.Fatalf("first exchange: %v", err)
+	}
+	clock.advance(grantedLifetime / 2)
+
+	second, err := github.AuthorizationOf(context.Background(), tokens)
+
+	if err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	if second != first || endpoint.exchangeCount() != 1 {
+		t.Errorf("half an hour before expiry the token was exchanged again: %d exchanges",
+			endpoint.exchangeCount())
+	}
+}
+
 func TestAnInstallationTokenIsExchangedForTheAppJWTAskingExactlyLeastPrivilege(t *testing.T) {
 	tokens := installationTokensAt(t, tokenEndpoint(t, mintedAt), mintedAt)
 

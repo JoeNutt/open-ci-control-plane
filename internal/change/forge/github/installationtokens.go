@@ -23,6 +23,7 @@ type Installation struct {
 type InstallationTokens struct {
 	asApp        connection
 	installation installationID
+	cached       *installationToken
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
@@ -42,10 +43,14 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
+	if tokens.cached != nil {
+		return tokens.cached.credential, nil
+	}
 	minted, err := tokens.exchanged(ctx)
 	if err != nil {
 		return Credential{}, err
 	}
+	tokens.cached = &minted
 	return minted.credential, nil
 }
 
