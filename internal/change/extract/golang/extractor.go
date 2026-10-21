@@ -18,8 +18,6 @@ const (
 	unnamedSource  = ""
 )
 
-var ErrUnparsableSource = domain.ErrUnparsableSource
-
 type Extractor struct{}
 
 func (Extractor) Claims(path string) bool {
@@ -29,7 +27,7 @@ func (Extractor) Claims(path string) bool {
 func (Extractor) ImportsIn(source domain.BoundedSource) ([]string, error) {
 	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source.Reader(), parser.ImportsOnly)
 	if err != nil {
-		return nil, ErrUnparsableSource
+		return nil, fmt.Errorf("%w as Go", domain.ErrUnparsableSource)
 	}
 	imports := make([]string, 0, len(parsed.Imports))
 	for _, declared := range parsed.Imports {
@@ -46,7 +44,7 @@ func importPathOf(declared *ast.ImportSpec) (string, error) {
 	imported, err := strconv.Unquote(declared.Path.Value)
 	if err != nil {
 		return "", fmt.Errorf("%w: an import path is not a string literal: %w",
-			ErrUnparsableSource, err)
+			domain.ErrUnparsableSource, err)
 	}
 	return imported, nil
 }
