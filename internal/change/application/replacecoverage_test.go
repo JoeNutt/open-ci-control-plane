@@ -50,9 +50,7 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
 	}
-	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
-		t.Fatalf("a refused report was stored: %v", err)
-	}
+	assertNothingStored(t, maps, repository, suite)
 }
 
 func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
@@ -68,9 +66,7 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 	if !errors.Is(err, unreadable) {
 		t.Fatalf("want the read failure, got %v", err)
 	}
-	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
-		t.Fatalf("an upload whose paths were never read was stored: %v", err)
-	}
+	assertNothingStored(t, maps, repository, suite)
 }
 
 func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *testing.T) {
@@ -89,9 +85,7 @@ func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *te
 	if !errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want ErrForeignRepository, got %v", err)
 	}
-	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
-		t.Fatalf("repository B's token stored coverage for repository A: %v", err)
-	}
+	assertNothingStored(t, maps, repository, suite)
 }
 
 func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.T) {
@@ -107,9 +101,7 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 	if !errors.Is(err, unverified) || errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want only the verifier's refusal, got %v", err)
 	}
-	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
-		t.Fatalf("an unverified upload was stored: %v", err)
-	}
+	assertNothingStored(t, maps, repository, suite)
 }
 
 type unverifiedTokens struct{ refusal error }
@@ -138,6 +130,16 @@ type unreadablePaths struct{ failure error }
 
 func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.Repository) (domain.KnownPaths, error) {
 	return domain.KnownPaths{}, unreadable.failure
+}
+
+func assertNothingStored(
+	t *testing.T, maps domain.CoverageMaps, repository domain.Repository, suite domain.SuiteName,
+) {
+	t.Helper()
+
+	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
+		t.Fatalf("a refused upload was stored: %v", err)
+	}
 }
 
 type repositoryHolding []domain.RepositoryPath

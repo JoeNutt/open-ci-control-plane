@@ -26,12 +26,8 @@ type CoverageUpload struct {
 }
 
 func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) error {
-	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
-	if err != nil {
+	if err := useCase.authorise(ctx, upload); err != nil {
 		return err
-	}
-	if caller != upload.Repository {
-		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
 	}
 	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
 	if err != nil {
@@ -42,4 +38,15 @@ func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUploa
 		return fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
 	return useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage)
+}
+
+func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpload) error {
+	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
+	if err != nil {
+		return fmt.Errorf("verify who uploads coverage for %s: %w", upload.Repository, err)
+	}
+	if caller != upload.Repository {
+		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
+	}
+	return nil
 }
