@@ -16,13 +16,20 @@ type RepositoryCoverage struct {
 func (repositoryCoverage RepositoryCoverage) Replacing(
 	suite SuiteName, coverage SuiteCoverage, limits CoverageLimits,
 ) (RepositoryCoverage, error) {
+	if breach := limits.SuitesBreach(repositoryCoverage.suiteCountWith(suite)); breach != nil {
+		return RepositoryCoverage{}, breach
+	}
 	suites := make(map[SuiteName]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	if len(suites) > limits.MaxSuitesPerRepository {
-		return RepositoryCoverage{}, ErrTooManySuites
-	}
 	return RepositoryCoverage{suites: suites}, nil
+}
+
+func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite SuiteName) int {
+	if _, isHeld := repositoryCoverage.suites[suite]; isHeld {
+		return len(repositoryCoverage.suites)
+	}
+	return len(repositoryCoverage.suites) + 1
 }
 
 func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite SuiteName) (SuiteCoverage, error) {
