@@ -59,7 +59,13 @@ type admitted struct{ allowed allowlist }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	stated, err := payloadOf(asked.Body)
-	if err != nil || !stage.allowed.admits(stated) {
+	if err != nil {
+		answer.Header().Set(contentTypeHeader, jsonMediaType)
+		answer.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(answer).Encode(fieldProblem{Code: "malformed_payload", Message: "the signed body is not a JSON object", Field: "body"})
+		return
+	}
+	if !stage.allowed.admits(stated) {
 		answer.WriteHeader(http.StatusNotFound)
 		return
 	}

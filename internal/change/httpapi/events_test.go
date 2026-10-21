@@ -169,6 +169,17 @@ func TestASignedDeliveryFromNoAllowlistedInstallationIsNotFound(t *testing.T) {
 	}
 }
 
+func TestASignedBodyThatIsNotJSONIsRefusedAsMalformed(t *testing.T) {
+	answered := answerTo(t, signedDelivery(statedEvent, `not json`))
+
+	if answered.Code != http.StatusBadRequest {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(answered.Body.String(), `"code":"malformed_payload"`) {
+		t.Errorf("the refusal does not say the payload is malformed: %s", answered.Body.String())
+	}
+}
+
 func TestAnAllowlistedEventThatCarriesNoDecisionIsAnsweredWithNoContent(t *testing.T) {
 	answered := answerTo(t, signedDelivery("issues", `{"installation":{"id":41}}`))
 
