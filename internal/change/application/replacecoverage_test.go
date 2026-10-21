@@ -265,7 +265,7 @@ func freshRate(t *testing.T) *application.UploadRate {
 }
 
 func assertNothingStored(
-	t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.GoImportPath,
+	t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.CoverageSuite,
 ) {
 	t.Helper()
 
@@ -314,10 +314,10 @@ func parsedStranger(t *testing.T) domain.GovernedRepository {
 	return stranger
 }
 
-func parsedSuite(t *testing.T) domain.GoImportPath {
+func parsedSuite(t *testing.T) domain.CoverageSuite {
 	t.Helper()
 
-	suite, err := domain.ParseGoImportPath(uploadedSuite)
+	suite, err := domain.ParseCoverageSuite(uploadedSuite)
 	if err != nil {
 		t.Fatalf("parse suite: %v", err)
 	}
