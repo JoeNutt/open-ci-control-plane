@@ -45,25 +45,19 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	}
 }
 
-func TestActionsTokensRefuseATokenFromAnotherIssuer(t *testing.T) {
+func TestActionsTokensRefuseAMisaddressedToken(t *testing.T) {
 	issuer := newIssuer(t)
-	claims := issuer.claims(governedRepository).Issuer("https://token.actions.example")
+	for name, misaddressed := range map[string]*jwt.Builder{
+		"another issuer":   issuer.claims(governedRepository).Issuer("https://token.actions.example"),
+		"another audience": issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, misaddressed))
 
-	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, claims))
-
-	if !errors.Is(err, ingest.ErrUnverifiedToken) {
-		t.Fatalf("want ErrUnverifiedToken, got %v", err)
-	}
-}
-
-func TestActionsTokensRefuseATokenForAnotherAudience(t *testing.T) {
-	issuer := newIssuer(t)
-	claims := issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"})
-
-	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, claims))
-
-	if !errors.Is(err, ingest.ErrUnverifiedToken) {
-		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+			if !errors.Is(err, ingest.ErrUnverifiedToken) {
+				t.Fatalf("want ErrUnverifiedToken, got %v", err)
+			}
+		})
 	}
 }
 
