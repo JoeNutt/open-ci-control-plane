@@ -61,6 +61,35 @@ func TestADeliveryWithoutEitherHeaderIsAnsweredWithOneRefusal(t *testing.T) {
 	}
 }
 
+func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
+	malformed := map[string]struct{ header, value string }{
+		"an event above 100 bytes":   {"X-GitHub-Event", strings.Repeat("e", 101)},
+		"an event with a capital":    {"X-GitHub-Event", "Pull_request"},
+		"an event with a line break": {"X-GitHub-Event", "pull\nrequest"},
+		"a delivery above 200 bytes": {"X-GitHub-Delivery", strings.Repeat("d", 201)},
+		"a delivery with a space":    {"X-GitHub-Delivery", "72d3162e cc78"},
+		"a delivery with a slash":    {"X-GitHub-Delivery", "../72d3162e"},
+	}
+	for form, stated := range malformed {
+		t.Run(form, func(t *testing.T) {
+			delivery := eventDelivery(`{}`)
+			delivery.Header.Set("X-GitHub-Event", "pull_request")
+			delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
+			delivery.Header.Set(stated.header, stated.value)
+			answered := httptest.NewRecorder()
+
+			httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+
+			if answered.Code != http.StatusBadRequest {
+				t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
+			}
+			if !strings.Contains(answered.Body.String(), `"field":"`+stated.header+`"`) {
+				t.Errorf("the refusal does not name %s: %s", stated.header, answered.Body.String())
+			}
+		})
+	}
+}
+
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 )
 
 const eventsRoute = "POST /v1/forge/github/events"
@@ -27,6 +28,16 @@ type events struct {
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	if absent := slices.IndexFunc(requiredHeaders, isAbsentFrom(asked.Header)); absent >= 0 {
 		receiving.refuse(asked.Context(), answer, missingHeaderProblem(requiredHeaders[absent]))
+		return
+	}
+	event := asked.Header.Get(eventHeader)
+	if len(event) > 100 || strings.Trim(event, "abcdefghijklmnopqrstuvwxyz_") != "" {
+		receiving.refuse(asked.Context(), answer, fieldProblem{Code: "malformed_header", Message: "bad", Field: eventHeader})
+		return
+	}
+	delivery := asked.Header.Get(deliveryHeader)
+	if len(delivery) > 200 || strings.Trim(delivery, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-") != "" {
+		receiving.refuse(asked.Context(), answer, fieldProblem{Code: "malformed_header", Message: "bad", Field: deliveryHeader})
 		return
 	}
 }
