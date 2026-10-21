@@ -15,14 +15,25 @@ type FileImports struct {
 	isErrored bool
 }
 
-func ErroredFileImports() FileImports { return FileImports{isErrored: true} }
-
 func ParseFileImports(imports []string, limits Limits) (FileImports, error) {
 	if len(imports) > limits.MaxImportsPerFile {
 		return FileImports{}, fmt.Errorf("%w: %d imports exceeds %d",
 			ErrTooManyImportsInFile, len(imports), limits.MaxImportsPerFile)
 	}
 	return FileImports{imports: slices.Clone(imports)}, nil
+}
+
+func FileImportsIn(
+	source BoundedSource, extractor ImportExtractor, limits Limits,
+) (FileImports, error) {
+	declared, err := extractor.ImportsIn(source)
+	if errors.Is(err, ErrUnparsableSource) {
+		return FileImports{isErrored: true}, nil
+	}
+	if err != nil {
+		return FileImports{}, err
+	}
+	return ParseFileImports(declared, limits)
 }
 
 func (parsed FileImports) ImportPaths() []string { return slices.Clone(parsed.imports) }

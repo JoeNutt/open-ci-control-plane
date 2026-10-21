@@ -5,7 +5,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -137,12 +136,9 @@ func (useCase BuildDocument) importsAt(
 	if err != nil {
 		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
 	}
-	paths, err := useCase.Extractor.ImportsIn(source)
-	if errors.Is(err, domain.ErrUnparsableSource) {
-		return domain.ErroredFileImports(), nil
-	}
+	imports, err := domain.FileImportsIn(source, useCase.Extractor, useCase.Limits)
 	if err != nil {
 		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
 	}
-	return domain.ParseFileImports(paths, useCase.Limits)
+	return imports, nil
 }
