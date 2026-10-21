@@ -43,7 +43,11 @@ func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
 	accepted.mutex.Lock()
 	defer accepted.mutex.Unlock()
 	now := accepted.clock()
-	maps.DeleteFunc(accepted.byID, func(_ string, held heldAcceptance) bool { return held.isLapsedAt(now) })
+	accepted.dropLapsedAt(now)
 	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: now}
 	return answered
+}
+
+func (accepted *acceptedDeliveries) dropLapsedAt(now time.Time) {
+	maps.DeleteFunc(accepted.byID, func(_ string, held heldAcceptance) bool { return held.isLapsedAt(now) })
 }
