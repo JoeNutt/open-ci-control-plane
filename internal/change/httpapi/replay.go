@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"maps"
+	"slices"
 	"sync"
 	"time"
 )
@@ -58,12 +59,9 @@ func (accepted *acceptedDeliveries) dropLapsedAt(now time.Time) {
 }
 
 func (accepted *acceptedDeliveries) oldestID() string {
-	var oldestID string
-	var oldestAt time.Time
-	for id, held := range accepted.byID {
-		if oldestID == "" || held.heldAt.Before(oldestAt) {
-			oldestID, oldestAt = id, held.heldAt
-		}
-	}
-	return oldestID
+	return slices.MinFunc(slices.Collect(maps.Keys(accepted.byID)), accepted.byHeldAt)
+}
+
+func (accepted *acceptedDeliveries) byHeldAt(first, second string) int {
+	return accepted.byID[first].heldAt.Compare(accepted.byID[second].heldAt)
 }
