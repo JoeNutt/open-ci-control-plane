@@ -7,18 +7,36 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
 
 const eventsRoute = "POST /v1/forge/github/events"
 
-func Routes(log *slog.Logger) http.Handler {
+func Routes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error) {
+	check, err := ingest.ParseSignatureCheck(ingest.Settings{
+		Accepted: http.HandlerFunc(func(answer http.ResponseWriter, _ *http.Request) {
+			answer.WriteHeader(http.StatusNoContent)
+		}),
+		Secret:     secret,
+		Rejections: refusals{},
+	})
+	if err != nil {
+		return nil, err
+	}
 	routes := http.NewServeMux()
-	routes.Handle(eventsRoute, events{log: log})
-	return routes
+	routes.Handle(eventsRoute, events{log: log, check: check})
+	return routes, nil
 }
 
+type refusals struct{}
+
+func (refusals) CountRejectedDelivery() {}
+
 type events struct {
-	log *slog.Logger
+	log   *slog.Logger
+	check ingest.SignatureCheck
 }
 
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
@@ -30,7 +48,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		receiving.refuse(asked.Context(), answer, refusal)
 		return
 	}
-	answer.WriteHeader(http.StatusUnauthorized)
+	receiving.check.ServeHTTP(answer, asked)
 }
 
 func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {

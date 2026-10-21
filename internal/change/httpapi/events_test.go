@@ -4,6 +4,9 @@ package httpapi_test
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
@@ -22,7 +26,7 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery.Header.Set("X-GitHub-Delivery", statedDeliveryID)
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
 
 	if answered.Code != http.StatusBadRequest {
 		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -37,7 +41,7 @@ func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery.Header.Set("X-GitHub-Event", statedEvent)
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
 
 	if answered.Code != http.StatusBadRequest {
 		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -50,7 +54,7 @@ func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 func TestADeliveryWithoutEitherHeaderIsAnsweredWithOneRefusal(t *testing.T) {
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, eventDelivery(`{}`))
+	routed(t, discardedLog()).ServeHTTP(answered, eventDelivery(`{}`))
 
 	decoding := json.NewDecoder(answered.Body)
 	var first, second map[string]string
@@ -77,7 +81,7 @@ func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
 			delivery.Header.Set(stated.header, stated.value)
 			answered := httptest.NewRecorder()
 
-			httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+			routed(t, discardedLog()).ServeHTTP(answered, delivery)
 
 			if answered.Code != http.StatusBadRequest {
 				t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -95,7 +99,7 @@ func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	delivery.ContentLength = ingest.MaxDeliveryBytes + 1
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
 
 	if answered.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
@@ -115,7 +119,7 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 	delivery.TransferEncoding = []string{"chunked"}
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
 
 	if answered.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
@@ -131,13 +135,25 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 func TestAnUnsignedDeliveryIsRefusedWithoutDetail(t *testing.T) {
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes(discardedLog()).ServeHTTP(answered, headedDelivery(strings.NewReader(`{}`)))
+	routed(t, discardedLog()).ServeHTTP(answered, headedDelivery(strings.NewReader(`{}`)))
 
 	if answered.Code != http.StatusUnauthorized {
 		t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
 	}
 	if answered.Body.Len() != 0 {
 		t.Errorf("the refusal carries detail: %q", answered.Body.String())
+	}
+}
+
+func TestACorrectlySignedDeliveryIsAdmitted(t *testing.T) {
+	delivery := headedDelivery(strings.NewReader(`{}`))
+	delivery.Header.Set("X-Hub-Signature-256", signatureOf(`{}`))
+	answered := httptest.NewRecorder()
+
+	routed(t, discardedLog()).ServeHTTP(answered, delivery)
+
+	if answered.Code == http.StatusUnauthorized {
+		t.Error("a correctly signed delivery was refused")
 	}
 }
 
@@ -152,7 +168,7 @@ func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer
 
-	httpapi.Routes(slog.New(slog.NewJSONHandler(&logged, nil))).ServeHTTP(hungUpForge{}, delivery)
+	routed(t, slog.New(slog.NewJSONHandler(&logged, nil))).ServeHTTP(hungUpForge{}, delivery)
 
 	if !strings.Contains(logged.String(), `"level":"WARN"`) || !strings.Contains(logged.String(), errHungUp.Error()) {
 		t.Errorf("the unwritten answer was not logged with its cause: %q", logged.String())
@@ -184,6 +200,23 @@ func headedDelivery(body io.Reader) *http.Request {
 
 func eventDelivery(body string) *http.Request {
 	return httptest.NewRequest(http.MethodPost, eventsPath, strings.NewReader(body))
+}
+
+const webhookSecret = "the App's webhook secret"
+
+func routed(t *testing.T, log *slog.Logger) http.Handler {
+	t.Helper()
+	routes, err := httpapi.Routes(log, domain.WebhookSecret(webhookSecret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return routes
+}
+
+func signatureOf(body string) string {
+	signing := hmac.New(sha256.New, []byte(webhookSecret))
+	signing.Write([]byte(body))
+	return "sha256=" + hex.EncodeToString(signing.Sum(nil))
 }
 
 func discardedLog() *slog.Logger { return slog.New(slog.DiscardHandler) }
