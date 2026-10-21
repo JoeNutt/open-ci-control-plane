@@ -3,10 +3,7 @@
 package httpapi
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
@@ -36,10 +33,6 @@ const (
 )
 
 var deliveryLimit = fmt.Sprintf("%d bytes", ingest.MaxDeliveryBytes)
-
-type refusal interface {
-	status() int
-}
 
 type fieldProblem struct {
 	Code    string `json:"code"`
@@ -83,14 +76,4 @@ func oversizedBodyProblem() limitProblem {
 
 func undeclaredLengthProblem() limitProblem {
 	return limitProblem{Code: undeclaredLengthCode, Message: undeclaredLengthMessage, Limit: deliveryLimit}
-}
-
-type problems struct{ log *slog.Logger }
-
-func (writing problems) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
-	answer.Header().Set(contentTypeHeader, jsonMediaType)
-	answer.WriteHeader(refused.status())
-	if err := json.NewEncoder(answer).Encode(refused); err != nil {
-		writing.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
-	}
 }

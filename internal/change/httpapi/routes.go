@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -28,9 +27,14 @@ type Settings struct {
 }
 
 func ParseRoutes(settings Settings) (http.Handler, error) {
-	refusing := problems{log: settings.Log}
+	answering := answers{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing, gate: settings.Gate, ids: settings.DecisionIDs},
+		Accepted: admitted{
+			allowed:   allowlist(slices.Clone(settings.Installations)),
+			answering: answering,
+			gate:      settings.Gate,
+			ids:       settings.DecisionIDs,
+		},
 		Secret:   settings.Secret,
 		Refusals: refusals{log: settings.Log},
 	})
@@ -38,39 +42,39 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 		return nil, err
 	}
 	routes := http.NewServeMux()
-	routes.Handle(eventsRoute, events{refusing: refusing, check: check})
+	routes.Handle(eventsRoute, events{answering: answering, check: check})
 	return routes, nil
 }
 
 type events struct {
-	refusing problems
-	check    ingest.SignatureCheck
+	answering answers
+	check     ingest.SignatureCheck
 }
 
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	received, refused := deliveryIn(asked.Header)
 	if refused != nil {
-		receiving.refusing.refuse(asked.Context(), answer, refused)
+		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}
 	if refused := lengthRefusalOf(asked.ContentLength); refused != nil {
-		receiving.refusing.refuse(asked.Context(), answer, refused)
+		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}
 	receiving.check.ServeHTTP(answer, withDelivery(asked, received))
 }
 
 type admitted struct {
-	allowed  allowlist
-	refusing problems
-	gate     ChangeGate
-	ids      domain.DecisionIDSource
+	allowed   allowlist
+	answering answers
+	gate      ChangeGate
+	ids       domain.DecisionIDSource
 }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	stated, err := payloadOf(asked.Body)
 	if err != nil {
-		stage.refusing.refuse(asked.Context(), answer, malformedPayloadProblem())
+		stage.answering.write(asked.Context(), answer, malformedPayloadProblem())
 		return
 	}
 	if !stage.allowed.admits(stated) {
@@ -82,19 +86,15 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		answer.WriteHeader(http.StatusNoContent)
 		return
 	}
-	stage.evaluate(answer, asked, stated)
+	stage.answering.write(asked.Context(), answer, stage.evaluatedAnswer(asked.Context(), received, stated))
 }
 
-func (stage admitted) evaluate(answer http.ResponseWriter, asked *http.Request, stated payload) {
+func (stage admitted) evaluatedAnswer(ctx context.Context, received delivery, stated payload) answerBody {
 	locator, err := stated.pullRequest()
 	if err != nil {
-		stage.refusing.refuse(asked.Context(), answer, unparseablePullRequestProblem())
-		return
+		return unparseablePullRequestProblem()
 	}
 	id, _ := stage.ids.NextDecisionID()
-	_ = stage.gate.Execute(asked.Context(), locator, id)
-	received, _ := deliveryOf(asked.Context())
-	answer.Header().Set(contentTypeHeader, jsonMediaType)
-	answer.WriteHeader(http.StatusAccepted)
-	_ = json.NewEncoder(answer).Encode(map[string]any{"deliveryId": received.id, "decisionId": id.String(), "accepted": true})
+	_ = stage.gate.Execute(ctx, locator, id)
+	return acceptanceOf(received, id)
 }
