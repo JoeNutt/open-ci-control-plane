@@ -9,11 +9,17 @@ import (
 )
 
 type ReplaceCoverage struct {
-	Maps domain.CoverageMaps
+	Maps  domain.CoverageMaps
+	Paths domain.RepositoryPaths
 }
 
 func (useCase ReplaceCoverage) Execute(
-	ctx context.Context, repository domain.Repository, suite domain.SuiteName, coverage domain.SuiteCoverage,
+	ctx context.Context, repository domain.Repository, suite domain.SuiteName, reported []domain.ReportedFile,
 ) error {
+	known, _ := useCase.Paths.KnownPathsOf(ctx, repository)
+	coverage, err := domain.ParseSuiteCoverage(reported, known)
+	if err != nil {
+		return err
+	}
 	return useCase.Maps.ReplaceSuiteCoverage(ctx, repository, suite, coverage)
 }
