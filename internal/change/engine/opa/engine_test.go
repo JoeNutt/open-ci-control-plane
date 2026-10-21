@@ -33,7 +33,7 @@ decision := {
 }
 `
 
-const bundleRevision = "revision-the-mock-bundle-declares"
+const bundleRevision = "b0b0000000000000000000000000000000000b0b"
 
 func engineFor(t *testing.T, policy string, family domain.PolicyFamily) *opa.Engine {
 	t.Helper()

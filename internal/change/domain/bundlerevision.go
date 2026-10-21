@@ -14,6 +14,9 @@ func ParseBundleRevision(stated string) (BundleRevision, error) {
 	if stated == "" {
 		return BundleRevision{}, ErrMissingBundleRevision
 	}
+	if _, err := ParseCommitSHA(stated); err != nil {
+		return BundleRevision{}, err
+	}
 	return BundleRevision{value: stated}, nil
 }
 
