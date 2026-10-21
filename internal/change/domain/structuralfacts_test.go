@@ -3,8 +3,11 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -63,6 +66,47 @@ func TestParseStructuralFactsPublishesEveryEdgeOfAChangeAtTheDeltaLimit(t *testi
 	if len(delta.EdgesAdded) != limits.MaxGraphEdges {
 		t.Fatalf("published %d edges, want %d", len(delta.EdgesAdded), limits.MaxGraphEdges)
 	}
+}
+
+func TestParseStructuralFactsRefusesFactsOneByteOverTheSerialisedLimit(t *testing.T) {
+	limits := domain.DeclaredLimits()
+	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, fileImportingPadded(t, 0))
+
+	_, err := domain.ParseStructuralFacts(
+		[]domain.ImportedFile{fileImportingPadded(t, padding+1)}, limits)
+
+	if !errors.Is(err, domain.ErrStructuralFactsTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrStructuralFactsTooLarge)
+	}
+}
+
+func fileImportingPadded(t *testing.T, padding int) domain.ImportedFile {
+	t.Helper()
+
+	kept := fileImportsOf(t, "example.com/"+strings.Repeat("x", padding))
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	return domain.ImportedFile{File: file, Base: kept, Head: kept}
+}
+
+func serialisedSizeOf(t *testing.T, imported domain.ImportedFile) int {
+	t.Helper()
+
+	unbounded := domain.DeclaredLimits()
+	unbounded.MaxStructuralBytes = math.MaxInt
+	facts, err := domain.ParseStructuralFacts([]domain.ImportedFile{imported}, unbounded)
+	if err != nil {
+		t.Fatalf("parse the structural facts of %s: %v", imported.File.Path, err)
+	}
+	change := domain.Change{Files: withinBounds(t, imported.File), Structure: facts}
+	diff := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff
+	published, err := json.Marshal(struct {
+		Imports          domain.Declared[domain.Import] `json:"imports"`
+		ModuleGraphDelta domain.ModuleGraphDelta        `json:"module_graph_delta"`
+	}{diff.Imports, diff.ModuleGraphDelta})
+	if err != nil {
+		t.Fatalf("marshal the published structural facts: %v", err)
+	}
+	return len(published)
 }
 
 func structureOf(t *testing.T, imported ...domain.ImportedFile) domain.StructuralFacts {
