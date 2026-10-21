@@ -19,7 +19,9 @@ func TestFileContentsAnswersTheContentsRecordedAtACommit(t *testing.T) {
 		Path:       "internal/auth/middleware.go",
 	}
 	recorded := []byte("package auth\n")
-	contents := memory.FileContents{Files: map[domain.FileAtCommit][]byte{file: recorded}}
+	var contents domain.FileContents = memory.FileContents{
+		Files: map[domain.FileAtCommit][]byte{file: recorded},
+	}
 
 	answered, err := contents.ContentsAt(context.Background(), file)
 
