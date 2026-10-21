@@ -32,6 +32,14 @@ func TestAConfigurationWithoutTheAppKeyIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestAConfigurationWithoutTheInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
+	_, err := configuration.Read(writtenFile(t, `{}`))
+
+	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "installationIds") {
+		t.Fatalf("refusal is not a missing installationIds: %v", err)
+	}
+}
+
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
@@ -177,6 +185,8 @@ func printedFormsOf(secrets ...string) []string {
 	return forms
 }
 
+const statedInstallationID = 52_311_907
+
 const statedWebhookSecret = domain.WebhookSecret("s3cret")
 
 const statedAppKeyBody = "c3RhdGVkIGtleQ"
@@ -188,12 +198,14 @@ func completeItems(t *testing.T) statedItems {
 	return statedItems{
 		WebhookSecretFile: writtenFile(t, string(statedWebhookSecret)),
 		AppKeyFile:        writtenFile(t, statedAppKey),
+		InstallationIDs:   []int64{statedInstallationID},
 	}
 }
 
 type statedItems struct {
-	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
-	AppKeyFile        string `json:"appKeyFile,omitempty"`
+	WebhookSecretFile string  `json:"webhookSecretFile,omitempty"`
+	AppKeyFile        string  `json:"appKeyFile,omitempty"`
+	InstallationIDs   []int64 `json:"installationIds,omitempty"`
 }
 
 func configurationFile(t *testing.T, stated statedItems) string {
