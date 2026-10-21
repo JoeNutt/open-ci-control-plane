@@ -10,6 +10,8 @@ import (
 
 var ErrUnknownCatalogPolicy = errors.New("binding names a policy absent from the catalog")
 
+var ErrUndeclaredGroup = errors.New("binding names a group its catalog policy does not declare")
+
 type PolicyModel struct {
 	catalog  []CatalogPolicy
 	bindings []Binding
@@ -30,8 +32,14 @@ func (model PolicyModel) Bindings() []Binding { return slices.Clone(model.bindin
 
 func unresolvedPolicyOf(binding Binding, catalog []CatalogPolicy) error {
 	for _, bound := range binding.policies {
-		if !slices.ContainsFunc(catalog, bound.isUseOf) {
+		used := slices.IndexFunc(catalog, bound.isUseOf)
+		if used < 0 {
 			return fmt.Errorf("%w: %s", ErrUnknownCatalogPolicy, bound.use)
+		}
+		for _, paths := range bound.groups {
+			if !slices.ContainsFunc(catalog[used].groups, func(g PolicyGroup) bool { return g.name == paths.group }) {
+				return ErrUndeclaredGroup
+			}
 		}
 	}
 	return nil
