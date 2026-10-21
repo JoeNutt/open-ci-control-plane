@@ -88,6 +88,19 @@ func TestReportedFilesInRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInAcceptsFileEntriesAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	reported, err := lcov.ReportedFilesIn(artifactOfRecords(limits.MaxFileEntries), limits)
+
+	if err != nil {
+		t.Fatalf("want entries at the bound accepted, got %v", err)
+	}
+	if len(reported) != limits.MaxFileEntries {
+		t.Fatalf("reported %d entries, want %d", len(reported), limits.MaxFileEntries)
+	}
+}
+
 func TestReportedFilesInRefusesMoreFileEntriesThanTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
