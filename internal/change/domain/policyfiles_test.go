@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain_test
+
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+func TestParseBoundedPolicyFilesHoldsTheFileCountAtItsLimitAndRefusesOneOver(t *testing.T) {
+	if _, err := domain.ParseBoundedPolicyFiles(policyFiles(domain.MaxPolicyFiles)); err != nil {
+		t.Fatalf("%d files, the limit, were refused: %v", domain.MaxPolicyFiles, err)
+	}
+	_, err := domain.ParseBoundedPolicyFiles(policyFiles(domain.MaxPolicyFiles + 1))
+	if !errors.Is(err, domain.ErrTooManyPolicyFiles) {
+		t.Fatalf("%d files gave %v, want ErrTooManyPolicyFiles", domain.MaxPolicyFiles+1, err)
+	}
+}
+
+func policyFiles(count int) []domain.PolicyFile {
+	files := make([]domain.PolicyFile, 0, count)
+	for index := range count {
+		files = append(files, domain.PolicyFile{
+			Path:    fmt.Sprintf("bindings/owner/repository%d.yaml", index),
+			Content: []byte("schema_version: 1\n"),
+		})
+	}
+	return files
+}
