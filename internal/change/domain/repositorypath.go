@@ -9,7 +9,14 @@ import (
 	"strings"
 )
 
+const repositoryRoot = "."
+
 var ErrPathOutsideRepository = errors.New("path is not inside the repository")
+
+var (
+	errAbsolutePath     = fmt.Errorf("%w: it is absolute", ErrPathOutsideRepository)
+	errNonCanonicalPath = fmt.Errorf("%w: it is not one canonical file path", ErrPathOutsideRepository)
+)
 
 type RepositoryPath struct {
 	path string
@@ -17,10 +24,10 @@ type RepositoryPath struct {
 
 func ParseRepositoryPath(path string) (RepositoryPath, error) {
 	if strings.HasPrefix(path, pathSeparator) {
-		return RepositoryPath{}, fmt.Errorf("%w: it is absolute", ErrPathOutsideRepository)
+		return RepositoryPath{}, errAbsolutePath
 	}
-	if !fs.ValidPath(path) || path == "." {
-		return RepositoryPath{}, fmt.Errorf("%w: not canonical", ErrPathOutsideRepository)
+	if !fs.ValidPath(path) || path == repositoryRoot {
+		return RepositoryPath{}, errNonCanonicalPath
 	}
 	return RepositoryPath{path: path}, nil
 }
