@@ -57,6 +57,18 @@ test_a_refusal_is_stated_in_the_decision_contract_the_engine_parses if {
 	violation.severity == "deny"
 }
 
+test_an_added_edge_the_direction_allows_passes if {
+	forge_imports_domain := {
+		"from": "internal/change/forge/github/client.go",
+		"to": $"{module_root}/internal/change/domain",
+	}
+
+	decided := structural.decision with input as change_adding([forge_imports_domain]) with data.ci.policy as policy
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
