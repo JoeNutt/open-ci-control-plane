@@ -12,6 +12,7 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
@@ -21,7 +22,7 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	published := &memory.CheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  &recordedDecisions{},
@@ -53,7 +54,7 @@ func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 	recorded := &recordedDecisions{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: &memory.CheckRuns{},
 		Recorder:  recorded,
@@ -79,7 +80,7 @@ func TestARecorderFailureIsReturnedAndEveryCheckRunStillPublished(t *testing.T) 
 	published := &memory.CheckRuns{}
 	refusal := errors.New("decision sink unreachable")
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  refusingRecorder{refusal: refusal},
@@ -115,7 +116,7 @@ func (recorded *recordedDecisions) RecordDecision(_ context.Context, record doma
 
 func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
-	build := buildOverAnAuthChange(locator)
+	build := buildOverAnAuthChange(t, locator)
 	gate, engines := recordingGate(t)
 	useCase := application.GateChange{
 		Build:     build,
@@ -148,7 +149,7 @@ func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 413)
 	oversized := domain.DeclaredLimits().MaxPatchBytesPerFile + 1
-	build := buildOverRecorded(locator, domain.File{
+	build := buildOverRecorded(t, locator, domain.File{
 		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
 		Additions: 1, PatchBytes: oversized,
 	})
@@ -183,7 +184,7 @@ func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 	recorded := &memory.CheckRuns{}
 	refused := errors.New("the forge refused the post")
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: refusingOne{name: "policy/structural", refusal: refused, rest: recorded},
 		Recorder:  &recordedDecisions{},
@@ -245,7 +246,7 @@ func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testin
 	published := &memory.CheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  &recordedDecisions{},
@@ -286,7 +287,7 @@ func (engine answeringEngine) Decide(context.Context, domain.Document) (domain.D
 
 func TestAChangeWhoseHeadCommitIsMalformedIsNeverPublished(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
-	build := buildOverAnAuthChange(locator)
+	build := buildOverAnAuthChange(t, locator)
 	recorded := build.Source.(memory.ChangeSource).Changes[locator]
 	recorded.PullRequest.HeadSHA = "../../user/repos"
 	build.Source.(memory.ChangeSource).Changes[locator] = recorded
@@ -332,7 +333,7 @@ func TestAVerdictReachedAtTheDeadlineIsStillPosted(t *testing.T) {
 	}
 	recorded := &memory.CheckRuns{}
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: honouringCancellation{rest: recorded},
 		Recorder:  &recordedDecisions{},
@@ -414,8 +415,10 @@ func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordin
 
 const gatedDecisionID = "dec_0123456789abcdef0123456789abcdef"
 
-func buildOverAnAuthChange(locator domain.PullRequestLocator) application.BuildDocument {
-	return buildOverRecorded(locator, domain.File{
+func buildOverAnAuthChange(t *testing.T, locator domain.PullRequestLocator) application.BuildDocument {
+	t.Helper()
+
+	return buildOverRecorded(t, locator, domain.File{
 		Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
 		Additions: 12, Deletions: 3, PatchBytes: 1840,
 	})
@@ -423,7 +426,11 @@ func buildOverAnAuthChange(locator domain.PullRequestLocator) application.BuildD
 
 const recordedHeadSHA = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
 
-func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) application.BuildDocument {
+func buildOverRecorded(
+	t *testing.T, locator domain.PullRequestLocator, file domain.File,
+) application.BuildDocument {
+	t.Helper()
+
 	return application.BuildDocument{
 		Source: memory.ChangeSource{
 			Changes: map[domain.PullRequestLocator]memory.Change{
@@ -435,8 +442,26 @@ func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) appl
 				},
 			},
 		},
-		Limits: domain.DeclaredLimits(),
+		Contents:  recordedAtHead(t, locator, file.Path, sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
 	}
+}
+
+const sourceImportingContext = "package auth\n\nimport \"context\"\n"
+
+func recordedAtHead(
+	t *testing.T, locator domain.PullRequestLocator, path, source string,
+) memory.FileContents {
+	t.Helper()
+
+	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
+		{
+			Repository: locator.Repository(),
+			Commit:     commitSHAOf(t, recordedHeadSHA),
+			Path:       path,
+		}: []byte(source),
+	}}
 }
 
 type recordingEngine struct {
