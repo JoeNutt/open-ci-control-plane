@@ -108,6 +108,23 @@ func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	}
 }
 
+func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
+	unread := &untouchedBody{}
+	delivery := headedDelivery(unread)
+	delivery.ContentLength = -1
+	delivery.TransferEncoding = []string{"chunked"}
+	answered := httptest.NewRecorder()
+
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+
+	if answered.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
+	}
+	if unread.isRead {
+		t.Error("the body of a delivery declaring no length was read")
+	}
+}
+
 type untouchedBody struct{ isRead bool }
 
 func (body *untouchedBody) Read([]byte) (int, error) {

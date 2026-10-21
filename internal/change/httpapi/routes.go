@@ -28,7 +28,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		receiving.refuse(asked.Context(), answer, refusal)
 		return
 	}
-	if asked.ContentLength > ingest.MaxDeliveryBytes {
+	if asked.ContentLength > ingest.MaxDeliveryBytes || asked.ContentLength == -1 {
 		receiving.refuse(asked.Context(), answer, oversizedBodyProblem())
 		return
 	}
