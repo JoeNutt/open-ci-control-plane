@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const MaxFileBytes = 64 << 10
@@ -20,7 +22,9 @@ var ErrMalformedConfiguration = errors.New("the configuration file is not a conf
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
 
-type Configuration struct{}
+type Configuration struct {
+	webhookSecret domain.WebhookSecret
+}
 
 type statedConfiguration struct {
 	WebhookSecretFile string `json:"webhookSecretFile"`
@@ -38,8 +42,14 @@ func Read(path string) (Configuration, error) {
 	if stated.WebhookSecretFile == "" {
 		return Configuration{}, fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
 	}
-	return Configuration{}, nil
+	secret, err := os.ReadFile(stated.WebhookSecretFile)
+	if err != nil {
+		return Configuration{}, err
+	}
+	return Configuration{webhookSecret: domain.WebhookSecret(secret)}, nil
 }
+
+func (read Configuration) WebhookSecret() domain.WebhookSecret { return read.webhookSecret }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
 	file, err := os.Open(path)

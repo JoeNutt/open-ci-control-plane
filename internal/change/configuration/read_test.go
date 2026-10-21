@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
@@ -28,6 +29,19 @@ func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 
 	if !errors.Is(err, configuration.ErrOversizedFile) {
 		t.Fatalf("a %d-byte configuration was not refused as oversized: %v", len(padded), err)
+	}
+}
+
+func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
+	secretFile := writtenFile(t, "s3cret")
+
+	read, err := configuration.Read(writtenFile(t, `{"webhookSecretFile":"`+secretFile+`"}`))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if read.WebhookSecret() != domain.WebhookSecret("s3cret") {
+		t.Errorf("the webhook secret is not the content of %s", secretFile)
 	}
 }
 
