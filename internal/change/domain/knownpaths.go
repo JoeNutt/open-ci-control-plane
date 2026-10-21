@@ -9,7 +9,7 @@ type KnownPaths struct {
 }
 
 func NewKnownPaths(paths []RepositoryPath) KnownPaths {
-	return KnownPaths{paths: paths}
+	return KnownPaths{paths: slices.Clone(paths)}
 }
 
 func (known KnownPaths) Contains(path RepositoryPath) bool {
