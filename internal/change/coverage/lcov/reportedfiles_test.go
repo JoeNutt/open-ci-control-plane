@@ -20,7 +20,7 @@ func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse one exercised record: %v", err)
 	}
-	want := []domain.ReportedFile{{Path: "internal/change/domain/effect.go", IsExercised: true}}
+	want := []domain.ReportedFile{domain.NewReportedFile(repositoryPath(t, "internal/change/domain/effect.go"), true)}
 	if !slices.Equal(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
@@ -38,4 +38,14 @@ func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
 	if reported != nil {
 		t.Fatalf("want nothing reported alongside the refusal, got %+v", reported)
 	}
+}
+
+func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
+	t.Helper()
+
+	parsed, err := domain.ParseRepositoryPath(path)
+	if err != nil {
+		t.Fatalf("parse repository path %q: %v", path, err)
+	}
+	return parsed
 }
