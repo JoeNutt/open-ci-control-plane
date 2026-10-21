@@ -74,21 +74,13 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
-	keys, err := tokens.heldKeys(ctx)
+	keyID, err := keyIDOf(bearer)
 	if err != nil {
 		return domain.Repository{}, err
 	}
-	if message, err := jws.ParseString(bearer); err == nil && len(message.Signatures()) > 0 {
-		kid, _ := message.Signatures()[0].ProtectedHeaders().KeyID()
-		if _, found := keys.LookupKeyID(kid); !found {
-			tokens.guard.Lock()
-			tokens.keys = nil
-			tokens.guard.Unlock()
-			keys, err = tokens.heldKeys(ctx)
-			if err != nil {
-				return domain.Repository{}, err
-			}
-		}
+	keys, err := tokens.keysHolding(ctx, keyID)
+	if err != nil {
+		return domain.Repository{}, err
 	}
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
@@ -125,11 +117,23 @@ func unverifiedReasonOf(failure error) error {
 	return unverifiedReasons[matching].reason
 }
 
-func (tokens *ActionsTokens) heldKeys(ctx context.Context) (jwk.Set, error) {
+func keyIDOf(bearer string) (string, error) {
+	message, err := jws.ParseString(bearer)
+	if err != nil || len(message.Signatures()) != 1 {
+		return "", errUnverifiableSignature
+	}
+	keyID, isNamed := message.Signatures()[0].ProtectedHeaders().KeyID()
+	if !isNamed {
+		return "", errUnverifiableSignature
+	}
+	return keyID, nil
+}
+
+func (tokens *ActionsTokens) keysHolding(ctx context.Context, keyID string) (jwk.Set, error) {
 	tokens.guard.Lock()
 	defer tokens.guard.Unlock()
 
-	if tokens.keys != nil {
+	if tokens.isHolding(keyID) {
 		return tokens.keys, nil
 	}
 	keys, err := tokens.signingKeys(ctx)
@@ -138,6 +142,14 @@ func (tokens *ActionsTokens) heldKeys(ctx context.Context) (jwk.Set, error) {
 	}
 	tokens.keys = keys
 	return keys, nil
+}
+
+func (tokens *ActionsTokens) isHolding(keyID string) bool {
+	if tokens.keys == nil {
+		return false
+	}
+	_, isHeld := tokens.keys.LookupKeyID(keyID)
+	return isHeld
 }
 
 func (tokens *ActionsTokens) signingKeys(ctx context.Context) (jwk.Set, error) {
