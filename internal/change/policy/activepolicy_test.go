@@ -24,40 +24,44 @@ func TestActivePolicyHoldsNoRevisionBeforeOneIsAccepted(t *testing.T) {
 }
 
 func TestActivePolicyAcceptsAValidCandidateAtItsCommit(t *testing.T) {
-	active := policy.NewActivePolicy()
-	revision := policyCommit(t, firstPolicyCommit)
+	active := activeAtFirstCommit(t)
 
-	if err := active.Offer(revision, liveFiles(t)); err != nil {
-		t.Fatalf("offer the live policy files: %v", err)
-	}
-	accepted, err := active.Accepted()
-	if err != nil {
-		t.Fatalf("accepted revision: %v", err)
-	}
-	if accepted.Revision() != revision {
-		t.Errorf("accepted revision %s, want %s", accepted.Revision(), revision)
+	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
+		t.Errorf("accepted revision %s, want %s", revision, firstPolicyCommit)
 	}
 }
 
 func TestActivePolicyKeepsThePreviousRevisionWhenACandidateIsRefused(t *testing.T) {
-	active := policy.NewActivePolicy()
-	previous := policyCommit(t, firstPolicyCommit)
-	if err := active.Offer(previous, liveFiles(t)); err != nil {
-		t.Fatalf("offer the live policy files: %v", err)
-	}
+	active := activeAtFirstCommit(t)
 	candidate := liveFiles(t)
-	candidate[1].Content = []byte(liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]"))
+	candidate[1].Content = []byte(liveBindingPlacingOnePathInTwoGroups(t))
 
 	if err := active.Offer(policyCommit(t, secondPolicyCommit), candidate); !errors.Is(err, domain.ErrPathInTwoGroups) {
 		t.Fatalf("a binding placing one path in two groups gave %v, want ErrPathInTwoGroups", err)
 	}
+	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
+		t.Errorf("accepted revision %s after a refusal, want the previous %s", revision, firstPolicyCommit)
+	}
+}
+
+func activeAtFirstCommit(t *testing.T) *policy.ActivePolicy {
+	t.Helper()
+
+	active := policy.NewActivePolicy()
+	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFiles(t)); err != nil {
+		t.Fatalf("offer the live policy files: %v", err)
+	}
+	return active
+}
+
+func acceptedRevisionOf(t *testing.T, active *policy.ActivePolicy) domain.CommitSHA {
+	t.Helper()
+
 	accepted, err := active.Accepted()
 	if err != nil {
-		t.Fatalf("accepted revision after a refusal: %v", err)
+		t.Fatalf("accepted revision: %v", err)
 	}
-	if accepted.Revision() != previous {
-		t.Errorf("accepted revision %s after a refusal, want the previous %s", accepted.Revision(), previous)
-	}
+	return accepted.Revision()
 }
 
 func policyCommit(t *testing.T, stated string) domain.CommitSHA {
