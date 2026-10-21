@@ -2,7 +2,12 @@
 
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrNegativeGroupOrder = errors.New("group order is negative")
 
 type GroupStatement struct {
 	Name  string
@@ -18,6 +23,9 @@ func parsePolicyGroup(stated GroupStatement) (PolicyGroup, error) {
 	name, err := ParseGroupName(stated.Name)
 	if err != nil {
 		return PolicyGroup{}, fmt.Errorf("group: %w", err)
+	}
+	if stated.Order < 0 {
+		return PolicyGroup{}, fmt.Errorf("group %s: %w: %d", name, ErrNegativeGroupOrder, stated.Order)
 	}
 	return PolicyGroup{name: name, order: stated.Order}, nil
 }
