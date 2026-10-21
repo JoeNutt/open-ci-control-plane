@@ -61,6 +61,20 @@ func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 	}
 }
 
+func TestImportsInRefusesAnImportThatIsNotAGoImportPathWithoutQuotingIt(t *testing.T) {
+	const quotedFromTheSource = "hunter2 ApiKey"
+	source := []byte("package fixture\n\nimport \"" + quotedFromTheSource + "\"\n")
+
+	_, err := golang.Extractor{}.ImportsIn(boundedFrom(t, source))
+
+	if !errors.Is(err, golang.ErrUnparsableSource) {
+		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
+	}
+	if strings.Contains(err.Error(), quotedFromTheSource) {
+		t.Fatalf("the error quotes the source: %v", err)
+	}
+}
+
 func boundedFrom(t *testing.T, source []byte) domain.BoundedSource {
 	t.Helper()
 

@@ -49,5 +49,8 @@ func importPathOf(declared *ast.ImportSpec) (string, error) {
 		return "", fmt.Errorf("%w: an import path is not a string literal: %w",
 			ErrUnparsableSource, err)
 	}
+	if _, err := domain.ParseGoImportPath(imported); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrUnparsableSource, err)
+	}
 	return imported, nil
 }
