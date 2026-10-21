@@ -3,8 +3,10 @@
 package policy_test
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
@@ -32,4 +34,53 @@ func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 		t.Errorf("want one import root and four groups, got %v and %v",
 			policies[0].ImportRoots(), policies[0].Groups())
 	}
+}
+
+func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
+	refused := map[string]struct {
+		written string
+		reason  error
+	}{
+		"an import root with no path": {
+			written: liveBindingWith(t, "        path: \"\"\n", ""),
+			reason:  policy.ErrMissingKey,
+		},
+		"a later schema version": {
+			written: liveBindingWith(t, "schema_version: 1", "schema_version: 2"),
+			reason:  policy.ErrUnsupportedSchemaVersion,
+		},
+		"no schema version": {
+			written: liveBindingWith(t, "schema_version: 1\n", ""),
+			reason:  policy.ErrUnsupportedSchemaVersion,
+		},
+		"an unknown key": {
+			written: liveBindingWith(t, "  workflow: open-ci-tests.yml", "  workflow: open-ci-tests.yml\n  timeout: 5"),
+			reason:  policy.ErrMalformedPolicyFile,
+		},
+		"a YAML alias": {
+			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: &driver [\"cmd/**\"]\n      extra: *driver"),
+			reason:  policy.ErrAliasOrAnchor,
+		},
+		"no workflow": {
+			written: liveBindingWith(t, "  workflow: open-ci-tests.yml\n", ""),
+			reason:  domain.ErrMissingWorkflow,
+		},
+		"one path bound to two groups": {
+			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]"),
+			reason:  domain.ErrPathInTwoGroups,
+		},
+	}
+	for form, refusal := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := policy.ParseBindingFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
+				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
+			}
+		})
+	}
+}
+
+func liveBindingWith(t *testing.T, written, replacement string) string {
+	t.Helper()
+
+	return fixtureWith(t, liveBindingPath, written, replacement)
 }
