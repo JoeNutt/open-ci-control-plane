@@ -39,6 +39,26 @@ func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	}
 }
 
+func TestAConfigurationWithAnUnknownKeyOrTrailingContentIsRefused(t *testing.T) {
+	complete, err := json.Marshal(completeItems(t))
+	if err != nil {
+		t.Fatalf("encode the configuration: %v", err)
+	}
+	for form, content := range map[string]string{
+		"an inline secret":  strings.Replace(string(complete), "{", `{"webhookSecret":"s3cret",`, 1),
+		"a second document": string(complete) + `{}`,
+		"trailing text":     string(complete) + ` trailing`,
+	} {
+		t.Run(form, func(t *testing.T) {
+			_, err := configuration.Read(writtenFile(t, content))
+
+			if !errors.Is(err, configuration.ErrMalformedConfiguration) {
+				t.Fatalf("refusal is not a malformed configuration: %v", err)
+			}
+		})
+	}
+}
+
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))

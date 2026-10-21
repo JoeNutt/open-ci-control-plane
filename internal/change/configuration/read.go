@@ -3,9 +3,11 @@
 package configuration
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"slices"
 
@@ -79,9 +81,14 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
+	decoding := json.NewDecoder(bytes.NewReader(content))
+	decoding.DisallowUnknownFields()
 	var stated statedConfiguration
-	if err := json.Unmarshal(content, &stated); err != nil {
+	if err := decoding.Decode(&stated); err != nil {
 		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+	}
+	if _, err := decoding.Token(); !errors.Is(err, io.EOF) {
+		return statedConfiguration{}, fmt.Errorf("%w: trailing", ErrMalformedConfiguration)
 	}
 	return stated, nil
 }
