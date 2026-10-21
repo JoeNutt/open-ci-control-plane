@@ -4,9 +4,11 @@ package github_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 	"strconv"
 	"testing"
@@ -50,6 +52,25 @@ func TestInstallationTokensHoldingATokenRevealNoSecretWhenPrintedOrLogged(t *tes
 		}
 		mustRevealNoneOf(t, name+" as JSON", string(encoded), secrets)
 		mustRevealNoneOf(t, name+" logged", loggedAsTextAndJSON(holder), secrets)
+	}
+}
+
+func TestATokenExchangeErrorCarriesNeitherTheJWTNorTheToken(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			echoing := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+				writer.WriteHeader(status)
+				write(t, writer, `{"message": "`+request.Header.Get("Authorization")+` `+grantedToken(1)+`"}`)
+			})
+			tokens := installationTokensAt(t, echoing, mintedAt)
+
+			_, err := github.AuthorizationOf(context.Background(), tokens)
+
+			if err == nil {
+				t.Fatal("the exchange succeeded against a refusing endpoint")
+			}
+			mustRevealNoneOf(t, "the error", err.Error(), []string{jwtPrefix, grantedToken(1)})
+		})
 	}
 }
 
