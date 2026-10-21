@@ -7,6 +7,10 @@ decision := {
 	"violations": sort([violation | some violation in violations]),
 	"reviewers": [],
 	"fail_closed": true,
+} if {
+	every bound in data.ci.policy.bindings[input.pr.repository].policies {
+		data.ci.policy.catalog[bound.use].direction == "lower_order_may_not_import_higher"
+	}
 }
 
 default input_wellformed := false
