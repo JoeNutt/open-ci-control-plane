@@ -62,6 +62,10 @@ full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
 Specification: https://claude.ai/code/artifact/db03f5d3-b4e0-4fb0-8254-375c6cf0d08d —
 not yet exported to `docs/`.
 
+**Current release: v0.0.1**, specified at https://claude.ai/artifact/CjiuxFHroNTwjRNhpnpQ7U.
+It narrows the baseline, and its §20 decisions override it where they say so. Its §18 is
+the build order. Read it before taking a card.
+
 ## Invariants
 
 Load-bearing, non-obvious, and not derivable from the code. Everything else is in the global
@@ -115,21 +119,31 @@ nix develop --command bash -c 'golangci-lint run ./...'
 nix develop --command go test ./internal/change/domain -run 'TestName' -v
 ```
 
-The commit gate runs `gofmt`, `go vet` and `go test` itself, inside the flake. The suite
-shells out to the `opa` CLI (the schema conformance test) and `cmark-gfm` (the check-run
-renderer test), which is another reason it only passes in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
+The commit gate runs `gofmt`, `go vet` and `go test` itself, using `go` from PATH if present
+and the flake otherwise. Git does not enable it on clone: run `git config core.hooksPath
+.githooks` once per checkout. The suite shells out to the `opa` CLI (the schema conformance
+test) and `cmark-gfm` (the check-run renderer test), which is another reason it only passes
+in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
+
+There is no `main` package and no binary yet. Nothing runs except the suite.
 
 ## Code layout
 
 Everything lives under `internal/change/`, arranged as ports and adapters:
 
-- `domain/` owns the types and the ports (`ChangeSource` and others). Its constructors are
-  `Parse*`, which return domain values. `architecture_test.go` fails the suite if a domain
-  package imports anything except the standard library and other `domain` packages.
-- `application/` assembles the policy input document from what a port reports.
+- `domain/` owns the types and the ports (`ChangeSource`, `CheckRunPublisher`,
+  `DecisionIDSource`, `FamilyEngine`). Its constructors are `Parse*`, which return domain values.
+  `architecture_test.go` fails the suite if a domain package imports anything except the
+  standard library and other `domain` packages.
+- `application/` holds two use cases. `BuildDocument` assembles the policy input document
+  from what `ChangeSource` reports. `GateChange` builds it, evaluates it per policy family,
+  and publishes one check run per decision.
 - The adapters are `forge/github`, `forge/memory` (a recorded fake for tests),
   `engine/opa` (one embedded OPA instance per policy family), `ingest` (webhook signature
-  check) and `rules` (classification rules read from outside the governed repository).
+  check), `rules` (classification rules read from outside the governed repository) and
+  `random` (decision IDs).
+
+Every `.go` file starts with `// SPDX-License-Identifier: GPL-3.0-or-later`.
 
 `openapi.yaml` is the HTTP surface. `schema/ci.diff.v1.schema.json` is the policy input
 contract, and emitted documents are tested against it.
