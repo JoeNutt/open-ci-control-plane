@@ -31,13 +31,25 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
-		if err := useCase.Recorder.RecordDecision(posting, domain.RecordFor(decided, id)); err != nil {
-			failures = append(failures, fmt.Errorf("record %s: %w", decided.Family, err))
-		}
-		run := domain.CheckRunFor(decided, id)
-		if err := useCase.Publisher.PublishCheckRun(posting, locator, head, run); err != nil {
-			failures = append(failures, fmt.Errorf("post %s: %w", run.Name, err))
-		}
+		failures = append(failures,
+			useCase.record(posting, decided, id),
+			useCase.publish(posting, locator, head, domain.CheckRunFor(decided, id)))
 	}
 	return errors.Join(failures...)
+}
+
+func (useCase GateChange) record(ctx context.Context, decided domain.FamilyDecision, id domain.DecisionID) error {
+	if err := useCase.Recorder.RecordDecision(ctx, domain.RecordFor(decided, id)); err != nil {
+		return fmt.Errorf("record %s: %w", decided.Family, err)
+	}
+	return nil
+}
+
+func (useCase GateChange) publish(
+	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
+) error {
+	if err := useCase.Publisher.PublishCheckRun(ctx, locator, head, run); err != nil {
+		return fmt.Errorf("post %s: %w", run.Name, err)
+	}
+	return nil
 }
