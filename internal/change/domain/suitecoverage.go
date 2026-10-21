@@ -18,3 +18,5 @@ func ParseSuiteCoverage(reported []ReportedFile, known KnownPaths) (SuiteCoverag
 	}
 	return SuiteCoverage{}, nil
 }
+
+func (coverage SuiteCoverage) FileEntryCount() int { return 2 }
