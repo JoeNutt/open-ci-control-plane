@@ -5,6 +5,8 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"strings"
 )
 
 const MaxSuiteNameBytes = 512
@@ -19,6 +21,9 @@ func ParseSuiteName(name string) (SuiteName, error) {
 	if len(name) > MaxSuiteNameBytes {
 		return SuiteName{}, fmt.Errorf("%w: %d bytes exceeds %d",
 			ErrMalformedSuiteName, len(name), MaxSuiteNameBytes)
+	}
+	if !fs.ValidPath(name) || name == "." || strings.Trim(name, asciiAlphanumerics+"._/-") != "" {
+		return SuiteName{}, ErrMalformedSuiteName
 	}
 	return SuiteName{name: name}, nil
 }
