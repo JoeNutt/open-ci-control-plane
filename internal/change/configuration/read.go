@@ -35,21 +35,43 @@ func Read(path string) (Configuration, error) {
 	if err != nil {
 		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
 	}
-	var stated statedConfiguration
-	if err := json.Unmarshal(content, &stated); err != nil {
-		return Configuration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
-	}
-	if stated.WebhookSecretFile == "" {
-		return Configuration{}, fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
-	}
-	secret, err := os.ReadFile(stated.WebhookSecretFile)
+	stated, err := statedConfigurationIn(content)
 	if err != nil {
 		return Configuration{}, err
 	}
-	return Configuration{webhookSecret: domain.WebhookSecret(secret)}, nil
+	return stated.configuration()
 }
 
-func (read Configuration) WebhookSecret() domain.WebhookSecret { return read.webhookSecret }
+func (configured Configuration) WebhookSecret() domain.WebhookSecret {
+	return configured.webhookSecret
+}
+
+func statedConfigurationIn(content []byte) (statedConfiguration, error) {
+	var stated statedConfiguration
+	if err := json.Unmarshal(content, &stated); err != nil {
+		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+	}
+	return stated, nil
+}
+
+func (stated statedConfiguration) configuration() (Configuration, error) {
+	secret, err := webhookSecretIn(stated.WebhookSecretFile)
+	if err != nil {
+		return Configuration{}, err
+	}
+	return Configuration{webhookSecret: secret}, nil
+}
+
+func webhookSecretIn(path string) (domain.WebhookSecret, error) {
+	if path == "" {
+		return "", fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read the %s: %w", webhookSecretFileItem, err)
+	}
+	return domain.WebhookSecret(content), nil
+}
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
 	file, err := os.Open(path)
