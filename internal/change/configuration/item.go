@@ -3,10 +3,12 @@
 package configuration
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"slices"
 )
 
 var ErrMissingItem = errors.New("the configuration is missing a required item")
@@ -39,6 +41,10 @@ func (named item) contentAt(path string, maxBytes int) ([]byte, error) {
 		return nil, named.invalid(errEmptyFile)
 	}
 	return content, nil
+}
+
+func repeatsAnEntry[Entry cmp.Ordered](stated []Entry) bool {
+	return len(slices.Compact(slices.Sorted(slices.Values(stated)))) != len(stated)
 }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {

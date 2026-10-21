@@ -4,10 +4,11 @@ package configuration
 
 import (
 	"errors"
-	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var errRepeatedFamily = errors.New("a policy family is named twice")
 
 func familiesIn(stated []string) ([]domain.PolicyFamily, error) {
 	if len(stated) == 0 {
@@ -21,8 +22,8 @@ func familiesIn(stated []string) ([]domain.PolicyFamily, error) {
 		}
 		named = append(named, family)
 	}
-	if len(slices.Compact(slices.Sorted(slices.Values(named)))) != len(named) {
-		return nil, families.invalid(errors.New("repeated"))
+	if repeatsAnEntry(named) {
+		return nil, families.invalid(errRepeatedFamily)
 	}
 	return named, nil
 }

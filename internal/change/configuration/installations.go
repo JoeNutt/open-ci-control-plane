@@ -26,7 +26,7 @@ func installationIDsIn(stated []int64) ([]int64, error) {
 	if slices.Min(stated) < firstInstallationID {
 		return nil, installationIDs.invalid(errNonPositiveInstallation)
 	}
-	if ordered := slices.Sorted(slices.Values(stated)); len(slices.Compact(ordered)) != len(stated) {
+	if repeatsAnEntry(stated) {
 		return nil, installationIDs.invalid(errRepeatedInstallation)
 	}
 	return slices.Clone(stated), nil
