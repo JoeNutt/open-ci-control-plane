@@ -107,13 +107,16 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 }
 
 func graphDeltaFor(resolution importResolution, imported []ImportedFile) ModuleGraphDelta {
+	return ModuleGraphDelta{
+		EdgesAdded: edgesAddedIn(imported),
+		Incomplete: resolution.unresolved > 0,
+	}
+}
+
+func edgesAddedIn(imported []ImportedFile) Declared[ModuleEdge] {
 	var added Declared[ModuleEdge]
 	for _, file := range imported {
-		for _, to := range file.Head.ImportPaths() {
-			if !slices.Contains(file.Base.ImportPaths(), to) {
-				added = append(added, ModuleEdge{From: file.File.Path, To: to})
-			}
-		}
+		added = append(added, file.edgesAdded()...)
 	}
-	return ModuleGraphDelta{EdgesAdded: added, Incomplete: resolution.unresolved > 0}
+	return added
 }
