@@ -13,13 +13,23 @@ var ErrCompressedArtifactTooLarge = fmt.Errorf("%w: compressed bytes", ErrCovera
 
 var ErrDecompressedArtifactTooLarge = fmt.Errorf("%w: decompressed bytes", ErrCoverageBoundExceeded)
 
+var ErrTooManyFileEntries = fmt.Errorf("%w: file entries", ErrCoverageBoundExceeded)
+
 type CoverageLimits struct {
 	MaxCompressedBytes   int64
 	MaxDecompressedBytes int64
+	MaxFileEntries       int
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
-	return CoverageLimits{MaxCompressedBytes: 64 << 20, MaxDecompressedBytes: 256 << 20}
+	return CoverageLimits{MaxCompressedBytes: 64 << 20, MaxDecompressedBytes: 256 << 20, MaxFileEntries: 200_000}
+}
+
+func (limits CoverageLimits) FileEntriesBreach(fileEntries int) error {
+	if fileEntries > limits.MaxFileEntries {
+		return ErrTooManyFileEntries
+	}
+	return nil
 }
 
 func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {

@@ -55,6 +55,7 @@ type recordReading struct {
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
+	limits             domain.CoverageLimits
 }
 
 type Artifact struct {
@@ -72,7 +73,7 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 		return nil, err
 	}
 	decompressed := &boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach}
-	var reading recordReading
+	reading := recordReading{limits: limits}
 	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
@@ -124,6 +125,9 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
+	if err := reading.limits.FileEntriesBreach(len(reading.reported) + 1); err != nil {
+		return err
+	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
 		return err
