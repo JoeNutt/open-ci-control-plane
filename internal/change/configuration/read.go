@@ -3,6 +3,7 @@
 package configuration
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,6 +74,7 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if err != nil {
 		return "", webhookSecretFile.invalid(err)
 	}
+	content = bytes.TrimSuffix(content, []byte("\n"))
 	if len(content) == 0 {
 		return "", webhookSecretFile.invalid(errEmptyFile)
 	}

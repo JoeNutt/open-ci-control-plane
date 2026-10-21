@@ -64,6 +64,17 @@ func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
+	configured, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "s3cret\n")}))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if configured.WebhookSecret() != domain.WebhookSecret("s3cret") {
+		t.Error("the trailing line break was taken as part of the webhook secret")
+	}
+}
+
 type statedItems struct {
 	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
 }
