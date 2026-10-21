@@ -2,7 +2,10 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const MaxSuiteNameBytes = 512
 
@@ -14,7 +17,8 @@ type SuiteName struct {
 
 func ParseSuiteName(name string) (SuiteName, error) {
 	if len(name) > MaxSuiteNameBytes {
-		return SuiteName{}, ErrMalformedSuiteName
+		return SuiteName{}, fmt.Errorf("%w: %d bytes exceeds %d",
+			ErrMalformedSuiteName, len(name), MaxSuiteNameBytes)
 	}
 	return SuiteName{name: name}, nil
 }
