@@ -11,9 +11,11 @@ import (
 )
 
 type BuildDocument struct {
-	Source domain.ChangeSource
-	Limits domain.Limits
-	Rules  domain.ClassificationRules
+	Source    domain.ChangeSource
+	Contents  domain.FileContents
+	Extractor domain.ImportExtractor
+	Limits    domain.Limits
+	Rules     domain.ClassificationRules
 }
 
 func (useCase BuildDocument) Execute(
@@ -31,5 +33,32 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	return domain.ParseDocument(pullRequest, domain.Change{Files: bounded}, useCase.Rules), nil
+	var imported []domain.ImportedFile
+	for _, file := range files {
+		if useCase.Extractor == nil || !useCase.Extractor.Claims(file.Path) {
+			continue
+		}
+		head, err := domain.ParseCommitSHA(pullRequest.HeadSHA)
+		if err != nil {
+			return domain.Document{}, err
+		}
+		contents, err := useCase.Contents.ContentsAt(ctx, domain.FileAtCommit{Repository: locator.Repository(), Commit: head, Path: file.Path})
+		if err != nil {
+			return domain.Document{}, err
+		}
+		source, err := domain.ParseBoundedSource(contents, useCase.Limits)
+		if err != nil {
+			return domain.Document{}, err
+		}
+		paths, err := useCase.Extractor.ImportsIn(source)
+		if err != nil {
+			return domain.Document{}, err
+		}
+		fileImports, err := domain.ParseFileImports(paths, useCase.Limits)
+		if err != nil {
+			return domain.Document{}, err
+		}
+		imported = append(imported, domain.ImportedFile{File: file, Head: fileImports})
+	}
+	return domain.ParseDocument(pullRequest, domain.Change{Files: bounded, Imported: imported}, useCase.Rules), nil
 }
