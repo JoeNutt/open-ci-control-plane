@@ -3,8 +3,10 @@
 package github_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"testing"
@@ -20,6 +22,51 @@ func secretHolders(t *testing.T) map[string]any {
 	return map[string]any{
 		"credential": forgeCredential,
 		"App key":    forgeAppKey(t),
+	}
+}
+
+const jwtPrefix = "eyJ"
+
+func TestInstallationTokensHoldingATokenRevealNoSecretWhenPrintedOrLogged(t *testing.T) {
+	held := tokensExchangedOnce(t)
+	secrets := []string{
+		grantedToken(1),
+		jwtPrefix,
+		forgeRSAKey().D.String(),
+		string(forgeAppKeyPEM()[len(github.PKCS1PrivateKeyBlock)+16 : 120]),
+	}
+	holders := map[string]any{
+		"tokens":        held.tokens,
+		"nested tokens": struct{ tokens *github.InstallationTokens }{held.tokens},
+	}
+
+	for name, holder := range holders {
+		for _, verb := range everyFormatVerb {
+			mustRevealNoneOf(t, name+" under "+verb, fmt.Sprintf(verb, holder), secrets)
+		}
+		encoded, err := json.Marshal(holder)
+		if err != nil {
+			t.Fatalf("marshal %s: %v", name, err)
+		}
+		mustRevealNoneOf(t, name+" as JSON", string(encoded), secrets)
+		mustRevealNoneOf(t, name+" logged", loggedAsTextAndJSON(holder), secrets)
+	}
+}
+
+func loggedAsTextAndJSON(holder any) string {
+	var logged bytes.Buffer
+	slog.New(slog.NewTextHandler(&logged, nil)).Info("forge", "holder", holder)
+	slog.New(slog.NewJSONHandler(&logged, nil)).Info("forge", "holder", holder)
+	return logged.String()
+}
+
+func mustRevealNoneOf(t *testing.T, where, printed string, secrets []string) {
+	t.Helper()
+
+	for _, secret := range secrets {
+		if reveals(printed, secret) {
+			t.Errorf("%s revealed a secret: %.120s", where, printed)
+		}
 	}
 }
 
