@@ -34,7 +34,7 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
 	imported, err := useCase.importedFilesOf(
-		ctx, locator, pullRequest.HeadSHA, useCase.claimedOf(files))
+		ctx, locator, pullRequest.HeadSHA, useCase.readableAtHeadOf(files))
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
 	}
@@ -42,21 +42,21 @@ func (useCase BuildDocument) Execute(
 	return domain.ParseDocument(pullRequest, change, useCase.Rules), nil
 }
 
-func (useCase BuildDocument) claimedOf(files []domain.File) []domain.File {
-	var claimed []domain.File
+func (useCase BuildDocument) readableAtHeadOf(files []domain.File) []domain.File {
+	var readable []domain.File
 	for _, file := range files {
 		if useCase.Extractor.Claims(file.Path) && file.Action.ExistsAtHead() {
-			claimed = append(claimed, file)
+			readable = append(readable, file)
 		}
 	}
-	return claimed
+	return readable
 }
 
 func (useCase BuildDocument) importedFilesOf(
-	ctx context.Context, locator domain.PullRequestLocator, headSHA string, claimed []domain.File,
+	ctx context.Context, locator domain.PullRequestLocator, headSHA string, readable []domain.File,
 ) ([]domain.ImportedFile, error) {
-	imported := make([]domain.ImportedFile, 0, len(claimed))
-	for _, file := range claimed {
+	imported := make([]domain.ImportedFile, 0, len(readable))
+	for _, file := range readable {
 		head, err := useCase.importsAtHeadOf(ctx, locator, headSHA, file)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", file.Path, err)

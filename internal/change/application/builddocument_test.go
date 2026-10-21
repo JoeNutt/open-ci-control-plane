@@ -23,22 +23,29 @@ func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLo
 	return locator
 }
 
-func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
-	locator := locatorOf(t, "acme/payments", 412)
-	source := memory.ChangeSource{
+func changeSourceOver(locator domain.PullRequestLocator, files ...domain.File) memory.ChangeSource {
+	return memory.ChangeSource{
 		Changes: map[domain.PullRequestLocator]memory.Change{
 			locator: {
 				PullRequest: domain.PullRequest{
-					Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
-				Files: []domain.File{
-					{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-						Additions: 12, Deletions: 3, PatchBytes: 1840},
-					{Path: "infra/iam.tf", Action: domain.FileActionAdded,
-						Additions: 35, PatchBytes: 7280},
+					Number:     locator.Number(),
+					Repository: locator.Repository(),
+					HeadSHA:    recordedHeadSHA,
 				},
+				Files: files,
 			},
 		},
 	}
+}
+
+func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	source := changeSourceOver(locator,
+		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
+			Additions: 12, Deletions: 3, PatchBytes: 1840},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded,
+			Additions: 35, PatchBytes: 7280},
+	)
 
 	useCase := application.BuildDocument{
 		Source:    source,
@@ -65,15 +72,7 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
-		Source: memory.ChangeSource{
-			Changes: map[domain.PullRequestLocator]memory.Change{
-				locator: {
-					PullRequest: domain.PullRequest{
-						Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
-					Files: []domain.File{file},
-				},
-			},
-		},
+		Source: changeSourceOver(locator, file),
 		Contents: recordedAtHead(t, locator, file.Path,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
@@ -99,15 +98,7 @@ func TestBuildDocumentReadsNothingAtHeadForARemovedGoFile(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
 	useCase := application.BuildDocument{
-		Source: memory.ChangeSource{
-			Changes: map[domain.PullRequestLocator]memory.Change{
-				locator: {
-					PullRequest: domain.PullRequest{
-						Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
-					Files: []domain.File{file},
-				},
-			},
-		},
+		Source:    changeSourceOver(locator, file),
 		Contents:  memory.FileContents{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
