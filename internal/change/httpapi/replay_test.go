@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -30,6 +31,27 @@ func TestAReplayedDeliveryIsAnsweredWithTheOriginalAcceptanceUnevaluated(t *test
 		t.Errorf("the gate evaluated %d times, want once", len(gate.evaluated))
 	}
 }
+
+func TestADeliveryReplayedADayLaterIsEvaluatedAgain(t *testing.T) {
+	gate := &recordingGate{}
+	clock := &steppedClock{now: time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)}
+	settings := listenerSettings(discardedLog(), gate)
+	settings.Clock = clock.read
+	routes := parsedRoutes(t, settings)
+
+	routes.ServeHTTP(httptest.NewRecorder(), signedDelivery("pull_request", pullRequestPayload("opened")))
+	clock.now = clock.now.Add(24 * time.Hour)
+	replayed := httptest.NewRecorder()
+	routes.ServeHTTP(replayed, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if len(gate.evaluated) != 2 {
+		t.Errorf("the gate evaluated %d times, want twice: the record should have lapsed", len(gate.evaluated))
+	}
+}
+
+type steppedClock struct{ now time.Time }
+
+func (clock *steppedClock) read() time.Time { return clock.now }
 
 type sequentialDecisions struct{ minted int }
 

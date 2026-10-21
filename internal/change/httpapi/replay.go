@@ -2,27 +2,39 @@
 
 package httpapi
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
+
+type heldAcceptance struct {
+	answered acceptance
+	heldAt   time.Time
+}
 
 type acceptedDeliveries struct {
 	mutex sync.Mutex
-	byID  map[string]acceptance
+	byID  map[string]heldAcceptance
+	clock func() time.Time
 }
 
-func newAcceptedDeliveries() *acceptedDeliveries {
-	return &acceptedDeliveries{byID: map[string]acceptance{}}
+func newAcceptedDeliveries(clock func() time.Time) *acceptedDeliveries {
+	return &acceptedDeliveries{byID: map[string]heldAcceptance{}, clock: clock}
 }
 
 func (accepted *acceptedDeliveries) originalOf(received delivery) (acceptance, bool) {
 	accepted.mutex.Lock()
 	defer accepted.mutex.Unlock()
 	original, isHeld := accepted.byID[received.id]
-	return original, isHeld
+	if isHeld && !accepted.clock().Before(original.heldAt.Add(24*time.Hour)) {
+		return acceptance{}, false
+	}
+	return original.answered, isHeld
 }
 
 func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
 	accepted.mutex.Lock()
 	defer accepted.mutex.Unlock()
-	accepted.byID[answered.DeliveryID] = answered
+	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: accepted.clock()}
 	return answered
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -22,6 +23,7 @@ type Settings struct {
 	Installations []int64
 	Gate          ChangeGate
 	DecisionIDs   domain.DecisionIDSource
+	Clock         func() time.Time
 }
 
 type requiredPart struct {
