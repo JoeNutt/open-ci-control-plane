@@ -172,6 +172,29 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 	}
 }
 
+func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
+	useCase := application.BuildDocument{
+		Source:    changeSourceOver(locator, file),
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.Declared[domain.ModuleEdge]{{From: file.Path, To: "context"}}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta.EdgesAdded, want) {
+		t.Fatalf("edges added are %+v, want %+v",
+			document.Diff.ModuleGraphDelta.EdgesAdded, want)
+	}
+}
+
 func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
