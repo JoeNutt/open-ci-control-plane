@@ -15,7 +15,7 @@ import (
 )
 
 func TestImportsInReadsEveryImportAsWritten(t *testing.T) {
-	imports, err := golang.ImportsIn(boundedFrom(t, fixtureNamed(t, "grouped.go")))
+	imports, err := golang.Extractor{}.ImportsIn(boundedFrom(t, fixtureNamed(t, "grouped.go")))
 
 	if err != nil {
 		t.Fatalf("imports in grouped.go: %v", err)
@@ -37,7 +37,7 @@ func TestImportsInReadsASourceExactlyAtTheSourceByteBound(t *testing.T) {
 	padding := strings.Repeat("x", limit-len(declaration)-len(closing))
 	source := []byte(declaration + padding + closing)
 
-	imports, err := golang.ImportsIn(boundedFrom(t, source))
+	imports, err := golang.Extractor{}.ImportsIn(boundedFrom(t, source))
 
 	if err != nil {
 		t.Fatalf("imports in a %d-byte source: %v", len(source), err)
@@ -51,7 +51,7 @@ func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 	const quotedFromTheSource = "hunter2ApiKey"
 	source := []byte("package fixture\n\nimport (\n\t\"context\" " + quotedFromTheSource + "\n)\n")
 
-	_, err := golang.ImportsIn(boundedFrom(t, source))
+	_, err := golang.Extractor{}.ImportsIn(boundedFrom(t, source))
 
 	if !errors.Is(err, golang.ErrUnparsableSource) {
 		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)

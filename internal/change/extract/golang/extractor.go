@@ -9,15 +9,25 @@ import (
 	"go/parser"
 	"go/token"
 	"strconv"
+	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const unnamedSource = ""
+const (
+	goSourceSuffix = ".go"
+	unnamedSource  = ""
+)
 
 var ErrUnparsableSource = errors.New("the source does not parse as Go")
 
-func ImportsIn(source domain.BoundedSource) ([]string, error) {
+type Extractor struct{}
+
+func (Extractor) Claims(path string) bool {
+	return strings.HasSuffix(path, goSourceSuffix)
+}
+
+func (Extractor) ImportsIn(source domain.BoundedSource) ([]string, error) {
 	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source.Reader(), parser.ImportsOnly)
 	if err != nil {
 		return nil, ErrUnparsableSource
