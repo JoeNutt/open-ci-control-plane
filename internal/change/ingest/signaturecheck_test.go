@@ -89,7 +89,7 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 
 type rejectionTally struct{ rejected int }
 
-func (tally *rejectionTally) CountRejectedDelivery() { tally.rejected++ }
+func (tally *rejectionTally) CountRejectedDelivery(*http.Request, error) { tally.rejected++ }
 
 func TestEveryRefusalIsCounted(t *testing.T) {
 	tallies := map[string]struct {

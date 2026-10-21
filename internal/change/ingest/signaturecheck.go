@@ -18,7 +18,7 @@ const signatureHeader = "X-Hub-Signature-256"
 const MaxDeliveryBytes = 8 << 20
 
 type RejectionCounter interface {
-	CountRejectedDelivery()
+	CountRejectedDelivery(refused *http.Request, reason error)
 }
 
 type Settings struct {
@@ -77,14 +77,14 @@ func noCounterForRejections(settings Settings) string {
 func (checking SignatureCheck) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(answer, asked.Body, MaxDeliveryBytes))
 	if err != nil {
-		checking.rejections.CountRejectedDelivery()
+		checking.rejections.CountRejectedDelivery(asked, err)
 		answer.WriteHeader(statusForUnreadableBody(err))
 		return
 	}
 	delivered, err := domain.ParseSignedDelivery(
 		body, asked.Header.Get(signatureHeader), checking.secret)
 	if err != nil {
-		checking.rejections.CountRejectedDelivery()
+		checking.rejections.CountRejectedDelivery(asked, err)
 		answer.WriteHeader(http.StatusUnauthorized)
 		return
 	}

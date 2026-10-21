@@ -18,7 +18,7 @@ func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, e
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted:   admitted{},
 		Secret:     secret,
-		Rejections: refusals{},
+		Rejections: refusals{log: log},
 	})
 	if err != nil {
 		return nil, err
@@ -59,6 +59,10 @@ func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
 	answer.WriteHeader(http.StatusNoContent)
 }
 
-type refusals struct{}
+type refusals struct{ log *slog.Logger }
 
-func (refusals) CountRejectedDelivery() {}
+func (logging refusals) CountRejectedDelivery(refused *http.Request, reason error) {
+	logging.log.LogAttrs(refused.Context(), slog.LevelWarn, "delivery refused",
+		slog.String("deliveryId", refused.Header.Get(deliveryHeader)),
+		slog.String("reason", reason.Error()))
+}
