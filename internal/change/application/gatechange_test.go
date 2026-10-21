@@ -49,6 +49,32 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	}
 }
 
+func TestGateChangePublishesACheckRunForEachConfiguredFamilyOnly(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
+		domain.PolicyFamilyStructural: &recordingEngine{revision: revisionForTest(t)},
+	})
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	published := &memory.CheckRuns{}
+	useCase := application.GateChange{
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  &recordedDecisions{},
+	}
+
+	if err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID)); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+	if _, present := runs["policy/structural"]; len(runs) != 1 || !present {
+		t.Errorf("published %v, want the structural check run only", runs)
+	}
+}
+
 func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	gate, _ := recordingGate(t)
