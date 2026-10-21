@@ -2,6 +2,8 @@
 
 package github
 
+import "context"
+
 type Credential struct {
 	token *string
 }
@@ -13,6 +15,10 @@ func (credential Credential) isPresent() bool {
 }
 
 func (credential Credential) bearer() string { return "Bearer " + *credential.token }
+
+func (credential Credential) authorization(context.Context) (Credential, error) {
+	return credential, nil
+}
 
 func (credential Credential) String() string { return "[redacted]" }
 
