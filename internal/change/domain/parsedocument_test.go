@@ -215,6 +215,20 @@ func TestParseDocumentFindsNoEdgeInAFileWhoseImportsAreUnchanged(t *testing.T) {
 	}
 }
 
+func TestParseDocumentPublishesNoImportEntryForARemovedFile(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/legacy.go", Action: domain.FileActionRemoved}
+	change := domain.Change{
+		Files:    withinBounds(t, file),
+		Imported: []domain.ImportedFile{{File: file, Base: fileImportsOf(t, "context")}},
+	}
+
+	document := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{})
+
+	if len(document.Diff.Imports) != 0 {
+		t.Fatalf("a removed file published imports: %+v", document.Diff.Imports)
+	}
+}
+
 func TestParseDocumentCountsNoUnresolvedFileForFilesNoExtractorRead(t *testing.T) {
 	bounded := withinBounds(t,
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
