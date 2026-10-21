@@ -35,11 +35,18 @@ type catalogGroupEntry struct {
 }
 
 func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
+	parsed, err := catalogPolicyIn(content)
+	if err != nil {
+		return domain.CatalogPolicy{}, fmt.Errorf("catalog file: %w", err)
+	}
+	return parsed, nil
+}
+
+func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 	var document catalogDocument
 	if err := yaml.Unmarshal(content, &document); err != nil {
 		return domain.CatalogPolicy{}, ErrMalformedPolicyFile
 	}
-
 	statement, err := catalogStatementOf(document)
 	if err != nil {
 		return domain.CatalogPolicy{}, err
