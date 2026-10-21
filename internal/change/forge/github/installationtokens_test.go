@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,33 +34,89 @@ type accessTokenRequest struct {
 	Permissions map[string]string `json:"permissions"`
 }
 
-func recordedGrant(expiresAt time.Time) string {
+const grantedLifetime = time.Hour
+
+func grantedToken(serial int) string {
+	return recordedInstallationToken + "-" + strconv.Itoa(serial)
+}
+
+func recordedGrant(token string, expiresAt time.Time) string {
 	return `{
-		"token": "` + recordedInstallationToken + `",
+		"token": "` + token + `",
 		"expires_at": "` + expiresAt.Format(time.RFC3339) + `",
 		"permissions": {"checks": "write", "pull_requests": "read", "contents": "read", "actions": "write"},
 		"repository_selection": "all"
 	}`
 }
 
+type forgeClock struct {
+	mutex sync.Mutex
+	now   time.Time
+}
+
+func clockAt(now time.Time) *forgeClock { return &forgeClock{now: now} }
+
+func (clock *forgeClock) Now() time.Time {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
+	return clock.now
+}
+
+func (clock *forgeClock) advance(by time.Duration) {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
+	clock.now = clock.now.Add(by)
+}
+
+type tokenForge struct {
+	t         *testing.T
+	clock     *forgeClock
+	server    *httptest.Server
+	mutex     sync.Mutex
+	exchanges int
+}
+
+func newTokenForge(t *testing.T, clock *forgeClock) *tokenForge {
+	t.Helper()
+
+	held := &tokenForge{t: t, clock: clock}
+	routes := http.NewServeMux()
+	routes.HandleFunc("POST /app/installations/{installation}/access_tokens", held.grant)
+	held.server = forge(t, routes.ServeHTTP)
+	return held
+}
+
+func (held *tokenForge) grant(writer http.ResponseWriter, request *http.Request) {
+	if request.PathValue("installation") != strconv.Itoa(forgeInstallationID) {
+		writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+	now := held.clock.Now()
+	if !isPresentedAppJWT(held.t, request, now) || !isLeastPrivilegeAsked(held.t, request) {
+		writer.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	writer.WriteHeader(http.StatusCreated)
+	write(held.t, writer, recordedGrant(grantedToken(held.exchanged()), now.Add(grantedLifetime)))
+}
+
+func (held *tokenForge) exchanged() int {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	held.exchanges++
+	return held.exchanges
+}
+
+func (held *tokenForge) exchangeCount() int {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	return held.exchanges
+}
+
 func tokenEndpoint(t *testing.T, now time.Time) *httptest.Server {
 	t.Helper()
 
-	routes := http.NewServeMux()
-	routes.HandleFunc("POST /app/installations/{installation}/access_tokens",
-		func(writer http.ResponseWriter, request *http.Request) {
-			if request.PathValue("installation") != strconv.Itoa(forgeInstallationID) {
-				writer.WriteHeader(http.StatusNotFound)
-				return
-			}
-			if !isPresentedAppJWT(t, request, now) || !isLeastPrivilegeAsked(t, request) {
-				writer.WriteHeader(http.StatusUnprocessableEntity)
-				return
-			}
-			writer.WriteHeader(http.StatusCreated)
-			write(t, writer, recordedGrant(now.Add(time.Hour)))
-		})
-	return forge(t, routes.ServeHTTP)
+	return newTokenForge(t, clockAt(now)).server
 }
 
 func isPresentedAppJWT(t *testing.T, request *http.Request, now time.Time) bool {
@@ -100,10 +157,16 @@ func isLeastPrivilegeAsked(t *testing.T, request *http.Request) bool {
 func installationTokensAt(t *testing.T, server *httptest.Server, now time.Time) *github.InstallationTokens {
 	t.Helper()
 
+	return installationTokensOn(t, server, clockAt(now))
+}
+
+func installationTokensOn(t *testing.T, server *httptest.Server, clock *forgeClock) *github.InstallationTokens {
+	t.Helper()
+
 	tokens, err := github.ParseInstallationTokens(settingsAt(server), github.Installation{
 		Key:   forgeAppKey(t),
 		ID:    forgeInstallationID,
-		Clock: func() time.Time { return now },
+		Clock: clock.Now,
 	})
 	if err != nil {
 		t.Fatalf("parse installation tokens: %v", err)
@@ -210,7 +273,7 @@ func TestAnInstallationTokenIsExchangedForTheAppJWTAskingExactlyLeastPrivilege(t
 	if err != nil {
 		t.Fatalf("exchange: %v", err)
 	}
-	if authorization != "Bearer "+recordedInstallationToken {
+	if authorization != "Bearer "+grantedToken(1) {
 		t.Errorf("the presented authorization is not the exchanged installation token")
 	}
 }
