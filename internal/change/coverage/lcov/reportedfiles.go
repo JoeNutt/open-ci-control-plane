@@ -4,6 +4,8 @@ package lcov
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -63,9 +65,18 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
-	body := &boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach}
+	body := bufio.NewReader(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
+	var plain io.Reader = body
+	magic, _ := body.Peek(2)
+	if bytes.Equal(magic, []byte{0x1f, 0x8b}) {
+		gz, err := gzip.NewReader(body)
+		if err != nil {
+			return nil, err
+		}
+		plain = gz
+	}
 	var reading recordReading
-	if err := reading.takeAll(bufio.NewScanner(body)); err != nil {
+	if err := reading.takeAll(bufio.NewScanner(plain)); err != nil {
 		return nil, err
 	}
 	return reading.completed()
