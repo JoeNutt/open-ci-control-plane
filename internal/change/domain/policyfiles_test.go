@@ -20,6 +20,20 @@ func TestParseBoundedPolicyFilesHoldsTheFileCountAtItsLimitAndRefusesOneOver(t *
 	}
 }
 
+func TestParseBoundedPolicyFilesHoldsAFileAtTheByteBoundAndRefusesOneByteOver(t *testing.T) {
+	atLimit := policyFiles(1)
+	atLimit[0].Content = make([]byte, domain.MaxPolicyFileBytes)
+	if _, err := domain.ParseBoundedPolicyFiles(atLimit); err != nil {
+		t.Fatalf("a %d-byte file, the limit, was refused: %v", domain.MaxPolicyFileBytes, err)
+	}
+
+	overLimit := policyFiles(1)
+	overLimit[0].Content = make([]byte, domain.MaxPolicyFileBytes+1)
+	if _, err := domain.ParseBoundedPolicyFiles(overLimit); !errors.Is(err, domain.ErrPolicyFileTooLarge) {
+		t.Fatalf("a %d-byte file gave %v, want ErrPolicyFileTooLarge", domain.MaxPolicyFileBytes+1, err)
+	}
+}
+
 func policyFiles(count int) []domain.PolicyFile {
 	files := make([]domain.PolicyFile, 0, count)
 	for index := range count {
