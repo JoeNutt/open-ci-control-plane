@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -33,6 +34,7 @@ type Configuration struct {
 	appKey          Secret
 	installationIDs []int64
 	families        []domain.PolicyFamily
+	listenAddress   netip.AddrPort
 }
 
 type statedConfiguration struct {
@@ -82,7 +84,7 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
 	named, familiesErr := familiesIn(stated.Families)
-	listenErr := listenAddressPresentIn(stated.ListenAddress)
+	listening, listenErr := listenAddressIn(stated.ListenAddress)
 	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr); err != nil {
 		return Configuration{}, err
 	}
@@ -91,5 +93,6 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 		appKey:          secretOf(key),
 		installationIDs: installations,
 		families:        named,
+		listenAddress:   listening,
 	}, nil
 }

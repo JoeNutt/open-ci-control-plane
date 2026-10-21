@@ -7,16 +7,25 @@ import (
 	"net/netip"
 )
 
-func listenAddressPresentIn(stated string) error {
+const unchosenPort = 0
+
+var errOffLoopback = errors.New("the address is not a loopback address")
+
+var errUnchosenPort = errors.New("the address leaves its port to the operating system")
+
+func listenAddressIn(stated string) (netip.AddrPort, error) {
 	if stated == "" {
-		return listenAddress.missing()
+		return netip.AddrPort{}, listenAddress.missing()
 	}
 	parsed, err := netip.ParseAddrPort(stated)
 	if err != nil {
-		return listenAddress.invalid(err)
+		return netip.AddrPort{}, listenAddress.invalid(err)
 	}
-	if !parsed.Addr().IsLoopback() || parsed.Port() == 0 {
-		return listenAddress.invalid(errors.New("not loopback"))
+	if !parsed.Addr().IsLoopback() {
+		return netip.AddrPort{}, listenAddress.invalid(errOffLoopback)
 	}
-	return nil
+	if parsed.Port() == unchosenPort {
+		return netip.AddrPort{}, listenAddress.invalid(errUnchosenPort)
+	}
+	return parsed, nil
 }
