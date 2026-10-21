@@ -10,7 +10,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestParseGoImportPathC12AcceptsAGoImportPath(t *testing.T) {
+func TestParseCoverageSuiteAcceptsAGoImportPath(t *testing.T) {
 	accepted := map[string]string{
 		"a package of this module": "github.com/JoeNutt/open-ci-control-plane/internal/change/domain",
 		"a name at the bound":      strings.Repeat("a", domain.MaxGoImportPathBytes),
@@ -18,7 +18,7 @@ func TestParseGoImportPathC12AcceptsAGoImportPath(t *testing.T) {
 
 	for form, name := range accepted {
 		t.Run(form, func(t *testing.T) {
-			suite, err := domain.ParseGoImportPath(name)
+			suite, err := domain.ParseCoverageSuite(name)
 
 			if err != nil {
 				t.Fatalf("parse %q: %v", name, err)
@@ -30,7 +30,7 @@ func TestParseGoImportPathC12AcceptsAGoImportPath(t *testing.T) {
 	}
 }
 
-func TestParseGoImportPathC12RefusesANameThatIsNotAnImportPath(t *testing.T) {
+func TestParseCoverageSuiteRefusesANameThatIsNotAnImportPath(t *testing.T) {
 	refused := map[string]string{
 		"empty":                "",
 		"a dot-dot segment":    "github.com/JoeNutt/../secrets",
@@ -49,21 +49,21 @@ func TestParseGoImportPathC12RefusesANameThatIsNotAnImportPath(t *testing.T) {
 
 	for form, name := range refused {
 		t.Run(form, func(t *testing.T) {
-			_, err := domain.ParseGoImportPath(name)
+			_, err := domain.ParseCoverageSuite(name)
 
-			if !errors.Is(err, domain.ErrMalformedGoImportPath) {
-				t.Fatalf("want ErrMalformedGoImportPath for %q, got %v", name, err)
+			if !errors.Is(err, domain.ErrMalformedCoverageSuite) {
+				t.Fatalf("want ErrMalformedCoverageSuite for %q, got %v", name, err)
 			}
 		})
 	}
 }
 
-func TestParseGoImportPathC12RefusesANameOverTheBound(t *testing.T) {
+func TestParseCoverageSuiteRefusesANameOverTheBound(t *testing.T) {
 	overlong := strings.Repeat("a", domain.MaxGoImportPathBytes+1)
 
-	_, err := domain.ParseGoImportPath(overlong)
+	_, err := domain.ParseCoverageSuite(overlong)
 
-	if !errors.Is(err, domain.ErrMalformedGoImportPath) {
-		t.Fatalf("want ErrMalformedGoImportPath, got %v", err)
+	if !errors.Is(err, domain.ErrMalformedCoverageSuite) {
+		t.Fatalf("want ErrMalformedCoverageSuite, got %v", err)
 	}
 }
