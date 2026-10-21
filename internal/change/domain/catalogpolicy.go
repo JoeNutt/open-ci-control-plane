@@ -29,26 +29,34 @@ func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
 	if err != nil {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy: %w", err)
 	}
-	if !stated.Rule.isShipped() {
-		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w: %d", name, ErrUnknownPolicyRule, stated.Rule)
-	}
-	if !stated.Direction.isShipped() {
-		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w: %d", name, ErrUnknownPolicyDirection, stated.Direction)
-	}
-	groups, err := policyGroupsOf(stated.Groups)
+	policy, err := parseNamedCatalogPolicy(name, stated)
 	if err != nil {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy %s: %w", name, err)
 	}
-	return CatalogPolicy{name: name, rule: stated.Rule, direction: stated.Direction, groups: groups}, nil
+	return policy, nil
 }
-
-func (policy CatalogPolicy) Direction() PolicyDirection { return policy.direction }
 
 func (policy CatalogPolicy) Name() PolicyName { return policy.name }
 
 func (policy CatalogPolicy) Rule() PolicyRule { return policy.rule }
 
+func (policy CatalogPolicy) Direction() PolicyDirection { return policy.direction }
+
 func (policy CatalogPolicy) Groups() []PolicyGroup { return slices.Clone(policy.groups) }
+
+func parseNamedCatalogPolicy(name PolicyName, stated CatalogPolicyStatement) (CatalogPolicy, error) {
+	if !stated.Rule.isShipped() {
+		return CatalogPolicy{}, fmt.Errorf("%w: %d", ErrUnknownPolicyRule, stated.Rule)
+	}
+	if !stated.Direction.isShipped() {
+		return CatalogPolicy{}, fmt.Errorf("%w: %d", ErrUnknownPolicyDirection, stated.Direction)
+	}
+	groups, err := policyGroupsOf(stated.Groups)
+	if err != nil {
+		return CatalogPolicy{}, err
+	}
+	return CatalogPolicy{name: name, rule: stated.Rule, direction: stated.Direction, groups: groups}, nil
+}
 
 func policyGroupsOf(stated []GroupStatement) ([]PolicyGroup, error) {
 	groups := make([]PolicyGroup, 0, len(stated))
