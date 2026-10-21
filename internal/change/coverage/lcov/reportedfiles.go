@@ -33,8 +33,9 @@ var readingByTag = map[string]func(*recordReading, string) error{
 }
 
 type recordReading struct {
-	reported []domain.ReportedFile
-	current  domain.ReportedFile
+	reported           []domain.ReportedFile
+	currentPath        domain.RepositoryPath
+	isCurrentExercised bool
 }
 
 func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
@@ -63,10 +64,12 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if _, err := domain.ParseRepositoryPath(path); err != nil {
+	parsed, err := domain.ParseRepositoryPath(path)
+	if err != nil {
 		return err
 	}
-	reading.current = domain.ReportedFile{Path: path}
+	reading.currentPath = parsed
+	reading.isCurrentExercised = false
 	return nil
 }
 
@@ -81,12 +84,13 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if err != nil {
 		return errUnreadableLineData
 	}
-	reading.current.IsExercised = reading.current.IsExercised || executions > 0
+	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
 	return nil
 }
 
 func (reading *recordReading) closeRecord(string) error {
-	reading.reported = append(reading.reported, reading.current)
+	reading.reported = append(reading.reported,
+		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	return nil
 }
 
