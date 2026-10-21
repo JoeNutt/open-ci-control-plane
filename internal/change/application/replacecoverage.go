@@ -17,7 +17,10 @@ type ReplaceCoverage struct {
 func (useCase ReplaceCoverage) Execute(
 	ctx context.Context, repository domain.Repository, suite domain.SuiteName, reported []domain.ReportedFile,
 ) error {
-	known, _ := useCase.Paths.KnownPathsOf(ctx, repository)
+	known, err := useCase.Paths.KnownPathsOf(ctx, repository)
+	if err != nil {
+		return err
+	}
 	coverage, err := domain.ParseSuiteCoverage(reported, known)
 	if err != nil {
 		return fmt.Errorf("refuse coverage of %s for %s: %w", suite, repository, err)

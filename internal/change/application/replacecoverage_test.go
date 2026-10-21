@@ -51,6 +51,28 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	}
 }
 
+func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	repository, suite := parsedRepository(t), parsedSuite(t)
+	unreadable := errors.New("the forge is unreachable")
+
+	useCase := application.ReplaceCoverage{Maps: maps, Paths: unreadablePaths{unreadable}}
+	err := useCase.Execute(t.Context(), repository, suite, reportOf(parsedPath(t)))
+
+	if !errors.Is(err, unreadable) {
+		t.Fatalf("want the read failure, got %v", err)
+	}
+	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
+		t.Fatalf("an upload whose paths were never read was stored: %v", err)
+	}
+}
+
+type unreadablePaths struct{ failure error }
+
+func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.Repository) (domain.KnownPaths, error) {
+	return domain.KnownPaths{}, unreadable.failure
+}
+
 type repositoryHolding []domain.RepositoryPath
 
 func (held repositoryHolding) KnownPathsOf(context.Context, domain.Repository) (domain.KnownPaths, error) {
