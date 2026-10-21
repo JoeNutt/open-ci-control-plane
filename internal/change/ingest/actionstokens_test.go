@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -86,9 +87,25 @@ func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
+	issuer := newIssuer(t)
+	tokens := issuer.tokensFor(t, instanceURL)
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+		t.Fatalf("verify a token before rotation: %v", err)
+	}
+
+	issuer.rotate(t, "rotated-signing-key")
+	_, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+
+	if err != nil {
+		t.Fatalf("verify a token signed by the rotated key: %v", err)
+	}
+}
+
 type issuer struct {
 	t             *testing.T
 	server        *httptest.Server
+	keyGuard      sync.Mutex
 	signingKey    jwk.Key
 	keySetFetches atomic.Int64
 }
@@ -105,6 +122,21 @@ func newIssuer(t *testing.T) *issuer {
 	minted.server = httptest.NewTLSServer(http.HandlerFunc(minted.serve))
 	t.Cleanup(minted.server.Close)
 	return minted
+}
+
+func (minted *issuer) rotate(t *testing.T, keyID string) {
+	t.Helper()
+
+	rotated := newSigningKey(t, keyID)
+	minted.keyGuard.Lock()
+	defer minted.keyGuard.Unlock()
+	minted.signingKey = rotated
+}
+
+func (minted *issuer) currentKey() jwk.Key {
+	minted.keyGuard.Lock()
+	defer minted.keyGuard.Unlock()
+	return minted.signingKey
 }
 
 func (minted *issuer) serve(answer http.ResponseWriter, asked *http.Request) {
@@ -128,7 +160,7 @@ func (minted *issuer) discovery() []byte {
 }
 
 func (minted *issuer) publishedKeys() []byte {
-	public, err := jwk.PublicKeyOf(minted.signingKey)
+	public, err := jwk.PublicKeyOf(minted.currentKey())
 	if err != nil {
 		minted.t.Errorf("derive public key: %v", err)
 	}
@@ -177,7 +209,7 @@ func (minted *issuer) claims(repository string) *jwt.Builder {
 func (minted *issuer) sign(t *testing.T, claims *jwt.Builder) string {
 	t.Helper()
 
-	return signed(t, minted.built(t, claims), minted.signingKey)
+	return signed(t, minted.built(t, claims), minted.currentKey())
 }
 
 func (minted *issuer) signWithout(t *testing.T, claims *jwt.Builder, absent string) string {
@@ -187,7 +219,7 @@ func (minted *issuer) signWithout(t *testing.T, claims *jwt.Builder, absent stri
 	if err := token.Remove(absent); err != nil {
 		t.Fatalf("remove %s: %v", absent, err)
 	}
-	return signed(t, token, minted.signingKey)
+	return signed(t, token, minted.currentKey())
 }
 
 func (minted *issuer) built(t *testing.T, claims *jwt.Builder) jwt.Token {

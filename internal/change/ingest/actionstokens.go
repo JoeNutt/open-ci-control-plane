@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jws"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -76,6 +77,18 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	keys, err := tokens.heldKeys(ctx)
 	if err != nil {
 		return domain.Repository{}, err
+	}
+	if message, err := jws.ParseString(bearer); err == nil && len(message.Signatures()) > 0 {
+		kid, _ := message.Signatures()[0].ProtectedHeaders().KeyID()
+		if _, found := keys.LookupKeyID(kid); !found {
+			tokens.guard.Lock()
+			tokens.keys = nil
+			tokens.guard.Unlock()
+			keys, err = tokens.heldKeys(ctx)
+			if err != nil {
+				return domain.Repository{}, err
+			}
+		}
 	}
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
