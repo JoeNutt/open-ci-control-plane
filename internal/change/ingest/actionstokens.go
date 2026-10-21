@@ -65,8 +65,8 @@ type ActionsTokens struct {
 }
 
 func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
-	if settings.Issuer == "" || settings.Audience == "" || settings.Client == nil || settings.Now == nil {
-		return nil, ErrIncompleteActionsTokens
+	if err := incompletenessOf(settings); err != nil {
+		return nil, err
 	}
 	return &ActionsTokens{
 		issuer:   settings.Issuer,
@@ -74,6 +74,25 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 		now:      settings.Now,
 		keys:     &issuerKeys{issuer: settings.Issuer, client: settings.Client, now: settings.Now},
 	}, nil
+}
+
+type settingsPart struct {
+	isAbsent    bool
+	description string
+}
+
+func incompletenessOf(settings ActionsTokenSettings) error {
+	parts := []settingsPart{
+		{isAbsent: settings.Issuer == "", description: "no issuer to expect"},
+		{isAbsent: settings.Audience == "", description: "no audience to expect"},
+		{isAbsent: settings.Client == nil, description: "no client to reach the issuer with"},
+		{isAbsent: settings.Now == nil, description: "no clock to judge a token's lifetime by"},
+	}
+	absent := slices.IndexFunc(parts, func(part settingsPart) bool { return part.isAbsent })
+	if absent < 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrIncompleteActionsTokens, parts[absent].description)
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
