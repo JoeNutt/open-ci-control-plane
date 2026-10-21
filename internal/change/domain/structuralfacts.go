@@ -5,14 +5,17 @@ package domain
 import (
 	"errors"
 	"fmt"
-	"slices"
 )
 
 var ErrTooManyImportsInChange = errors.New("change exceeds the per-change import bound")
 
 var ErrTooManyEdges = errors.New("change exceeds the module graph edge bound")
 
-type StructuralFacts struct{ imported []ImportedFile }
+type StructuralFacts struct {
+	imports      Declared[Import]
+	edgesAdded   Declared[ModuleEdge]
+	edgesRemoved Declared[ModuleEdge]
+}
 
 func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFacts, error) {
 	published := headImportCountOf(imported)
@@ -20,11 +23,20 @@ func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFac
 		return StructuralFacts{}, fmt.Errorf("%w: %d imports exceeds %d",
 			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
 	}
-	edges := len(edgesIn(imported, ImportedFile.edgesAdded)) + len(edgesIn(imported, ImportedFile.edgesRemoved))
-	if edges > limits.MaxGraphEdges {
-		return StructuralFacts{}, fmt.Errorf("%w: %d edges exceeds %d", ErrTooManyEdges, edges, limits.MaxGraphEdges)
+	facts := StructuralFacts{
+		imports:      importsOf(imported),
+		edgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
+		edgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
 	}
-	return StructuralFacts{imported: slices.Clone(imported)}, nil
+	if edges := facts.edgeCount(); edges > limits.MaxGraphEdges {
+		return StructuralFacts{}, fmt.Errorf("%w: %d edges exceeds %d",
+			ErrTooManyEdges, edges, limits.MaxGraphEdges)
+	}
+	return facts, nil
+}
+
+func (facts StructuralFacts) edgeCount() int {
+	return len(facts.edgesAdded) + len(facts.edgesRemoved)
 }
 
 func headImportCountOf(imported []ImportedFile) int {
@@ -33,4 +45,24 @@ func headImportCountOf(imported []ImportedFile) int {
 		count += len(file.Head.imports)
 	}
 	return count
+}
+
+func importsOf(imported []ImportedFile) Declared[Import] {
+	imports := make(Declared[Import], 0, len(imported))
+	for _, file := range imported {
+		if file.existsAtHead() {
+			imports = append(imports, file.headImport())
+		}
+	}
+	return imports
+}
+
+func edgesIn(
+	imported []ImportedFile, edgesOf func(ImportedFile) []ModuleEdge,
+) Declared[ModuleEdge] {
+	var edges Declared[ModuleEdge]
+	for _, file := range imported {
+		edges = append(edges, edgesOf(file)...)
+	}
+	return edges
 }
