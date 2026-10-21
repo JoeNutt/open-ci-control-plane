@@ -14,7 +14,7 @@ import (
 
 type Settings struct {
 	BaseURL string
-	Token   Credential
+	Token   Authority
 	AppID   int64
 	// Client is copied shallowly when the settings are parsed: later changes to its
 	// fields are not seen, but its Transport and Jar are shared with the caller.
@@ -41,8 +41,13 @@ type authority interface {
 	authorization(ctx context.Context) (Credential, error)
 }
 
+type Authority interface {
+	authority
+	isPresent() bool
+}
+
 func parseTokenConnection(settings Settings) (connection, error) {
-	if !settings.Token.isPresent() {
+	if settings.Token == nil || !settings.Token.isPresent() {
 		return connection{}, ErrNoCredential
 	}
 	return parseConnection(settings, settings.Token)
@@ -63,7 +68,7 @@ func parseConnection(settings Settings, credentials authority) (connection, erro
 	if settings.Client.Timeout <= 0 {
 		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
-	settings.Token = Credential{}
+	settings.Token = nil
 	return connection{settings: settings, authority: credentials}, nil
 }
 

@@ -75,16 +75,37 @@ type tokenForge struct {
 	mutex      sync.Mutex
 	exchanges  int
 	isRefusing bool
+	repository http.Handler
 }
 
 func newTokenForge(t *testing.T, clock *forgeClock) *tokenForge {
 	t.Helper()
 
-	held := &tokenForge{t: t, clock: clock}
+	held := &tokenForge{t: t, clock: clock, repository: http.NotFoundHandler()}
 	routes := http.NewServeMux()
 	routes.HandleFunc("POST /app/installations/{installation}/access_tokens", held.grant)
+	routes.HandleFunc("/", held.authenticated)
 	held.server = forge(t, routes.ServeHTTP)
 	return held
+}
+
+func (held *tokenForge) answeringAsTheRepository(repository http.Handler) {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	held.repository = repository
+}
+
+func (held *tokenForge) authenticated(writer http.ResponseWriter, request *http.Request) {
+	held.mutex.Lock()
+	minted, repository := "Bearer "+grantedToken(held.exchanges), held.repository
+	held.mutex.Unlock()
+
+	if held.exchangeCount() == 0 || request.Header.Get("Authorization") != minted {
+		held.t.Errorf("%s %s did not present the minted installation token", request.Method, request.URL.Path)
+		writer.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	repository.ServeHTTP(writer, request)
 }
 
 func (held *tokenForge) refuseFromNowOn() {
