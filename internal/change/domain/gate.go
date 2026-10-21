@@ -33,10 +33,9 @@ type Gate struct {
 }
 
 func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
-	held := make(map[PolicyFamily]FamilyEngine, len(declaredPolicyFamilies))
-	for _, family := range declaredPolicyFamilies {
-		engine, present := engines[family]
-		if !present || engine == nil {
+	held := make(map[PolicyFamily]FamilyEngine, len(engines))
+	for family, engine := range engines {
+		if engine == nil {
 			return Gate{}, fmt.Errorf("%w: %q", ErrIncompleteGate, family)
 		}
 		held[family] = engine
@@ -45,8 +44,11 @@ func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
 }
 
 func (gate Gate) DecisionsFor(ctx context.Context, document Document) []FamilyDecision {
-	decisions := make([]FamilyDecision, 0, len(declaredPolicyFamilies))
+	decisions := make([]FamilyDecision, 0, len(gate.engines))
 	for _, family := range declaredPolicyFamilies {
+		if _, isConfigured := gate.engines[family]; !isConfigured {
+			continue
+		}
 		decisions = append(decisions, FamilyDecision{
 			Family:   family,
 			Decision: gate.decisionFor(ctx, family, document),

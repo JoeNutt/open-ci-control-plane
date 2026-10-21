@@ -91,3 +91,22 @@ func TestADecisionReturnedAfterTheDeadlineIsDeadlineExceeded(t *testing.T) {
 		}
 	}
 }
+
+func TestAGateDecidesOnlyTheFamiliesItWasConfiguredWith(t *testing.T) {
+	structural := decidingEngine(t)
+	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
+		domain.PolicyFamilyStructural: structural,
+	})
+	if err != nil {
+		t.Fatalf("parse a gate configured with one family: %v", err)
+	}
+
+	decisions := gate.DecisionsFor(context.Background(), domain.Document{})
+
+	if len(decisions) != 1 || decisions[0].Family != domain.PolicyFamilyStructural {
+		t.Errorf("decided %v, want the structural family only", decisions)
+	}
+	if structural.asked != 1 {
+		t.Errorf("the structural engine was asked %d times, want 1", structural.asked)
+	}
+}
