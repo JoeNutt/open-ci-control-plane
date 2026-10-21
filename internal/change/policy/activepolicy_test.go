@@ -102,6 +102,18 @@ func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T)
 	}
 }
 
+func TestActivePolicyLogsTheRevisionItAccepts(t *testing.T) {
+	var logged bytes.Buffer
+	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
+
+	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFiles(t)); err != nil {
+		t.Fatalf("offer the live policy files: %v", err)
+	}
+	if !strings.Contains(logged.String(), firstPolicyCommit) {
+		t.Errorf("acceptance log %q does not name %s", logged.String(), firstPolicyCommit)
+	}
+}
+
 func TestActivePolicyLogsARefusalWithItsReasonAndNoFileContent(t *testing.T) {
 	var logged bytes.Buffer
 	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
