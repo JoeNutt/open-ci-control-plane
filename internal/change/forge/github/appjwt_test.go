@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,8 +32,14 @@ func TestAnAppJWTIsSignedRS256AndNamesTheAppForUnderTenMinutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
+	appKey, err := github.ParseAppKey(pem.EncodeToMemory(&pem.Block{
+		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key),
+	}))
+	if err != nil {
+		t.Fatalf("parse the App key: %v", err)
+	}
 
-	minted, err := github.AppJWTAt(key, forgeAppID, mintedAt)
+	minted, err := github.AppJWTAt(appKey, forgeAppID, mintedAt)
 
 	if err != nil {
 		t.Fatalf("mint: %v", err)

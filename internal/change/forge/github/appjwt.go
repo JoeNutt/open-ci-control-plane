@@ -31,12 +31,12 @@ type appJWTClaims struct {
 	ExpiresAt int64  `json:"exp"`
 }
 
-func appJWTAt(key *rsa.PrivateKey, app appID, now time.Time) (string, error) {
+func appJWTAt(appKey AppKey, app appID, now time.Time) (string, error) {
 	signingInput, err := appJWTSigningInput(app, now)
 	if err != nil {
 		return "", err
 	}
-	signature, err := rs256SignatureOf(key, signingInput)
+	signature, err := rs256SignatureOf(appKey.key, signingInput)
 	if err != nil {
 		return "", err
 	}
