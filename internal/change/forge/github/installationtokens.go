@@ -23,7 +23,25 @@ type InstallationTokens struct {
 	installation int64
 }
 
+var ErrMalformedInstallationID = errors.New("bad installation id")
+
+var ErrNoAppKey = errors.New("no key")
+
+var ErrNoClock = errors.New("no clock")
+
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
+	if settings.AppID <= 0 {
+		return nil, ErrMalformedAppID
+	}
+	if installation.ID <= 0 {
+		return nil, ErrMalformedInstallationID
+	}
+	if installation.Key.key == nil {
+		return nil, ErrNoAppKey
+	}
+	if installation.Clock == nil {
+		return nil, ErrNoClock
+	}
 	asApp, err := parseConnection(settings, appJWTIssuer{
 		key:   installation.Key,
 		app:   appID(settings.AppID),
