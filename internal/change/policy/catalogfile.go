@@ -3,12 +3,7 @@
 package policy
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"io"
-
-	"go.yaml.in/yaml/v3"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -43,7 +38,7 @@ func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
-	document, err := decodedCatalog(content)
+	document, err := decodedStrictly[catalogDocument](content)
 	if err != nil {
 		return domain.CatalogPolicy{}, err
 	}
@@ -52,23 +47,6 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 		return domain.CatalogPolicy{}, err
 	}
 	return domain.ParseCatalogPolicy(statement)
-}
-
-func decodedCatalog(content []byte) (catalogDocument, error) {
-	if err := refuseAliasOrAnchor(content); err != nil {
-		return catalogDocument{}, err
-	}
-	var document catalogDocument
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&document); err != nil {
-		return catalogDocument{}, ErrMalformedPolicyFile
-	}
-	var second yaml.Node
-	if err := decoder.Decode(&second); !errors.Is(err, io.EOF) {
-		return catalogDocument{}, ErrSecondDocument
-	}
-	return document, nil
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {

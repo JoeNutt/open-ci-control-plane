@@ -3,7 +3,9 @@
 package policy
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"slices"
 
 	"go.yaml.in/yaml/v3"
@@ -14,6 +16,28 @@ var ErrMalformedPolicyFile = errors.New("policy file is not YAML of the declared
 var ErrAliasOrAnchor = errors.New("policy file contains a YAML alias or anchor")
 
 var ErrSecondDocument = errors.New("policy file holds more than one YAML document")
+
+type policyDocument interface {
+	catalogDocument
+}
+
+func decodedStrictly[Document policyDocument](content []byte) (Document, error) {
+	var refused Document
+	if err := refuseAliasOrAnchor(content); err != nil {
+		return refused, err
+	}
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+	decoder.KnownFields(true)
+	var document Document
+	if err := decoder.Decode(&document); err != nil {
+		return refused, ErrMalformedPolicyFile
+	}
+	var second yaml.Node
+	if err := decoder.Decode(&second); !errors.Is(err, io.EOF) {
+		return refused, ErrSecondDocument
+	}
+	return document, nil
+}
 
 func refuseAliasOrAnchor(content []byte) error {
 	var root yaml.Node
