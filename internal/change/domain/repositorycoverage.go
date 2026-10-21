@@ -13,11 +13,16 @@ type RepositoryCoverage struct {
 	suites map[SuiteName]SuiteCoverage
 }
 
-func (repositoryCoverage RepositoryCoverage) Replacing(suite SuiteName, coverage SuiteCoverage) RepositoryCoverage {
+func (repositoryCoverage RepositoryCoverage) Replacing(
+	suite SuiteName, coverage SuiteCoverage, limits CoverageLimits,
+) (RepositoryCoverage, error) {
 	suites := make(map[SuiteName]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	return RepositoryCoverage{suites: suites}
+	if len(suites) > limits.MaxSuitesPerRepository {
+		return RepositoryCoverage{}, ErrTooManySuites
+	}
+	return RepositoryCoverage{suites: suites}, nil
 }
 
 func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite SuiteName) (SuiteCoverage, error) {
