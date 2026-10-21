@@ -5,32 +5,29 @@ package domain
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
-const MaxGoImportPathBytes = 512
+const (
+	MaxGoImportPathBytes        = 512
+	importPathElementCharacters = pathSegmentCharacters + "+"
+)
 
 var ErrMalformedGoImportPath = errors.New("import path is not a Go import path")
+
+var importPathElementRule = segmentRule{
+	maxBytes:          MaxGoImportPathBytes,
+	firstCharacters:   importPathElementCharacters,
+	wholeCharacters:   importPathElementCharacters,
+	requiresOneBeyond: pathSegmentDot,
+}
 
 type GoImportPath struct {
 	value string
 }
 
-var importElementRule = segmentRule{
-	maxBytes:          DeclaredLimits().MaxPathBytes,
-	firstCharacters:   pathSegmentCharacters + "+",
-	wholeCharacters:   pathSegmentCharacters + "+",
-	requiresOneBeyond: pathSegmentDot,
-}
-
 func ParseGoImportPath(stated string) (GoImportPath, error) {
-	if len(stated) > MaxGoImportPathBytes {
+	if len(stated) > MaxGoImportPathBytes || !importPathElementRule.admitsEverySegmentOf(stated) {
 		return GoImportPath{}, fmt.Errorf("%w: %d bytes", ErrMalformedGoImportPath, len(stated))
-	}
-	for segment := range strings.SplitSeq(stated, pathSeparator) {
-		if !importElementRule.admits(segment) {
-			return GoImportPath{}, fmt.Errorf("%w: %d bytes", ErrMalformedGoImportPath, len(stated))
-		}
 	}
 	return GoImportPath{value: stated}, nil
 }

@@ -17,12 +17,12 @@ var pathSegmentRule = segmentRule{
 }
 
 func isRepositoryPath(stated string) bool {
-	return len(stated) <= DeclaredLimits().MaxPathBytes && isSlashSeparatedNames(stated)
+	return len(stated) <= DeclaredLimits().MaxPathBytes && pathSegmentRule.admitsEverySegmentOf(stated)
 }
 
-func isSlashSeparatedNames(stated string) bool {
+func (rule segmentRule) admitsEverySegmentOf(stated string) bool {
 	for segment := range strings.SplitSeq(stated, pathSeparator) {
-		if !pathSegmentRule.admits(segment) {
+		if !rule.admits(segment) {
 			return false
 		}
 	}
