@@ -84,6 +84,37 @@ func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 	}
 }
 
+func TestARecorderFailureIsReturnedAndEveryCheckRunStillPublished(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, _ := recordingGate(t)
+	published := &memory.CheckRuns{}
+	refusal := errors.New("decision sink unreachable")
+	useCase := application.GateChange{
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  refusingRecorder{refusal: refusal},
+	}
+
+	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, refusal) {
+		t.Fatalf("gate change returned %v, want the recorder's failure", err)
+	}
+	runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+	if len(runs) != len(domain.DeclaredPolicyFamilies()) {
+		t.Errorf("published %d check runs, want one per family despite the recorder", len(runs))
+	}
+}
+
+type refusingRecorder struct {
+	refusal error
+}
+
+func (recorder refusingRecorder) RecordDecision(context.Context, domain.DecisionRecord) error {
+	return recorder.refusal
+}
+
 type recordedDecisions struct {
 	records []domain.DecisionRecord
 }

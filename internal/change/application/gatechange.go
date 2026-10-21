@@ -31,7 +31,9 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
-		_ = useCase.Recorder.RecordDecision(posting, domain.RecordFor(decided, id))
+		if err := useCase.Recorder.RecordDecision(posting, domain.RecordFor(decided, id)); err != nil {
+			failures = append(failures, fmt.Errorf("record %s: %w", decided.Family, err))
+		}
 		run := domain.CheckRunFor(decided, id)
 		if err := useCase.Publisher.PublishCheckRun(posting, locator, head, run); err != nil {
 			failures = append(failures, fmt.Errorf("post %s: %w", run.Name, err))
