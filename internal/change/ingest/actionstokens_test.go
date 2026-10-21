@@ -121,12 +121,33 @@ func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
+	issuer := newIssuer(t)
+	tokens := issuer.tokensFor(t, instanceURL)
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+		t.Fatalf("verify a token GitHub Actions issued: %v", err)
+	}
+	forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, "unknown"))
+	if _, err := tokens.RepositoryOf(t.Context(), forged); !errors.Is(err, ingest.ErrUnverifiedToken) {
+		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+	}
+
+	issuer.advance(24 * time.Hour)
+	issuer.rotate(t, "rotated-signing-key")
+	_, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+
+	if err != nil {
+		t.Fatalf("verify a token signed by a key rotated a day later: %v", err)
+	}
+}
+
 type issuer struct {
 	t             *testing.T
 	server        *httptest.Server
 	keyGuard      sync.Mutex
 	signingKey    jwk.Key
 	keySetFetches atomic.Int64
+	instant       time.Time
 }
 
 type discoveryDocument struct {
@@ -137,7 +158,7 @@ type discoveryDocument struct {
 func newIssuer(t *testing.T) *issuer {
 	t.Helper()
 
-	minted := &issuer{t: t, signingKey: newSigningKey(t, signingKeyID)}
+	minted := &issuer{t: t, signingKey: newSigningKey(t, signingKeyID), instant: issuedAt}
 	minted.server = httptest.NewTLSServer(http.HandlerFunc(minted.serve))
 	t.Cleanup(minted.server.Close)
 	return minted
@@ -150,6 +171,18 @@ func (minted *issuer) rotate(t *testing.T, keyID string) {
 	minted.keyGuard.Lock()
 	defer minted.keyGuard.Unlock()
 	minted.signingKey = rotated
+}
+
+func (minted *issuer) advance(elapsed time.Duration) {
+	minted.keyGuard.Lock()
+	defer minted.keyGuard.Unlock()
+	minted.instant = minted.instant.Add(elapsed)
+}
+
+func (minted *issuer) now() time.Time {
+	minted.keyGuard.Lock()
+	defer minted.keyGuard.Unlock()
+	return minted.instant
 }
 
 func (minted *issuer) currentKey() jwk.Key {
@@ -208,7 +241,7 @@ func (minted *issuer) tokensFor(t *testing.T, audience string) *ingest.ActionsTo
 		Issuer:   minted.server.URL,
 		Audience: audience,
 		Client:   minted.server.Client(),
-		Now:      func() time.Time { return issuedAt },
+		Now:      minted.now,
 	})
 	if err != nil {
 		t.Fatalf("configure token verification: %v", err)
@@ -220,8 +253,8 @@ func (minted *issuer) claims(repository string) *jwt.Builder {
 	return jwt.NewBuilder().
 		Issuer(minted.server.URL).
 		Audience([]string{instanceURL}).
-		NotBefore(issuedAt.Add(-time.Minute)).
-		Expiration(issuedAt.Add(tokenLifetime)).
+		NotBefore(minted.now().Add(-time.Minute)).
+		Expiration(minted.now().Add(tokenLifetime)).
 		Claim(repositoryClaim, repository)
 }
 
