@@ -53,8 +53,8 @@ func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 
 	_, err := golang.Extractor{}.ImportsIn(boundedFrom(t, source))
 
-	if !errors.Is(err, golang.ErrUnparsableSource) {
-		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
+	if !errors.Is(err, domain.ErrUnparsableSource) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrUnparsableSource)
 	}
 	if strings.Contains(err.Error(), quotedFromTheSource) {
 		t.Fatalf("the error quotes the source: %v", err)

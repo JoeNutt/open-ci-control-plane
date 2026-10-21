@@ -3,7 +3,6 @@
 package golang
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -19,7 +18,7 @@ const (
 	unnamedSource  = ""
 )
 
-var ErrUnparsableSource = errors.New("the source does not parse as Go")
+var ErrUnparsableSource = domain.ErrUnparsableSource
 
 type Extractor struct{}
 
