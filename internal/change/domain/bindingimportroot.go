@@ -5,6 +5,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 var ErrSharedImportRootPrefix = errors.New("two import roots share one prefix")
@@ -19,6 +20,25 @@ type ImportRoot struct {
 	directory RepositoryDirectory
 }
 
+func (root ImportRoot) Prefix() GoImportPath { return root.prefix }
+
+func (root ImportRoot) Directory() RepositoryDirectory { return root.directory }
+
+func importRootsOf(stated []ImportRootStatement) ([]ImportRoot, error) {
+	roots := make([]ImportRoot, 0, len(stated))
+	for _, written := range stated {
+		root, err := parseImportRoot(written)
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(roots, root.sharesPrefixWith) {
+			return nil, fmt.Errorf("%w: %s", ErrSharedImportRootPrefix, root.prefix)
+		}
+		roots = append(roots, root)
+	}
+	return roots, nil
+}
+
 func parseImportRoot(stated ImportRootStatement) (ImportRoot, error) {
 	prefix, err := ParseGoImportPath(stated.Prefix)
 	if err != nil {
@@ -30,9 +50,5 @@ func parseImportRoot(stated ImportRootStatement) (ImportRoot, error) {
 	}
 	return ImportRoot{prefix: prefix, directory: directory}, nil
 }
-
-func (root ImportRoot) Prefix() GoImportPath { return root.prefix }
-
-func (root ImportRoot) Directory() RepositoryDirectory { return root.directory }
 
 func (root ImportRoot) sharesPrefixWith(other ImportRoot) bool { return root.prefix == other.prefix }
