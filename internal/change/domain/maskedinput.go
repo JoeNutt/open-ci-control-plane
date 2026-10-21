@@ -44,22 +44,31 @@ func removeAt(tree map[string]any, pointer JSONPointer) {
 	tokens := pointer.Tokens()
 	var node any = tree
 	for _, token := range tokens[:len(tokens)-1] {
-		switch container := node.(type) {
-		case map[string]any:
-			node = container[token]
-		case []any:
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 || index >= len(container) {
-				return
-			}
-			node = container[index]
-		default:
+		child, exists := childOf(node, token)
+		if !exists {
 			return
 		}
+		node = child
 	}
 	parent, isObject := node.(map[string]any)
 	if !isObject {
 		return
 	}
 	delete(parent, tokens[len(tokens)-1])
+}
+
+func childOf(node any, token string) (any, bool) {
+	switch container := node.(type) {
+	case map[string]any:
+		child, exists := container[token]
+		return child, exists
+	case []any:
+		index, err := strconv.Atoi(token)
+		if err != nil || index < 0 || index >= len(container) {
+			return nil, false
+		}
+		return container[index], true
+	default:
+		return nil, false
+	}
 }
