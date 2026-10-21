@@ -192,30 +192,31 @@ func recordOf(t *testing.T, decided domain.FamilyDecision, document domain.Docum
 
 func undecidedStructural(t *testing.T) domain.FamilyDecision {
 	t.Helper()
-	revision, err := domain.ParseBundleRevision(recordedRevision)
-	if err != nil {
-		t.Fatalf("parse revision: %v", err)
-	}
 	return domain.FamilyDecision{
 		Family:   domain.PolicyFamilyStructural,
-		Decision: domain.UndecidedDecision(revision),
+		Decision: domain.UndecidedDecision(recordedRevisionOf(t)),
 	}
 }
 
 func decidedStructural(t *testing.T, effect string) domain.FamilyDecision {
 	t.Helper()
-	revision, err := domain.ParseBundleRevision(recordedRevision)
-	if err != nil {
-		t.Fatalf("parse revision: %v", err)
-	}
 	decided, err := domain.ParseDecision([]byte(`{
 		"input_wellformed": true, "schema_version_accepted": 1, "effect": "`+effect+`",
 		"violations": [], "reviewers": []
-	}`), revision)
+	}`), recordedRevisionOf(t))
 	if err != nil {
 		t.Fatalf("parse decision: %v", err)
 	}
 	return domain.FamilyDecision{Family: domain.PolicyFamilyStructural, Decision: decided}
+}
+
+func recordedRevisionOf(t *testing.T) domain.BundleRevision {
+	t.Helper()
+	revision, err := domain.ParseBundleRevision(recordedRevision)
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	return revision
 }
 
 func faultedStructural(t *testing.T) domain.FamilyDecision {
