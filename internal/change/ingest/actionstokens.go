@@ -4,27 +4,19 @@ package ingest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
-	"sync"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jws"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const (
-	discoveryPath     = "/.well-known/openid-configuration"
-	repositoryClaim   = "repository"
-	maxDiscoveryBytes = 64 << 10
-)
+const repositoryClaim = "repository"
 
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
@@ -60,18 +52,19 @@ type ActionsTokenSettings struct {
 }
 
 type ActionsTokens struct {
-	settings    ActionsTokenSettings
-	guard       sync.Mutex
-	keys        jwk.Set
-	refetchedAt time.Time
-}
-
-type discoveryDocument struct {
-	KeySets string `json:"jwks_uri"`
+	issuer   string
+	audience string
+	now      func() time.Time
+	keys     *issuerKeys
 }
 
 func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
-	return &ActionsTokens{settings: settings}, nil
+	return &ActionsTokens{
+		issuer:   settings.Issuer,
+		audience: settings.Audience,
+		now:      settings.Now,
+		keys:     &issuerKeys{issuer: settings.Issuer, client: settings.Client, now: settings.Now},
+	}, nil
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
@@ -79,43 +72,21 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	if err != nil {
 		return domain.Repository{}, err
 	}
-	keys, err := tokens.keysHolding(ctx, keyID)
+	keys, err := tokens.keys.holding(ctx, keyID)
 	if err != nil {
 		return domain.Repository{}, err
 	}
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
-		jwt.WithIssuer(tokens.settings.Issuer),
-		jwt.WithAudience(tokens.settings.Audience),
+		jwt.WithIssuer(tokens.issuer),
+		jwt.WithAudience(tokens.audience),
 		jwt.WithRequiredClaim(jwt.ExpirationKey),
 		jwt.WithRequiredClaim(jwt.NotBeforeKey),
-		jwt.WithClock(jwt.ClockFunc(tokens.settings.Now)))
+		jwt.WithClock(jwt.ClockFunc(tokens.now)))
 	if err != nil {
 		return domain.Repository{}, unverifiedReasonOf(err)
 	}
 	return repositoryClaimedBy(verified)
-}
-
-func repositoryClaimedBy(verified jwt.Token) (domain.Repository, error) {
-	var claimed string
-	if err := verified.Get(repositoryClaim, &claimed); err != nil {
-		return domain.Repository{}, errNoRepository
-	}
-	repository, err := domain.ParseRepository(claimed)
-	if err != nil {
-		return domain.Repository{}, errNotARepository
-	}
-	return repository, nil
-}
-
-func unverifiedReasonOf(failure error) error {
-	matching := slices.IndexFunc(unverifiedReasons, func(row unverifiedReason) bool {
-		return errors.Is(failure, row.cause)
-	})
-	if matching < 0 {
-		return errUnverifiableSignature
-	}
-	return unverifiedReasons[matching].reason
 }
 
 func keyIDOf(bearer string) (string, error) {
@@ -130,79 +101,24 @@ func keyIDOf(bearer string) (string, error) {
 	return keyID, nil
 }
 
-func (tokens *ActionsTokens) keysHolding(ctx context.Context, keyID string) (jwk.Set, error) {
-	tokens.guard.Lock()
-	defer tokens.guard.Unlock()
-
-	if tokens.isHolding(keyID) {
-		return tokens.keys, nil
+func unverifiedReasonOf(failure error) error {
+	matching := slices.IndexFunc(unverifiedReasons, func(row unverifiedReason) bool {
+		return errors.Is(failure, row.cause)
+	})
+	if matching < 0 {
+		return errUnverifiableSignature
 	}
-	if tokens.keys != nil && !tokens.refetchedAt.IsZero() && tokens.settings.Now().Sub(tokens.refetchedAt) < time.Minute {
-		return tokens.keys, nil
-	}
-	if tokens.keys != nil {
-		tokens.refetchedAt = tokens.settings.Now()
-	}
-	keys, err := tokens.signingKeys(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tokens.keys = keys
-	return keys, nil
+	return unverifiedReasons[matching].reason
 }
 
-func (tokens *ActionsTokens) isHolding(keyID string) bool {
-	if tokens.keys == nil {
-		return false
+func repositoryClaimedBy(verified jwt.Token) (domain.Repository, error) {
+	var claimed string
+	if err := verified.Get(repositoryClaim, &claimed); err != nil {
+		return domain.Repository{}, errNoRepository
 	}
-	_, isHeld := tokens.keys.LookupKeyID(keyID)
-	return isHeld
-}
-
-func (tokens *ActionsTokens) signingKeys(ctx context.Context) (jwk.Set, error) {
-	location, err := tokens.keySetLocation(ctx)
+	repository, err := domain.ParseRepository(claimed)
 	if err != nil {
-		return nil, err
+		return domain.Repository{}, errNotARepository
 	}
-	keys, err := jwk.Fetch(ctx, location, jwk.WithHTTPClient(tokens.settings.Client))
-	if err != nil {
-		return nil, fmt.Errorf("fetch the issuer's key set: %w", err)
-	}
-	return keys, nil
-}
-
-func (tokens *ActionsTokens) keySetLocation(ctx context.Context) (string, error) {
-	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, tokens.settings.Issuer+discoveryPath, nil)
-	if err != nil {
-		return "", fmt.Errorf("ask the issuer for its configuration: %w", err)
-	}
-	answer, err := tokens.settings.Client.Do(asked)
-	if err != nil {
-		return "", fmt.Errorf("ask the issuer for its configuration: %w", err)
-	}
-	document, err := boundedBodyOf(answer)
-	if err != nil {
-		return "", fmt.Errorf("read the issuer's configuration: %w", err)
-	}
-	var discovered discoveryDocument
-	if err := json.Unmarshal(document, &discovered); err != nil {
-		return "", fmt.Errorf("decode the issuer's configuration: %w", err)
-	}
-	return discovered.KeySets, nil
-}
-
-var errOversizedConfiguration = fmt.Errorf("the issuer's configuration exceeds %d bytes", maxDiscoveryBytes)
-
-func boundedBodyOf(answer *http.Response) ([]byte, error) {
-	body, readFailure := io.ReadAll(io.LimitReader(answer.Body, maxDiscoveryBytes+1))
-	if err := errors.Join(readFailure, answer.Body.Close()); err != nil {
-		return nil, err
-	}
-	if answer.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("the issuer answered %d", answer.StatusCode)
-	}
-	if len(body) > maxDiscoveryBytes {
-		return nil, errOversizedConfiguration
-	}
-	return body, nil
+	return repository, nil
 }
