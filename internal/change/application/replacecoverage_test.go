@@ -17,6 +17,7 @@ const (
 	strangerRepository  = "JoeNutt/open-ci-policy"
 	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	coveredFile         = "internal/change/domain/effect.go"
+	untouchedFile       = "internal/change/domain/verdict.go"
 )
 
 func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
@@ -39,17 +40,20 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 }
 
 func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
-	path := parsedPath(t)
+	covered, untouched := parsedPath(t), parsedPathOf(t, untouchedFile)
+	report := artifactReporting{reads: new(int), reported: []domain.ReportedFile{
+		domain.NewReportedFile(covered, true), domain.NewReportedFile(untouched, false)}}
 	useCase := application.ReplaceCoverage{Maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()),
-		Paths: repositoryHolding{path}, Callers: tokensNaming{parsedRepository(t)}}
+		Paths: repositoryHolding{covered, untouched}, Callers: tokensNaming{parsedRepository(t)}}
 
-	replaced, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
+	replaced, err := useCase.Execute(t.Context(), uploadOf(t, report))
 
 	if err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
-	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != 1 {
-		t.Fatalf("answered %s with %d file entries, want %s with 1", replaced.Suite, replaced.FileEntryCount, uploadedSuite)
+	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != len(report.reported) {
+		t.Fatalf("answered %s with %d file entries, want %s with %d",
+			replaced.Suite, replaced.FileEntryCount, uploadedSuite, len(report.reported))
 	}
 }
 
@@ -249,7 +253,13 @@ func parsedSuite(t *testing.T) domain.SuiteName {
 func parsedPath(t *testing.T) domain.RepositoryPath {
 	t.Helper()
 
-	path, err := domain.ParseRepositoryPath(coveredFile)
+	return parsedPathOf(t, coveredFile)
+}
+
+func parsedPathOf(t *testing.T, file string) domain.RepositoryPath {
+	t.Helper()
+
+	path, err := domain.ParseRepositoryPath(file)
 	if err != nil {
 		t.Fatalf("parse path: %v", err)
 	}
