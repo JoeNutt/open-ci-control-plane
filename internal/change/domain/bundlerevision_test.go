@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -18,5 +19,11 @@ func TestParseBundleRevisionKeepsTheRevisionStated(t *testing.T) {
 	}
 	if parsed.String() != stated {
 		t.Errorf("parsed to %q, want %q", parsed.String(), stated)
+	}
+}
+
+func TestParseBundleRevisionRefusesAnEmptyRevision(t *testing.T) {
+	if _, err := domain.ParseBundleRevision(""); !errors.Is(err, domain.ErrMissingBundleRevision) {
+		t.Fatalf("empty revision gave %v, want ErrMissingBundleRevision", err)
 	}
 }
