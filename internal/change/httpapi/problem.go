@@ -19,17 +19,20 @@ const (
 )
 
 const (
-	missingHeaderCode       = "missing_header"
-	missingHeaderMessage    = "the delivery carries no such header"
-	malformedHeaderCode     = "malformed_header"
-	malformedHeaderMessage  = "the header exceeds its length or holds a character outside its set"
-	oversizedBodyCode       = "body_too_large"
-	oversizedBodyMessage    = "the delivery declares a body above the bound"
-	malformedPayloadCode    = "malformed_payload"
-	malformedPayloadMessage = "the signed body is not a JSON object"
-	payloadField            = "body"
-	undeclaredLengthCode    = "undeclared_length"
-	undeclaredLengthMessage = "the delivery declares no length"
+	missingHeaderCode             = "missing_header"
+	missingHeaderMessage          = "the delivery carries no such header"
+	malformedHeaderCode           = "malformed_header"
+	malformedHeaderMessage        = "the header exceeds its length or holds a character outside its set"
+	oversizedBodyCode             = "body_too_large"
+	oversizedBodyMessage          = "the delivery declares a body above the bound"
+	malformedPayloadCode          = "malformed_payload"
+	malformedPayloadMessage       = "the signed body is not a JSON object"
+	payloadField                  = "body"
+	unparseablePullRequestCode    = "unparseable_pull_request"
+	unparseablePullRequestMessage = "the payload names no pull request this service accepts"
+	pullRequestFields             = "repository.full_name, number"
+	undeclaredLengthCode          = "undeclared_length"
+	undeclaredLengthMessage       = "the delivery declares no length"
 )
 
 var deliveryLimit = fmt.Sprintf("%d bytes", ingest.MaxDeliveryBytes)
@@ -64,6 +67,14 @@ func malformedHeaderProblem(header string) fieldProblem {
 
 func malformedPayloadProblem() fieldProblem {
 	return fieldProblem{Code: malformedPayloadCode, Message: malformedPayloadMessage, Field: payloadField}
+}
+
+func unparseablePullRequestProblem() fieldProblem {
+	return fieldProblem{
+		Code:    unparseablePullRequestCode,
+		Message: unparseablePullRequestMessage,
+		Field:   pullRequestFields,
+	}
 }
 
 func oversizedBodyProblem() limitProblem {

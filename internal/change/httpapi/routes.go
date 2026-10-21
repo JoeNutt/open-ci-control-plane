@@ -85,7 +85,7 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 func (stage admitted) evaluate(answer http.ResponseWriter, asked *http.Request, stated payload) {
 	locator, err := stated.pullRequest()
 	if err != nil {
-		stage.refusing.refuse(asked.Context(), answer, fieldProblem{Code: "unparseable_pull_request", Message: "the payload names no pull request this service accepts", Field: "repository.full_name, number"})
+		stage.refusing.refuse(asked.Context(), answer, unparseablePullRequestProblem())
 		return
 	}
 	_ = stage.gate.Execute(asked.Context(), locator, domain.DecisionID{})
