@@ -10,6 +10,26 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func TestParseSuiteNameAcceptsAGoImportPath(t *testing.T) {
+	accepted := map[string]string{
+		"a package of this module": "github.com/JoeNutt/open-ci-control-plane/internal/change/domain",
+		"a name at the bound":      strings.Repeat("a", domain.MaxSuiteNameBytes),
+	}
+
+	for form, name := range accepted {
+		t.Run(form, func(t *testing.T) {
+			suite, err := domain.ParseSuiteName(name)
+
+			if err != nil {
+				t.Fatalf("parse %q: %v", name, err)
+			}
+			if suite.String() != name {
+				t.Fatalf("suite reads %q, want %q", suite.String(), name)
+			}
+		})
+	}
+}
+
 func TestParseSuiteNameRefusesANameThatIsNotAnImportPath(t *testing.T) {
 	refused := map[string]string{
 		"empty":                "",

@@ -37,3 +37,5 @@ func ParseSuiteName(name string) (SuiteName, error) {
 	}
 	return SuiteName{name: name}, nil
 }
+
+func (suite SuiteName) String() string { return suite.name }
