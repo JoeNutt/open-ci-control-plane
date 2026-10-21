@@ -9,7 +9,7 @@ import (
 
 var ErrTooManyImportsInChange = errors.New("change exceeds the per-change import bound")
 
-type StructuralFacts struct{}
+type StructuralFacts struct{ imported []ImportedFile }
 
 func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFacts, error) {
 	published := headImportCountOf(imported)
@@ -17,7 +17,7 @@ func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFac
 		return StructuralFacts{}, fmt.Errorf("%w: %d imports exceeds %d",
 			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
 	}
-	return StructuralFacts{}, nil
+	return StructuralFacts{imported: imported}, nil
 }
 
 func headImportCountOf(imported []ImportedFile) int {

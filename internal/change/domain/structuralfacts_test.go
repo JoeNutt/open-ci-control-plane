@@ -20,6 +20,33 @@ func TestParseStructuralFactsRefusesOneImportOverTheChangeLimit(t *testing.T) {
 	}
 }
 
+func TestParseStructuralFactsPublishesEveryImportOfAChangeAtTheLimit(t *testing.T) {
+	limits := domain.DeclaredLimits()
+	imported := filesDeclaring(t, limits.MaxImportsPerChange)
+
+	facts, err := domain.ParseStructuralFacts(imported, limits)
+
+	if err != nil {
+		t.Fatalf("parse %d imports: %v", limits.MaxImportsPerChange, err)
+	}
+	change := domain.Change{Files: withinBounds(t, changedFilesOf(imported)...), Structure: facts}
+	published := 0
+	for _, entry := range domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.Imports {
+		published += len(entry.Refs)
+	}
+	if published != limits.MaxImportsPerChange {
+		t.Fatalf("published %d imports, want %d", published, limits.MaxImportsPerChange)
+	}
+}
+
+func changedFilesOf(imported []domain.ImportedFile) []domain.File {
+	files := make([]domain.File, 0, len(imported))
+	for _, file := range imported {
+		files = append(files, file.File)
+	}
+	return files
+}
+
 func filesDeclaring(t *testing.T, total int) []domain.ImportedFile {
 	t.Helper()
 
