@@ -9,6 +9,25 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func TestParseSuiteCoverageCountsEveryReportedFile(t *testing.T) {
+	exercised := mustParseRepositoryPath(t, "internal/change/domain/effect.go")
+	unexercised := mustParseRepositoryPath(t, "internal/change/domain/gate.go")
+	reported := []domain.ReportedFile{
+		domain.NewReportedFile(exercised, true),
+		domain.NewReportedFile(unexercised, false),
+	}
+	known := domain.NewKnownPaths([]domain.RepositoryPath{exercised, unexercised})
+
+	coverage, err := domain.ParseSuiteCoverage(reported, known)
+
+	if err != nil {
+		t.Fatalf("parse coverage of held paths: %v", err)
+	}
+	if coverage.FileEntryCount() != len(reported) {
+		t.Fatalf("file entry count is %d, want %d", coverage.FileEntryCount(), len(reported))
+	}
+}
+
 func TestParseSuiteCoverageRefusesAPathTheRepositoryDoesNotHold(t *testing.T) {
 	held := mustParseRepositoryPath(t, "internal/change/domain/effect.go")
 	absent := mustParseRepositoryPath(t, "internal/change/domain/missing.go")
