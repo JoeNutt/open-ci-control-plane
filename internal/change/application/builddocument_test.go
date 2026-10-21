@@ -178,7 +178,7 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
 		Bases:     recordedBases(t, locator),
-		Contents:  recordedAtBase(t, locator, file.Path, sourceImportingContext),
+		Contents:  recordedAt(t, locator, recordedBaseSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}

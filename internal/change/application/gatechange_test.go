@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"strings"
 	"testing"
@@ -467,39 +468,20 @@ func recordedAtBothEnds(
 ) memory.FileContents {
 	t.Helper()
 
-	contents := recordedAtHead(t, locator, path, headSource)
-	atBase := domain.FileAtCommit{
-		Repository: locator.Repository(),
-		Commit:     commitSHAOf(t, recordedBaseSHA),
-		Path:       path,
-	}
-	contents.Files[atBase] = []byte(baseSource)
+	contents := recordedAt(t, locator, recordedHeadSHA, path, headSource)
+	maps.Copy(contents.Files, recordedAt(t, locator, recordedBaseSHA, path, baseSource).Files)
 	return contents
 }
 
-func recordedAtBase(
-	t *testing.T, locator domain.PullRequestLocator, path, source string,
+func recordedAt(
+	t *testing.T, locator domain.PullRequestLocator, commit, path, source string,
 ) memory.FileContents {
 	t.Helper()
 
 	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
 		{
 			Repository: locator.Repository(),
-			Commit:     commitSHAOf(t, recordedBaseSHA),
-			Path:       path,
-		}: []byte(source),
-	}}
-}
-
-func recordedAtHead(
-	t *testing.T, locator domain.PullRequestLocator, path, source string,
-) memory.FileContents {
-	t.Helper()
-
-	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
-		{
-			Repository: locator.Repository(),
-			Commit:     commitSHAOf(t, recordedHeadSHA),
+			Commit:     commitSHAOf(t, commit),
 			Path:       path,
 		}: []byte(source),
 	}}
