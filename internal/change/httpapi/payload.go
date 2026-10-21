@@ -11,9 +11,11 @@ type payload struct {
 	Installation *statedInstallation `json:"installation"`
 	Action       string              `json:"action"`
 	Number       int                 `json:"number"`
-	Repository   struct {
-		FullName string `json:"full_name"`
-	} `json:"repository"`
+	Repository   statedRepository    `json:"repository"`
+}
+
+type statedRepository struct {
+	FullName string `json:"full_name"`
 }
 
 type statedInstallation struct {

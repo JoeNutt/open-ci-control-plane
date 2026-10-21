@@ -75,11 +75,15 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		return
 	}
 	received, _ := deliveryOf(asked.Context())
-	if received.event == "pull_request" && stated.Action == "opened" {
-		locator, _ := domain.ParsePullRequestLocator(stated.Repository.FullName, stated.Number)
-		_ = stage.gate.Execute(asked.Context(), locator, domain.DecisionID{})
-		answer.WriteHeader(http.StatusAccepted)
+	if !isEvaluated(received.event, stated.Action) {
+		answer.WriteHeader(http.StatusNoContent)
 		return
 	}
-	answer.WriteHeader(http.StatusNoContent)
+	stage.evaluate(answer, asked, stated)
+}
+
+func (stage admitted) evaluate(answer http.ResponseWriter, asked *http.Request, stated payload) {
+	locator, _ := domain.ParsePullRequestLocator(stated.Repository.FullName, stated.Number)
+	_ = stage.gate.Execute(asked.Context(), locator, domain.DecisionID{})
+	answer.WriteHeader(http.StatusAccepted)
 }
