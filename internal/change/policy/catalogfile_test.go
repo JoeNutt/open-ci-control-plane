@@ -69,6 +69,10 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: liveCatalogWith(t, "schema_version: 1\n", ""),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
+		"a group with no order": {
+			written: liveCatalogWith(t, "{ name: domain, order: 0 }", "{ name: domain }"),
+			reason:  policy.ErrMissingKey,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
