@@ -98,14 +98,17 @@ func (stage admitted) evaluatedAnswer(ctx context.Context, received delivery, st
 	}
 	id, err := stage.ids.NextDecisionID()
 	if err != nil {
-		stage.log.LogAttrs(ctx, slog.LevelError, failedEvaluationLine, slog.String(deliveryIDKey, received.id),
-			slog.String(reasonKey, err.Error()))
-		return failedEvaluationProblem()
+		return stage.failedEvaluationAnswer(ctx, err, slog.String(deliveryIDKey, received.id))
 	}
 	if err := stage.gate.Execute(ctx, locator, id); err != nil {
-		stage.log.LogAttrs(ctx, slog.LevelError, failedEvaluationLine, slog.String(deliveryIDKey, received.id),
-			slog.String(decisionIDKey, id.String()), slog.String(reasonKey, err.Error()))
-		return failedEvaluationProblem()
+		return stage.failedEvaluationAnswer(ctx, err,
+			slog.String(deliveryIDKey, received.id), slog.String(decisionIDKey, id.String()))
 	}
 	return acceptanceOf(received, id)
+}
+
+func (stage admitted) failedEvaluationAnswer(ctx context.Context, cause error, named ...slog.Attr) answerBody {
+	stage.log.LogAttrs(ctx, slog.LevelError, failedEvaluationLine,
+		append(named, slog.String(reasonKey, cause.Error()))...)
+	return failedEvaluationProblem()
 }
