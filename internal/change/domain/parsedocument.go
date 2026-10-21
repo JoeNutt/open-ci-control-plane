@@ -22,7 +22,8 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 func diffOf(change Change, rules ClassificationRules) Diff {
 	bounded := change.Files
 	paths := pathsOf(bounded.files)
-	imports := importsOf(change.Imported)
+	imported := append(slices.Clone(change.Imported), change.Structure.imported...)
+	imports := importsOf(imported)
 	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 paths,
@@ -34,7 +35,7 @@ func diffOf(change Change, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution, change.Imported),
+		ModuleGraphDelta:      graphDeltaFor(resolution, imported),
 	}
 }
 

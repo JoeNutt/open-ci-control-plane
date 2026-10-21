@@ -3,8 +3,9 @@
 package domain
 
 type Change struct {
-	Files    BoundedFiles
-	Imported []ImportedFile
+	Files     BoundedFiles
+	Imported  []ImportedFile
+	Structure StructuralFacts
 }
 
 type ImportedFile struct {
