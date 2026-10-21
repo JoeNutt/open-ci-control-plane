@@ -5,6 +5,7 @@ package domain
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 )
 
 type MaskedInput struct {
@@ -21,7 +22,9 @@ func MaskedInputOf(document Document) (MaskedInput, error) {
 		if err != nil {
 			return MaskedInput{}, err
 		}
-		removeAt(tree, pointer)
+		if err := removeAt(tree, pointer); err != nil {
+			return MaskedInput{}, err
+		}
 	}
 	return MaskedInput{tree: tree}, nil
 }
@@ -40,35 +43,42 @@ func treeOf(document Document) (map[string]any, error) {
 	return tree, nil
 }
 
-func removeAt(tree map[string]any, pointer JSONPointer) {
+func removeAt(tree map[string]any, pointer JSONPointer) error {
 	tokens := pointer.Tokens()
 	var node any = tree
 	for _, token := range tokens[:len(tokens)-1] {
-		child, exists := childOf(node, token)
+		child, exists, err := childOf(node, token)
+		if err != nil {
+			return err
+		}
 		if !exists {
-			return
+			return nil
 		}
 		node = child
 	}
 	parent, isObject := node.(map[string]any)
 	if !isObject {
-		return
+		return nil
 	}
 	delete(parent, tokens[len(tokens)-1])
+	return nil
 }
 
-func childOf(node any, token string) (any, bool) {
+func childOf(node any, token string) (any, bool, error) {
 	switch container := node.(type) {
 	case map[string]any:
 		child, exists := container[token]
-		return child, exists
+		return child, exists, nil
 	case []any:
+		if len(token) > 1 && token[0] == '0' || strings.HasPrefix(token, "+") {
+			return nil, false, ErrMalformedJSONPointer
+		}
 		index, err := strconv.Atoi(token)
 		if err != nil || index < 0 || index >= len(container) {
-			return nil, false
+			return nil, false, nil
 		}
-		return container[index], true
+		return container[index], true, nil
 	default:
-		return nil, false
+		return nil, false, nil
 	}
 }

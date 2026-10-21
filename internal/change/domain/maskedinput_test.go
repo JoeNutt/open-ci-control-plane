@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -50,6 +51,25 @@ func TestMaskedInputOfOmitsAFieldInsideAnArrayElement(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), "kept.go") {
 		t.Errorf("masked input lost a value the mask did not name: %s", encoded)
+	}
+}
+
+func TestMaskedInputOfRefusesAnArrayIndexRFC6901Forbids(t *testing.T) {
+	forbidden := map[string]string{
+		"leading zero": "/analyzers/findings/01/path",
+		"plus sign":    "/analyzers/findings/+1/path",
+	}
+
+	for form, stated := range forbidden {
+		t.Run(form, func(t *testing.T) {
+			document := domain.Document{}
+			document.Analyzers.Findings = domain.Declared[domain.Finding]{{}, {Path: "internal/leaked.go"}}
+			document.Diff.Sensitive = domain.Declared[string]{stated}
+
+			if _, err := domain.MaskedInputOf(document); !errors.Is(err, domain.ErrMalformedJSONPointer) {
+				t.Fatalf("mask %q gave %v, want ErrMalformedJSONPointer", stated, err)
+			}
+		})
 	}
 }
 
