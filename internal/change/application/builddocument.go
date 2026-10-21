@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package application assembles a change document from what a forge reports.
 package application
 
 import (
