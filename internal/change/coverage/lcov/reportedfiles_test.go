@@ -24,7 +24,7 @@ const (
 func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
 	artifact := lines("TN:", "SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose)
 
-	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	reported, err := reportedFilesIn(artifact)
 
 	if err != nil {
 		t.Fatalf("parse one exercised record: %v", err)
@@ -38,7 +38,7 @@ func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
 func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
 	artifact := record(effectPath, lineHit) + record(gatePath, lineMissed, "DA:8,0")
 
-	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	reported, err := reportedFilesIn(artifact)
 
 	if err != nil {
 		t.Fatalf("parse two records: %v", err)
@@ -119,11 +119,16 @@ func TestReportedFilesInRefusesAMalformedLine(t *testing.T) {
 func refusalOf(t *testing.T, artifact string) error {
 	t.Helper()
 
-	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	reported, err := reportedFilesIn(artifact)
 	if reported != nil {
 		t.Fatalf("want nothing reported alongside a refusal, got %+v", reported)
 	}
 	return err
+}
+
+func reportedFilesIn(artifact string) ([]domain.ReportedFile, error) {
+	declared := lcov.Artifact{DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+	return lcov.ReportedFilesIn(declared, domain.DeclaredCoverageLimits())
 }
 
 func record(path string, body ...string) string {

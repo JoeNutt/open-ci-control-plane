@@ -54,9 +54,17 @@ type recordReading struct {
 	isRecordOpen       bool
 }
 
-func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
+type Artifact struct {
+	DeclaredBytes int64
+	Body          io.Reader
+}
+
+func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+	if artifact.DeclaredBytes > limits.MaxCompressedBytes {
+		return nil, domain.ErrCoverageBoundExceeded
+	}
 	var reading recordReading
-	lines := bufio.NewScanner(artifact)
+	lines := bufio.NewScanner(artifact.Body)
 	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
 		if err := reading.take(lines.Text()); err != nil {
 			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
