@@ -20,11 +20,7 @@ func MaskedInputOf(document Document) (MaskedInput, error) {
 	}
 	var redacted []string
 	for _, stated := range document.Diff.Sensitive {
-		pointer, err := ParseJSONPointer(stated)
-		if err != nil {
-			return MaskedInput{}, err
-		}
-		removed, err := removeAt(tree, pointer)
+		removed, err := removeNamed(tree, stated)
 		if err != nil {
 			return MaskedInput{}, err
 		}
@@ -72,6 +68,14 @@ func treeOf(document Document) (map[string]any, error) {
 		return nil, err
 	}
 	return tree, nil
+}
+
+func removeNamed(tree map[string]any, stated string) (bool, error) {
+	pointer, err := ParseJSONPointer(stated)
+	if err != nil {
+		return false, err
+	}
+	return removeAt(tree, pointer)
 }
 
 func removeAt(tree map[string]any, pointer JSONPointer) (bool, error) {
