@@ -5,9 +5,11 @@ package application_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -147,6 +149,31 @@ func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *tes
 	if err != nil || !served.Covers(path) {
 		t.Fatalf("the previous map stopped serving: covers %s is false, err %v", path, err)
 	}
+}
+
+func TestReplaceCoverageKeepsServingTheMapATruncatedLCOVArtifactWouldReplace(t *testing.T) {
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	path := parsedPath(t)
+	useCase := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedRepository(t)}}
+	whole := "SF:" + coveredFile + "\nDA:7,3\nend_of_record\n"
+	if _, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact(whole))); err != nil {
+		t.Fatalf("accept the whole artifact: %v", err)
+	}
+
+	_, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact("SF:"+coveredFile+"\nDA:7,0\n")))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+	served, err := maps.SuiteCoverageOf(t.Context(), parsedRepository(t), parsedSuite(t))
+	if err != nil || !served.Covers(path) {
+		t.Fatalf("the previous map stopped serving: covers %s is false, err %v", path, err)
+	}
+}
+
+func lcovArtifact(body string) lcov.Artifact {
+	return lcov.Artifact{DeclaredBytes: int64(len(body)), Body: strings.NewReader(body)}
 }
 
 type unreadableArtifact struct{}
