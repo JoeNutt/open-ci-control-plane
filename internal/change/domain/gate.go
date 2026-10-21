@@ -40,17 +40,26 @@ func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
 	if len(engines) == 0 {
 		return Gate{}, ErrEmptyGate
 	}
-	held := make(map[PolicyFamily]FamilyEngine, len(engines))
-	for family, engine := range engines {
-		if _, err := ParsePolicyFamily(string(family)); err != nil {
-			return Gate{}, err
+	held, err := heldEngines(engines)
+	if err != nil {
+		return Gate{}, err
+	}
+	return Gate{families: configuredIn(held), engines: held}, nil
+}
+
+func heldEngines(configured map[PolicyFamily]FamilyEngine) (map[PolicyFamily]FamilyEngine, error) {
+	held := make(map[PolicyFamily]FamilyEngine, len(configured))
+	for stated, engine := range configured {
+		family, err := ParsePolicyFamily(string(stated))
+		if err != nil {
+			return nil, err
 		}
 		if engine == nil {
-			return Gate{}, fmt.Errorf("%w: %q", ErrIncompleteGate, family)
+			return nil, fmt.Errorf("%w: %q", ErrIncompleteGate, family)
 		}
 		held[family] = engine
 	}
-	return Gate{families: configuredIn(held), engines: held}, nil
+	return held, nil
 }
 
 func (gate Gate) DecisionsFor(ctx context.Context, document Document) []FamilyDecision {
