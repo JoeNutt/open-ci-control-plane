@@ -154,6 +154,27 @@ func TestParseDocumentPublishesTheImportsAFileDeclaresAtHead(t *testing.T) {
 	}
 }
 
+func TestParseDocumentAddsAnEdgeForEachImportTheChangeAddsToAFile(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	change := domain.Change{
+		Files: withinBounds(t, file),
+		Imported: []domain.ImportedFile{{
+			File: file,
+			Base: fileImportsOf(t, "context"),
+			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
+		}},
+	}
+
+	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+
+	want := domain.Declared[domain.ModuleEdge]{
+		{From: file.Path, To: "github.com/acme/payments/internal/forge"},
+	}
+	if !reflect.DeepEqual(delta.EdgesAdded, want) {
+		t.Fatalf("edges added are %+v, want %+v", delta.EdgesAdded, want)
+	}
+}
+
 func TestParseDocumentCountsNoUnresolvedFileForFilesNoExtractorRead(t *testing.T) {
 	bounded := withinBounds(t,
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},

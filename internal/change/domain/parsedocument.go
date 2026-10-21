@@ -34,7 +34,7 @@ func diffOf(change Change, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution),
+		ModuleGraphDelta:      graphDeltaFor(resolution, change.Imported),
 	}
 }
 
@@ -106,6 +106,14 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 	return resolution
 }
 
-func graphDeltaFor(resolution importResolution) ModuleGraphDelta {
-	return ModuleGraphDelta{Incomplete: resolution.unresolved > 0}
+func graphDeltaFor(resolution importResolution, imported []ImportedFile) ModuleGraphDelta {
+	var added Declared[ModuleEdge]
+	for _, file := range imported {
+		for _, to := range file.Head.ImportPaths() {
+			if !slices.Contains(file.Base.ImportPaths(), to) {
+				added = append(added, ModuleEdge{From: file.File.Path, To: to})
+			}
+		}
+	}
+	return ModuleGraphDelta{EdgesAdded: added, Incomplete: resolution.unresolved > 0}
 }

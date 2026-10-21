@@ -9,6 +9,7 @@ type Change struct {
 
 type ImportedFile struct {
 	File File
+	Base FileImports
 	Head FileImports
 }
 
