@@ -111,6 +111,46 @@ func installationTokensAt(t *testing.T, server *httptest.Server, now time.Time) 
 	return tokens
 }
 
+func TestParseInstallationTokensRefusesWhatCannotMintAToken(t *testing.T) {
+	refusals := map[string]struct {
+		spoil func(*github.Settings, *github.Installation)
+		want  error
+	}{
+		"no App ID": {
+			func(s *github.Settings, _ *github.Installation) { s.AppID = 0 }, github.ErrMalformedAppID,
+		},
+		"a negative installation ID": {
+			func(_ *github.Settings, i *github.Installation) { i.ID = -forgeInstallationID },
+			github.ErrMalformedInstallationID,
+		},
+		"no installation ID": {
+			func(_ *github.Settings, i *github.Installation) { i.ID = 0 }, github.ErrMalformedInstallationID,
+		},
+		"no App key": {
+			func(_ *github.Settings, i *github.Installation) { i.Key = github.AppKey{} }, github.ErrNoAppKey,
+		},
+		"no clock": {
+			func(_ *github.Settings, i *github.Installation) { i.Clock = nil }, github.ErrNoClock,
+		},
+	}
+
+	for name, refusal := range refusals {
+		t.Run(name, func(t *testing.T) {
+			settings := wellFormedSettings()
+			installation := github.Installation{
+				Key: forgeAppKey(t), ID: forgeInstallationID, Clock: func() time.Time { return mintedAt },
+			}
+			refusal.spoil(&settings, &installation)
+
+			_, err := github.ParseInstallationTokens(settings, installation)
+
+			if !errors.Is(err, refusal.want) {
+				t.Fatalf("error is %v, want %v", err, refusal.want)
+			}
+		})
+	}
+}
+
 func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testing.T) {
 	tokens := installationTokensAt(t, answering(t, http.StatusNotFound, `{"message": "Not Found"}`), mintedAt)
 
