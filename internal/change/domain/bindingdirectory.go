@@ -5,8 +5,9 @@ package domain
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
+
+const repositoryRoot = ""
 
 var ErrMalformedRepositoryDirectory = errors.New("directory is not a repository-relative directory")
 
@@ -15,16 +16,11 @@ type RepositoryDirectory struct {
 }
 
 func ParseRepositoryDirectory(stated string) (RepositoryDirectory, error) {
-	if stated == "" {
-		return RepositoryDirectory{}, nil
+	if stated == repositoryRoot {
+		return RepositoryDirectory{value: repositoryRoot}, nil
 	}
-	if len(stated) > DeclaredLimits().MaxPathBytes {
+	if len(stated) > DeclaredLimits().MaxPathBytes || !isSlashSeparatedNames(stated) {
 		return RepositoryDirectory{}, fmt.Errorf("%w: %d bytes", ErrMalformedRepositoryDirectory, len(stated))
-	}
-	for segment := range strings.SplitSeq(stated, pathSeparator) {
-		if !importPathSegmentRule.admits(segment) {
-			return RepositoryDirectory{}, fmt.Errorf("%w: %d bytes", ErrMalformedRepositoryDirectory, len(stated))
-		}
 	}
 	return RepositoryDirectory{value: stated}, nil
 }
