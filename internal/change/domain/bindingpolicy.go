@@ -10,11 +10,13 @@ import (
 type BoundPolicyStatement struct {
 	Use         string
 	ImportRoots []ImportRootStatement
+	Paths       map[string][]string
 }
 
 type BoundPolicy struct {
 	use         PolicyName
 	importRoots []ImportRoot
+	groups      []GroupPaths
 }
 
 func parseBoundPolicy(stated BoundPolicyStatement) (BoundPolicy, error) {
@@ -26,8 +28,14 @@ func parseBoundPolicy(stated BoundPolicyStatement) (BoundPolicy, error) {
 	if err != nil {
 		return BoundPolicy{}, fmt.Errorf("bound policy %s: %w", use, err)
 	}
-	return BoundPolicy{use: use, importRoots: roots}, nil
+	groups, err := groupPathsOf(stated.Paths)
+	if err != nil {
+		return BoundPolicy{}, fmt.Errorf("bound policy %s: %w", use, err)
+	}
+	return BoundPolicy{use: use, importRoots: roots, groups: groups}, nil
 }
+
+func (policy BoundPolicy) Groups() []GroupPaths { return slices.Clone(policy.groups) }
 
 func (policy BoundPolicy) Use() PolicyName { return policy.use }
 
