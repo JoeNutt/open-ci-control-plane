@@ -24,35 +24,35 @@ type decidedState struct {
 
 var (
 	passed = runPresentation{
-		conclusion: ConclusionSuccess, title: "Passed", headline: "Passed. No rule fired.",
+		conclusion: ConclusionSuccess, verdict: VerdictAdmitted, title: "Passed", headline: "Passed. No rule fired.",
 	}
 	recordedOnly = runPresentation{
-		conclusion: ConclusionNeutral, title: "Recorded only",
+		conclusion: ConclusionNeutral, verdict: VerdictAdmitted, title: "Recorded only",
 		headline: "Recorded only. This policy is in dry run and did not affect your pull request.",
 	}
 	advisory = runPresentation{
-		conclusion: ConclusionNeutral, title: "Advisory",
+		conclusion: ConclusionNeutral, verdict: VerdictAdmitted, title: "Advisory",
 		headline: "Advisory only. The merge is not prevented.",
 	}
 	blockedByRules = runPresentation{
-		conclusion: ConclusionFailure, title: "Blocked", headline: "Blocked by the rules below.",
+		conclusion: ConclusionFailure, verdict: VerdictRefused, title: "Blocked", headline: "Blocked by the rules below.",
 	}
 	blockedNamingNoRule = runPresentation{
-		conclusion: ConclusionFailure, title: "Blocked", headline: "Blocked. The policy named no rule.",
+		conclusion: ConclusionFailure, verdict: VerdictRefused, title: "Blocked", headline: "Blocked. The policy named no rule.",
 	}
 	blockedDespiteViolations = runPresentation{
-		conclusion: ConclusionFailure, title: "Blocked",
+		conclusion: ConclusionFailure, verdict: VerdictRefused, title: "Blocked",
 		headline: "Blocked by the policy. The violations below did not cause the block.",
 	}
 	reviewRequired = runPresentation{
-		conclusion: ConclusionSuccess, title: "Review required", headline: "Review required. No rule fired.",
+		conclusion: ConclusionSuccess, verdict: VerdictReviewRequired, title: "Review required", headline: "Review required. No rule fired.",
 	}
 	reviewRequiredWithRecorded = runPresentation{
-		conclusion: ConclusionNeutral, title: "Review required",
+		conclusion: ConclusionNeutral, verdict: VerdictReviewRequired, title: "Review required",
 		headline: "Review required. The violations below are recorded only, from a policy in dry run.",
 	}
 	reviewRequiredWithAdvisory = runPresentation{
-		conclusion: ConclusionNeutral, title: "Review required",
+		conclusion: ConclusionNeutral, verdict: VerdictReviewRequired, title: "Review required",
 		headline: "Review required. The violations below are advisory or recorded only.",
 	}
 )

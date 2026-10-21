@@ -14,6 +14,7 @@ type GateChange struct {
 	Build     BuildDocument
 	Gate      domain.Gate
 	Publisher domain.CheckRunPublisher
+	Recorder  domain.DecisionRecorder
 }
 
 func (useCase GateChange) Execute(
@@ -30,10 +31,37 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
-		run := domain.CheckRunFor(decided, id)
-		if err := useCase.Publisher.PublishCheckRun(posting, locator, head, run); err != nil {
-			failures = append(failures, fmt.Errorf("post %s: %w", run.Name, err))
-		}
+		failures = append(failures,
+			useCase.record(posting, decided, document, id),
+			useCase.publish(posting, locator, head, domain.CheckRunFor(decided, id)))
 	}
 	return errors.Join(failures...)
+}
+
+func (useCase GateChange) record(
+	ctx context.Context, decided domain.FamilyDecision, document domain.Document, id domain.DecisionID,
+) error {
+	if err := useCase.writeRecordOf(ctx, decided, document, id); err != nil {
+		return fmt.Errorf("record %s: %w", decided.Family, err)
+	}
+	return nil
+}
+
+func (useCase GateChange) writeRecordOf(
+	ctx context.Context, decided domain.FamilyDecision, document domain.Document, id domain.DecisionID,
+) error {
+	record, err := domain.RecordFor(decided, document, id)
+	if err != nil {
+		return err
+	}
+	return useCase.Recorder.RecordDecision(ctx, record)
+}
+
+func (useCase GateChange) publish(
+	ctx context.Context, locator domain.PullRequestLocator, head domain.CommitSHA, run domain.CheckRun,
+) error {
+	if err := useCase.Publisher.PublishCheckRun(ctx, locator, head, run); err != nil {
+		return fmt.Errorf("post %s: %w", run.Name, err)
+	}
+	return nil
 }

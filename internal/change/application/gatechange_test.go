@@ -24,6 +24,7 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: published,
+		Recorder:  &recordedDecisions{},
 	}
 
 	if err := useCase.Execute(context.Background(), locator, id); err != nil {
@@ -46,11 +47,82 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	}
 }
 
+func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, _ := recordingGate(t)
+	recorded := &recordedDecisions{}
+	id := decisionIDOf(t, gatedDecisionID)
+	useCase := application.GateChange{
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: &memory.CheckRuns{},
+		Recorder:  recorded,
+	}
+
+	if err := useCase.Execute(context.Background(), locator, id); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	if len(recorded.records) != len(domain.DeclaredPolicyFamilies()) {
+		t.Fatalf("recorded %d decisions, want one per family", len(recorded.records))
+	}
+	for _, record := range recorded.records {
+		if record.DecisionID() != id {
+			t.Errorf("recorded under %q, want %q", record.DecisionID(), id)
+		}
+	}
+}
+
+func TestARecorderFailureIsReturnedAndEveryCheckRunStillPublished(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, _ := recordingGate(t)
+	published := &memory.CheckRuns{}
+	refusal := errors.New("decision sink unreachable")
+	useCase := application.GateChange{
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  refusingRecorder{refusal: refusal},
+	}
+
+	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, refusal) {
+		t.Fatalf("gate change returned %v, want the recorder's failure", err)
+	}
+	runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+	if len(runs) != len(domain.DeclaredPolicyFamilies()) {
+		t.Errorf("published %d check runs, want one per family despite the recorder", len(runs))
+	}
+}
+
+type refusingRecorder struct {
+	refusal error
+}
+
+func (recorder refusingRecorder) RecordDecision(context.Context, domain.DecisionRecord) error {
+	return recorder.refusal
+}
+
+type recordedDecisions struct {
+	records []domain.DecisionRecord
+}
+
+func (recorded *recordedDecisions) RecordDecision(_ context.Context, record domain.DecisionRecord) error {
+	recorded.records = append(recorded.records, record)
+	return nil
+}
+
 func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	build := buildOverAnAuthChange(locator)
 	gate, engines := recordingGate(t)
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: &memory.CheckRuns{}}
+	useCase := application.GateChange{
+		Build:     build,
+		Gate:      gate,
+		Publisher: &memory.CheckRuns{},
+		Recorder:  &recordedDecisions{},
+	}
 
 	err := useCase.Execute(context.Background(), locator,
 		decisionIDOf(t, gatedDecisionID))
@@ -82,7 +154,12 @@ func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 	})
 	gate, engines := recordingGate(t)
 	published := &memory.CheckRuns{}
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+	useCase := application.GateChange{
+		Build:     build,
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  &recordedDecisions{},
+	}
 
 	err := useCase.Execute(context.Background(), locator,
 		decisionIDOf(t, gatedDecisionID))
@@ -109,6 +186,7 @@ func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: refusingOne{name: "policy/structural", refusal: refused, rest: recorded},
+		Recorder:  &recordedDecisions{},
 	}
 
 	err := useCase.Execute(context.Background(), locator,
@@ -167,7 +245,10 @@ func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testin
 	published := &memory.CheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
-		Build: buildOverAnAuthChange(locator), Gate: gate, Publisher: published,
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  &recordedDecisions{},
 	}
 
 	if err := useCase.Execute(context.Background(), locator, id); err != nil {
@@ -211,7 +292,12 @@ func TestAChangeWhoseHeadCommitIsMalformedIsNeverPublished(t *testing.T) {
 	build.Source.(memory.ChangeSource).Changes[locator] = recorded
 	gate, _ := recordingGate(t)
 	published := &spyPublisher{}
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+	useCase := application.GateChange{
+		Build:     build,
+		Gate:      gate,
+		Publisher: published,
+		Recorder:  &recordedDecisions{},
+	}
 
 	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
 
@@ -246,8 +332,10 @@ func TestAVerdictReachedAtTheDeadlineIsStillPosted(t *testing.T) {
 	}
 	recorded := &memory.CheckRuns{}
 	useCase := application.GateChange{
-		Build: buildOverAnAuthChange(locator), Gate: gate,
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
 		Publisher: honouringCancellation{rest: recorded},
+		Recorder:  &recordedDecisions{},
 	}
 	deadline, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
