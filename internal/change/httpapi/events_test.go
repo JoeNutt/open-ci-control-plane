@@ -3,6 +3,7 @@
 package httpapi_test
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,7 +17,7 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 	delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
 	answered := httptest.NewRecorder()
 
-	httpapi.Routes().ServeHTTP(answered, delivery)
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
 
 	if answered.Code != http.StatusBadRequest {
 		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
@@ -25,3 +26,5 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 		t.Errorf("the refusal does not name X-GitHub-Event: %s", answered.Body.String())
 	}
 }
+
+func discardedLog() *slog.Logger { return slog.New(slog.DiscardHandler) }

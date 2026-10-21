@@ -3,13 +3,34 @@
 package httpapi
 
 import (
-	"io"
+	"context"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
-func Routes() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(400)
-		io.WriteString(w, `{"field":"X-GitHub-Event"}`)
-	})
+const eventsRoute = "POST /v1/forge/github/events"
+
+func Routes(log *slog.Logger) http.Handler {
+	routes := http.NewServeMux()
+	routes.Handle(eventsRoute, events{log: log})
+	return routes
+}
+
+type events struct {
+	log *slog.Logger
+}
+
+func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
+	if asked.Header.Get(eventHeader) == "" {
+		receiving.refuse(asked.Context(), answer, missingHeaderProblem(eventHeader))
+	}
+}
+
+func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refusal fieldProblem) {
+	answer.Header().Set(contentTypeHeader, jsonMediaType)
+	answer.WriteHeader(http.StatusBadRequest)
+	if err := json.NewEncoder(answer).Encode(refusal); err != nil {
+		receiving.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
+	}
 }
