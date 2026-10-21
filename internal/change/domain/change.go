@@ -11,3 +11,11 @@ type ImportedFile struct {
 	File File
 	Head FileImports
 }
+
+func (imported ImportedFile) headImport() Import {
+	return Import{
+		Path:  imported.File.Path,
+		State: ImportStateResolved,
+		Refs:  imported.Head.ImportPaths(),
+	}
+}
