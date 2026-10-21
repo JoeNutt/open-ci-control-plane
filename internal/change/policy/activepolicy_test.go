@@ -211,7 +211,7 @@ func liveBindingWithDriverPatterns(t *testing.T, beyondTheLive int) string {
 func liveBindingWithImportRoots(t *testing.T, beyondTheLive int) string {
 	t.Helper()
 
-	return liveBindingWith(t, "        path: \"\"\n", "        path: \"\"\n"+linesOf(beyondTheLive, "      - prefix: "+liveModule+"\n        path: internal%d\n"))
+	return liveBindingWith(t, liveRootPathLine+"\n", liveRootPathLine+"\n"+linesOf(beyondTheLive, "      - prefix: "+liveModule+"\n        path: internal%d\n"))
 }
 
 func liveBindingWithAlwaysRun(t *testing.T, beyondTheLive int) string {

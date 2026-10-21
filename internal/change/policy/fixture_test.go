@@ -19,6 +19,7 @@ const (
 	liveWorkflowLine = "  workflow: " + liveWorkflow
 	liveModule       = "github.com/" + liveRepository
 	liveDriverPaths  = `driver: ["cmd/**"]`
+	liveRootPathLine = `        path: ""`
 
 	liveSchemaVersionLine  = "schema_version: 1"
 	laterSchemaVersionLine = "schema_version: 2"
