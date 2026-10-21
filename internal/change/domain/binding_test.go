@@ -20,6 +20,10 @@ func TestParseBindingKeepsWhatItStates(t *testing.T) {
 	if binding.Workflow().String() != "open-ci-tests.yml" {
 		t.Errorf("workflow is %q", binding.Workflow())
 	}
+	alwaysRun := binding.AlwaysRun()
+	if len(alwaysRun) != 1 || alwaysRun[0].String() != thisRepositorysDomain {
+		t.Errorf("always-run suites are %v, want the domain package", alwaysRun)
+	}
 }
 
 func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
@@ -35,6 +39,10 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			stated: func(s *domain.BindingStatement) { s.Workflow = "" },
 			reason: domain.ErrMissingWorkflow,
 		},
+		"an always-run suite that is no import path": {
+			stated: func(s *domain.BindingStatement) { s.AlwaysRun = []string{"../domain"} },
+			reason: domain.ErrMalformedGoImportPath,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
@@ -47,9 +55,15 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 	}
 }
 
+const (
+	thisRepositorysModule = "github.com/JoeNutt/open-ci-control-plane"
+	thisRepositorysDomain = thisRepositorysModule + "/internal/change/domain"
+)
+
 func thisRepositorysBinding() domain.BindingStatement {
 	return domain.BindingStatement{
 		Repository: "JoeNutt/open-ci-control-plane",
 		Workflow:   "open-ci-tests.yml",
+		AlwaysRun:  []string{thisRepositorysDomain},
 	}
 }
