@@ -20,6 +20,7 @@ import (
 const (
 	MaxActionsTokenBytes = 16 << 10
 	repositoryClaim      = "repository"
+	httpsScheme          = "https"
 )
 
 var ErrIncompleteActionsTokens = errors.New("token verification is missing a part it cannot work without")
@@ -61,8 +62,8 @@ type ActionsTokenSettings struct {
 }
 
 type ActionsTokens struct {
-	issuer   string
-	audience string
+	issuer   *url.URL
+	audience *url.URL
 	now      func() time.Time
 	keys     *issuerKeys
 }
@@ -71,17 +72,19 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 	if err := incompletenessOf(settings); err != nil {
 		return nil, err
 	}
-	for _, stated := range []string{settings.Issuer, settings.Audience} {
-		parsed, err := url.Parse(stated)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-			return nil, ErrMalformedActionsTokens
-		}
+	issuer, err := httpsURLOf(settings.Issuer)
+	if err != nil {
+		return nil, err
+	}
+	audience, err := httpsURLOf(settings.Audience)
+	if err != nil {
+		return nil, err
 	}
 	return &ActionsTokens{
-		issuer:   settings.Issuer,
-		audience: settings.Audience,
+		issuer:   issuer,
+		audience: audience,
 		now:      settings.Now,
-		keys:     &issuerKeys{issuer: settings.Issuer, client: settings.Client, now: settings.Now},
+		keys:     &issuerKeys{issuer: issuer, client: settings.Client, now: settings.Now},
 	}, nil
 }
 
@@ -104,6 +107,14 @@ func incompletenessOf(settings ActionsTokenSettings) error {
 	return fmt.Errorf("%w: %s", ErrIncompleteActionsTokens, parts[absent].description)
 }
 
+func httpsURLOf(stated string) (*url.URL, error) {
+	parsed, err := url.Parse(stated)
+	if err != nil || parsed.Scheme != httpsScheme || parsed.Host == "" {
+		return nil, fmt.Errorf("%w: %q", ErrMalformedActionsTokens, stated)
+	}
+	return parsed, nil
+}
+
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
 	keyID, err := keyIDOf(bearer)
 	if err != nil {
@@ -115,8 +126,8 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	}
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
-		jwt.WithIssuer(tokens.issuer),
-		jwt.WithAudience(tokens.audience),
+		jwt.WithIssuer(tokens.issuer.String()),
+		jwt.WithAudience(tokens.audience.String()),
 		jwt.WithRequiredClaim(jwt.ExpirationKey),
 		jwt.WithRequiredClaim(jwt.NotBeforeKey),
 		jwt.WithClock(jwt.ClockFunc(tokens.now)))

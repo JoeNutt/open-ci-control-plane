@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -24,7 +25,7 @@ const (
 var errOversizedConfiguration = fmt.Errorf("the issuer's configuration exceeds %d bytes", maxDiscoveryBytes)
 
 type issuerKeys struct {
-	issuer      string
+	issuer      *url.URL
 	client      *http.Client
 	now         func() time.Time
 	guard       sync.Mutex
@@ -83,7 +84,7 @@ func (keys *issuerKeys) published(ctx context.Context) (jwk.Set, error) {
 }
 
 func (keys *issuerKeys) keySetLocation(ctx context.Context) (string, error) {
-	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, keys.issuer+discoveryPath, nil)
+	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, keys.issuer.JoinPath(discoveryPath).String(), nil)
 	if err != nil {
 		return "", fmt.Errorf("ask the issuer for its configuration: %w", err)
 	}
