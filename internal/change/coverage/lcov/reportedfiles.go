@@ -36,6 +36,7 @@ type recordReading struct {
 	reported           []domain.ReportedFile
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
+	isRecordOpen       bool
 }
 
 func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
@@ -48,6 +49,9 @@ func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
 	}
 	if err := lines.Err(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
+	}
+	if reading.isRecordOpen {
+		return nil, fmt.Errorf("%w: truncated", ErrMalformedArtifact)
 	}
 	return reading.reported, nil
 }
@@ -70,6 +74,7 @@ func (reading *recordReading) openRecord(path string) error {
 	}
 	reading.currentPath = parsed
 	reading.isCurrentExercised = false
+	reading.isRecordOpen = true
 	return nil
 }
 
@@ -91,6 +96,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 func (reading *recordReading) closeRecord(string) error {
 	reading.reported = append(reading.reported,
 		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	reading.isRecordOpen = false
 	return nil
 }
 
