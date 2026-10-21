@@ -3,8 +3,6 @@
 package httpapi
 
 import (
-	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -16,8 +14,9 @@ import (
 const eventsRoute = "POST /v1/forge/github/events"
 
 func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []int64) (http.Handler, error) {
+	refusing := problems{log: log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{allowed: allowlist(slices.Clone(installations))},
+		Accepted: admitted{allowed: allowlist(slices.Clone(installations)), refusing: refusing},
 		Secret:   secret,
 		Refusals: refusals{log: log},
 	})
@@ -25,44 +24,37 @@ func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []
 		return nil, err
 	}
 	routes := http.NewServeMux()
-	routes.Handle(eventsRoute, events{log: log, check: check})
+	routes.Handle(eventsRoute, events{refusing: refusing, check: check})
 	return routes, nil
 }
 
 type events struct {
-	log   *slog.Logger
-	check ingest.SignatureCheck
+	refusing problems
+	check    ingest.SignatureCheck
 }
 
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	received, refused := deliveryIn(asked.Header)
 	if refused != nil {
-		receiving.refuse(asked.Context(), answer, refused)
+		receiving.refusing.refuse(asked.Context(), answer, refused)
 		return
 	}
 	if refused := lengthRefusalOf(asked.ContentLength); refused != nil {
-		receiving.refuse(asked.Context(), answer, refused)
+		receiving.refusing.refuse(asked.Context(), answer, refused)
 		return
 	}
 	receiving.check.ServeHTTP(answer, withDelivery(asked, received))
 }
 
-func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
-	answer.Header().Set(contentTypeHeader, jsonMediaType)
-	answer.WriteHeader(refused.status())
-	if err := json.NewEncoder(answer).Encode(refused); err != nil {
-		receiving.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
-	}
+type admitted struct {
+	allowed  allowlist
+	refusing problems
 }
-
-type admitted struct{ allowed allowlist }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	stated, err := payloadOf(asked.Body)
 	if err != nil {
-		answer.Header().Set(contentTypeHeader, jsonMediaType)
-		answer.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(answer).Encode(fieldProblem{Code: "malformed_payload", Message: "the signed body is not a JSON object", Field: "body"})
+		stage.refusing.refuse(asked.Context(), answer, malformedPayloadProblem())
 		return
 	}
 	if !stage.allowed.admits(stated) {

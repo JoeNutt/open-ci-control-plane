@@ -3,7 +3,10 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
@@ -22,6 +25,9 @@ const (
 	malformedHeaderMessage  = "the header exceeds its length or holds a character outside its set"
 	oversizedBodyCode       = "body_too_large"
 	oversizedBodyMessage    = "the delivery declares a body above the bound"
+	malformedPayloadCode    = "malformed_payload"
+	malformedPayloadMessage = "the signed body is not a JSON object"
+	payloadField            = "body"
 	undeclaredLengthCode    = "undeclared_length"
 	undeclaredLengthMessage = "the delivery declares no length"
 )
@@ -56,10 +62,24 @@ func malformedHeaderProblem(header string) fieldProblem {
 	return fieldProblem{Code: malformedHeaderCode, Message: malformedHeaderMessage, Field: header}
 }
 
+func malformedPayloadProblem() fieldProblem {
+	return fieldProblem{Code: malformedPayloadCode, Message: malformedPayloadMessage, Field: payloadField}
+}
+
 func oversizedBodyProblem() limitProblem {
 	return limitProblem{Code: oversizedBodyCode, Message: oversizedBodyMessage, Limit: deliveryLimit}
 }
 
 func undeclaredLengthProblem() limitProblem {
 	return limitProblem{Code: undeclaredLengthCode, Message: undeclaredLengthMessage, Limit: deliveryLimit}
+}
+
+type problems struct{ log *slog.Logger }
+
+func (writing problems) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
+	answer.Header().Set(contentTypeHeader, jsonMediaType)
+	answer.WriteHeader(refused.status())
+	if err := json.NewEncoder(answer).Encode(refused); err != nil {
+		writing.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
+	}
 }
