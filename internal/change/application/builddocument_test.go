@@ -4,7 +4,9 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -91,6 +93,29 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	}}
 	if !reflect.DeepEqual(document.Diff.Imports, want) {
 		t.Fatalf("imports are %+v, want %+v", document.Diff.Imports, want)
+	}
+}
+
+func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *testing.T) {
+	const quotedFromTheFile = "hunter2ApiKey"
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	oversized := "package auth\n\nvar " + quotedFromTheFile + " = `" +
+		strings.Repeat("x", domain.DeclaredLimits().MaxSourceBytes) + "`\n"
+	useCase := application.BuildDocument{
+		Source:    changeSourceOver(locator, file),
+		Contents:  recordedAtHead(t, locator, file.Path, oversized),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrSourceTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrSourceTooLarge)
+	}
+	if strings.Contains(err.Error(), quotedFromTheFile) {
+		t.Fatalf("the refusal quotes the file: %.200s", err)
 	}
 }
 
