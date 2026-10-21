@@ -49,6 +49,18 @@ func TestParsePolicyModelRefusesABindingNamingAnUndeclaredGroup(t *testing.T) {
 	}
 }
 
+func TestParsePolicyModelRefusesTwoBindingsForOneRepository(t *testing.T) {
+	binding := parsedBinding(t, thisRepositorysBinding())
+
+	_, err := domain.ParsePolicyModel(
+		[]domain.CatalogPolicy{parsedCatalogPolicy(t, cleanArchitecture())},
+		[]domain.Binding{binding, binding},
+	)
+	if !errors.Is(err, domain.ErrDuplicateBinding) {
+		t.Fatalf("two bindings for one repository gave %v, want ErrDuplicateBinding", err)
+	}
+}
+
 func parsedCatalogPolicy(t *testing.T, stated domain.CatalogPolicyStatement) domain.CatalogPolicy {
 	t.Helper()
 
