@@ -61,6 +61,14 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: string(fixture(t, liveCatalogPath)) + "---\nname: shadow\n",
 			reason:  policy.ErrSecondDocument,
 		},
+		"a later schema version": {
+			written: liveCatalogWith(t, "schema_version: 1", "schema_version: 2"),
+			reason:  policy.ErrUnsupportedSchemaVersion,
+		},
+		"no schema version": {
+			written: liveCatalogWith(t, "schema_version: 1\n", ""),
+			reason:  policy.ErrUnsupportedSchemaVersion,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {

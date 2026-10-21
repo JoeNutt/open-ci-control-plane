@@ -17,6 +17,8 @@ var ErrAliasOrAnchor = errors.New("policy file contains a YAML alias or anchor")
 
 var ErrSecondDocument = errors.New("policy file holds more than one YAML document")
 
+var ErrUnsupportedSchemaVersion = errors.New("policy file states no schema version this control plane reads")
+
 type policyDocument interface {
 	catalogDocument
 }
