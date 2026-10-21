@@ -23,6 +23,7 @@ const (
 	firstLineNumber    = 1
 	decimal            = 10
 	countBits          = 64
+	gzipMagic          = "\x1f\x8b"
 )
 
 var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
@@ -65,21 +66,31 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
-	body := bufio.NewReader(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
-	var plain io.Reader = body
-	magic, _ := body.Peek(2)
-	if bytes.Equal(magic, []byte{0x1f, 0x8b}) {
-		gz, err := gzip.NewReader(body)
-		if err != nil {
-			return nil, err
-		}
-		plain = gz
+	plain, err := plainBodyOf(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
+	if err != nil {
+		return nil, err
 	}
 	var reading recordReading
 	if err := reading.takeAll(bufio.NewScanner(plain)); err != nil {
 		return nil, err
 	}
 	return reading.completed()
+}
+
+func plainBodyOf(body io.Reader) (io.Reader, error) {
+	buffered := bufio.NewReader(body)
+	leading, err := buffered.Peek(len(gzipMagic))
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, readFailureOf(err)
+	}
+	if !bytes.Equal(leading, []byte(gzipMagic)) {
+		return buffered, nil
+	}
+	decompressed, err := gzip.NewReader(buffered)
+	if err != nil {
+		return nil, readFailureOf(err)
+	}
+	return decompressed, nil
 }
 
 func (reading *recordReading) takeAll(lines *bufio.Scanner) error {
