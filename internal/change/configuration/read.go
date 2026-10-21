@@ -22,6 +22,7 @@ const (
 const (
 	webhookSecretFile item = "webhookSecretFile"
 	appKeyFile        item = "appKeyFile"
+	installationIDs   item = "installationIds"
 )
 
 const (
@@ -80,11 +81,7 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
-	var installationsErr error
-	if len(stated.InstallationIDs) == 0 {
-		installationsErr = fmt.Errorf("%w: installationIds", ErrMissingItem)
-	}
-	if err := errors.Join(secretErr, keyErr, installationsErr); err != nil {
+	if err := errors.Join(secretErr, keyErr, installationsPresentIn(stated.InstallationIDs)); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{webhookSecret: secret, appKey: secretOf(key)}, nil
@@ -103,6 +100,13 @@ func webhookSecretIn(path string) (Secret, error) {
 		return Secret{}, webhookSecretFile.invalid(errUnprintableSecret)
 	}
 	return secretOf(secret), nil
+}
+
+func installationsPresentIn(stated []int64) error {
+	if len(stated) == 0 {
+		return installationIDs.missing()
+	}
+	return nil
 }
 
 func isControlOrBeyondASCII(character rune) bool {
