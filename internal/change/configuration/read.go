@@ -39,6 +39,7 @@ var errUnprintableSecret = errors.New("the secret holds a character outside prin
 
 type Configuration struct {
 	webhookSecret domain.WebhookSecret
+	appKey        []byte
 }
 
 type statedConfiguration struct {
@@ -62,6 +63,8 @@ func (configured Configuration) WebhookSecret() domain.WebhookSecret {
 	return configured.webhookSecret
 }
 
+func (configured Configuration) AppKey() []byte { return configured.appKey }
+
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
@@ -72,17 +75,18 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 
 func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
-	if err := errors.Join(secretErr, appKeyIn(stated.AppKeyFile)); err != nil {
+	key, keyErr := appKeyIn(stated.AppKeyFile)
+	if err := errors.Join(secretErr, keyErr); err != nil {
 		return Configuration{}, err
 	}
-	return Configuration{webhookSecret: secret}, nil
+	return Configuration{webhookSecret: secret, appKey: key}, nil
 }
 
-func appKeyIn(path string) error {
+func appKeyIn(path string) ([]byte, error) {
 	if path == "" {
-		return appKeyFile.missing()
+		return nil, appKeyFile.missing()
 	}
-	return nil
+	return os.ReadFile(path)
 }
 
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {

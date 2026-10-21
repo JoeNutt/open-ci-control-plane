@@ -103,13 +103,28 @@ func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) 
 	}
 }
 
+func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
+	stated := completeItems(t)
+
+	configured, err := configuration.Read(configurationFile(t, stated))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if string(configured.AppKey()) != statedAppKey {
+		t.Errorf("the App key is not the content of %s", stated.AppKeyFile)
+	}
+}
+
 const statedWebhookSecret = domain.WebhookSecret("s3cret")
+
+const statedAppKey = "-----BEGIN RSA PRIVATE KEY-----\nstated\n-----END RSA PRIVATE KEY-----\n"
 
 func completeItems(t *testing.T) statedItems {
 	t.Helper()
 	return statedItems{
 		WebhookSecretFile: writtenFile(t, string(statedWebhookSecret)),
-		AppKeyFile:        writtenFile(t, "key"),
+		AppKeyFile:        writtenFile(t, statedAppKey),
 	}
 }
 
