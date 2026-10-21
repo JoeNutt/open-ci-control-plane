@@ -156,7 +156,7 @@ func (minted *issuer) claims(repository string) *jwt.Builder {
 func (minted *issuer) sign(t *testing.T, claims *jwt.Builder) string {
 	t.Helper()
 
-	return minted.signed(t, minted.built(t, claims))
+	return signed(t, minted.built(t, claims), minted.signingKey)
 }
 
 func (minted *issuer) signWithout(t *testing.T, claims *jwt.Builder, absent string) string {
@@ -166,7 +166,7 @@ func (minted *issuer) signWithout(t *testing.T, claims *jwt.Builder, absent stri
 	if err := token.Remove(absent); err != nil {
 		t.Fatalf("remove %s: %v", absent, err)
 	}
-	return minted.signed(t, token)
+	return signed(t, token, minted.signingKey)
 }
 
 func (minted *issuer) built(t *testing.T, claims *jwt.Builder) jwt.Token {
@@ -182,11 +182,7 @@ func (minted *issuer) built(t *testing.T, claims *jwt.Builder) jwt.Token {
 func (minted *issuer) forge(t *testing.T, claims *jwt.Builder, unpublished jwk.Key) string {
 	t.Helper()
 
-	signed, err := jwt.Sign(minted.built(t, claims), jwt.WithKey(jwa.RS256(), unpublished))
-	if err != nil {
-		t.Fatalf("sign token: %v", err)
-	}
-	return string(signed)
+	return signed(t, minted.built(t, claims), unpublished)
 }
 
 func (minted *issuer) unsigned(t *testing.T, claims *jwt.Builder) string {
@@ -199,14 +195,14 @@ func (minted *issuer) unsigned(t *testing.T, claims *jwt.Builder) string {
 	return string(signed)
 }
 
-func (minted *issuer) signed(t *testing.T, token jwt.Token) string {
+func signed(t *testing.T, token jwt.Token, key jwk.Key) string {
 	t.Helper()
 
-	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), minted.signingKey))
+	signature, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), key))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
 	}
-	return string(signed)
+	return string(signature)
 }
 
 func newSigningKey(t *testing.T, keyID string) jwk.Key {
