@@ -222,6 +222,19 @@ func TestAListenAddressOffLoopbackOrWithoutAPortIsRefusedNamingIt(t *testing.T) 
 	}
 }
 
+func TestANonPositiveAppIDIsRefusedNamingIt(t *testing.T) {
+	for _, stated := range []int64{0, -statedAppID} {
+		t.Run(fmt.Sprint(stated), func(t *testing.T) {
+			items := completeItems(t)
+			items.AppID = &stated
+
+			_, err := configuration.Read(configurationFile(t, items))
+
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "appId")
+		})
+	}
+}
+
 func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	stated := completeItems(t)
 	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
