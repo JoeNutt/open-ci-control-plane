@@ -7,6 +7,8 @@ import (
 	"errors"
 )
 
+var ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decision identifier")
+
 type DecisionRecord struct {
 	decisionID DecisionID
 	revision   BundleRevision
@@ -16,10 +18,8 @@ func RecordFor(decided FamilyDecision, id DecisionID) DecisionRecord {
 	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision()}
 }
 
-var ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decision identifier")
-
 func (record DecisionRecord) MarshalJSON() ([]byte, error) {
-	if record.decisionID == (DecisionID{}) {
+	if !record.decisionID.isKnown() {
 		return nil, ErrUnidentifiedDecisionRecord
 	}
 	return json.Marshal(publishedRecord{

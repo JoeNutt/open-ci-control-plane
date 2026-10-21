@@ -38,3 +38,5 @@ func DecisionIDFrom(entropy [DecisionIDEntropyBytes]byte) DecisionID {
 }
 
 func (id DecisionID) String() string { return id.value }
+
+func (id DecisionID) isKnown() bool { return id != DecisionID{} }
