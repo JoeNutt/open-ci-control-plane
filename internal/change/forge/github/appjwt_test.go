@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -36,8 +37,8 @@ func TestAnAppJWTIsSignedRS256AndNamesTheAppForUnderTenMinutes(t *testing.T) {
 		t.Fatalf("mint: %v", err)
 	}
 	claims := verifiedClaimsOf(t, minted, &key.PublicKey)
-	if claims.Issuer != "4242" {
-		t.Errorf("iss is %q, want the App ID 4242", claims.Issuer)
+	if claims.Issuer != strconv.Itoa(forgeAppID) {
+		t.Errorf("iss is %q, want the App ID %d", claims.Issuer, forgeAppID)
 	}
 	if claims.IssuedAt != mintedAt.Add(-time.Minute).Unix() {
 		t.Errorf("iat is %d, want %d, backdated sixty seconds",
