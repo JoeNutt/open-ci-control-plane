@@ -16,6 +16,8 @@ var ErrAppKeyTooLarge = errors.New("the App key file is larger than the App key 
 
 var ErrMalformedAppKey = errors.New("the App key is not one PEM-encoded PKCS#1 RSA private key")
 
+var ErrNoAppKey = errors.New("the forge settings carry no App key")
+
 const pkcs1PrivateKeyBlock = "RSA PRIVATE KEY"
 
 type AppKey struct {
@@ -36,6 +38,10 @@ func ParseAppKey(encoded []byte) (AppKey, error) {
 		return AppKey{}, fmt.Errorf("%w: %w", ErrMalformedAppKey, err)
 	}
 	return AppKey{key: key}, nil
+}
+
+func (appKey AppKey) isPresent() bool {
+	return appKey.key != nil
 }
 
 func isOnePKCS1Block(block *pem.Block, rest []byte) bool {
