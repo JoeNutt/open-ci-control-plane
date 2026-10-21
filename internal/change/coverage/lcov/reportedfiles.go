@@ -60,11 +60,11 @@ type Artifact struct {
 }
 
 func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	if breach := limits.DeclaredBytesBreach(artifact.DeclaredBytes); breach != nil {
+	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
 	var reading recordReading
-	lines := bufio.NewScanner(&boundedBody{body: artifact.Body, max: limits.MaxCompressedBytes})
+	lines := bufio.NewScanner(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
 	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
 		if err := reading.take(lines.Text()); err != nil {
 			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
@@ -119,19 +119,19 @@ func (reading *recordReading) closeRecord(string) error {
 	return nil
 }
 
-type boundedBody struct {
-	body io.Reader
-	read int64
-	max  int64
+type boundedReader struct {
+	source    io.Reader
+	bytesRead int64
+	breachOf  func(bytes int64) error
 }
 
-func (b *boundedBody) Read(p []byte) (int, error) {
-	n, err := b.body.Read(p)
-	b.read += int64(n)
-	if b.read > b.max {
-		return 0, domain.ErrCompressedArtifactTooLarge
+func (bounded *boundedReader) Read(buffer []byte) (int, error) {
+	count, err := bounded.source.Read(buffer)
+	bounded.bytesRead += int64(count)
+	if breach := bounded.breachOf(bounded.bytesRead); breach != nil {
+		return 0, breach
 	}
-	return n, err
+	return count, err
 }
 
 func carryingNothing(*recordReading, string) error { return nil }
