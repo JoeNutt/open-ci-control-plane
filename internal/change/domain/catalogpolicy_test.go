@@ -9,24 +9,21 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestParseCatalogPolicyKeepsItsName(t *testing.T) {
-	policy, err := domain.ParseCatalogPolicy(domain.CatalogPolicyStatement{Name: "clean-architecture"})
+func TestParseCatalogPolicyKeepsWhatItStates(t *testing.T) {
+	policy, err := domain.ParseCatalogPolicy(cleanArchitecture())
 	if err != nil {
 		t.Fatalf("parse catalog policy: %v", err)
 	}
 	if policy.Name().String() != "clean-architecture" {
 		t.Errorf("name is %q, want clean-architecture", policy.Name())
 	}
+	if policy.Rule() != domain.DirectionRule {
+		t.Errorf("rule is %v, want the direction rule", policy.Rule())
+	}
 }
 
 func TestParseCatalogPolicyKeepsItsGroupsInOrder(t *testing.T) {
-	policy, err := domain.ParseCatalogPolicy(domain.CatalogPolicyStatement{
-		Name: "clean-architecture",
-		Groups: []domain.GroupStatement{
-			{Name: "domain", Order: 0},
-			{Name: "adapter", Order: 2},
-		},
-	})
+	policy, err := domain.ParseCatalogPolicy(cleanArchitecture())
 	if err != nil {
 		t.Fatalf("parse catalog policy: %v", err)
 	}
@@ -42,40 +39,45 @@ func TestParseCatalogPolicyKeepsItsGroupsInOrder(t *testing.T) {
 
 func TestParseCatalogPolicyRefusesAPolicyItCannotTrust(t *testing.T) {
 	refused := map[string]struct {
-		stated domain.CatalogPolicyStatement
+		stated func(*domain.CatalogPolicyStatement)
 		reason error
 	}{
 		"a malformed policy name": {
-			stated: domain.CatalogPolicyStatement{Name: "clean architecture"},
+			stated: func(s *domain.CatalogPolicyStatement) { s.Name = "clean architecture" },
 			reason: domain.ErrMalformedPolicyName,
 		},
 		"a malformed group name": {
-			stated: domain.CatalogPolicyStatement{
-				Name:   "clean-architecture",
-				Groups: []domain.GroupStatement{{Name: "do main", Order: 0}},
-			},
+			stated: func(s *domain.CatalogPolicyStatement) { s.Groups[0].Name = "do main" },
 			reason: domain.ErrMalformedGroupName,
 		},
 		"a negative group order": {
-			stated: domain.CatalogPolicyStatement{
-				Name:   "clean-architecture",
-				Groups: []domain.GroupStatement{{Name: "domain", Order: -1}},
-			},
+			stated: func(s *domain.CatalogPolicyStatement) { s.Groups[0].Order = -1 },
 			reason: domain.ErrNegativeGroupOrder,
 		},
 		"two groups with one name": {
-			stated: domain.CatalogPolicyStatement{
-				Name:   "clean-architecture",
-				Groups: []domain.GroupStatement{{Name: "domain", Order: 0}, {Name: "domain", Order: 1}},
-			},
+			stated: func(s *domain.CatalogPolicyStatement) { s.Groups[1].Name = s.Groups[0].Name },
 			reason: domain.ErrDuplicateGroup,
+		},
+		"no rule": {
+			stated: func(s *domain.CatalogPolicyStatement) { s.Rule = domain.PolicyRule(0) },
+			reason: domain.ErrUnknownPolicyRule,
 		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
-			if _, err := domain.ParseCatalogPolicy(refusal.stated); !errors.Is(err, refusal.reason) {
+			stated := cleanArchitecture()
+			refusal.stated(&stated)
+			if _, err := domain.ParseCatalogPolicy(stated); !errors.Is(err, refusal.reason) {
 				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
 			}
 		})
+	}
+}
+
+func cleanArchitecture() domain.CatalogPolicyStatement {
+	return domain.CatalogPolicyStatement{
+		Name:   "clean-architecture",
+		Rule:   domain.DirectionRule,
+		Groups: []domain.GroupStatement{{Name: "domain", Order: 0}, {Name: "adapter", Order: 2}},
 	}
 }
