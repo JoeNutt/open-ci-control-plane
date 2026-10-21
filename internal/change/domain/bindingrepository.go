@@ -27,3 +27,7 @@ func ParseGovernedRepository(stated string) (GovernedRepository, error) {
 func (repository GovernedRepository) String() string {
 	return repository.owner + repositorySeparator + repository.name
 }
+
+func (repository GovernedRepository) Owner() string { return repository.owner }
+
+func (repository GovernedRepository) Name() string { return repository.name }
