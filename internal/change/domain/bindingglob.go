@@ -7,30 +7,35 @@ import (
 	"strings"
 )
 
+const directoryPatternSuffix = pathSeparator + spanningSegment
+
 type BoundGlob struct {
-	glob    string
-	pattern PathPattern
+	directory RepositoryDirectory
+	pattern   PathPattern
 }
 
 func parseBoundGlob(stated string) (BoundGlob, error) {
-	directory, isDirectoryPattern := strings.CutSuffix(stated, "/**")
-	if !isDirectoryPattern || directory == "" {
-		return BoundGlob{}, fmt.Errorf("%w: not a directory pattern", ErrUnsupportedPathPattern)
+	written, isDirectoryPattern := strings.CutSuffix(stated, directoryPatternSuffix)
+	if !isDirectoryPattern || written == repositoryRoot {
+		return BoundGlob{}, fmt.Errorf("%w: not a directory followed by %s", ErrUnsupportedPathPattern, directoryPatternSuffix)
 	}
-	if _, err := ParseRepositoryDirectory(directory); err != nil {
+	directory, err := ParseRepositoryDirectory(written)
+	if err != nil {
 		return BoundGlob{}, fmt.Errorf("%w: %w", ErrUnsupportedPathPattern, err)
 	}
 	pattern, err := ParsePathPattern(stated)
 	if err != nil {
 		return BoundGlob{}, err
 	}
-	return BoundGlob{glob: stated, pattern: pattern}, nil
+	return BoundGlob{directory: directory, pattern: pattern}, nil
 }
 
-func (bound BoundGlob) Glob() string { return bound.glob }
+func (bound BoundGlob) Glob() string { return bound.directory.String() + directoryPatternSuffix }
+
+func (bound BoundGlob) Directory() RepositoryDirectory { return bound.directory }
 
 func (bound BoundGlob) Matches(candidate string) bool { return bound.pattern.Matches(candidate) }
 
 func (bound BoundGlob) translatesLike(other BoundGlob) bool {
-	return bound.pattern.translatesLike(other.pattern)
+	return bound.directory == other.directory
 }
