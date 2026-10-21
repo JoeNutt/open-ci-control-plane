@@ -27,6 +27,7 @@ func DeclaredLimits() Limits {
 		MaxTotalPatchBytes:   8 << 20,
 		MaxPathBytes:         4096,
 		MaxPathSegments:      20,
+		MaxSourceBytes:       1 << 20,
 	}
 }
 

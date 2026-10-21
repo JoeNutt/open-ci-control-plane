@@ -2,12 +2,19 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrSourceTooLarge = errors.New("source exceeds the source byte bound")
 
 type BoundedSource struct{}
 
 func ParseBoundedSource(contents []byte, limits Limits) (BoundedSource, error) {
-	return BoundedSource{}, ErrSourceTooLarge
+	if len(contents) > limits.MaxSourceBytes {
+		return BoundedSource{}, fmt.Errorf("%w: %d bytes exceeds %d",
+			ErrSourceTooLarge, len(contents), limits.MaxSourceBytes)
+	}
+	return BoundedSource{}, nil
 }
