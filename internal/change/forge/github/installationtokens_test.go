@@ -69,11 +69,12 @@ func (clock *forgeClock) advance(by time.Duration) {
 }
 
 type tokenForge struct {
-	t         *testing.T
-	clock     *forgeClock
-	server    *httptest.Server
-	mutex     sync.Mutex
-	exchanges int
+	t          *testing.T
+	clock      *forgeClock
+	server     *httptest.Server
+	mutex      sync.Mutex
+	exchanges  int
+	isRefusing bool
 }
 
 func newTokenForge(t *testing.T, clock *forgeClock) *tokenForge {
@@ -86,7 +87,23 @@ func newTokenForge(t *testing.T, clock *forgeClock) *tokenForge {
 	return held
 }
 
+func (held *tokenForge) refuseFromNowOn() {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	held.isRefusing = true
+}
+
+func (held *tokenForge) isRefusingNow() bool {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	return held.isRefusing
+}
+
 func (held *tokenForge) grant(writer http.ResponseWriter, request *http.Request) {
+	if held.isRefusingNow() {
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	if request.PathValue("installation") != strconv.Itoa(forgeInstallationID) {
 		writer.WriteHeader(http.StatusNotFound)
 		return
@@ -312,6 +329,19 @@ func TestACallNearExpiryGetsAFreshToken(t *testing.T) {
 	if authorization != "Bearer "+grantedToken(2) {
 		t.Errorf("a minute before expiry the old token was presented: %d exchanges",
 			held.endpoint.exchangeCount())
+	}
+}
+
+func TestAFailedRefreshFailsTheCallAndNeverPresentsTheExpiringToken(t *testing.T) {
+	held := tokensExchangedOnce(t)
+	held.endpoint.refuseFromNowOn()
+	held.clock.advance(grantedLifetime - time.Minute)
+
+	authorization, err := github.AuthorizationOf(context.Background(), held.tokens)
+
+	if !errors.Is(err, github.ErrUnexpectedStatus) || authorization != "" {
+		t.Fatalf("error is %v and an authorization was presented, want %v and none",
+			err, github.ErrUnexpectedStatus)
 	}
 }
 
