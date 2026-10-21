@@ -29,6 +29,21 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
+	delivery := eventDelivery(`{}`)
+	delivery.Header.Set("X-GitHub-Event", "pull_request")
+	answered := httptest.NewRecorder()
+
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+
+	if answered.Code != http.StatusBadRequest {
+		t.Fatalf("status is %d, want %d", answered.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(answered.Body.String(), `"field":"X-GitHub-Delivery"`) {
+		t.Errorf("the refusal does not name X-GitHub-Delivery: %s", answered.Body.String())
+	}
+}
+
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer

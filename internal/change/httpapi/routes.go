@@ -25,6 +25,9 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 	if asked.Header.Get(eventHeader) == "" {
 		receiving.refuse(asked.Context(), answer, missingHeaderProblem(eventHeader))
 	}
+	if asked.Header.Get("X-GitHub-Delivery") == "" {
+		receiving.refuse(asked.Context(), answer, missingHeaderProblem("X-GitHub-Delivery"))
+	}
 }
 
 func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refusal fieldProblem) {
