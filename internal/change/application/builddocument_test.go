@@ -94,6 +94,28 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	}
 }
 
+func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator,
+			domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+			domain.File{Path: "README.md", Action: domain.FileActionAdded},
+		),
+		Contents:  memory.FileContents{},
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	if len(document.Diff.Imports) != 0 {
+		t.Fatalf("files other than Go published imports: %+v", document.Diff.Imports)
+	}
+}
+
 func TestBuildDocumentReadsNothingAtHeadForARemovedGoFile(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
