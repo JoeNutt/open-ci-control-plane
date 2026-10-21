@@ -35,7 +35,7 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
 	stated := statedChange{locator: locator, headSHA: pullRequest.HeadSHA}
-	imported, err := useCase.importedFilesOf(ctx, stated, useCase.readableAtHeadOf(files))
+	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
 	}
@@ -54,28 +54,28 @@ type changeEnds struct {
 	head       domain.CommitSHA
 }
 
-func (useCase BuildDocument) readableAtHeadOf(files []domain.File) []domain.File {
-	var readable []domain.File
+func (useCase BuildDocument) claimedOf(files []domain.File) []domain.File {
+	var claimed []domain.File
 	for _, file := range files {
-		if useCase.Extractor.Claims(file.Path) && (file.Action.ExistsAtHead() || file.Action.ExistsAtBase()) {
-			readable = append(readable, file)
+		if useCase.Extractor.Claims(file.Path) {
+			claimed = append(claimed, file)
 		}
 	}
-	return readable
+	return claimed
 }
 
 func (useCase BuildDocument) importedFilesOf(
-	ctx context.Context, stated statedChange, readable []domain.File,
+	ctx context.Context, stated statedChange, claimed []domain.File,
 ) ([]domain.ImportedFile, error) {
-	if len(readable) == 0 {
+	if len(claimed) == 0 {
 		return nil, nil
 	}
 	ends, err := useCase.endsOf(ctx, stated)
 	if err != nil {
 		return nil, err
 	}
-	imported := make([]domain.ImportedFile, 0, len(readable))
-	for _, file := range readable {
+	imported := make([]domain.ImportedFile, 0, len(claimed))
+	for _, file := range claimed {
 		importedFile, err := useCase.importedFileAt(ctx, ends, file)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", file.Path, err)
