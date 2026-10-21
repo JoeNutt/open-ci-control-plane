@@ -25,3 +25,8 @@ func (recording refusals) record(ctx context.Context, received delivery, reason 
 	recording.log.LogAttrs(ctx, slog.LevelWarn, refusedDelivery,
 		slog.String(deliveryIDKey, received.id), slog.String(reasonKey, reason))
 }
+
+func (recording refusals) logged(ctx context.Context, received delivery, refused refusal) refusal {
+	recording.record(ctx, received, refused.reason())
+	return refused
+}

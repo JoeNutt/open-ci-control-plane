@@ -28,6 +28,7 @@ const (
 	unparseablePullRequestCode    = "unparseable_pull_request"
 	unparseablePullRequestMessage = "the payload names no pull request this service accepts"
 	pullRequestFields             = "repository.full_name, number"
+	notAllowlistedReason          = "installation_not_allowlisted"
 	failedEvaluationCode          = "evaluation_failed"
 	failedEvaluationMessage       = "the change could not be evaluated"
 	undeclaredLengthCode          = "undeclared_length"
@@ -44,6 +45,8 @@ type fieldProblem struct {
 
 func (fieldProblem) status() int { return http.StatusBadRequest }
 
+func (problem fieldProblem) reason() string { return problem.Code }
+
 type limitProblem struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -51,6 +54,8 @@ type limitProblem struct {
 }
 
 func (limitProblem) status() int { return http.StatusRequestEntityTooLarge }
+
+func (problem limitProblem) reason() string { return problem.Code }
 
 type serverProblem struct {
 	Code    string `json:"code"`
