@@ -229,6 +229,27 @@ func TestTheAcceptanceNamesTheDeliveryAndTheDecisionTheGateWasGiven(t *testing.T
 	}
 }
 
+func TestAFailedEvaluationIsNotAcceptedAndIsLoggedWithItsCause(t *testing.T) {
+	gate := &recordingGate{failure: errors.New("the forge is unreachable")}
+	var logged bytes.Buffer
+	answered := httptest.NewRecorder()
+
+	routedWith(t, slog.New(slog.NewJSONHandler(&logged, nil)), gate).ServeHTTP(answered,
+		signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if answered.Code != http.StatusInternalServerError {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusInternalServerError)
+	}
+	if strings.Contains(answered.Body.String(), "unreachable") {
+		t.Errorf("the answer carries internal detail: %s", answered.Body.String())
+	}
+	for _, named := range []string{statedDeliveryID, mintedDecisionID, "the forge is unreachable", `"level":"ERROR"`} {
+		if !strings.Contains(logged.String(), named) {
+			t.Errorf("the failure log does not name %s: %q", named, logged.String())
+		}
+	}
+}
+
 func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing.T) {
 	unparseable := map[string]string{
 		"no number":         `{"action":"opened","repository":{"full_name":"JoeNutt/open-ci-control-plane"},"installation":{"id":41}}`,
@@ -360,6 +381,7 @@ func answerTo(t *testing.T, delivery *http.Request) *httptest.ResponseRecorder {
 type recordingGate struct {
 	evaluated []domain.PullRequestLocator
 	decided   []domain.DecisionID
+	failure   error
 }
 
 func (gate *recordingGate) Execute(
@@ -367,7 +389,7 @@ func (gate *recordingGate) Execute(
 ) error {
 	gate.evaluated = append(gate.evaluated, locator)
 	gate.decided = append(gate.decided, id)
-	return nil
+	return gate.failure
 }
 
 const mintedDecisionID = "dec_0123456789abcdef0123456789abcdef"

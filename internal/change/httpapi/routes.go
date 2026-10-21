@@ -95,6 +95,17 @@ func (stage admitted) evaluatedAnswer(ctx context.Context, received delivery, st
 		return unparseablePullRequestProblem()
 	}
 	id, _ := stage.ids.NextDecisionID()
-	_ = stage.gate.Execute(ctx, locator, id)
+	if err := stage.gate.Execute(ctx, locator, id); err != nil {
+		stage.answering.log.LogAttrs(ctx, slog.LevelError, "evaluation failed",
+			slog.String("deliveryId", received.id), slog.String("decisionId", id.String()), slog.String("reason", err.Error()))
+		return failedEvaluation{Code: "evaluation_failed", Message: "the change could not be evaluated"}
+	}
 	return acceptanceOf(received, id)
 }
+
+type failedEvaluation struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (failedEvaluation) status() int { return http.StatusInternalServerError }
