@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -23,7 +24,8 @@ type Installation struct {
 type InstallationTokens struct {
 	asApp        connection
 	installation installationID
-	cached       *installationToken
+	mutex        sync.Mutex
+	held         installationToken
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
@@ -43,14 +45,17 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
-	if tokens.cached != nil {
-		return tokens.cached.credential, nil
+	tokens.mutex.Lock()
+	defer tokens.mutex.Unlock()
+
+	if tokens.held.isPresent() {
+		return tokens.held.credential, nil
 	}
 	minted, err := tokens.exchanged(ctx)
 	if err != nil {
 		return Credential{}, err
 	}
-	tokens.cached = &minted
+	tokens.held = minted
 	return minted.credential, nil
 }
 
@@ -110,4 +115,8 @@ func parseGrant(granted accessTokenGrant) (installationToken, error) {
 		return installationToken{}, ErrIncompleteGrant
 	}
 	return installationToken{credential: NewCredential(granted.Token), expiresAt: granted.ExpiresAt}, nil
+}
+
+func (token installationToken) isPresent() bool {
+	return token.credential.isPresent()
 }
