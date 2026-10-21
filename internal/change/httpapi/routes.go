@@ -30,6 +30,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		receiving.refuse(asked.Context(), answer, refusal)
 		return
 	}
+	answer.WriteHeader(http.StatusUnauthorized)
 }
 
 func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {

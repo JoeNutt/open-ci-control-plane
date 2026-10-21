@@ -128,6 +128,19 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 	}
 }
 
+func TestAnUnsignedDeliveryIsRefusedWithoutDetail(t *testing.T) {
+	answered := httptest.NewRecorder()
+
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, headedDelivery(strings.NewReader(`{}`)))
+
+	if answered.Code != http.StatusUnauthorized {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
+	}
+	if answered.Body.Len() != 0 {
+		t.Errorf("the refusal carries detail: %q", answered.Body.String())
+	}
+}
+
 type untouchedBody struct{ isRead bool }
 
 func (body *untouchedBody) Read([]byte) (int, error) {
