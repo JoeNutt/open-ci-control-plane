@@ -20,13 +20,19 @@ const (
 
 const webhookSecretFile item = "webhookSecretFile"
 
-const textFileEnd = "\n"
+const (
+	textFileEnd         = "\n"
+	firstPrintableASCII = ' '
+	lastPrintableASCII  = '~'
+)
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
 
 var errEmptyFile = errors.New("the file is empty")
+
+var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
 type Configuration struct {
 	webhookSecret domain.WebhookSecret
@@ -80,12 +86,14 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if len(secret) == 0 {
 		return "", webhookSecretFile.invalid(errEmptyFile)
 	}
-	for _, b := range secret {
-		if b < 0x20 || b > 0x7e {
-			return "", webhookSecretFile.invalid(errors.New("bad byte"))
-		}
+	if bytes.ContainsFunc(secret, isControlOrBeyondASCII) {
+		return "", webhookSecretFile.invalid(errUnprintableSecret)
 	}
 	return domain.WebhookSecret(secret), nil
+}
+
+func isControlOrBeyondASCII(character rune) bool {
+	return character < firstPrintableASCII || character > lastPrintableASCII
 }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
