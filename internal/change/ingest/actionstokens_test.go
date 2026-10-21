@@ -144,7 +144,7 @@ func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
 type issuer struct {
 	t             *testing.T
 	server        *httptest.Server
-	keyGuard      sync.Mutex
+	guard         sync.Mutex
 	signingKey    jwk.Key
 	keySetFetches atomic.Int64
 	instant       time.Time
@@ -168,26 +168,26 @@ func (minted *issuer) rotate(t *testing.T, keyID string) {
 	t.Helper()
 
 	rotated := newSigningKey(t, keyID)
-	minted.keyGuard.Lock()
-	defer minted.keyGuard.Unlock()
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
 	minted.signingKey = rotated
 }
 
 func (minted *issuer) advance(elapsed time.Duration) {
-	minted.keyGuard.Lock()
-	defer minted.keyGuard.Unlock()
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
 	minted.instant = minted.instant.Add(elapsed)
 }
 
 func (minted *issuer) now() time.Time {
-	minted.keyGuard.Lock()
-	defer minted.keyGuard.Unlock()
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
 	return minted.instant
 }
 
 func (minted *issuer) currentKey() jwk.Key {
-	minted.keyGuard.Lock()
-	defer minted.keyGuard.Unlock()
+	minted.guard.Lock()
+	defer minted.guard.Unlock()
 	return minted.signingKey
 }
 
