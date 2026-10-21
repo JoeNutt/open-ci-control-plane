@@ -65,6 +65,17 @@ func TestRepositoryCoverageRefusesANewSuiteBeyondTheBound(t *testing.T) {
 	}
 }
 
+func TestRepositoryCoverageReplacesAHeldSuiteAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	full := coverageOfSuites(t, limits.MaxSuitesPerRepository)
+
+	_, err := full.Replacing(generatedSuite(t, 0), twoFileSuiteOf(t).coverage, limits)
+
+	if err != nil {
+		t.Fatalf("want a held suite replaced at the bound, got %v", err)
+	}
+}
+
 func coverageOfSuites(t *testing.T, count int) domain.RepositoryCoverage {
 	t.Helper()
 
