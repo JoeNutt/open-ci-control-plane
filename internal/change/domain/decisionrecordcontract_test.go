@@ -9,52 +9,38 @@ import (
 	"testing"
 
 	"go.yaml.in/yaml/v3"
-
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
 	httpContract         = "openapi.yaml"
-	recordSchemaInScheme = "DecisionRecord"
+	decisionRecordSchema = "DecisionRecord"
 )
 
 type openAPIContract struct {
 	Components struct {
 		Schemas map[string]struct {
-			Properties map[string]yaml.Node `yaml:"properties"`
+			Properties map[string]struct{} `yaml:"properties"`
 		} `yaml:"schemas"`
 	} `yaml:"components"`
 }
 
 func TestEveryFieldARecordPublishesIsOneTheHTTPContractDeclares(t *testing.T) {
 	declared := declaredRecordProperties(t)
-	decided := domain.FamilyDecision{
-		Family:   domain.PolicyFamilyStructural,
-		Decision: domain.UndecidedDecision(revisionForTest(t)),
-	}
-	id, err := domain.ParseDecisionID(wellFormedDecisionID)
-	if err != nil {
-		t.Fatalf("parse decision id: %v", err)
-	}
 
-	encoded, err := json.Marshal(domain.RecordFor(decided, id))
-	if err != nil {
-		t.Fatalf("encode: %v", err)
-	}
 	var published map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &published); err != nil {
+	if err := json.Unmarshal(encodedRecordOf(t, undecidedStructuralDecision(t)), &published); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
 	for field := range published {
 		if _, isDeclared := declared[field]; !isDeclared {
 			t.Errorf("the record publishes %q, which %s's %s does not declare",
-				field, httpContract, recordSchemaInScheme)
+				field, httpContract, decisionRecordSchema)
 		}
 	}
 }
 
-func declaredRecordProperties(t *testing.T) map[string]yaml.Node {
+func declaredRecordProperties(t *testing.T) map[string]struct{} {
 	t.Helper()
 	stated, err := os.ReadFile(filepath.Join(moduleRoot(t), httpContract))
 	if err != nil {
@@ -64,9 +50,9 @@ func declaredRecordProperties(t *testing.T) map[string]yaml.Node {
 	if err := yaml.Unmarshal(stated, &contract); err != nil {
 		t.Fatalf("decode %s: %v", httpContract, err)
 	}
-	schema, isDeclared := contract.Components.Schemas[recordSchemaInScheme]
+	schema, isDeclared := contract.Components.Schemas[decisionRecordSchema]
 	if !isDeclared || len(schema.Properties) == 0 {
-		t.Fatalf("%s declares no %s properties", httpContract, recordSchemaInScheme)
+		t.Fatalf("%s declares no %s properties", httpContract, decisionRecordSchema)
 	}
 	return schema.Properties
 }

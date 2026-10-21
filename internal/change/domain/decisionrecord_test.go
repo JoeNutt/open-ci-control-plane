@@ -74,6 +74,15 @@ func undecidedStructuralDecision(t *testing.T) domain.FamilyDecision {
 
 func publishedRecordOf(t *testing.T, decided domain.FamilyDecision) publishedDecisionRecord {
 	t.Helper()
+	var published publishedDecisionRecord
+	if err := json.Unmarshal(encodedRecordOf(t, decided), &published); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	return published
+}
+
+func encodedRecordOf(t *testing.T, decided domain.FamilyDecision) []byte {
+	t.Helper()
 	id, err := domain.ParseDecisionID(wellFormedDecisionID)
 	if err != nil {
 		t.Fatalf("parse decision id: %v", err)
@@ -82,9 +91,5 @@ func publishedRecordOf(t *testing.T, decided domain.FamilyDecision) publishedDec
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	var published publishedDecisionRecord
-	if err := json.Unmarshal(encoded, &published); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	return published
+	return encoded
 }
