@@ -22,13 +22,9 @@ func parseBoundPolicy(stated BoundPolicyStatement) (BoundPolicy, error) {
 	if err != nil {
 		return BoundPolicy{}, fmt.Errorf("bound policy: %w", err)
 	}
-	roots := make([]ImportRoot, 0, len(stated.ImportRoots))
-	for _, written := range stated.ImportRoots {
-		root, err := parseImportRoot(written)
-		if err != nil {
-			return BoundPolicy{}, fmt.Errorf("bound policy %s: %w", use, err)
-		}
-		roots = append(roots, root)
+	roots, err := importRootsOf(stated.ImportRoots)
+	if err != nil {
+		return BoundPolicy{}, fmt.Errorf("bound policy %s: %w", use, err)
 	}
 	return BoundPolicy{use: use, importRoots: roots}, nil
 }
@@ -36,3 +32,15 @@ func parseBoundPolicy(stated BoundPolicyStatement) (BoundPolicy, error) {
 func (policy BoundPolicy) Use() PolicyName { return policy.use }
 
 func (policy BoundPolicy) ImportRoots() []ImportRoot { return slices.Clone(policy.importRoots) }
+
+func importRootsOf(stated []ImportRootStatement) ([]ImportRoot, error) {
+	roots := make([]ImportRoot, 0, len(stated))
+	for _, written := range stated {
+		root, err := parseImportRoot(written)
+		if err != nil {
+			return nil, err
+		}
+		roots = append(roots, root)
+	}
+	return roots, nil
+}

@@ -50,15 +50,23 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, fmt.Errorf("always-run suite: %w", err)
 	}
-	policies := make([]BoundPolicy, 0, len(stated.Policies))
-	for _, written := range stated.Policies {
+	policies, err := boundPoliciesOf(stated.Policies)
+	if err != nil {
+		return Binding{}, err
+	}
+	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
+}
+
+func boundPoliciesOf(stated []BoundPolicyStatement) ([]BoundPolicy, error) {
+	policies := make([]BoundPolicy, 0, len(stated))
+	for _, written := range stated {
 		policy, err := parseBoundPolicy(written)
 		if err != nil {
-			return Binding{}, err
+			return nil, err
 		}
 		policies = append(policies, policy)
 	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
+	return policies, nil
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {
