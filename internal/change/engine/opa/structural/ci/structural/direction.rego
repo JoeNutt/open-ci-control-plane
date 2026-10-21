@@ -1,13 +1,24 @@
 package ci.structural
 
 decision := {
-	"input_wellformed": true,
+	"input_wellformed": input_wellformed,
 	"schema_version_accepted": 1,
-	"effect": "block",
+	"effect": effect,
 	"violations": sort([violation | some violation in violations]),
 	"reviewers": [],
 	"fail_closed": true,
 }
+
+default input_wellformed := false
+
+input_wellformed if {
+	is_string(input.pr.repository)
+	is_array(input.diff.module_graph_delta.edges_added)
+}
+
+effect := "block" if count(violations) > 0
+
+effect := "allow" if count(violations) == 0
 
 violations contains {
 	"rule_id": bound.use,

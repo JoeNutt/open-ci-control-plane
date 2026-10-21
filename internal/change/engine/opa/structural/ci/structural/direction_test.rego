@@ -14,7 +14,7 @@ policy := {
 	}},
 	"bindings": {"JoeNutt/open-ci-control-plane": {"policies": [{
 		"use": "clean-architecture",
-		"import_roots": [{"prefix": "github.com/JoeNutt/open-ci-control-plane", "path": ""}],
+		"import_roots": [{"prefix": module_root, "path": ""}],
 		"paths": {
 			"domain": ["internal/change/domain/**"],
 			"application": ["internal/change/application/**"],
@@ -23,6 +23,10 @@ policy := {
 	}]}},
 }
 
+module_root := "github.com/JoeNutt/open-ci-control-plane"
+
+domain_imports_forge := {"from": "internal/change/domain/gate.go", "to": $"{module_root}/internal/change/forge/github"}
+
 change_adding(edges) := {
 	"schema_version": 1,
 	"pr": {"repository": "JoeNutt/open-ci-control-plane"},
@@ -30,12 +34,7 @@ change_adding(edges) := {
 }
 
 test_an_added_edge_into_a_higher_order_group_is_refused_naming_file_import_and_groups if {
-	decided := structural.decision
-		with input as change_adding([{
-			"from": "internal/change/domain/gate.go",
-			"to": "github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github",
-		}])
-		with data.ci.policy as policy
+	decided := structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as policy
 
 	decided.effect == "block"
 	[violation] := decided.violations
@@ -47,12 +46,7 @@ test_an_added_edge_into_a_higher_order_group_is_refused_naming_file_import_and_g
 }
 
 test_a_refusal_is_stated_in_the_decision_contract_the_engine_parses if {
-	decided := structural.decision
-		with input as change_adding([{
-			"from": "internal/change/domain/gate.go",
-			"to": "github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github",
-		}])
-		with data.ci.policy as policy
+	decided := structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as policy
 
 	decided.input_wellformed == true
 	decided.schema_version_accepted == 1
