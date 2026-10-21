@@ -60,7 +60,7 @@ type ActionsTokenSettings struct {
 
 type ActionsTokens struct {
 	settings ActionsTokenSettings
-	mu       sync.Mutex
+	guard    sync.Mutex
 	keys     jwk.Set
 }
 
@@ -73,17 +73,10 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
-	tokens.mu.Lock()
-	if tokens.keys == nil {
-		keys, err := tokens.signingKeys(ctx)
-		if err != nil {
-			tokens.mu.Unlock()
-			return domain.Repository{}, err
-		}
-		tokens.keys = keys
+	keys, err := tokens.heldKeys(ctx)
+	if err != nil {
+		return domain.Repository{}, err
 	}
-	keys := tokens.keys
-	tokens.mu.Unlock()
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
 		jwt.WithIssuer(tokens.settings.Issuer),
@@ -117,6 +110,21 @@ func unverifiedReasonOf(failure error) error {
 		return errUnverifiableSignature
 	}
 	return unverifiedReasons[matching].reason
+}
+
+func (tokens *ActionsTokens) heldKeys(ctx context.Context) (jwk.Set, error) {
+	tokens.guard.Lock()
+	defer tokens.guard.Unlock()
+
+	if tokens.keys != nil {
+		return tokens.keys, nil
+	}
+	keys, err := tokens.signingKeys(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tokens.keys = keys
+	return keys, nil
 }
 
 func (tokens *ActionsTokens) signingKeys(ctx context.Context) (jwk.Set, error) {
