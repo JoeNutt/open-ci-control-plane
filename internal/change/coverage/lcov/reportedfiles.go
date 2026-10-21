@@ -71,6 +71,9 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 		}
 	}
 	if err := lines.Err(); err != nil {
+		if errors.Is(err, domain.ErrCoverageBoundExceeded) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
 	}
 	return reading.completed()

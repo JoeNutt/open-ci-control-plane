@@ -23,6 +23,9 @@ func TestReportedFilesInRefusesABodyLongerThanTheBoundWhateverItDeclares(t *test
 	if !errors.Is(err, domain.ErrCompressedArtifactTooLarge) {
 		t.Fatalf("want ErrCompressedArtifactTooLarge, got %v", err)
 	}
+	if errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("an artifact over a bound is not malformed: %v", err)
+	}
 }
 
 func paddedRecord(totalBytes int64) io.Reader {
