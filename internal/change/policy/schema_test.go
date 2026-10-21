@@ -5,12 +5,16 @@ package policy_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"testing"
 )
 
-const catalogSchemaPath = "../../../schema/policy.catalog.v1.schema.json"
+const (
+	schemaDirectory   = "../../../schema/"
+	catalogSchemaPath = schemaDirectory + "policy.catalog.v1.schema.json"
+)
 
 func TestTheLiveCatalogMatchesThePublishedCatalogSchema(t *testing.T) {
 	if faults := schemaFaultsOf(t, string(fixture(t, liveCatalogPath)), catalogSchemaPath); len(faults) != 0 {
@@ -21,33 +25,49 @@ func TestTheLiveCatalogMatchesThePublishedCatalogSchema(t *testing.T) {
 func schemaFaultsOf(t *testing.T, written, schemaPath string) []string {
 	t.Helper()
 
+	matching := exec.Command("opa", "eval", "-I", "--format=raw",
+		`json.match_schema(yaml.unmarshal(input.written), input.schema)`)
+	matching.Stdin = bytes.NewReader(schemaQueryFor(t, written, schemaPath))
+	answered, err := matching.CombinedOutput()
+	if err != nil {
+		t.Fatalf("opa eval against %s: %v\n%s", schemaPath, err, answered)
+	}
+	return faultsIn(t, answered)
+}
+
+func schemaQueryFor(t *testing.T, written, schemaPath string) []byte {
+	t.Helper()
+
 	schema, err := os.ReadFile(schemaPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", schemaPath, err)
 	}
-	asked, err := json.Marshal(struct {
+	query, err := json.Marshal(struct {
 		Written string          `json:"written"`
 		Schema  json.RawMessage `json:"schema"`
 	}{Written: written, Schema: schema})
 	if err != nil {
 		t.Fatalf("marshal the file and %s: %v", schemaPath, err)
 	}
-	matching := exec.Command("opa", "eval", "-I", "--format=raw",
-		`json.match_schema(yaml.unmarshal(input.written), input.schema)`)
-	matching.Stdin = bytes.NewReader(asked)
-	answered, err := matching.CombinedOutput()
-	if err != nil {
-		t.Fatalf("opa eval against %s: %v\n%s", schemaPath, err, answered)
+	return query
+}
+
+func faultsIn(t *testing.T, answered []byte) []string {
+	t.Helper()
+
+	var pair []json.RawMessage
+	if err := json.Unmarshal(answered, &pair); err != nil || len(pair) != 2 {
+		t.Fatalf("opa answered %s, want a match and its faults", answered)
 	}
-	var reported []json.RawMessage
-	if err := json.Unmarshal(answered, &reported); err != nil || len(reported) != 2 {
-		t.Fatalf("opa answered %s", answered)
-	}
+	var matched bool
 	var faults []struct {
 		Error string `json:"error"`
 	}
-	if err := json.Unmarshal(reported[1], &faults); err != nil {
-		t.Fatalf("decode the faults: %v", err)
+	if err := errors.Join(json.Unmarshal(pair[0], &matched), json.Unmarshal(pair[1], &faults)); err != nil {
+		t.Fatalf("opa answered %s: %v", answered, err)
+	}
+	if matched != (len(faults) == 0) {
+		t.Fatalf("opa answered a match of %t with %d faults: %s", matched, len(faults), answered)
 	}
 	described := make([]string, 0, len(faults))
 	for _, fault := range faults {
