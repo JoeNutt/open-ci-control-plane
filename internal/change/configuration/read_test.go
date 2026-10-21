@@ -75,6 +75,23 @@ func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing
 	}
 }
 
+func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) {
+	for form, secret := range map[string]string{
+		"a CRLF line end": "s3cret\r\n",
+		"a NUL":           "s3c\x00ret",
+		"a tab":           "s3c\tret",
+		"non-ASCII":       "s3crét",
+	} {
+		t.Run(form, func(t *testing.T) {
+			_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, secret)}))
+
+			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
+				t.Fatalf("refusal is not an invalid webhookSecretFile: %v", err)
+			}
+		})
+	}
+}
+
 type statedItems struct {
 	WebhookSecretFile string `json:"webhookSecretFile,omitempty"`
 }

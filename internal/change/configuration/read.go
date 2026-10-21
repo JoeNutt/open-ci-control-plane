@@ -80,6 +80,11 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if len(secret) == 0 {
 		return "", webhookSecretFile.invalid(errEmptyFile)
 	}
+	for _, b := range secret {
+		if b < 0x20 || b > 0x7e {
+			return "", webhookSecretFile.invalid(errors.New("bad byte"))
+		}
+	}
 	return domain.WebhookSecret(secret), nil
 }
 
