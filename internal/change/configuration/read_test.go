@@ -155,7 +155,7 @@ func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
 func printedFormsOf(secrets ...string) []string {
 	var forms []string
 	for _, secret := range secrets {
-		decimal := fmt.Sprint([]byte(secret))
+		decimal := fmt.Sprintf("%d", []byte(secret))
 		forms = append(forms,
 			secret,
 			hex.EncodeToString([]byte(secret)),

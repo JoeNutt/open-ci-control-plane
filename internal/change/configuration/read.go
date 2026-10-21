@@ -80,24 +80,22 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	if err := errors.Join(secretErr, keyErr); err != nil {
 		return Configuration{}, err
 	}
-	secretText := string(secret)
-	keyText := string(key)
-	return Configuration{webhookSecret: Secret{content: &secretText}, appKey: Secret{content: &keyText}}, nil
+	return Configuration{webhookSecret: secret, appKey: secretOf(key)}, nil
 }
 
-func webhookSecretIn(path string) (domain.WebhookSecret, error) {
+func webhookSecretIn(path string) (Secret, error) {
 	content, err := webhookSecretFile.contentAt(path, MaxSecretFileBytes)
 	if err != nil {
-		return "", err
+		return Secret{}, err
 	}
 	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
 	if len(secret) == 0 {
-		return "", webhookSecretFile.invalid(errEmptyFile)
+		return Secret{}, webhookSecretFile.invalid(errEmptyFile)
 	}
 	if bytes.ContainsFunc(secret, isControlOrBeyondASCII) {
-		return "", webhookSecretFile.invalid(errUnprintableSecret)
+		return Secret{}, webhookSecretFile.invalid(errUnprintableSecret)
 	}
-	return domain.WebhookSecret(secret), nil
+	return secretOf(secret), nil
 }
 
 func isControlOrBeyondASCII(character rune) bool {

@@ -2,14 +2,13 @@
 
 package configuration
 
-import "fmt"
-
 type Secret struct {
 	content *string
 }
 
-func (Secret) Format(state fmt.State, _ rune) {
-	fmt.Fprint(state, "[redacted]")
+func secretOf(content []byte) Secret {
+	held := string(content)
+	return Secret{content: &held}
 }
 
 func (held Secret) Reveal() []byte { return []byte(*held.content) }
