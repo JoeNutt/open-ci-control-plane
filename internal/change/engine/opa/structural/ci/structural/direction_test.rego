@@ -217,3 +217,19 @@ test_policy_data_the_rule_cannot_judge_by_leaves_the_decision_undefined[note] if
 
 	not structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as unjudgeable
 }
+
+test_a_change_the_rule_cannot_read_is_stated_as_not_wellformed[note] if {
+	some note, patch in {
+		"added edges that are not a list": [{
+			"op": "replace",
+			"path": "/diff/module_graph_delta/edges_added",
+			"value": "internal/change/domain/gate.go",
+		}],
+		"no module graph delta": [{"op": "remove", "path": "/diff/module_graph_delta"}],
+	}
+	malformed := json.patch(change_adding([domain_imports_forge]), patch)
+
+	decided := structural.decision with input as malformed with data.ci.policy as policy
+
+	decided.input_wellformed == false
+}
