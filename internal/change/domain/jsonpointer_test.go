@@ -28,6 +28,7 @@ func TestParseJSONPointerRefusesAnythingThatNamesNoField(t *testing.T) {
 		"no leading slash":   "diff/files",
 		"tilde then two":     "/diff/a~2b",
 		"trailing tilde":     "/diff/a~",
+		"tilde then escape":  "/diff/~~01",
 	}
 
 	for form, stated := range refused {
