@@ -5,6 +5,8 @@ package httpapi
 import (
 	"encoding/json"
 	"io"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type payload struct {
@@ -33,4 +35,8 @@ func (stated payload) installationID() (int64, bool) {
 		return 0, false
 	}
 	return *stated.Installation.ID, true
+}
+
+func (stated payload) pullRequest() (domain.PullRequestLocator, error) {
+	return domain.ParsePullRequestLocator(stated.Repository.FullName, stated.Number)
 }

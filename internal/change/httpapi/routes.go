@@ -83,7 +83,7 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 }
 
 func (stage admitted) evaluate(answer http.ResponseWriter, asked *http.Request, stated payload) {
-	locator, err := domain.ParsePullRequestLocator(stated.Repository.FullName, stated.Number)
+	locator, err := stated.pullRequest()
 	if err != nil {
 		stage.refusing.refuse(asked.Context(), answer, malformedPayloadProblem())
 		return
