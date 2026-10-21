@@ -94,3 +94,31 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 		t.Fatalf("imports are %+v, want %+v", document.Diff.Imports, want)
 	}
 }
+
+func TestBuildDocumentReadsNothingAtHeadForARemovedGoFile(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
+	useCase := application.BuildDocument{
+		Source: memory.ChangeSource{
+			Changes: map[domain.PullRequestLocator]memory.Change{
+				locator: {
+					PullRequest: domain.PullRequest{
+						Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
+					Files: []domain.File{file},
+				},
+			},
+		},
+		Contents:  memory.FileContents{},
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	if len(document.Diff.Imports) != 0 {
+		t.Fatalf("a removed file published head imports: %+v", document.Diff.Imports)
+	}
+}

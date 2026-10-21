@@ -45,7 +45,7 @@ func (useCase BuildDocument) Execute(
 func (useCase BuildDocument) claimedOf(files []domain.File) []domain.File {
 	var claimed []domain.File
 	for _, file := range files {
-		if useCase.Extractor.Claims(file.Path) {
+		if useCase.Extractor.Claims(file.Path) && file.Action.ExistsAtHead() {
 			claimed = append(claimed, file)
 		}
 	}
