@@ -45,30 +45,16 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	}
 }
 
-func TestActionsTokensRefuseAMisaddressedToken(t *testing.T) {
+func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 	issuer := newIssuer(t)
-	for name, misaddressed := range map[string]*jwt.Builder{
+	for name, unverifiable := range map[string]*jwt.Builder{
 		"another issuer":   issuer.claims(governedRepository).Issuer("https://token.actions.example"),
 		"another audience": issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"}),
+		"expired":          issuer.claims(governedRepository).Expiration(issuedAt.Add(-time.Second)),
+		"not yet valid":    issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second)),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, misaddressed))
-
-			if !errors.Is(err, ingest.ErrUnverifiedToken) {
-				t.Fatalf("want ErrUnverifiedToken, got %v", err)
-			}
-		})
-	}
-}
-
-func TestActionsTokensRefuseATokenOutsideItsLifetime(t *testing.T) {
-	issuer := newIssuer(t)
-	for name, outside := range map[string]*jwt.Builder{
-		"expired":       issuer.claims(governedRepository).Expiration(issuedAt.Add(-time.Second)),
-		"not yet valid": issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second)),
-	} {
-		t.Run(name, func(t *testing.T) {
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, outside))
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, unverifiable))
 
 			if !errors.Is(err, ingest.ErrUnverifiedToken) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)

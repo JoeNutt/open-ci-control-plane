@@ -30,6 +30,8 @@ var (
 	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", ErrUnverifiedToken)
 	errForeignIssuer         = fmt.Errorf("%w: another issuer signed it", ErrUnverifiedToken)
 	errForeignAudience       = fmt.Errorf("%w: it was minted for another audience", ErrUnverifiedToken)
+	errExpired               = fmt.Errorf("%w: it has expired", ErrUnverifiedToken)
+	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", ErrUnverifiedToken)
 )
 
 type unverifiedReason struct {
@@ -40,6 +42,8 @@ type unverifiedReason struct {
 var unverifiedReasons = []unverifiedReason{
 	{cause: jwt.InvalidIssuerError(), reason: errForeignIssuer},
 	{cause: jwt.InvalidAudienceError(), reason: errForeignAudience},
+	{cause: jwt.TokenExpiredError(), reason: errExpired},
+	{cause: jwt.TokenNotYetValidError(), reason: errNotYetValid},
 }
 
 type ActionsTokenSettings struct {
