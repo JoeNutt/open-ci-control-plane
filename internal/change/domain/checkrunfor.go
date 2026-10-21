@@ -6,28 +6,34 @@ import "fmt"
 
 const checkRunNamePrefix = "policy/"
 
-type checkRunRendering func(decided FamilyDecision, id DecisionID) CheckRun
+type presentationRule func(decided FamilyDecision) runPresentation
 
-var checkRunRenderingByOutcome = map[Outcome]checkRunRendering{
-	OutcomeDecided:          verdictCheckRun,
-	OutcomeUndefined:        undecidedCheckRun,
-	OutcomeEngineError:      policyErrorCheckRun,
-	OutcomeDeadlineExceeded: policyErrorCheckRun,
+var presentationRuleByOutcome = map[Outcome]presentationRule{
+	OutcomeDecided:          decidedPresentation,
+	OutcomeUndefined:        undecidedPresentation,
+	OutcomeEngineError:      policyErrorPresentation,
+	OutcomeDeadlineExceeded: policyErrorPresentation,
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
-	rendering, declared := checkRunRenderingByOutcome[decided.Decision.Outcome()]
-	if !declared {
-		return policyErrorCheckRun(decided, id)
-	}
-	return rendering(decided, id)
-}
-
-func verdictCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
-	run := presentationOf(decided.Decision).checkRunFor(decided.Family, id)
+	run := presentationFor(decided).checkRunFor(decided.Family, id)
 	run.ViolationCount = len(decided.Decision.Violations())
 	run.Violations = checkRunViolationsFrom(listedOf(decided.Decision.Violations()))
 	return run
+}
+
+func (decided FamilyDecision) Verdict() Verdict { return presentationFor(decided).verdict }
+
+func presentationFor(decided FamilyDecision) runPresentation {
+	rule, declared := presentationRuleByOutcome[decided.Decision.Outcome()]
+	if !declared {
+		return policyErrorPresentation(decided)
+	}
+	return rule(decided)
+}
+
+func decidedPresentation(decided FamilyDecision) runPresentation {
+	return presentationOf(decided.Decision)
 }
 
 func listedOf(violations Declared[Violation]) Declared[Violation] {
@@ -48,11 +54,11 @@ func checkRunViolationsFrom(listed Declared[Violation]) []CheckRunViolation {
 	return carried
 }
 
-func undecidedCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+func undecidedPresentation(decided FamilyDecision) runPresentation {
 	if decided.FailurePosture() == FailurePostureOpen {
-		return admittedWithoutDecisionCheckRun(decided, id)
+		return admittedWithoutDecisionPresentation(decided)
 	}
-	return policyErrorCheckRun(decided, id)
+	return policyErrorPresentation(decided)
 }
 
 const (
@@ -61,12 +67,13 @@ const (
 		"because it fails open."
 )
 
-func admittedWithoutDecisionCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+func admittedWithoutDecisionPresentation(decided FamilyDecision) runPresentation {
 	return runPresentation{
 		conclusion: ConclusionNeutral,
+		verdict:    VerdictAdmitted,
 		title:      admittedWithoutDecisionTitle,
 		headline:   fmt.Sprintf(admittedWithoutDecisionLayout, decided.Family),
-	}.checkRunFor(decided.Family, id)
+	}
 }
 
 const (
@@ -74,16 +81,18 @@ const (
 	policyErrorLayout = "Policy %s failed to evaluate. This is not a problem with your change."
 )
 
-func policyErrorCheckRun(decided FamilyDecision, id DecisionID) CheckRun {
+func policyErrorPresentation(decided FamilyDecision) runPresentation {
 	return runPresentation{
 		conclusion: ConclusionFailure,
+		verdict:    VerdictRefused,
 		title:      policyErrorTitle,
 		headline:   fmt.Sprintf(policyErrorLayout, decided.Family),
-	}.checkRunFor(decided.Family, id)
+	}
 }
 
 type runPresentation struct {
 	conclusion Conclusion
+	verdict    Verdict
 	title      string
 	headline   string
 }

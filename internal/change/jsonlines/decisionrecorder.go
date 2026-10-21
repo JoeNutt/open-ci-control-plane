@@ -16,6 +16,7 @@ var (
 	ErrNoRecordOutput             = errors.New("decision recorder has nowhere to write")
 	ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decision identifier")
 	ErrUnclassifiedOutcome        = errors.New("decision outcome has no class in the HTTP contract")
+	ErrUnstatedVerdict            = errors.New("decision verdict has no word in the HTTP contract")
 )
 
 type DecisionRecorder struct {
@@ -57,11 +58,15 @@ func publishedRecordOf(record domain.DecisionRecord) (publishedRecord, error) {
 	if err != nil {
 		return publishedRecord{}, err
 	}
+	verdict, err := publishedVerdictOf(record.Verdict())
+	if err != nil {
+		return publishedRecord{}, err
+	}
 	return publishedRecord{
 		DecisionID:       record.DecisionID().String(),
 		BundleRevision:   publishedRevisionOf(record.Revision()),
 		OutcomeClass:     class,
-		Verdict:          "refuse",
+		Verdict:          verdict,
 		MaskedInput:      record.MaskedInput(),
 		RedactedPointers: domain.Declared[string](record.MaskedInput().RedactedPointers()),
 	}, nil
@@ -80,6 +85,20 @@ func outcomeClassOf(outcome domain.Outcome) (string, error) {
 		return "", fmt.Errorf("%w: %q", ErrUnclassifiedOutcome, outcome)
 	}
 	return class, nil
+}
+
+var publishedVerdictByVerdict = map[domain.Verdict]string{
+	domain.VerdictAdmitted:       "admit",
+	domain.VerdictRefused:        "refuse",
+	domain.VerdictReviewRequired: "review",
+}
+
+func publishedVerdictOf(verdict domain.Verdict) (string, error) {
+	published, isStated := publishedVerdictByVerdict[verdict]
+	if !isStated {
+		return "", fmt.Errorf("%w: %q", ErrUnstatedVerdict, verdict)
+	}
+	return published, nil
 }
 
 func publishedRevisionOf(revision domain.BundleRevision) *string {
