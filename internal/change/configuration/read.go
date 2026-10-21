@@ -25,6 +25,7 @@ const (
 	installationIDs   item = "installationIds"
 	families          item = "families"
 	listenAddress     item = "listenAddress"
+	appID             item = "appId"
 )
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -35,6 +36,7 @@ type Configuration struct {
 	installationIDs []int64
 	families        []domain.PolicyFamily
 	listenAddress   netip.AddrPort
+	appID           int64
 }
 
 type statedConfiguration struct {
@@ -88,10 +90,7 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
 	named, familiesErr := familiesIn(stated.Families)
 	listening, listenErr := listenAddressIn(stated.ListenAddress)
-	var appErr error
-	if stated.AppID == nil {
-		appErr = fmt.Errorf("%w: appId", ErrMissingItem)
-	}
+	app, appErr := appIDIn(stated.AppID)
 	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr, appErr); err != nil {
 		return Configuration{}, err
 	}
@@ -101,5 +100,6 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 		installationIDs: installations,
 		families:        named,
 		listenAddress:   listening,
+		appID:           app,
 	}, nil
 }
