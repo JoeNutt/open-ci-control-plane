@@ -15,7 +15,7 @@ import (
 )
 
 func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
-	delivery := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", strings.NewReader(`{}`))
+	delivery := eventDelivery(`{}`)
 	delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
 	answered := httptest.NewRecorder()
 
@@ -30,7 +30,7 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 }
 
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
-	delivery := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", strings.NewReader(`{}`))
+	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer
 
 	httpapi.Routes(slog.New(slog.NewJSONHandler(&logged, nil))).ServeHTTP(hungUpForge{}, delivery)
@@ -49,5 +49,9 @@ func (hungUpForge) Header() http.Header { return http.Header{} }
 func (hungUpForge) Write([]byte) (int, error) { return 0, hangUp }
 
 func (hungUpForge) WriteHeader(int) {}
+
+func eventDelivery(body string) *http.Request {
+	return httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", strings.NewReader(body))
+}
 
 func discardedLog() *slog.Logger { return slog.New(slog.DiscardHandler) }
