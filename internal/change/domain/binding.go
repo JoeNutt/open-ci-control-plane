@@ -22,6 +22,9 @@ type Binding struct {
 }
 
 func ParseBinding(stated BindingStatement) (Binding, error) {
+	if breach := bindingBoundBreachIn(stated); breach != nil {
+		return Binding{}, fmt.Errorf("binding: %w", breach)
+	}
 	repository, err := ParseGovernedRepository(stated.Repository)
 	if err != nil {
 		return Binding{}, fmt.Errorf("binding: %w", err)
