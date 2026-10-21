@@ -24,19 +24,11 @@ func ParseBinding(stated BindingStatement) (Binding, error) {
 	if err != nil {
 		return Binding{}, fmt.Errorf("binding: %w", err)
 	}
-	workflow, err := ParseWorkflowFile(stated.Workflow)
+	binding, err := parseBindingFor(repository, stated)
 	if err != nil {
 		return Binding{}, fmt.Errorf("binding for %s: %w", repository, err)
 	}
-	var alwaysRun []GoImportPath
-	for _, s := range stated.AlwaysRun {
-		p, err := ParseGoImportPath(s)
-		if err != nil {
-			return Binding{}, fmt.Errorf("binding for %s: %w", repository, err)
-		}
-		alwaysRun = append(alwaysRun, p)
-	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun}, nil
+	return binding, nil
 }
 
 func (binding Binding) Repository() GovernedRepository { return binding.repository }
@@ -44,3 +36,27 @@ func (binding Binding) Repository() GovernedRepository { return binding.reposito
 func (binding Binding) Workflow() WorkflowFile { return binding.workflow }
 
 func (binding Binding) AlwaysRun() []GoImportPath { return slices.Clone(binding.alwaysRun) }
+
+func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
+	workflow, err := ParseWorkflowFile(stated.Workflow)
+	if err != nil {
+		return Binding{}, err
+	}
+	alwaysRun, err := goImportPathsOf(stated.AlwaysRun)
+	if err != nil {
+		return Binding{}, fmt.Errorf("always-run suite: %w", err)
+	}
+	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun}, nil
+}
+
+func goImportPathsOf(stated []string) ([]GoImportPath, error) {
+	paths := make([]GoImportPath, 0, len(stated))
+	for _, written := range stated {
+		path, err := ParseGoImportPath(written)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	return paths, nil
+}
