@@ -52,8 +52,8 @@ func bindingIn(content []byte) (domain.Binding, error) {
 }
 
 func bindingStatementOf(document bindingDocument) (domain.BindingStatement, error) {
-	if !isReadSchemaVersion(document.SchemaVersion) {
-		return domain.BindingStatement{}, fmt.Errorf("%w: want %d", ErrUnsupportedSchemaVersion, readSchemaVersion)
+	if err := refuseUnreadSchemaVersion(document.SchemaVersion); err != nil {
+		return domain.BindingStatement{}, err
 	}
 	policies, err := boundPolicyStatementsOf(document.Policies)
 	if err != nil {
