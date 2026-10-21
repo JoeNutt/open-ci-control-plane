@@ -34,7 +34,8 @@ func ImportsIn(source []byte) ([]string, error) {
 func importPathOf(declared *ast.ImportSpec) (string, error) {
 	imported, err := strconv.Unquote(declared.Path.Value)
 	if err != nil {
-		return "", fmt.Errorf("unquote an import path: %w", err)
+		return "", fmt.Errorf("%w: an import path is not a string literal: %w",
+			ErrUnparsableSource, err)
 	}
 	return imported, nil
 }
