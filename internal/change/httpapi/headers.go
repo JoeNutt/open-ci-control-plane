@@ -37,14 +37,14 @@ var requiredHeaders = []headerRule{
 	{name: deliveryHeader, maxBytes: maxDeliveryBytes, characters: deliveryCharacters},
 }
 
-func headerProblemIn(stated http.Header) (fieldProblem, bool) {
+func deliveryIn(stated http.Header) (delivery, refusal) {
 	if absent := slices.IndexFunc(requiredHeaders, isAbsentFrom(stated)); absent >= 0 {
-		return missingHeaderProblem(requiredHeaders[absent].name), true
+		return delivery{}, missingHeaderProblem(requiredHeaders[absent].name)
 	}
 	if malformed := slices.IndexFunc(requiredHeaders, isMalformedIn(stated)); malformed >= 0 {
-		return malformedHeaderProblem(requiredHeaders[malformed].name), true
+		return delivery{}, malformedHeaderProblem(requiredHeaders[malformed].name)
 	}
-	return fieldProblem{}, false
+	return delivery{event: stated.Get(eventHeader), id: stated.Get(deliveryHeader)}, nil
 }
 
 func isAbsentFrom(stated http.Header) func(headerRule) bool {

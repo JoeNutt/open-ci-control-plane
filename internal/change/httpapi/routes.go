@@ -34,15 +34,16 @@ type events struct {
 }
 
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	if refusal, isRefused := headerProblemIn(asked.Header); isRefused {
-		receiving.refuse(asked.Context(), answer, refusal)
+	received, refused := deliveryIn(asked.Header)
+	if refused != nil {
+		receiving.refuse(asked.Context(), answer, refused)
 		return
 	}
-	if refusal, isRefused := lengthProblemIn(asked.ContentLength); isRefused {
-		receiving.refuse(asked.Context(), answer, refusal)
+	if refused := lengthRefusalOf(asked.ContentLength); refused != nil {
+		receiving.refuse(asked.Context(), answer, refused)
 		return
 	}
-	receiving.check.ServeHTTP(answer, asked)
+	receiving.check.ServeHTTP(answer, withDelivery(asked, received))
 }
 
 func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
@@ -57,12 +58,4 @@ type admitted struct{}
 
 func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
 	answer.WriteHeader(http.StatusNoContent)
-}
-
-type refusals struct{ log *slog.Logger }
-
-func (logging refusals) RecordRefusal(refused *http.Request, reason error) {
-	logging.log.LogAttrs(refused.Context(), slog.LevelWarn, "delivery refused",
-		slog.String("deliveryId", refused.Header.Get(deliveryHeader)),
-		slog.String("reason", reason.Error()))
 }
