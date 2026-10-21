@@ -9,13 +9,18 @@ type DecisionRecord struct {
 	revision   BundleRevision
 }
 
-func RecordFor(decided FamilyDecision, document Document, id DecisionID) (DecisionRecord, error) {
-	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision()}, nil
+func RecordFor(decided FamilyDecision, id DecisionID) DecisionRecord {
+	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision()}
 }
 
 func (record DecisionRecord) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		DecisionID     string `json:"decisionId"`
-		BundleRevision string `json:"bundleRevision"`
-	}{record.decisionID.String(), record.revision.String()})
+	return json.Marshal(publishedRecord{
+		DecisionID:     record.decisionID.String(),
+		BundleRevision: record.revision.String(),
+	})
+}
+
+type publishedRecord struct {
+	DecisionID     string `json:"decisionId"`
+	BundleRevision string `json:"bundleRevision"`
 }
