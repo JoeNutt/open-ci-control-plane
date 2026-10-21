@@ -81,6 +81,19 @@ const silentPolicy = `package ci.security
 other := true
 `
 
+func TestADecisionCarriesTheRevisionItsBundleDeclares(t *testing.T) {
+	engine := engineFor(t, decidingPolicy, domain.PolicyFamilySecurity)
+
+	decided, err := engine.Decide(context.Background(), domain.Document{})
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if decided.Revision().String() != bundleRevision {
+		t.Errorf("revision is %q, want %q", decided.Revision(), bundleRevision)
+	}
+}
+
 func TestAPolicyThatDoesNotDecideIsUndefinedNotAFault(t *testing.T) {
 	engine := engineFor(t, silentPolicy, domain.PolicyFamilySecurity)
 
