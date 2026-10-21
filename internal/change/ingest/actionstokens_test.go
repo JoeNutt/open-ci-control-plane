@@ -38,7 +38,7 @@ var issuedAt = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 
 func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 	complete := ingest.ActionsTokenSettings{
-		Issuer: "https://token.actions.githubusercontent.com", Audience: instanceURL, Client: &http.Client{}, Now: time.Now}
+		Issuer: "https://token.actions.githubusercontent.com", Audience: instanceURL, Client: &http.Client{Timeout: time.Second}, Now: time.Now}
 	for form, without := range map[string]func(ingest.ActionsTokenSettings) ingest.ActionsTokenSettings{
 		"no issuer": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
 			settings.Issuer = ""
@@ -50,6 +50,10 @@ func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 		},
 		"no client": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
 			settings.Client = nil
+			return settings
+		},
+		"no timeout on the client": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Client = &http.Client{}
 			return settings
 		},
 		"no clock": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
@@ -75,7 +79,7 @@ func TestParseActionsTokensRefusesAnIssuerOrAudienceThatIsNotAnHTTPSURL(t *testi
 		"audience not a URL":  {Issuer: "https://token.actions.githubusercontent.com", Audience: "control-plane"},
 	} {
 		t.Run(form, func(t *testing.T) {
-			malformed.Client, malformed.Now = &http.Client{}, time.Now
+			malformed.Client, malformed.Now = &http.Client{Timeout: time.Second}, time.Now
 
 			_, err := ingest.ParseActionsTokens(malformed)
 
@@ -373,13 +377,19 @@ func (minted *issuer) tokensFor(t *testing.T, audience string) *ingest.ActionsTo
 	tokens, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
 		Issuer:   minted.server.URL,
 		Audience: audience,
-		Client:   minted.server.Client(),
+		Client:   minted.timedClient(),
 		Now:      minted.now,
 	})
 	if err != nil {
 		t.Fatalf("configure token verification: %v", err)
 	}
 	return tokens
+}
+
+func (minted *issuer) timedClient() *http.Client {
+	client := minted.server.Client()
+	client.Timeout = 5 * time.Second
+	return client
 }
 
 func (minted *issuer) claims(repository string) *jwt.Builder {
