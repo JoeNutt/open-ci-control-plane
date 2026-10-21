@@ -12,13 +12,15 @@ import (
 
 var ErrMalformedAppKey = errors.New("the App key is not one PEM-encoded PKCS#1 RSA private key")
 
+const pkcs1PrivateKeyBlock = "RSA PRIVATE KEY"
+
 type AppKey struct {
 	key *rsa.PrivateKey
 }
 
 func ParseAppKey(encoded []byte) (AppKey, error) {
 	block, rest := pem.Decode(encoded)
-	if block == nil || block.Type != "RSA PRIVATE KEY" || len(rest) != 0 {
+	if !isOnePKCS1Block(block, rest) {
 		return AppKey{}, ErrMalformedAppKey
 	}
 	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
@@ -26,4 +28,8 @@ func ParseAppKey(encoded []byte) (AppKey, error) {
 		return AppKey{}, fmt.Errorf("%w: %w", ErrMalformedAppKey, err)
 	}
 	return AppKey{key: key}, nil
+}
+
+func isOnePKCS1Block(block *pem.Block, rest []byte) bool {
+	return block != nil && block.Type == pkcs1PrivateKeyBlock && len(rest) == 0
 }

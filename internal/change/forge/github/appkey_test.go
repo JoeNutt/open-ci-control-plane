@@ -14,8 +14,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
-const pkcs1BlockType = "RSA PRIVATE KEY"
-
 var forgeRSAKey = sync.OnceValue(func() *rsa.PrivateKey {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -29,7 +27,17 @@ func pemOf(blockType string, der []byte) []byte {
 }
 
 func forgeAppKeyPEM() []byte {
-	return pemOf(pkcs1BlockType, x509.MarshalPKCS1PrivateKey(forgeRSAKey()))
+	return pemOf(github.PKCS1PrivateKeyBlock, x509.MarshalPKCS1PrivateKey(forgeRSAKey()))
+}
+
+func forgeAppKey(t *testing.T) github.AppKey {
+	t.Helper()
+
+	key, err := github.ParseAppKey(forgeAppKeyPEM())
+	if err != nil {
+		t.Fatalf("parse the App key: %v", err)
+	}
+	return key
 }
 
 func TestParseAppKeyRefusesWhatIsNotAPKCS1RSAPrivateKey(t *testing.T) {
@@ -42,7 +50,7 @@ func TestParseAppKeyRefusesWhatIsNotAPKCS1RSAPrivateKey(t *testing.T) {
 		"not PEM":               []byte("not a key"),
 		"a PKCS#8 block":        pemOf("PRIVATE KEY", pkcs8),
 		"a public key":          pemOf("RSA PUBLIC KEY", x509.MarshalPKCS1PublicKey(&forgeRSAKey().PublicKey)),
-		"garbage in the block":  pemOf(pkcs1BlockType, []byte("garbage")),
+		"garbage in the block":  pemOf(github.PKCS1PrivateKeyBlock, []byte("garbage")),
 		"bytes after the block": append(forgeAppKeyPEM(), "trailing"...),
 		"two blocks":            append(forgeAppKeyPEM(), forgeAppKeyPEM()...),
 	}

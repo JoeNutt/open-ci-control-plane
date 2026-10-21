@@ -4,13 +4,10 @@ package github_test
 
 import (
 	"crypto"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,23 +25,12 @@ type appJWTClaims struct {
 }
 
 func TestAnAppJWTIsSignedRS256AndNamesTheAppForUnderTenMinutes(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	appKey, err := github.ParseAppKey(pem.EncodeToMemory(&pem.Block{
-		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}))
-	if err != nil {
-		t.Fatalf("parse the App key: %v", err)
-	}
-
-	minted, err := github.AppJWTAt(appKey, forgeAppID, mintedAt)
+	minted, err := github.AppJWTAt(forgeAppKey(t), forgeAppID, mintedAt)
 
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}
-	claims := verifiedClaimsOf(t, minted, &key.PublicKey)
+	claims := verifiedClaimsOf(t, minted, &forgeRSAKey().PublicKey)
 	if claims.Issuer != strconv.Itoa(forgeAppID) {
 		t.Errorf("iss is %q, want the App ID %d", claims.Issuer, forgeAppID)
 	}
