@@ -41,14 +41,20 @@ func (useCase GateChange) Execute(
 func (useCase GateChange) record(
 	ctx context.Context, decided domain.FamilyDecision, document domain.Document, id domain.DecisionID,
 ) error {
-	record, err := domain.RecordFor(decided, document, id)
-	if err != nil {
-		return fmt.Errorf("record %s: %w", decided.Family, err)
-	}
-	if err := useCase.Recorder.RecordDecision(ctx, record); err != nil {
+	if err := useCase.writeRecordOf(ctx, decided, document, id); err != nil {
 		return fmt.Errorf("record %s: %w", decided.Family, err)
 	}
 	return nil
+}
+
+func (useCase GateChange) writeRecordOf(
+	ctx context.Context, decided domain.FamilyDecision, document domain.Document, id domain.DecisionID,
+) error {
+	record, err := domain.RecordFor(decided, document, id)
+	if err != nil {
+		return err
+	}
+	return useCase.Recorder.RecordDecision(ctx, record)
 }
 
 func (useCase GateChange) publish(
