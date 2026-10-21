@@ -3,6 +3,7 @@
 package policy_test
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -10,13 +11,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
-	written, err := os.ReadFile("testdata/catalog/clean-architecture.yaml")
-	if err != nil {
-		t.Fatalf("read fixture: %v", err)
-	}
+const liveCatalogPath = "testdata/catalog/clean-architecture.yaml"
 
-	parsed, err := policy.ParseCatalogFile(written)
+func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
+	parsed, err := policy.ParseCatalogFile(fixture(t, liveCatalogPath))
 	if err != nil {
 		t.Fatalf("parse catalog file: %v", err)
 	}
@@ -30,4 +28,30 @@ func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
 	if len(groups) != 4 || groups[3].Name().String() != "driver" || groups[3].Order() != 3 {
 		t.Errorf("groups are %v, want four ending in driver at 3", groups)
 	}
+}
+
+func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
+	refused := map[string]struct {
+		written string
+		reason  error
+	}{
+		"not yaml at all": {written: "name: [clean\n", reason: policy.ErrMalformedPolicyFile},
+	}
+	for form, refusal := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := policy.ParseCatalogFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
+				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
+			}
+		})
+	}
+}
+
+func fixture(t *testing.T, path string) []byte {
+	t.Helper()
+
+	written, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	return written
 }
