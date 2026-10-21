@@ -20,6 +20,9 @@ func TestParseCatalogPolicyKeepsWhatItStates(t *testing.T) {
 	if policy.Rule() != domain.DirectionRule {
 		t.Errorf("rule is %v, want the direction rule", policy.Rule())
 	}
+	if policy.Direction() != domain.LowerOrderMayNotImportHigher {
+		t.Errorf("direction is %v, want lower order may not import higher", policy.Direction())
+	}
 }
 
 func TestParseCatalogPolicyKeepsItsGroupsInOrder(t *testing.T) {
@@ -62,6 +65,10 @@ func TestParseCatalogPolicyRefusesAPolicyItCannotTrust(t *testing.T) {
 			stated: func(s *domain.CatalogPolicyStatement) { s.Rule = domain.PolicyRule(0) },
 			reason: domain.ErrUnknownPolicyRule,
 		},
+		"no direction": {
+			stated: func(s *domain.CatalogPolicyStatement) { s.Direction = domain.PolicyDirection(0) },
+			reason: domain.ErrUnknownPolicyDirection,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
@@ -76,8 +83,9 @@ func TestParseCatalogPolicyRefusesAPolicyItCannotTrust(t *testing.T) {
 
 func cleanArchitecture() domain.CatalogPolicyStatement {
 	return domain.CatalogPolicyStatement{
-		Name:   "clean-architecture",
-		Rule:   domain.DirectionRule,
-		Groups: []domain.GroupStatement{{Name: "domain", Order: 0}, {Name: "adapter", Order: 2}},
+		Name:      "clean-architecture",
+		Rule:      domain.DirectionRule,
+		Direction: domain.LowerOrderMayNotImportHigher,
+		Groups:    []domain.GroupStatement{{Name: "domain", Order: 0}, {Name: "adapter", Order: 2}},
 	}
 }
