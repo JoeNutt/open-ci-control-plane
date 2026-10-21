@@ -19,6 +19,8 @@ var ErrSecondDocument = errors.New("policy file holds more than one YAML documen
 
 var ErrUnsupportedSchemaVersion = errors.New("policy file states no schema version this control plane reads")
 
+var ErrMissingKey = errors.New("policy file omits a key it must state")
+
 const readSchemaVersion = 1
 
 type policyDocument interface {

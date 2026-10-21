@@ -26,7 +26,7 @@ type catalogDocument struct {
 
 type catalogGroupEntry struct {
 	Name  string `yaml:"name"`
-	Order int    `yaml:"order"`
+	Order *int   `yaml:"order"`
 }
 
 func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
@@ -62,18 +62,25 @@ func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement
 		return domain.CatalogPolicyStatement{}, fmt.Errorf("%w: %d bytes",
 			domain.ErrUnknownPolicyDirection, len(document.Direction))
 	}
+	groups, err := groupStatementsOf(document.Groups)
+	if err != nil {
+		return domain.CatalogPolicyStatement{}, err
+	}
 	return domain.CatalogPolicyStatement{
 		Name:      document.Name,
 		Rule:      rule,
 		Direction: direction,
-		Groups:    groupStatementsOf(document.Groups),
+		Groups:    groups,
 	}, nil
 }
 
-func groupStatementsOf(entries []catalogGroupEntry) []domain.GroupStatement {
+func groupStatementsOf(entries []catalogGroupEntry) ([]domain.GroupStatement, error) {
 	groups := make([]domain.GroupStatement, 0, len(entries))
 	for _, entry := range entries {
-		groups = append(groups, domain.GroupStatement{Name: entry.Name, Order: entry.Order})
+		if entry.Order == nil {
+			return nil, ErrMissingKey
+		}
+		groups = append(groups, domain.GroupStatement{Name: entry.Name, Order: *entry.Order})
 	}
-	return groups
+	return groups, nil
 }
