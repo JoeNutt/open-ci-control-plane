@@ -73,6 +73,26 @@ func TestReportedFilesInAcceptsAnArtifactExpandingToTheBound(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInRefusesABrokenGzipStream(t *testing.T) {
+	whole := gzipped(t, strings.NewReader(record(effectPath, lineHit))).Bytes()
+	refused := map[string][]byte{
+		"a corrupt header":   []byte("\x1f\x8bnot a gzip header"),
+		"a truncated stream": whole[:len(whole)/2],
+	}
+
+	for form, body := range refused {
+		t.Run(form, func(t *testing.T) {
+			artifact := lcov.Artifact{DeclaredBytes: int64(len(body)), Body: bytes.NewReader(body)}
+
+			_, err := lcov.ReportedFilesIn(artifact, domain.DeclaredCoverageLimits())
+
+			if !errors.Is(err, lcov.ErrMalformedArtifact) {
+				t.Fatalf("want ErrMalformedArtifact, got %v", err)
+			}
+		})
+	}
+}
+
 func TestReportedFilesInRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	compressed := gzipped(t, paddedRecord(limits.MaxDecompressedBytes+1))
