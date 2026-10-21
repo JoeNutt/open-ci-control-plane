@@ -79,6 +79,9 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
+	if reading.isRecordOpen {
+		return errors.New("nested")
+	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
 		return err
@@ -92,6 +95,9 @@ func (reading *recordReading) openRecord(path string) error {
 var errUnreadableLineData = errors.New("line data is not a line number and an execution count")
 
 func (reading *recordReading) countExecutions(lineData string) error {
+	if !reading.isRecordOpen {
+		return errors.New("outside")
+	}
 	fields := strings.Split(lineData, lineDataSeparator)
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
@@ -105,6 +111,9 @@ func (reading *recordReading) countExecutions(lineData string) error {
 }
 
 func (reading *recordReading) closeRecord(string) error {
+	if !reading.isRecordOpen {
+		return errors.New("outside")
+	}
 	reading.reported = append(reading.reported,
 		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	reading.isRecordOpen = false

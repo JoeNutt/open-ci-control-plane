@@ -62,6 +62,24 @@ func TestReportedFilesInRefusesAnArtifactWithNoRecord(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInRefusesARecordOutOfOrder(t *testing.T) {
+	refused := map[string]string{
+		"line data before any record":    "DA:7,3\nSF:internal/change/domain/effect.go\nend_of_record\n",
+		"a record opened inside another": "SF:internal/change/domain/effect.go\nSF:internal/change/domain/gate.go\nend_of_record\n",
+		"a record closed twice":          "SF:internal/change/domain/effect.go\nend_of_record\nend_of_record\n",
+	}
+
+	for form, artifact := range refused {
+		t.Run(form, func(t *testing.T) {
+			_, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+
+			if !errors.Is(err, lcov.ErrMalformedArtifact) {
+				t.Fatalf("want ErrMalformedArtifact, got %v", err)
+			}
+		})
+	}
+}
+
 func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
 	t.Helper()
 
