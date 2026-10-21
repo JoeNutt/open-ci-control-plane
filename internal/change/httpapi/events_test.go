@@ -205,6 +205,29 @@ func TestAnOpenedPullRequestIsHandedToTheGateAndAccepted(t *testing.T) {
 	}
 }
 
+func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing.T) {
+	unparseable := map[string]string{
+		"no number":         `{"action":"opened","repository":{"full_name":"JoeNutt/open-ci-control-plane"},"installation":{"id":41}}`,
+		"no repository":     `{"action":"opened","number":7,"installation":{"id":41}}`,
+		"a repository path": `{"action":"opened","number":7,"repository":{"full_name":"../etc"},"installation":{"id":41}}`,
+	}
+	for form, payload := range unparseable {
+		t.Run(form, func(t *testing.T) {
+			gate := &recordingGate{}
+			answered := httptest.NewRecorder()
+
+			routedWith(t, discardedLog(), gate).ServeHTTP(answered, signedDelivery("pull_request", payload))
+
+			if answered.Code != http.StatusBadRequest {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusBadRequest)
+			}
+			if len(gate.evaluated) != 0 {
+				t.Errorf("the gate evaluated %v", gate.evaluated)
+			}
+		})
+	}
+}
+
 func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
 	var logged bytes.Buffer
 
