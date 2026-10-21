@@ -68,18 +68,18 @@ func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 	configured := readConfiguration(t, completeItems(t))
 
-	if configured.WebhookSecret() != statedWebhookSecret {
+	if string(configured.WebhookSecret().Reveal()) != statedWebhookSecret {
 		t.Error("the webhook secret is not the content of the file the configuration names")
 	}
 }
 
 func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
 	stated := completeItems(t)
-	stated[webhookSecretFileKey] = quoted(t, writtenFile(t, "webhook-secret", string(statedWebhookSecret)+"\n"))
+	stated[webhookSecretFileKey] = quoted(t, writtenFile(t, "webhook-secret", statedWebhookSecret+"\n"))
 
 	configured := readConfiguration(t, stated)
 
-	if configured.WebhookSecret() != statedWebhookSecret {
+	if string(configured.WebhookSecret().Reveal()) != statedWebhookSecret {
 		t.Error("the trailing line break was taken as part of the webhook secret")
 	}
 }

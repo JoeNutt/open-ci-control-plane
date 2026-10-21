@@ -65,9 +65,7 @@ func (configured Configuration) AppID() int64 { return configured.appID }
 
 func (configured Configuration) AppKey() Secret { return configured.appKey }
 
-func (configured Configuration) WebhookSecret() domain.WebhookSecret {
-	return domain.WebhookSecret(configured.webhookSecret.Reveal())
-}
+func (configured Configuration) WebhookSecret() Secret { return configured.webhookSecret }
 
 func (configured Configuration) InstallationIDs() []int64 {
 	return slices.Clone(configured.installationIDs)

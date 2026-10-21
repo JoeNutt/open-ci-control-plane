@@ -31,7 +31,7 @@ const (
 	statedListenAddress  = "127.0.0.1:8080"
 	statedAppID          = 1_204_331
 	statedInstallationID = 52_311_907
-	statedWebhookSecret  = domain.WebhookSecret("s3cret")
+	statedWebhookSecret  = "s3cret"
 	statedAppKeyBody     = "c3RhdGVkIGtleQ"
 	statedAppKey         = "-----BEGIN RSA PRIVATE KEY-----\n" + statedAppKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
 )
@@ -120,12 +120,13 @@ func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
 		"the configuration":              configured,
 		"a pointer to the configuration": &configured,
 		"the App key":                    configured.AppKey(),
+		"the webhook secret":             configured.WebhookSecret(),
 	}
 
 	for name, value := range held {
 		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%d", "%x", "%X", "%q", "%p", "%+d", "%#x"} {
 			printed := fmt.Sprintf(verb, value)
-			for _, form := range printedFormsOf(string(statedWebhookSecret), statedAppKeyBody) {
+			for _, form := range printedFormsOf(statedWebhookSecret, statedAppKeyBody) {
 				if strings.Contains(printed, form) {
 					t.Errorf("%s under %s prints a secret as %q: %s", name, verb, form, printed)
 				}
@@ -156,7 +157,7 @@ func completeItems(t *testing.T) statedItems {
 		listenAddressKey:     quoted(t, statedListenAddress),
 		appIDKey:             number(statedAppID),
 		appKeyFileKey:        quoted(t, writtenFile(t, "app-key.pem", statedAppKey)),
-		webhookSecretFileKey: quoted(t, writtenFile(t, "webhook-secret", string(statedWebhookSecret))),
+		webhookSecretFileKey: quoted(t, writtenFile(t, "webhook-secret", statedWebhookSecret)),
 		installationIDsKey:   listOf(number(statedInstallationID)),
 		familiesKey:          listOf(quoted(t, string(domain.PolicyFamilyStructural))),
 	}
