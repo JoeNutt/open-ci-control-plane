@@ -2,12 +2,28 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrTooManyImportsInChange = errors.New("change exceeds the per-change import bound")
 
 type StructuralFacts struct{}
 
 func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFacts, error) {
-	return StructuralFacts{}, ErrTooManyImportsInChange
+	published := headImportCountOf(imported)
+	if published > limits.MaxImportsPerChange {
+		return StructuralFacts{}, fmt.Errorf("%w: %d imports exceeds %d",
+			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
+	}
+	return StructuralFacts{}, nil
+}
+
+func headImportCountOf(imported []ImportedFile) int {
+	count := 0
+	for _, file := range imported {
+		count += len(file.Head.imports)
+	}
+	return count
 }
