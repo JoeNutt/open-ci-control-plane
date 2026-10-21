@@ -8,9 +8,15 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const (
+	heldFile      = "internal/change/domain/effect.go"
+	otherHeldFile = "internal/change/domain/gate.go"
+	absentFile    = "internal/change/domain/missing.go"
+)
+
 func TestKnownPathsContainOnlyWhatTheRepositoryHolds(t *testing.T) {
-	held := mustParseRepositoryPath(t, "internal/change/domain/effect.go")
-	absent := mustParseRepositoryPath(t, "internal/change/domain/missing.go")
+	held := mustParseRepositoryPath(t, heldFile)
+	absent := mustParseRepositoryPath(t, absentFile)
 
 	known := domain.NewKnownPaths([]domain.RepositoryPath{held})
 
