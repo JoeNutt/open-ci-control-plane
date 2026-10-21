@@ -18,43 +18,23 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(writtenFile(t, `{}`))
-
-	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
-		t.Fatalf("refusal is not a missing webhookSecretFile: %v", err)
+func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
+	removals := map[string]func(*statedItems){
+		"webhookSecretFile": func(stated *statedItems) { stated.WebhookSecretFile = "" },
+		"appKeyFile":        func(stated *statedItems) { stated.AppKeyFile = "" },
+		"installationIds":   func(stated *statedItems) { stated.InstallationIDs = nil },
+		"families":          func(stated *statedItems) { stated.Families = nil },
+		"listenAddress":     func(stated *statedItems) { stated.ListenAddress = "" },
 	}
-}
+	for item, remove := range removals {
+		t.Run(item, func(t *testing.T) {
+			stated := completeItems(t)
+			remove(&stated)
 
-func TestAConfigurationWithoutTheAppKeyIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(writtenFile(t, `{}`))
+			_, err := configuration.Read(configurationFile(t, stated))
 
-	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "appKeyFile") {
-		t.Fatalf("refusal is not a missing appKeyFile: %v", err)
-	}
-}
-
-func TestAConfigurationWithoutTheInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(writtenFile(t, `{}`))
-
-	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "installationIds") {
-		t.Fatalf("refusal is not a missing installationIds: %v", err)
-	}
-}
-
-func TestAConfigurationNamingNoPolicyFamilyIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(writtenFile(t, `{}`))
-
-	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "families") {
-		t.Fatalf("refusal is not a missing families: %v", err)
-	}
-}
-
-func TestAConfigurationWithoutAListenAddressIsRefusedNamingIt(t *testing.T) {
-	_, err := configuration.Read(writtenFile(t, `{}`))
-
-	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "listenAddress") {
-		t.Fatalf("refusal is not a missing listenAddress: %v", err)
+			assertRefusedNaming(t, err, configuration.ErrMissingItem, item)
+		})
 	}
 }
 
@@ -95,9 +75,7 @@ func TestAWebhookSecretFileAboveTheBoundIsRefused(t *testing.T) {
 func TestAnEmptyWebhookSecretFileIsRefusedNamingIt(t *testing.T) {
 	_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, "")}))
 
-	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
-		t.Fatalf("refusal is not an invalid webhookSecretFile: %v", err)
-	}
+	assertRefusedNaming(t, err, configuration.ErrInvalidItem, "webhookSecretFile")
 }
 
 func TestOneTrailingLineBreakEndsTheSecretFileAndIsNotPartOfTheSecret(t *testing.T) {
@@ -124,9 +102,7 @@ func TestAWebhookSecretHoldingAByteOutsidePrintableASCIIIsRefused(t *testing.T) 
 		t.Run(form, func(t *testing.T) {
 			_, err := configuration.Read(configurationFile(t, statedItems{WebhookSecretFile: writtenFile(t, secret)}))
 
-			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
-				t.Fatalf("refusal is not an invalid webhookSecretFile: %v", err)
-			}
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "webhookSecretFile")
 		})
 	}
 }
@@ -172,9 +148,7 @@ func TestAnInvalidInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
 
 			_, err := configuration.Read(configurationFile(t, stated))
 
-			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "installationIds") {
-				t.Fatalf("refusal is not an invalid installationIds: %v", err)
-			}
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "installationIds")
 		})
 	}
 }
@@ -207,9 +181,7 @@ func TestAnUnknownOrRepeatedPolicyFamilyIsRefusedNamingIt(t *testing.T) {
 
 			_, err := configuration.Read(configurationFile(t, stated))
 
-			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "families") {
-				t.Fatalf("refusal is not an invalid families: %v", err)
-			}
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "families")
 		})
 	}
 }
@@ -244,9 +216,7 @@ func TestAListenAddressOffLoopbackOrWithoutAPortIsRefusedNamingIt(t *testing.T) 
 
 			_, err := configuration.Read(configurationFile(t, stated))
 
-			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "listenAddress") {
-				t.Fatalf("refusal is not an invalid listenAddress: %v", err)
-			}
+			assertRefusedNaming(t, err, configuration.ErrInvalidItem, "listenAddress")
 		})
 	}
 }
@@ -257,9 +227,7 @@ func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 
 	_, err := configuration.Read(configurationFile(t, stated))
 
-	if !errors.Is(err, configuration.ErrOversizedFile) || !strings.Contains(err.Error(), "appKeyFile") {
-		t.Fatalf("refusal is not an oversized appKeyFile: %v", err)
-	}
+	assertRefusedNaming(t, err, configuration.ErrOversizedFile, "appKeyFile")
 }
 
 func TestAnEmptyAppKeyFileIsRefusedNamingIt(t *testing.T) {
@@ -268,9 +236,7 @@ func TestAnEmptyAppKeyFileIsRefusedNamingIt(t *testing.T) {
 
 	_, err := configuration.Read(configurationFile(t, stated))
 
-	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "appKeyFile") {
-		t.Fatalf("refusal is not an invalid appKeyFile: %v", err)
-	}
+	assertRefusedNaming(t, err, configuration.ErrInvalidItem, "appKeyFile")
 }
 
 func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
@@ -346,6 +312,13 @@ func configurationFile(t *testing.T, stated statedItems) string {
 		t.Fatalf("encode the configuration: %v", err)
 	}
 	return writtenFile(t, string(content))
+}
+
+func assertRefusedNaming(t *testing.T, err error, refusal error, item string) {
+	t.Helper()
+	if !errors.Is(err, refusal) || !strings.Contains(err.Error(), item) {
+		t.Fatalf("refusal is not %v naming %s: %v", refusal, item, err)
+	}
 }
 
 func writtenFile(t *testing.T, content string) string {
