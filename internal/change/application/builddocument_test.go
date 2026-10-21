@@ -50,8 +50,10 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	)
 
 	useCase := application.BuildDocument{
-		Source:    source,
-		Contents:  recordedAtHead(t, locator, "internal/auth/middleware.go", sourceImportingContext),
+		Source: source,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
+			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -75,7 +77,8 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Contents: recordedAtHead(t, locator, file.Path,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -96,22 +99,14 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	}
 }
 
-const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
-
 func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Bases: memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{
-			locator: commitSHAOf(t, recordedBaseSHA),
-		}},
-		Contents: memory.FileContents{Files: map[domain.FileAtCommit][]byte{
-			{Repository: locator.Repository(), Commit: commitSHAOf(t, recordedBaseSHA), Path: file.Path}: []byte(
-				"package domain\n\nimport \"context\"\n"),
-			{Repository: locator.Repository(), Commit: commitSHAOf(t, recordedHeadSHA), Path: file.Path}: []byte(
-				"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
-		}},
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
+			"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -139,7 +134,8 @@ func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *t
 		strings.Repeat("x", domain.DeclaredLimits().MaxSourceBytes) + "`\n"
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Contents:  recordedAtHead(t, locator, file.Path, oversized),
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAtBothEnds(t, locator, file.Path, sourceImportingContext, oversized),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}

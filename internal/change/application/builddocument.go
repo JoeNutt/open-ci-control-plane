@@ -63,7 +63,7 @@ func (useCase BuildDocument) importedFilesOf(
 			return nil, fmt.Errorf("%s: %w", file.Path, err)
 		}
 		var base domain.FileImports
-		if useCase.Bases != nil && file.Action.ExistsAtBase() {
+		if file.Action.ExistsAtBase() {
 			baseCommit, err := useCase.Bases.BaseCommitOf(ctx, locator)
 			if err != nil {
 				return nil, err

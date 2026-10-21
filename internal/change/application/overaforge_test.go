@@ -61,8 +61,10 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 	}
 	locator := locatorOf(t, "acme/payments", 412)
 	useCase := application.BuildDocument{
-		Source:    source,
-		Contents:  recordedAtHead(t, locator, "internal/auth/middleware.go", sourceImportingContext),
+		Source: source,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
+			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}

@@ -442,13 +442,40 @@ func buildOverRecorded(
 				},
 			},
 		},
-		Contents:  recordedAtHead(t, locator, file.Path, sourceImportingContext),
+		Bases: recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path,
+			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 }
 
 const sourceImportingContext = "package auth\n\nimport \"context\"\n"
+
+const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
+
+func recordedBases(t *testing.T, locator domain.PullRequestLocator) memory.ChangeBases {
+	t.Helper()
+
+	return memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{
+		locator: commitSHAOf(t, recordedBaseSHA),
+	}}
+}
+
+func recordedAtBothEnds(
+	t *testing.T, locator domain.PullRequestLocator, path, baseSource, headSource string,
+) memory.FileContents {
+	t.Helper()
+
+	contents := recordedAtHead(t, locator, path, headSource)
+	atBase := domain.FileAtCommit{
+		Repository: locator.Repository(),
+		Commit:     commitSHAOf(t, recordedBaseSHA),
+		Path:       path,
+	}
+	contents.Files[atBase] = []byte(baseSource)
+	return contents
+}
 
 func recordedAtHead(
 	t *testing.T, locator domain.PullRequestLocator, path, source string,
