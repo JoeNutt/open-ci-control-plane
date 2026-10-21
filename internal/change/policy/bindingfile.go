@@ -44,46 +44,34 @@ func bindingIn(content []byte) (domain.Binding, error) {
 	if err != nil {
 		return domain.Binding{}, err
 	}
-	statement, err := bindingStatementOf(document)
-	if err != nil {
-		return domain.Binding{}, err
-	}
-	return domain.ParseBinding(statement)
+	return domain.ParseBinding(bindingStatementOf(document))
 }
 
-func bindingStatementOf(document bindingDocument) (domain.BindingStatement, error) {
-	policies, err := boundPolicyStatementsOf(document.Policies)
-	if err != nil {
-		return domain.BindingStatement{}, err
-	}
+func bindingStatementOf(document bindingDocument) domain.BindingStatement {
 	return domain.BindingStatement{
 		Repository: document.Repository,
 		Workflow:   document.Tests.Workflow,
 		AlwaysRun:  document.Tests.AlwaysRun,
-		Policies:   policies,
-	}, nil
+		Policies:   boundPolicyStatementsOf(document.Policies),
+	}
 }
 
-func boundPolicyStatementsOf(entries []bindingPolicyEntry) ([]domain.BoundPolicyStatement, error) {
+func boundPolicyStatementsOf(entries []bindingPolicyEntry) []domain.BoundPolicyStatement {
 	policies := make([]domain.BoundPolicyStatement, 0, len(entries))
 	for _, entry := range entries {
-		roots, err := importRootStatementsOf(entry.ImportRoots)
-		if err != nil {
-			return nil, err
-		}
 		policies = append(policies, domain.BoundPolicyStatement{
 			Use:         entry.Use,
-			ImportRoots: roots,
+			ImportRoots: importRootStatementsOf(entry.ImportRoots),
 			Paths:       entry.Paths,
 		})
 	}
-	return policies, nil
+	return policies
 }
 
-func importRootStatementsOf(entries []importRootEntry) ([]domain.ImportRootStatement, error) {
+func importRootStatementsOf(entries []importRootEntry) []domain.ImportRootStatement {
 	roots := make([]domain.ImportRootStatement, 0, len(entries))
 	for _, entry := range entries {
 		roots = append(roots, domain.ImportRootStatement{Prefix: entry.Prefix, Path: *entry.Path})
 	}
-	return roots, nil
+	return roots
 }
