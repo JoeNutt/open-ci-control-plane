@@ -133,39 +133,54 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 	}
 }
 
-func TestAnUnsignedDeliveryIsRefusedWithoutDetail(t *testing.T) {
-	answered := answerTo(t, headedDelivery(strings.NewReader(`{}`)))
-
-	if answered.Code != http.StatusUnauthorized {
-		t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
+func TestAnUnsignedOrMissignedDeliveryIsRefusedWithoutDetailAndUnevaluated(t *testing.T) {
+	opened := pullRequestPayload("opened")
+	refused := map[string]string{
+		"no signature":                  "",
+		"a signature by another secret": "sha256=" + strings.Repeat("ab", sha256.Size),
+		"a signature over another body": signatureOf(pullRequestPayload("closed")),
 	}
-	if answered.Body.Len() != 0 {
-		t.Errorf("the refusal carries detail: %q", answered.Body.String())
-	}
-}
-
-func TestACorrectlySignedDeliveryIsAdmitted(t *testing.T) {
-	delivery := headedDelivery(strings.NewReader(`{}`))
-	delivery.Header.Set("X-Hub-Signature-256", signatureOf(`{}`))
-	answered := answerTo(t, delivery)
-
-	if answered.Code == http.StatusUnauthorized {
-		t.Error("a correctly signed delivery was refused")
-	}
-}
-
-func TestASignedDeliveryFromNoAllowlistedInstallationIsNotFound(t *testing.T) {
-	unlisted := map[string]string{
-		"an installation outside the allowlist": `{"installation":{"id":99}}`,
-		"no installation":                       `{}`,
-		"an installation with no ID":            `{"installation":{}}`,
-	}
-	for form, payload := range unlisted {
+	for form, signature := range refused {
 		t.Run(form, func(t *testing.T) {
-			answered := answerTo(t, signedDelivery(statedEvent, payload))
+			gate := &recordingGate{}
+			delivery := signedDelivery("pull_request", opened)
+			delivery.Header.Set("X-Hub-Signature-256", signature)
+			answered := httptest.NewRecorder()
+
+			routedWith(t, discardedLog(), gate).ServeHTTP(answered, delivery)
+
+			if answered.Code != http.StatusUnauthorized {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusUnauthorized)
+			}
+			if answered.Body.Len() != 0 {
+				t.Errorf("the refusal carries detail: %q", answered.Body.String())
+			}
+			if len(gate.evaluated) != 0 {
+				t.Errorf("the gate evaluated %v", gate.evaluated)
+			}
+		})
+	}
+}
+
+func TestASignedDeliveryFromNoAllowlistedInstallationIsNotFoundAndUnevaluated(t *testing.T) {
+	unlisted := map[string]string{
+		"an installation outside the allowlist": `,"installation":{"id":99}`,
+		"no installation":                       ``,
+		"an installation with no ID":            `,"installation":{}`,
+	}
+	for form, installation := range unlisted {
+		t.Run(form, func(t *testing.T) {
+			gate := &recordingGate{}
+			answered := httptest.NewRecorder()
+
+			routedWith(t, discardedLog(), gate).ServeHTTP(answered,
+				signedDelivery("pull_request", pullRequestPayloadFrom(installation)))
 
 			if answered.Code != http.StatusNotFound {
 				t.Errorf("status is %d, want %d", answered.Code, http.StatusNotFound)
+			}
+			if len(gate.evaluated) != 0 {
+				t.Errorf("the gate evaluated %v", gate.evaluated)
 			}
 		})
 	}
@@ -182,11 +197,29 @@ func TestASignedBodyThatIsNotJSONIsRefusedAsMalformed(t *testing.T) {
 	}
 }
 
-func TestAnAllowlistedEventThatCarriesNoDecisionIsAnsweredWithNoContent(t *testing.T) {
-	answered := answerTo(t, signedDelivery("issues", `{"installation":{"id":41}}`))
+func TestAnAllowlistedDeliveryThatCarriesNoDecisionIsAnsweredWithNoContent(t *testing.T) {
+	unrouted := map[string]struct{ event, action string }{
+		"another event":                {"issues", "opened"},
+		"a review of the pull request": {"pull_request_review", "submitted"},
+		"a closed pull request":        {"pull_request", "closed"},
+		"a labelled pull request":      {"pull_request", "labeled"},
+		"an edited pull request":       {"pull_request", "edited"},
+	}
+	for form, stated := range unrouted {
+		t.Run(form, func(t *testing.T) {
+			gate := &recordingGate{}
+			answered := httptest.NewRecorder()
 
-	if answered.Code != http.StatusNoContent {
-		t.Errorf("status is %d, want %d", answered.Code, http.StatusNoContent)
+			routedWith(t, discardedLog(), gate).ServeHTTP(answered,
+				signedDelivery(stated.event, pullRequestPayload(stated.action)))
+
+			if answered.Code != http.StatusNoContent {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusNoContent)
+			}
+			if len(gate.evaluated) != 0 {
+				t.Errorf("the gate evaluated %v", gate.evaluated)
+			}
+		})
 	}
 }
 
@@ -439,9 +472,13 @@ const (
 )
 
 func pullRequestPayload(action string) string {
-	return fmt.Sprintf(
-		`{"action":%q,"number":%d,"repository":{"full_name":%q},"installation":{"id":%d}}`,
+	return fmt.Sprintf(`{"action":%q,"number":%d,"repository":{"full_name":%q},"installation":{"id":%d}}`,
 		action, gatedNumber, gatedRepository, allowlistedInstallation)
+}
+
+func pullRequestPayloadFrom(installation string) string {
+	return fmt.Sprintf(`{"action":"opened","number":%d,"repository":{"full_name":%q}%s}`,
+		gatedNumber, gatedRepository, installation)
 }
 
 func gatedPullRequest(t *testing.T) domain.PullRequestLocator {
