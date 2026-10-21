@@ -25,6 +25,7 @@ func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 		"installationIds":   func(stated *statedItems) { stated.InstallationIDs = nil },
 		"families":          func(stated *statedItems) { stated.Families = nil },
 		"listenAddress":     func(stated *statedItems) { stated.ListenAddress = "" },
+		"appId":             func(stated *statedItems) { stated.AppID = nil },
 	}
 	for item, remove := range removals {
 		t.Run(item, func(t *testing.T) {
@@ -276,6 +277,8 @@ func printedFormsOf(secrets ...string) []string {
 	return forms
 }
 
+const statedAppID = 1_204_331
+
 const statedListenAddress = "127.0.0.1:8080"
 
 const statedInstallationID = 52_311_907
@@ -294,6 +297,7 @@ func completeItems(t *testing.T) statedItems {
 		InstallationIDs:   []int64{statedInstallationID},
 		Families:          []string{string(domain.PolicyFamilyStructural)},
 		ListenAddress:     statedListenAddress,
+		AppID:             new(int64(statedAppID)),
 	}
 }
 
@@ -303,6 +307,7 @@ type statedItems struct {
 	InstallationIDs   []int64  `json:"installationIds,omitempty"`
 	Families          []string `json:"families,omitempty"`
 	ListenAddress     string   `json:"listenAddress,omitempty"`
+	AppID             *int64   `json:"appId,omitempty"`
 }
 
 func configurationFile(t *testing.T, stated statedItems) string {

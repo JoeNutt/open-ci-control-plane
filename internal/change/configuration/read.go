@@ -43,6 +43,7 @@ type statedConfiguration struct {
 	InstallationIDs   []int64  `json:"installationIds"`
 	Families          []string `json:"families"`
 	ListenAddress     string   `json:"listenAddress"`
+	AppID             *int64   `json:"appId"`
 }
 
 func Read(path string) (Configuration, error) {
@@ -87,7 +88,11 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
 	named, familiesErr := familiesIn(stated.Families)
 	listening, listenErr := listenAddressIn(stated.ListenAddress)
-	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr); err != nil {
+	var appErr error
+	if stated.AppID == nil {
+		appErr = fmt.Errorf("%w: appId", ErrMissingItem)
+	}
+	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr, appErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{
