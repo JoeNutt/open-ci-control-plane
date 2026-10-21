@@ -20,15 +20,11 @@ type PolicyModel struct {
 }
 
 func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel, error) {
-	for index, binding := range bindings {
-		for _, earlier := range bindings[:index] {
-			if earlier.repository == binding.repository {
-				return PolicyModel{}, ErrDuplicateBinding
-			}
-		}
-		if err := unresolvedPolicyOf(binding, catalog); err != nil {
-			return PolicyModel{}, fmt.Errorf("binding for %s: %w", binding.repository, err)
-		}
+	if err := duplicateBindingIn(bindings); err != nil {
+		return PolicyModel{}, err
+	}
+	if err := unresolvedBindingIn(bindings, catalog); err != nil {
+		return PolicyModel{}, err
 	}
 	return PolicyModel{catalog: slices.Clone(catalog), bindings: slices.Clone(bindings)}, nil
 }
@@ -36,6 +32,28 @@ func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel,
 func (model PolicyModel) Catalog() []CatalogPolicy { return slices.Clone(model.catalog) }
 
 func (model PolicyModel) Bindings() []Binding { return slices.Clone(model.bindings) }
+
+func duplicateBindingIn(bindings []Binding) error {
+	for index, binding := range bindings {
+		if slices.ContainsFunc(bindings[:index], binding.governsSameRepositoryAs) {
+			return fmt.Errorf("%w: %s", ErrDuplicateBinding, binding.repository)
+		}
+	}
+	return nil
+}
+
+func unresolvedBindingIn(bindings []Binding, catalog []CatalogPolicy) error {
+	for _, binding := range bindings {
+		if err := unresolvedPolicyOf(binding, catalog); err != nil {
+			return fmt.Errorf("binding for %s: %w", binding.repository, err)
+		}
+	}
+	return nil
+}
+
+func (binding Binding) governsSameRepositoryAs(other Binding) bool {
+	return binding.repository == other.repository
+}
 
 func unresolvedPolicyOf(binding Binding, catalog []CatalogPolicy) error {
 	for _, bound := range binding.policies {
