@@ -287,3 +287,26 @@ func TestBuildDocumentDerivesNoEdgeFromAGoFileThatDoesNotParseAndMarksTheDeltaIn
 		t.Fatalf("delta is %+v, want %+v", document.Diff.ModuleGraphDelta, want)
 	}
 }
+
+func TestBuildDocumentMarksTheDeltaIncompleteForAGoFileThatDoesNotParseAtBase(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path,
+			"package auth\n\nimport (\n\t\"context\" unterminated\n)\n", sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.ModuleGraphDelta{Incomplete: true}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta, want) {
+		t.Fatalf("delta is %+v, want %+v", document.Diff.ModuleGraphDelta, want)
+	}
+}

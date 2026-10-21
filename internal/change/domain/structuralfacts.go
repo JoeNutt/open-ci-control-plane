@@ -19,6 +19,7 @@ type StructuralFacts struct {
 	imports      Declared[Import]
 	edgesAdded   Declared[ModuleEdge]
 	edgesRemoved Declared[ModuleEdge]
+	incomplete   bool
 }
 
 var boundsOfStructuralFacts = []func(StructuralFacts, Limits) error{
@@ -43,7 +44,7 @@ func (facts StructuralFacts) moduleGraphDelta() ModuleGraphDelta {
 	return ModuleGraphDelta{
 		EdgesAdded:   slices.Clone(facts.edgesAdded),
 		EdgesRemoved: slices.Clone(facts.edgesRemoved),
-		Incomplete:   importResolutionIn(facts.imports).unresolved > 0,
+		Incomplete:   facts.incomplete || importResolutionIn(facts.imports).unresolved > 0,
 	}
 }
 
@@ -61,6 +62,7 @@ func structuralFactsOf(imported []ImportedFile) StructuralFacts {
 		imports:      importsOf(imported),
 		edgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
 		edgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
+		incomplete:   slices.ContainsFunc(imported, ImportedFile.hasErroredEnd),
 	}
 }
 
