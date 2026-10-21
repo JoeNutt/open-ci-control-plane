@@ -26,6 +26,7 @@ type InstallationTokens struct {
 	installation installationID
 	mutex        sync.Mutex
 	held         installationToken
+	clock        func() time.Time
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
@@ -41,14 +42,14 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 	if err != nil {
 		return nil, err
 	}
-	return &InstallationTokens{asApp: asApp, installation: installed}, nil
+	return &InstallationTokens{asApp: asApp, installation: installed, clock: installation.Clock}, nil
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
 	tokens.mutex.Lock()
 	defer tokens.mutex.Unlock()
 
-	if tokens.held.isPresent() {
+	if tokens.held.isPresent() && tokens.clock().Before(tokens.held.expiresAt.Add(-5*time.Minute)) {
 		return tokens.held.credential, nil
 	}
 	minted, err := tokens.exchanged(ctx)

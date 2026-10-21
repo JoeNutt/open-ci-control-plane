@@ -286,6 +286,26 @@ func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
 	}
 }
 
+func TestACallNearExpiryGetsAFreshToken(t *testing.T) {
+	clock := clockAt(mintedAt)
+	endpoint := newTokenForge(t, clock)
+	tokens := installationTokensOn(t, endpoint.server, clock)
+	if _, err := github.AuthorizationOf(context.Background(), tokens); err != nil {
+		t.Fatalf("first exchange: %v", err)
+	}
+	clock.advance(grantedLifetime - time.Minute)
+
+	authorization, err := github.AuthorizationOf(context.Background(), tokens)
+
+	if err != nil {
+		t.Fatalf("call near expiry: %v", err)
+	}
+	if authorization != "Bearer "+grantedToken(2) {
+		t.Errorf("a minute before expiry the old token was presented: %d exchanges",
+			endpoint.exchangeCount())
+	}
+}
+
 func TestAnInstallationTokenIsExchangedForTheAppJWTAskingExactlyLeastPrivilege(t *testing.T) {
 	tokens := installationTokensAt(t, tokenEndpoint(t, mintedAt), mintedAt)
 
