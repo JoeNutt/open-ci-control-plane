@@ -2,16 +2,10 @@
 
 package domain
 
-import (
-	"encoding/json"
-	"errors"
-)
-
-var ErrUnidentifiedDecisionRecord = errors.New("decision record carries no decision identifier")
-
 type DecisionRecord struct {
 	decisionID DecisionID
 	revision   BundleRevision
+	outcome    Outcome
 	masked     MaskedInput
 }
 
@@ -20,34 +14,15 @@ func RecordFor(decided FamilyDecision, document Document, id DecisionID) (Decisi
 	if err != nil {
 		return DecisionRecord{}, err
 	}
-	return DecisionRecord{decisionID: id, revision: decided.Decision.Revision(), masked: masked}, nil
+	return DecisionRecord{
+		decisionID: id,
+		revision:   decided.Decision.Revision(),
+		outcome:    decided.Decision.Outcome(),
+		masked:     masked,
+	}, nil
 }
 
-func (record DecisionRecord) MarshalJSON() ([]byte, error) {
-	if !record.decisionID.isKnown() {
-		return nil, ErrUnidentifiedDecisionRecord
-	}
-	return json.Marshal(publishedRecord{
-		DecisionID:       record.decisionID.String(),
-		BundleRevision:   publishedRevisionOf(record.revision),
-		OutcomeClass:     "undecided",
-		MaskedInput:      record.masked,
-		RedactedPointers: Declared[string](record.masked.RedactedPointers()),
-	})
-}
-
-type publishedRecord struct {
-	DecisionID       string           `json:"decisionId"`
-	BundleRevision   *string          `json:"bundleRevision,omitempty"`
-	OutcomeClass     string           `json:"outcomeClass"`
-	MaskedInput      MaskedInput      `json:"maskedInput"`
-	RedactedPointers Declared[string] `json:"redactedPointers"`
-}
-
-func publishedRevisionOf(revision BundleRevision) *string {
-	if !revision.isKnown() {
-		return nil
-	}
-	stated := revision.String()
-	return &stated
-}
+func (record DecisionRecord) DecisionID() DecisionID   { return record.decisionID }
+func (record DecisionRecord) Revision() BundleRevision { return record.revision }
+func (record DecisionRecord) Outcome() Outcome         { return record.outcome }
+func (record DecisionRecord) MaskedInput() MaskedInput { return record.masked }

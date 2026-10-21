@@ -22,6 +22,14 @@ const (
 
 var _ domain.DecisionRecorder = jsonlines.DecisionRecorder{}
 
+type publishedRecord struct {
+	DecisionID       string           `json:"decisionId"`
+	BundleRevision   *string          `json:"bundleRevision"`
+	OutcomeClass     string           `json:"outcomeClass"`
+	MaskedInput      *json.RawMessage `json:"maskedInput"`
+	RedactedPointers json.RawMessage  `json:"redactedPointers"`
+}
+
 func TestARecorderWithNowhereToWriteIsRefused(t *testing.T) {
 	if _, err := jsonlines.ParseDecisionRecorder(nil); !errors.Is(err, jsonlines.ErrNoRecordOutput) {
 		t.Fatalf("parse with no output gave %v, want ErrNoRecordOutput", err)
@@ -29,23 +37,59 @@ func TestARecorderWithNowhereToWriteIsRefused(t *testing.T) {
 }
 
 func TestARecordedDecisionIsWrittenAsExactlyOneJSONLine(t *testing.T) {
-	var written bytes.Buffer
-	if err := recorderWritingTo(t, &written).RecordDecision(context.Background(), recordOf(t)); err != nil {
-		t.Fatalf("record: %v", err)
-	}
+	written := writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{}))
 
-	line, isTerminated := strings.CutSuffix(written.String(), "\n")
+	line, isTerminated := strings.CutSuffix(written, "\n")
 	if !isTerminated || strings.Contains(line, "\n") {
-		t.Fatalf("wrote %q, want exactly one newline-terminated line", written.String())
+		t.Fatalf("wrote %q, want exactly one newline-terminated line", written)
 	}
-	var published struct {
-		DecisionID string `json:"decisionId"`
-	}
-	if err := json.Unmarshal([]byte(line), &published); err != nil {
-		t.Fatalf("the line is not one JSON object: %v", err)
-	}
-	if published.DecisionID != recordedDecisionID {
+	if published := publishedFrom(t, line); published.DecisionID != recordedDecisionID {
 		t.Errorf("decisionId is %q, want %q", published.DecisionID, recordedDecisionID)
+	}
+}
+
+func TestARecordNamesTheRevisionItsDecisionWasMadeAgainst(t *testing.T) {
+	published := publishedFrom(t, writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{})))
+
+	if published.BundleRevision == nil || *published.BundleRevision != recordedRevision {
+		t.Errorf("bundleRevision is %v, want %q", published.BundleRevision, recordedRevision)
+	}
+}
+
+func TestARecordOfAFaultPublishesNoRevisionRatherThanAnEmptyOne(t *testing.T) {
+	published := publishedFrom(t, writtenLineOf(t, recordOf(t, faultedStructural(t), domain.Document{})))
+
+	if published.BundleRevision != nil {
+		t.Errorf("a fault record published bundleRevision %q", *published.BundleRevision)
+	}
+}
+
+func TestARecordOfAnUndecidedDecisionPublishesTheContractsOutcomeClass(t *testing.T) {
+	published := publishedFrom(t, writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{})))
+
+	if published.OutcomeClass != "undecided" {
+		t.Errorf("outcomeClass is %q, want %q", published.OutcomeClass, "undecided")
+	}
+}
+
+func TestARecordWithNothingMaskedListsNoRedactionsAsAnEmptyArray(t *testing.T) {
+	published := publishedFrom(t, writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{})))
+
+	if string(published.RedactedPointers) != "[]" {
+		t.Errorf("redactedPointers is %s, want []", published.RedactedPointers)
+	}
+}
+
+func TestARecordWithNoDecisionIDIsRefusedAndNothingIsWritten(t *testing.T) {
+	var written bytes.Buffer
+
+	err := recorderWritingTo(t, &written).RecordDecision(context.Background(), domain.DecisionRecord{})
+
+	if !errors.Is(err, jsonlines.ErrUnidentifiedDecisionRecord) {
+		t.Fatalf("recorded with %v, want ErrUnidentifiedDecisionRecord", err)
+	}
+	if written.Len() != 0 {
+		t.Errorf("an unidentified record still wrote %q", written.String())
 	}
 }
 
@@ -57,32 +101,41 @@ func TestASensitiveValueReachesNoWrittenLineAndItsPointerIsListedAsRedacted(t *t
 		{Analyzer: "gitleaks", RuleID: "github-pat", Path: "config/" + syntheticCredential},
 	}
 	document.Diff.Sensitive = domain.Declared[string]{sensitivePointer}
-	var written bytes.Buffer
 
-	record, err := domain.RecordFor(undecidedStructural(t), document, decisionIDOf(t))
-	if err != nil {
+	written := writtenLineOf(t, recordOf(t, undecidedStructural(t), document))
+
+	if strings.Contains(written, syntheticCredential) {
+		t.Fatalf("the synthetic credential reached the written line: %s", written)
+	}
+	published := publishedFrom(t, written)
+	if published.MaskedInput == nil {
+		t.Errorf("the line carries no maskedInput, so the absence above proves nothing: %s", written)
+	}
+	var redacted []string
+	if err := json.Unmarshal(published.RedactedPointers, &redacted); err != nil {
+		t.Fatalf("decode redactedPointers: %v", err)
+	}
+	if !slices.Contains(redacted, sensitivePointer) {
+		t.Errorf("redactedPointers is %q, want it to list %s", redacted, sensitivePointer)
+	}
+}
+
+func writtenLineOf(t *testing.T, record domain.DecisionRecord) string {
+	t.Helper()
+	var written bytes.Buffer
+	if err := recorderWritingTo(t, &written).RecordDecision(context.Background(), record); err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	if err := recorderWritingTo(t, &written).RecordDecision(context.Background(), record); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	return written.String()
+}
 
-	if strings.Contains(written.String(), syntheticCredential) {
-		t.Fatalf("the synthetic credential reached the written line: %s", written.String())
+func publishedFrom(t *testing.T, line string) publishedRecord {
+	t.Helper()
+	var published publishedRecord
+	if err := json.Unmarshal([]byte(line), &published); err != nil {
+		t.Fatalf("the line is not one JSON object: %v", err)
 	}
-	var published struct {
-		MaskedInput      *json.RawMessage `json:"maskedInput"`
-		RedactedPointers []string         `json:"redactedPointers"`
-	}
-	if err := json.Unmarshal(written.Bytes(), &published); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if published.MaskedInput == nil {
-		t.Errorf("the line carries no maskedInput, so the absence above proves nothing: %s", written.String())
-	}
-	if !slices.Contains(published.RedactedPointers, sensitivePointer) {
-		t.Errorf("redactedPointers is %q, want it to list %s", published.RedactedPointers, sensitivePointer)
-	}
+	return published
 }
 
 func recorderWritingTo(t *testing.T, output *bytes.Buffer) jsonlines.DecisionRecorder {
@@ -94,9 +147,13 @@ func recorderWritingTo(t *testing.T, output *bytes.Buffer) jsonlines.DecisionRec
 	return recorder
 }
 
-func recordOf(t *testing.T) domain.DecisionRecord {
+func recordOf(t *testing.T, decided domain.FamilyDecision, document domain.Document) domain.DecisionRecord {
 	t.Helper()
-	record, err := domain.RecordFor(undecidedStructural(t), domain.Document{}, decisionIDOf(t))
+	id, err := domain.ParseDecisionID(recordedDecisionID)
+	if err != nil {
+		t.Fatalf("parse decision id: %v", err)
+	}
+	record, err := domain.RecordFor(decided, document, id)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -115,11 +172,21 @@ func undecidedStructural(t *testing.T) domain.FamilyDecision {
 	}
 }
 
-func decisionIDOf(t *testing.T) domain.DecisionID {
+func faultedStructural(t *testing.T) domain.FamilyDecision {
 	t.Helper()
-	id, err := domain.ParseDecisionID(recordedDecisionID)
-	if err != nil {
-		t.Fatalf("parse decision id: %v", err)
+	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for _, family := range domain.DeclaredPolicyFamilies() {
+		engines[family] = faultingEngine{}
 	}
-	return id
+	gate, err := domain.ParseGate(engines)
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	return gate.DecisionsFor(context.Background(), domain.Document{})[0]
+}
+
+type faultingEngine struct{}
+
+func (faultingEngine) Decide(context.Context, domain.Document) (domain.Decision, error) {
+	return domain.Decision{}, errors.New("conflicting rule outputs")
 }

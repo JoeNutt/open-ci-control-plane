@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package domain_test
+package jsonlines_test
 
 import (
 	"encoding/json"
@@ -9,10 +9,13 @@ import (
 	"testing"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
 	httpContract         = "openapi.yaml"
+	moduleRootFromHere   = "../../.."
 	decisionRecordSchema = "DecisionRecord"
 )
 
@@ -28,7 +31,8 @@ func TestEveryFieldARecordPublishesIsOneTheHTTPContractDeclares(t *testing.T) {
 	declared := declaredRecordProperties(t)
 
 	var published map[string]json.RawMessage
-	if err := json.Unmarshal(encodedRecordOf(t, undecidedStructuralDecision(t)), &published); err != nil {
+	line := writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{}))
+	if err := json.Unmarshal([]byte(line), &published); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
@@ -42,7 +46,7 @@ func TestEveryFieldARecordPublishesIsOneTheHTTPContractDeclares(t *testing.T) {
 
 func declaredRecordProperties(t *testing.T) map[string]struct{} {
 	t.Helper()
-	stated, err := os.ReadFile(filepath.Join(moduleRoot(t), httpContract))
+	stated, err := os.ReadFile(filepath.Join(moduleRootFromHere, httpContract))
 	if err != nil {
 		t.Fatalf("read %s: %v", httpContract, err)
 	}

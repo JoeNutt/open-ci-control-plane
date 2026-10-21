@@ -4,7 +4,6 @@ package application_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -68,18 +67,8 @@ func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 		t.Fatalf("recorded %d decisions, want one per family", len(recorded.records))
 	}
 	for _, record := range recorded.records {
-		encoded, err := json.Marshal(record)
-		if err != nil {
-			t.Fatalf("encode: %v", err)
-		}
-		var published struct {
-			DecisionID string `json:"decisionId"`
-		}
-		if err := json.Unmarshal(encoded, &published); err != nil {
-			t.Fatalf("decode: %v", err)
-		}
-		if published.DecisionID != id.String() {
-			t.Errorf("recorded under %q, want %q", published.DecisionID, id)
+		if record.DecisionID() != id {
+			t.Errorf("recorded under %q, want %q", record.DecisionID(), id)
 		}
 	}
 }
