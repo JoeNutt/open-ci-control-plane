@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -20,6 +21,12 @@ const (
 )
 
 var _ domain.DecisionRecorder = jsonlines.DecisionRecorder{}
+
+func TestARecorderWithNowhereToWriteIsRefused(t *testing.T) {
+	if _, err := jsonlines.ParseDecisionRecorder(nil); !errors.Is(err, jsonlines.ErrNoRecordOutput) {
+		t.Fatalf("parse with no output gave %v, want ErrNoRecordOutput", err)
+	}
+}
 
 func TestARecordedDecisionIsWrittenAsExactlyOneJSONLine(t *testing.T) {
 	var written bytes.Buffer

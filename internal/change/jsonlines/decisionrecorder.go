@@ -5,6 +5,7 @@ package jsonlines
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -17,6 +18,15 @@ type DecisionRecorder struct {
 
 func NewDecisionRecorder(output io.Writer) DecisionRecorder {
 	return DecisionRecorder{output: output}
+}
+
+var ErrNoRecordOutput = errors.New("decision recorder has nowhere to write")
+
+func ParseDecisionRecorder(output io.Writer) (DecisionRecorder, error) {
+	if output == nil {
+		return DecisionRecorder{}, ErrNoRecordOutput
+	}
+	return DecisionRecorder{output: output}, nil
 }
 
 func (recorder DecisionRecorder) RecordDecision(_ context.Context, record domain.DecisionRecord) error {
