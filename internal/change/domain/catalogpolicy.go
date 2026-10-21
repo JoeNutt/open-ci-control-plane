@@ -43,10 +43,8 @@ func policyGroupsOf(stated []GroupStatement) ([]PolicyGroup, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, g := range groups {
-			if g.name == parsed.name {
-				return nil, ErrDuplicateGroup
-			}
+		if slices.ContainsFunc(groups, parsed.sharesNameWith) {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateGroup, parsed.name)
 		}
 		groups = append(groups, parsed)
 	}

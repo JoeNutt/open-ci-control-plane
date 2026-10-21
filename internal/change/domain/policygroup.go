@@ -35,3 +35,5 @@ func parsePolicyGroup(stated GroupStatement) (PolicyGroup, error) {
 func (group PolicyGroup) Name() GroupName { return group.name }
 
 func (group PolicyGroup) Order() int { return group.order }
+
+func (group PolicyGroup) sharesNameWith(other PolicyGroup) bool { return group.name == other.name }
