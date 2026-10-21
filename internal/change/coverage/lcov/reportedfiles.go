@@ -50,8 +50,14 @@ func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
 	if err := lines.Err(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
 	}
+	return reading.completed()
+}
+
+var errTruncatedRecord = errors.New("input ends inside a record")
+
+func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
-		return nil, fmt.Errorf("%w: truncated", ErrMalformedArtifact)
+		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
 	}
 	return reading.reported, nil
 }
