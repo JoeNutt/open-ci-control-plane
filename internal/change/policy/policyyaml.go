@@ -13,6 +13,8 @@ var ErrMalformedPolicyFile = errors.New("policy file is not YAML of the declared
 
 var ErrAliasOrAnchor = errors.New("policy file contains a YAML alias or anchor")
 
+var ErrSecondDocument = errors.New("policy file holds more than one YAML document")
+
 func refuseAliasOrAnchor(content []byte) error {
 	var root yaml.Node
 	if err := yaml.Unmarshal(content, &root); err != nil {

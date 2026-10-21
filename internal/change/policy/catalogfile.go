@@ -4,7 +4,9 @@ package policy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 
 	"go.yaml.in/yaml/v3"
 
@@ -61,6 +63,10 @@ func decodedCatalog(content []byte) (catalogDocument, error) {
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&document); err != nil {
 		return catalogDocument{}, ErrMalformedPolicyFile
+	}
+	var second yaml.Node
+	if err := decoder.Decode(&second); !errors.Is(err, io.EOF) {
+		return catalogDocument{}, ErrSecondDocument
 	}
 	return document, nil
 }
