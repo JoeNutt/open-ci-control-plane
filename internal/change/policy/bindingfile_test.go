@@ -4,6 +4,7 @@ package policy_test
 
 import (
 	"errors"
+	"maps"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -35,12 +36,26 @@ func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 }
 
 func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
-	refused := map[string]struct {
-		written string
-		reason  error
-	}{
+	refused := bindingsRefusedByTheirShape(t)
+	maps.Copy(refused, map[string]refusedFile{
+		"a YAML alias":                 {written: liveBindingWithAlias(t), reason: policy.ErrAliasOrAnchor},
+		"one path bound to two groups": {written: liveBindingPlacingOnePathInTwoGroups(t), reason: domain.ErrPathInTwoGroups},
+	})
+	for form, refusal := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := policy.ParseBindingFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
+				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
+			}
+		})
+	}
+}
+
+func bindingsRefusedByTheirShape(t *testing.T) map[string]refusedFile {
+	t.Helper()
+
+	return map[string]refusedFile{
 		"an import root with no path": {
-			written: liveBindingWith(t, "        path: \"\"\n", ""),
+			written: liveBindingWith(t, liveRootPathLine+"\n", ""),
 			reason:  policy.ErrMissingKey,
 		},
 		"a later schema version": {
@@ -51,29 +66,8 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: liveBindingWith(t, liveSchemaVersionLine+"\n", ""),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
-		"an unknown key": {
-			written: liveBindingWithUnknownKey(t, "timeout"),
-			reason:  policy.ErrMalformedPolicyFile,
-		},
-		"a YAML alias": {
-			written: liveBindingWithAlias(t),
-			reason:  policy.ErrAliasOrAnchor,
-		},
-		"no workflow": {
-			written: liveBindingWithoutWorkflow(t),
-			reason:  domain.ErrMissingWorkflow,
-		},
-		"one path bound to two groups": {
-			written: liveBindingPlacingOnePathInTwoGroups(t),
-			reason:  domain.ErrPathInTwoGroups,
-		},
-	}
-	for form, refusal := range refused {
-		t.Run(form, func(t *testing.T) {
-			if _, err := policy.ParseBindingFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
-				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
-			}
-		})
+		"an unknown key": {written: liveBindingWithUnknownKey(t, "timeout"), reason: policy.ErrMalformedPolicyFile},
+		"no workflow":    {written: liveBindingWithoutWorkflow(t), reason: domain.ErrMissingWorkflow},
 	}
 }
 
