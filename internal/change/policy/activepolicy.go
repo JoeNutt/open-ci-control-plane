@@ -27,8 +27,6 @@ type ActivePolicy struct {
 	accepted atomic.Pointer[AcceptedRevision]
 }
 
-func NewActivePolicy(log *slog.Logger) *ActivePolicy { return &ActivePolicy{log: log} }
-
 func ParseActivePolicy(log *slog.Logger) (*ActivePolicy, error) {
 	if log == nil {
 		return nil, ErrNoPolicyLog
