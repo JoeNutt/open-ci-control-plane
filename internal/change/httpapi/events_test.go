@@ -123,6 +123,9 @@ func TestADeliveryDeclaringNoLengthIsRefusedUnread(t *testing.T) {
 	if unread.isRead {
 		t.Error("the body of a delivery declaring no length was read")
 	}
+	if !strings.Contains(answered.Body.String(), `"code":"undeclared_length"`) {
+		t.Errorf("the refusal does not say the length was undeclared: %s", answered.Body.String())
+	}
 }
 
 type untouchedBody struct{ isRead bool }

@@ -30,6 +30,10 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		receiving.refuse(asked.Context(), answer, refusal)
 		return
 	}
+	if asked.ContentLength == undeclaredLength {
+		receiving.refuse(asked.Context(), answer, limitProblem{Code: "undeclared_length", Message: "the delivery declares no length", Limit: oversizedBodyProblem().Limit})
+		return
+	}
 	if !isDeclaredWithinBound(asked.ContentLength) {
 		receiving.refuse(asked.Context(), answer, oversizedBodyProblem())
 		return
