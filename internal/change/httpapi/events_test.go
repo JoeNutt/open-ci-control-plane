@@ -4,7 +4,9 @@ package httpapi_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -41,6 +43,21 @@ func TestADeliveryWithoutADeliveryHeaderIsRefusedNamingIt(t *testing.T) {
 	}
 	if !strings.Contains(answered.Body.String(), `"field":"X-GitHub-Delivery"`) {
 		t.Errorf("the refusal does not name X-GitHub-Delivery: %s", answered.Body.String())
+	}
+}
+
+func TestADeliveryWithoutEitherHeaderIsAnsweredWithOneRefusal(t *testing.T) {
+	answered := httptest.NewRecorder()
+
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, eventDelivery(`{}`))
+
+	decoding := json.NewDecoder(answered.Body)
+	var first, second map[string]string
+	if err := decoding.Decode(&first); err != nil {
+		t.Fatalf("no refusal was written: %v", err)
+	}
+	if err := decoding.Decode(&second); !errors.Is(err, io.EOF) {
+		t.Errorf("a second refusal followed the first: %v", second)
 	}
 }
 

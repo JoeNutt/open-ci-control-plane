@@ -24,6 +24,7 @@ type events struct {
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	if asked.Header.Get(eventHeader) == "" {
 		receiving.refuse(asked.Context(), answer, missingHeaderProblem(eventHeader))
+		return
 	}
 	if asked.Header.Get(deliveryHeader) == "" {
 		receiving.refuse(asked.Context(), answer, missingHeaderProblem(deliveryHeader))
