@@ -4,9 +4,7 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -21,7 +19,7 @@ func TestAConfigurationMissingARequiredItemExitsNonZeroNamingItAndServesNothing(
 			delete(stated, item)
 			var logged bytes.Buffer
 
-			exit := run(context.Background(), []string{configurationFile(t, stated)}, io.Discard, &logged)
+			exit := run([]string{configurationFile(t, stated)}, &logged)
 
 			if exit == 0 {
 				t.Errorf("exit is 0 for a configuration with no %s", item)
@@ -29,15 +27,24 @@ func TestAConfigurationMissingARequiredItemExitsNonZeroNamingItAndServesNothing(
 			if !strings.Contains(logged.String(), item) {
 				t.Errorf("the refusal does not name %s: %q", item, logged.String())
 			}
-			if listening, err := net.Dial("tcp", listenAddress); err == nil {
-				listening.Close()
-				t.Errorf("something is serving on %s", listenAddress)
-			}
+			assertNothingServes(t)
 		})
 	}
 }
 
 const listenAddress = "127.0.0.1:48121"
+
+func assertNothingServes(t *testing.T) {
+	t.Helper()
+	listening, err := net.Dial("tcp", listenAddress)
+	if err != nil {
+		return
+	}
+	t.Errorf("something is serving on %s", listenAddress)
+	if err := listening.Close(); err != nil {
+		t.Errorf("close the probe: %v", err)
+	}
+}
 
 func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 	t.Helper()

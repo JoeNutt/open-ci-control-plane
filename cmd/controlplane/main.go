@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -11,16 +10,25 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 )
 
+const (
+	exitServed  = 0
+	exitRefused = 1
+)
+
+const (
+	refusedConfiguration = "configuration refused"
+	reasonKey            = "reason"
+)
+
 func main() {
-	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stderr))
 }
 
-func run(ctx context.Context, arguments []string, decisions io.Writer, logs io.Writer) int {
+func run(arguments []string, logs io.Writer) int {
 	log := slog.New(slog.NewJSONHandler(logs, nil))
-	_, err := configuration.Read(arguments[0])
-	if err != nil {
-		log.Error("configuration refused", "reason", err.Error())
-		return 1
+	if _, err := configuration.Read(arguments[0]); err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
 	}
-	return 0
+	return exitServed
 }
