@@ -20,19 +20,26 @@ func ParseJSONPointer(stated string) (JSONPointer, error) {
 	}
 	var tokens []string
 	for _, escaped := range strings.Split(stated, "/")[1:] {
-		for i := 0; i < len(escaped); i++ {
-			if escaped[i] == '~' && (i+1 == len(escaped) || (escaped[i+1] != '0' && escaped[i+1] != '1')) {
-				return JSONPointer{}, fmt.Errorf("%w: %q", ErrMalformedJSONPointer, stated)
-			}
+		token, err := parseReferenceToken(escaped)
+		if err != nil {
+			return JSONPointer{}, fmt.Errorf("%w: %q", err, stated)
 		}
-		tokens = append(tokens, unescapedToken(escaped))
+		tokens = append(tokens, token)
 	}
 	return JSONPointer{tokens: tokens}, nil
 }
 
 func (pointer JSONPointer) Tokens() []string { return pointer.tokens }
 
-// RFC 6901 §4: "~1" is decoded before "~0", so that "~01" yields "~1" and not "/".
-func unescapedToken(escaped string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(escaped, "~1", "/"), "~0", "~")
+func parseReferenceToken(escaped string) (string, error) {
+	for at, char := range escaped {
+		if char == '~' && !startsWithEscapeCode(escaped[at+1:]) {
+			return "", ErrMalformedJSONPointer
+		}
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(escaped, "~1", "/"), "~0", "~"), nil
+}
+
+func startsWithEscapeCode(rest string) bool {
+	return strings.HasPrefix(rest, "0") || strings.HasPrefix(rest, "1")
 }
