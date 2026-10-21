@@ -25,15 +25,21 @@ type CoverageUpload struct {
 	Report     domain.CoverageReport
 }
 
-func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) error {
+type ReplacedCoverage struct {
+	Suite          domain.SuiteName
+	FileEntryCount int
+}
+
+func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) (ReplacedCoverage, error) {
 	if err := useCase.authorise(ctx, upload); err != nil {
-		return err
+		return ReplacedCoverage{}, err
 	}
 	coverage, err := useCase.coverageIn(ctx, upload)
 	if err != nil {
-		return fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
+		return ReplacedCoverage{}, fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
-	return useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage)
+	err = useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage)
+	return ReplacedCoverage{Suite: upload.Suite, FileEntryCount: 1}, err
 }
 
 func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpload) error {
