@@ -14,11 +14,9 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
-func Routes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error) {
+func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error) {
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: http.HandlerFunc(func(answer http.ResponseWriter, _ *http.Request) {
-			answer.WriteHeader(http.StatusNoContent)
-		}),
+		Accepted:   admitted{},
 		Secret:     secret,
 		Rejections: refusals{},
 	})
@@ -29,10 +27,6 @@ func Routes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error)
 	routes.Handle(eventsRoute, events{log: log, check: check})
 	return routes, nil
 }
-
-type refusals struct{}
-
-func (refusals) CountRejectedDelivery() {}
 
 type events struct {
 	log   *slog.Logger
@@ -58,3 +52,13 @@ func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, 
 		receiving.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
 	}
 }
+
+type admitted struct{}
+
+func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
+	answer.WriteHeader(http.StatusNoContent)
+}
+
+type refusals struct{}
+
+func (refusals) CountRejectedDelivery() {}

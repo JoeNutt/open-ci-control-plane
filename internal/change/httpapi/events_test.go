@@ -206,7 +206,7 @@ const webhookSecret = "the App's webhook secret"
 
 func routed(t *testing.T, log *slog.Logger) http.Handler {
 	t.Helper()
-	routes, err := httpapi.Routes(log, domain.WebhookSecret(webhookSecret))
+	routes, err := httpapi.ParseRoutes(log, domain.WebhookSecret(webhookSecret))
 	if err != nil {
 		t.Fatal(err)
 	}
