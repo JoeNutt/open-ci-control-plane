@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,5 +16,9 @@ type ChangeBases struct {
 func (bases ChangeBases) BaseCommitOf(
 	_ context.Context, locator domain.PullRequestLocator,
 ) (domain.CommitSHA, error) {
-	return bases.Bases[locator], nil
+	base, recorded := bases.Bases[locator]
+	if !recorded {
+		return domain.CommitSHA{}, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+	}
+	return base, nil
 }
