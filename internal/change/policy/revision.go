@@ -3,6 +3,7 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,8 @@ import (
 )
 
 const catalogDirectory = "catalog/"
+
+var ErrUnplacedPolicyFile = errors.New("policy file is neither in catalog/ nor in bindings/")
 
 type parsedFiles struct {
 	catalog  []domain.CatalogPolicy
@@ -42,6 +45,9 @@ func (parsed *parsedFiles) add(file domain.PolicyFile) error {
 		}
 		parsed.catalog = append(parsed.catalog, policy)
 		return nil
+	}
+	if !strings.HasPrefix(file.Path, "bindings/") {
+		return ErrUnplacedPolicyFile
 	}
 	binding, err := ParseBindingFile(file.Content)
 	if err != nil {
