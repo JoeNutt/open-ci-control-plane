@@ -66,12 +66,14 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
-	plain, err := plainBodyOf(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
+	compressed := &boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach}
+	plain, err := plainBodyOf(compressed)
 	if err != nil {
 		return nil, err
 	}
+	decompressed := &boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach}
 	var reading recordReading
-	if err := reading.takeAll(bufio.NewScanner(&boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach})); err != nil {
+	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
 	return reading.completed()

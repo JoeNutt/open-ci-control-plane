@@ -23,17 +23,16 @@ func DeclaredCoverageLimits() CoverageLimits {
 }
 
 func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {
-	if compressedBytes > limits.MaxCompressedBytes {
-		return fmt.Errorf("%w: %d exceeds %d",
-			ErrCompressedArtifactTooLarge, compressedBytes, limits.MaxCompressedBytes)
-	}
-	return nil
+	return breachOf(ErrCompressedArtifactTooLarge, compressedBytes, limits.MaxCompressedBytes)
 }
 
 func (limits CoverageLimits) DecompressedBytesBreach(decompressedBytes int64) error {
-	if decompressedBytes > limits.MaxDecompressedBytes {
-		return fmt.Errorf("%w: %d exceeds %d",
-			ErrDecompressedArtifactTooLarge, decompressedBytes, limits.MaxDecompressedBytes)
+	return breachOf(ErrDecompressedArtifactTooLarge, decompressedBytes, limits.MaxDecompressedBytes)
+}
+
+func breachOf(bound error, measured, allowed int64) error {
+	if measured > allowed {
+		return fmt.Errorf("%w: %d exceeds %d", bound, measured, allowed)
 	}
 	return nil
 }
