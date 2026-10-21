@@ -11,12 +11,14 @@ type BindingStatement struct {
 	Repository string
 	Workflow   string
 	AlwaysRun  []string
+	Policies   []BoundPolicyStatement
 }
 
 type Binding struct {
 	repository GovernedRepository
 	workflow   WorkflowFile
 	alwaysRun  []GoImportPath
+	policies   []BoundPolicy
 }
 
 func ParseBinding(stated BindingStatement) (Binding, error) {
@@ -37,6 +39,8 @@ func (binding Binding) Workflow() WorkflowFile { return binding.workflow }
 
 func (binding Binding) AlwaysRun() []GoImportPath { return slices.Clone(binding.alwaysRun) }
 
+func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
+
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
 	workflow, err := ParseWorkflowFile(stated.Workflow)
 	if err != nil {
@@ -46,7 +50,15 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, fmt.Errorf("always-run suite: %w", err)
 	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun}, nil
+	policies := make([]BoundPolicy, 0, len(stated.Policies))
+	for _, written := range stated.Policies {
+		policy, err := parseBoundPolicy(written)
+		if err != nil {
+			return Binding{}, err
+		}
+		policies = append(policies, policy)
+	}
+	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {
