@@ -36,13 +36,24 @@ func unresolvedPolicyOf(binding Binding, catalog []CatalogPolicy) error {
 		if used < 0 {
 			return fmt.Errorf("%w: %s", ErrUnknownCatalogPolicy, bound.use)
 		}
-		for _, paths := range bound.groups {
-			if !slices.ContainsFunc(catalog[used].groups, func(g PolicyGroup) bool { return g.name == paths.group }) {
-				return ErrUndeclaredGroup
-			}
+		if err := undeclaredGroupOf(bound, catalog[used]); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func undeclaredGroupOf(bound BoundPolicy, catalogued CatalogPolicy) error {
+	for _, paths := range bound.groups {
+		if !catalogued.declares(paths.group) {
+			return fmt.Errorf("%w: %s in %s", ErrUndeclaredGroup, paths.group, catalogued.name)
+		}
+	}
+	return nil
+}
+
+func (policy CatalogPolicy) declares(group GroupName) bool {
+	return slices.ContainsFunc(policy.groups, func(declared PolicyGroup) bool { return declared.name == group })
 }
 
 func (policy BoundPolicy) isUseOf(catalogued CatalogPolicy) bool {
