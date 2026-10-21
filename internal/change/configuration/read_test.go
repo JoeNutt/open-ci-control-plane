@@ -185,6 +185,26 @@ func TestThePolicyFamiliesAreTheOnesTheConfigurationNames(t *testing.T) {
 	}
 }
 
+func TestAnUnknownOrRepeatedPolicyFamilyIsRefusedNamingIt(t *testing.T) {
+	structural := string(domain.PolicyFamilyStructural)
+	for form, named := range map[string][]string{
+		"an unknown family": {structural, "selection"},
+		"a repeated family": {structural, structural},
+		"an empty name":     {""},
+	} {
+		t.Run(form, func(t *testing.T) {
+			stated := completeItems(t)
+			stated.Families = named
+
+			_, err := configuration.Read(configurationFile(t, stated))
+
+			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "families") {
+				t.Fatalf("refusal is not an invalid families: %v", err)
+			}
+		})
+	}
+}
+
 func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	stated := completeItems(t)
 	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
