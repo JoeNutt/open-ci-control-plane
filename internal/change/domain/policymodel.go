@@ -4,6 +4,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 )
 
@@ -16,10 +17,8 @@ type PolicyModel struct {
 
 func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel, error) {
 	for _, binding := range bindings {
-		for _, bound := range binding.policies {
-			if !slices.ContainsFunc(catalog, func(policy CatalogPolicy) bool { return policy.name == bound.use }) {
-				return PolicyModel{}, ErrUnknownCatalogPolicy
-			}
+		if err := unresolvedPolicyOf(binding, catalog); err != nil {
+			return PolicyModel{}, fmt.Errorf("binding for %s: %w", binding.repository, err)
 		}
 	}
 	return PolicyModel{catalog: slices.Clone(catalog), bindings: slices.Clone(bindings)}, nil
@@ -28,3 +27,16 @@ func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel,
 func (model PolicyModel) Catalog() []CatalogPolicy { return slices.Clone(model.catalog) }
 
 func (model PolicyModel) Bindings() []Binding { return slices.Clone(model.bindings) }
+
+func unresolvedPolicyOf(binding Binding, catalog []CatalogPolicy) error {
+	for _, bound := range binding.policies {
+		if !slices.ContainsFunc(catalog, bound.isUseOf) {
+			return fmt.Errorf("%w: %s", ErrUnknownCatalogPolicy, bound.use)
+		}
+	}
+	return nil
+}
+
+func (policy BoundPolicy) isUseOf(catalogued CatalogPolicy) bool {
+	return policy.use == catalogued.name
+}
