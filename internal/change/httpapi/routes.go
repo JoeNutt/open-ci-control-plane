@@ -14,7 +14,7 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
-func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error) {
+func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []int64) (http.Handler, error) {
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted: admitted{},
 		Secret:   secret,
@@ -57,5 +57,5 @@ func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, 
 type admitted struct{}
 
 func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
-	answer.WriteHeader(http.StatusNoContent)
+	answer.WriteHeader(http.StatusNotFound)
 }

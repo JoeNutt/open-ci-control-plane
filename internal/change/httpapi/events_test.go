@@ -152,6 +152,14 @@ func TestACorrectlySignedDeliveryIsAdmitted(t *testing.T) {
 	}
 }
 
+func TestASignedDeliveryFromAnInstallationOutsideTheAllowlistIsNotFound(t *testing.T) {
+	answered := answerTo(t, signedDelivery(statedEvent, `{"installation":{"id":99}}`))
+
+	if answered.Code != http.StatusNotFound {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusNotFound)
+	}
+}
+
 func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
 	var logged bytes.Buffer
 
@@ -215,15 +223,25 @@ func eventDelivery(body string) *http.Request {
 	return httptest.NewRequest(http.MethodPost, eventsPath, strings.NewReader(body))
 }
 
-const webhookSecret = "the App's webhook secret"
+const (
+	webhookSecret           = "the App's webhook secret"
+	allowlistedInstallation = 41
+)
 
 func routed(t *testing.T, log *slog.Logger) http.Handler {
 	t.Helper()
-	routes, err := httpapi.ParseRoutes(log, domain.WebhookSecret(webhookSecret))
+	routes, err := httpapi.ParseRoutes(log, domain.WebhookSecret(webhookSecret), []int64{allowlistedInstallation})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return routes
+}
+
+func signedDelivery(event, payload string) *http.Request {
+	delivery := headedDelivery(strings.NewReader(payload))
+	delivery.Header.Set("X-GitHub-Event", event)
+	delivery.Header.Set("X-Hub-Signature-256", signatureOf(payload))
+	return delivery
 }
 
 func answerTo(t *testing.T, delivery *http.Request) *httptest.ResponseRecorder {
