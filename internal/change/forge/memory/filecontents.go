@@ -16,5 +16,9 @@ type FileContents struct {
 func (contents FileContents) ContentsAt(
 	_ context.Context, file domain.FileAtCommit,
 ) ([]byte, error) {
-	return slices.Clone(contents.Files[file]), nil
+	recorded, held := contents.Files[file]
+	if !held {
+		return nil, domain.ErrNoSuchFile
+	}
+	return slices.Clone(recorded), nil
 }

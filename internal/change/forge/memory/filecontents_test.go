@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -27,6 +28,20 @@ func TestFileContentsAnswersTheContentsRecordedAtACommit(t *testing.T) {
 	}
 	if !slices.Equal(answered, recorded) {
 		t.Fatalf("contents are %q, want %q", answered, recorded)
+	}
+}
+
+func TestFileContentsRefusesAFileItHoldsNoContentsFor(t *testing.T) {
+	file := domain.FileAtCommit{
+		Repository: "acme/payments",
+		Commit:     commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"),
+		Path:       "internal/auth/middleware.go",
+	}
+
+	_, err := memory.FileContents{}.ContentsAt(context.Background(), file)
+
+	if !errors.Is(err, domain.ErrNoSuchFile) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
 	}
 }
 
