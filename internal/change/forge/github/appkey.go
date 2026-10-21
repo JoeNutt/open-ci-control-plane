@@ -18,7 +18,14 @@ type AppKey struct {
 	key *rsa.PrivateKey
 }
 
+const MaxAppKeyBytes = 16 << 10
+
+var ErrAppKeyTooLarge = errors.New("too big")
+
 func ParseAppKey(encoded []byte) (AppKey, error) {
+	if len(encoded) > 16384 {
+		return AppKey{}, ErrAppKeyTooLarge
+	}
 	block, rest := pem.Decode(encoded)
 	if !isOnePKCS1Block(block, rest) {
 		return AppKey{}, ErrMalformedAppKey

@@ -3,11 +3,13 @@
 package github_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 
@@ -38,6 +40,21 @@ func forgeAppKey(t *testing.T) github.AppKey {
 		t.Fatalf("parse the App key: %v", err)
 	}
 	return key
+}
+
+func TestParseAppKeyRefusesAKeyFileOverTheByteBoundBeforeDecodingIt(t *testing.T) {
+	key := forgeAppKeyPEM()
+	explanatoryText := bytes.Repeat([]byte("x"), github.MaxAppKeyBytes-len(key)-1)
+	atTheBound := slices.Concat(explanatoryText, []byte("\n"), key)
+	overTheBound := slices.Concat([]byte("x"), atTheBound)
+
+	if _, err := github.ParseAppKey(atTheBound); err != nil {
+		t.Errorf("a key file of exactly %d bytes is refused: %v", github.MaxAppKeyBytes, err)
+	}
+	if _, err := github.ParseAppKey(overTheBound); !errors.Is(err, github.ErrAppKeyTooLarge) {
+		t.Errorf("a key file of %d bytes: error is %v, want %v",
+			len(overTheBound), err, github.ErrAppKeyTooLarge)
+	}
 }
 
 func TestParseAppKeyRefusesWhatIsNotAPKCS1RSAPrivateKey(t *testing.T) {
