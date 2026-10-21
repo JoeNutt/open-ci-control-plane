@@ -14,6 +14,7 @@ import (
 
 const (
 	uploadingRepository = "JoeNutt/open-ci-control-plane"
+	strangerRepository  = "JoeNutt/open-ci-policy"
 	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	coveredFile         = "internal/change/domain/effect.go"
 )
@@ -22,8 +23,9 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
-	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{path}}
-	if err := useCase.Execute(t.Context(), repository, suite, reportOf(path)); err != nil {
+	useCase := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{repository}}
+	if err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path)); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
@@ -40,8 +42,8 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
-	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{}}
-	err := useCase.Execute(t.Context(), repository, suite, reportOf(path))
+	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{}, Callers: tokensNaming{repository}}
+	err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -56,8 +58,9 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 	repository, suite := parsedRepository(t), parsedSuite(t)
 	unreadable := errors.New("the forge is unreachable")
 
-	useCase := application.ReplaceCoverage{Maps: maps, Paths: unreadablePaths{unreadable}}
-	err := useCase.Execute(t.Context(), repository, suite, reportOf(parsedPath(t)))
+	useCase := application.ReplaceCoverage{
+		Maps: maps, Paths: unreadablePaths{unreadable}, Callers: tokensNaming{repository}}
+	err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(parsedPath(t)))
 
 	if !errors.Is(err, unreadable) {
 		t.Fatalf("want the read failure, got %v", err)
@@ -65,6 +68,42 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
 		t.Fatalf("an upload whose paths were never read was stored: %v", err)
 	}
+}
+
+func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *testing.T) {
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
+	stranger, err := domain.ParseRepository(strangerRepository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+
+	useCase := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{stranger}}
+	err = useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path))
+
+	if !errors.Is(err, application.ErrForeignRepository) {
+		t.Fatalf("want ErrForeignRepository, got %v", err)
+	}
+	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
+		t.Fatalf("repository B's token stored coverage for repository A: %v", err)
+	}
+}
+
+type tokensNaming struct{ repository domain.Repository }
+
+func (naming tokensNaming) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
+	return naming.repository, nil
+}
+
+func presentedToken(t *testing.T) domain.IdentityToken {
+	t.Helper()
+
+	token, err := domain.ParseIdentityToken("presented-token")
+	if err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	return token
 }
 
 type unreadablePaths struct{ failure error }
