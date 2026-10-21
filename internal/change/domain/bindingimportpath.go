@@ -8,15 +8,19 @@ import (
 	"strings"
 )
 
-const MaxGoImportPathBytes = 512
+const (
+	MaxGoImportPathBytes = 512
+	importPathCharacters = asciiAlphanumerics + "-._~"
+	importPathDot        = "."
+)
 
 var ErrMalformedGoImportPath = errors.New("import path is not a Go import path")
 
 var importPathSegmentRule = segmentRule{
 	maxBytes:          MaxGoImportPathBytes,
-	firstCharacters:   asciiAlphanumerics + "-._~",
-	wholeCharacters:   asciiAlphanumerics + "-._~",
-	requiresOneBeyond: ".",
+	firstCharacters:   importPathCharacters,
+	wholeCharacters:   importPathCharacters,
+	requiresOneBeyond: importPathDot,
 }
 
 type GoImportPath struct {
