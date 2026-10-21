@@ -14,9 +14,10 @@ import (
 var ErrNoPolicyLoaded = errors.New("no policy loaded")
 
 const (
-	refusedRevisionMessage = "policy revision refused"
-	revisionLogKey         = "revision"
-	reasonLogKey           = "reason"
+	acceptedRevisionMessage = "policy revision accepted"
+	refusedRevisionMessage  = "policy revision refused"
+	revisionLogKey          = "revision"
+	reasonLogKey            = "reason"
 )
 
 type ActivePolicy struct {
@@ -33,7 +34,7 @@ func (active *ActivePolicy) Offer(revision domain.CommitSHA, files []domain.Poli
 		return fmt.Errorf("candidate at %s: %w", revision, err)
 	}
 	active.accepted.Store(&AcceptedRevision{revision: revision, model: model})
-	active.log.Info("policy revision accepted", revisionLogKey, revision.String())
+	active.log.Info(acceptedRevisionMessage, revisionLogKey, revision.String())
 	return nil
 }
 
