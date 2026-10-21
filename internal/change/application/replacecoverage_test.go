@@ -25,8 +25,7 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{repository}}
-	if err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)}); err != nil {
+	if err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
@@ -44,8 +43,7 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{}, Callers: tokensNaming{repository}}
-	err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)})
+	err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -60,8 +58,7 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: unreadablePaths{unreadable}, Callers: tokensNaming{repository}}
-	err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(parsedPath(t))})
+	err := useCase.Execute(t.Context(), uploadOf(t, reportOf(parsedPath(t))))
 
 	if !errors.Is(err, unreadable) {
 		t.Fatalf("want the read failure, got %v", err)
@@ -72,15 +69,10 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
-	stranger, err := domain.ParseRepository(strangerRepository)
-	if err != nil {
-		t.Fatalf("parse repository: %v", err)
-	}
 
 	useCase := application.ReplaceCoverage{
-		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{stranger}}
-	err = useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)})
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedStranger(t)}}
+	err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want ErrForeignRepository, got %v", err)
@@ -95,8 +87,7 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: unverifiedTokens{unverified}}
-	err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)})
+	err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, unverified) || errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want only the verifier's refusal, got %v", err)
@@ -105,17 +96,12 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 }
 
 func TestReplaceCoverageNeverReadsTheArtifactOfARefusedUploader(t *testing.T) {
-	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
-	stranger, err := domain.ParseRepository(strangerRepository)
-	if err != nil {
-		t.Fatalf("parse repository: %v", err)
-	}
+	path := parsedPath(t)
 	artifact := reportOf(path)
 
 	useCase := application.ReplaceCoverage{Maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()),
-		Paths: repositoryHolding{path}, Callers: tokensNaming{stranger}}
-	err = useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: artifact})
+		Paths: repositoryHolding{path}, Callers: tokensNaming{parsedStranger(t)}}
+	err := useCase.Execute(t.Context(), uploadOf(t, artifact))
 
 	if !errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want ErrForeignRepository, got %v", err)
@@ -129,13 +115,11 @@ func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *tes
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{repository}}
-	if err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)}); err != nil {
+	if err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
 		t.Fatalf("accept the first map: %v", err)
 	}
 
-	err := useCase.Execute(t.Context(), application.CoverageUpload{
-		Token: presentedToken(t), Repository: repository, Suite: suite, Report: unreadableArtifact{}})
+	err := useCase.Execute(t.Context(), uploadOf(t, unreadableArtifact{}))
 
 	if !errors.Is(err, domain.ErrTooManyFileEntries) {
 		t.Fatalf("want ErrTooManyFileEntries, got %v", err)
@@ -162,6 +146,13 @@ type tokensNaming struct{ repository domain.Repository }
 
 func (naming tokensNaming) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
 	return naming.repository, nil
+}
+
+func uploadOf(t *testing.T, report domain.CoverageReport) application.CoverageUpload {
+	t.Helper()
+
+	return application.CoverageUpload{
+		Token: presentedToken(t), Repository: parsedRepository(t), Suite: parsedSuite(t), Report: report}
 }
 
 func presentedToken(t *testing.T) domain.IdentityToken {
@@ -218,6 +209,16 @@ func parsedRepository(t *testing.T) domain.Repository {
 		t.Fatalf("parse repository: %v", err)
 	}
 	return repository
+}
+
+func parsedStranger(t *testing.T) domain.Repository {
+	t.Helper()
+
+	stranger, err := domain.ParseRepository(strangerRepository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	return stranger
 }
 
 func parsedSuite(t *testing.T) domain.SuiteName {
