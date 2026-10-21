@@ -4,6 +4,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -14,8 +15,8 @@ type RepositoryPath struct {
 }
 
 func ParseRepositoryPath(path string) (RepositoryPath, error) {
-	if strings.HasPrefix(path, "/") {
-		return RepositoryPath{}, ErrPathOutsideRepository
+	if strings.HasPrefix(path, pathSeparator) {
+		return RepositoryPath{}, fmt.Errorf("%w: it is absolute", ErrPathOutsideRepository)
 	}
 	return RepositoryPath{path: path}, nil
 }
