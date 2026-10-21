@@ -68,6 +68,19 @@ func TestARecordWithNoDecisionIDRefusesToEncode(t *testing.T) {
 	}
 }
 
+func TestARecordWithNothingMaskedListsNoRedactionsAsAnEmptyArray(t *testing.T) {
+	var published struct {
+		RedactedPointers json.RawMessage `json:"redactedPointers"`
+	}
+	if err := json.Unmarshal(encodedRecordOf(t, undecidedStructuralDecision(t)), &published); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if string(published.RedactedPointers) != "[]" {
+		t.Errorf("redactedPointers is %s, want []", published.RedactedPointers)
+	}
+}
+
 func undecidedStructuralDecision(t *testing.T) domain.FamilyDecision {
 	t.Helper()
 	return domain.FamilyDecision{

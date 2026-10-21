@@ -31,15 +31,15 @@ func (record DecisionRecord) MarshalJSON() ([]byte, error) {
 		DecisionID:       record.decisionID.String(),
 		BundleRevision:   publishedRevisionOf(record.revision),
 		MaskedInput:      record.masked,
-		RedactedPointers: record.masked.RedactedPointers(),
+		RedactedPointers: Declared[string](record.masked.RedactedPointers()),
 	})
 }
 
 type publishedRecord struct {
-	DecisionID       string      `json:"decisionId"`
-	BundleRevision   *string     `json:"bundleRevision,omitempty"`
-	MaskedInput      MaskedInput `json:"maskedInput"`
-	RedactedPointers []string    `json:"redactedPointers"`
+	DecisionID       string           `json:"decisionId"`
+	BundleRevision   *string          `json:"bundleRevision,omitempty"`
+	MaskedInput      MaskedInput      `json:"maskedInput"`
+	RedactedPointers Declared[string] `json:"redactedPointers"`
 }
 
 func publishedRevisionOf(revision BundleRevision) *string {
