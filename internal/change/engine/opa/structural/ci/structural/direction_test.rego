@@ -196,6 +196,17 @@ test_each_repository_is_judged_only_by_the_policies_its_own_binding_names[note] 
 	{[violation.rule_id, violation.message] | some violation in decided.violations} == case.refusals
 }
 
+test_a_binding_naming_no_policies_is_undecided_never_admitted if {
+	binding_naming_nothing := json.patch(policy, [{
+		"op": "replace",
+		"path": $"/bindings/{replace(control_plane, "/", "~1")}/policies",
+		"value": [],
+	}])
+
+	not structural.decision with input as change_adding([domain_imports_forge])
+		with data.ci.policy as binding_naming_nothing
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",

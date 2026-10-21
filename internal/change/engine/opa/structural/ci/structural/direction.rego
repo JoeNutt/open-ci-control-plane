@@ -8,6 +8,7 @@ decision := {
 	"reviewers": [],
 	"fail_closed": true,
 } if {
+	count(bound_policies) > 0
 	every bound in bound_policies {
 		refused_relation_by_direction[data.ci.policy.catalog[bound.use].direction]
 	}
