@@ -27,6 +27,8 @@ control_plane := "JoeNutt/open-ci-control-plane"
 
 module_root := $"github.com/{control_plane}"
 
+control_plane_policies := $"/bindings/{replace(control_plane, "/", "~1")}/policies"
+
 domain_imports_forge := {"from": "internal/change/domain/gate.go", "to": $"{module_root}/internal/change/forge/github"}
 
 change_adding(edges) := change_in(control_plane, edges)
@@ -91,7 +93,7 @@ test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
 
 policy_also_rooting(root) := json.patch(policy, [{
 	"op": "add",
-	"path": $"/bindings/{replace(control_plane, "/", "~1")}/policies/0/import_roots/-",
+	"path": $"{control_plane_policies}/0/import_roots/-",
 	"value": root,
 }])
 
@@ -199,7 +201,7 @@ test_each_repository_is_judged_only_by_the_policies_its_own_binding_names[note] 
 test_a_binding_naming_no_policies_is_undecided_never_admitted if {
 	binding_naming_nothing := json.patch(policy, [{
 		"op": "replace",
-		"path": $"/bindings/{replace(control_plane, "/", "~1")}/policies",
+		"path": control_plane_policies,
 		"value": [],
 	}])
 

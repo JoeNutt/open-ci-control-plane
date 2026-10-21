@@ -8,13 +8,17 @@ decision := {
 	"reviewers": [],
 	"fail_closed": true,
 } if {
+	is_every_bound_policy_judgeable
+}
+
+bound_policies := data.ci.policy.bindings[input.pr.repository].policies
+
+is_every_bound_policy_judgeable if {
 	count(bound_policies) > 0
 	every bound in bound_policies {
 		refused_relation_by_direction[data.ci.policy.catalog[bound.use].direction]
 	}
 }
-
-bound_policies := data.ci.policy.bindings[input.pr.repository].policies
 
 default input_wellformed := false
 
