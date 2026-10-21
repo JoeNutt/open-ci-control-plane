@@ -7,7 +7,9 @@ import (
 	"errors"
 )
 
-var ErrNoSuchFile = errors.New("the forge reports no such file at that commit")
+type FileContents interface {
+	ContentsAt(ctx context.Context, file FileAtCommit) ([]byte, error)
+}
 
 type FileAtCommit struct {
 	Repository string
@@ -15,6 +17,4 @@ type FileAtCommit struct {
 	Path       string
 }
 
-type FileContents interface {
-	ContentsAt(ctx context.Context, file FileAtCommit) ([]byte, error)
-}
+var ErrNoSuchFile = errors.New("the forge reports no such file at that commit")
