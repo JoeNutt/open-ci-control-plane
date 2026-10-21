@@ -3,166 +3,129 @@
 package domain
 
 import (
+	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 )
 
+var ErrUnmaskableField = errors.New("field cannot be masked")
+
 type MaskedInput struct {
-	tree     map[string]any
+	document Document
 	redacted []string
 }
 
 func MaskedInputOf(document Document) (MaskedInput, error) {
-	tree, err := treeOf(document)
-	if err != nil {
-		return MaskedInput{}, err
+	var fields []sensitiveField
+	for _, stated := range document.Diff.Sensitive {
+		field, err := parseSensitiveField(stated)
+		if err != nil {
+			return MaskedInput{}, fmt.Errorf("mask %q: %w", stated, err)
+		}
+		fields = append(fields, field)
 	}
-	redacted, err := removeSensitive(tree, document.Diff.Sensitive)
-	if err != nil {
-		return MaskedInput{}, err
+
+	masked := document
+	masked.PR.Approvals = slices.Clone(document.PR.Approvals)
+	masked.Analyzers.Findings = slices.Clone(document.Analyzers.Findings)
+
+	order := make([]int, len(fields))
+	for i := range order {
+		order[i] = i
 	}
-	return MaskedInput{tree: tree, redacted: redacted}, nil
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(fields[b].index, fields[a].index) })
+	removed := make([]bool, len(fields))
+	for _, i := range order {
+		removed[i] = fields[i].redactIn(&masked)
+	}
+
+	var redacted []string
+	for i, field := range fields {
+		if removed[i] {
+			redacted = append(redacted, field.stated)
+		}
+	}
+	return MaskedInput{document: masked, redacted: redacted}, nil
 }
 
-func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(masked.tree) }
+func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(masked.document) }
 
 func (masked MaskedInput) RedactedPointers() []string { return slices.Clone(masked.redacted) }
 
-func treeOf(document Document) (map[string]any, error) {
-	encoded, err := json.Marshal(document)
-	if err != nil {
-		return nil, fmt.Errorf("encode the change document to mask it: %w", err)
-	}
-	var tree map[string]any
-	if err := json.Unmarshal(encoded, &tree); err != nil {
-		return nil, fmt.Errorf("decode the change document to mask it: %w", err)
-	}
-	return tree, nil
+type sensitiveLocation int
+
+const (
+	authorLogin sensitiveLocation = iota
+	approvalLogin
+	analyzerFinding
+)
+
+type sensitiveField struct {
+	stated   string
+	location sensitiveLocation
+	index    int
 }
 
-func removeSensitive(tree map[string]any, sensitive []string) ([]string, error) {
-	var redacted []string
-	for _, stated := range sensitive {
-		removed, err := removeNamed(tree, stated)
-		if err != nil {
-			return nil, fmt.Errorf("mask %q: %w", stated, err)
-		}
-		if removed {
-			redacted = append(redacted, stated)
-		}
-	}
-	dropRemovedElements(tree)
-	return redacted, nil
-}
-
-func removeNamed(tree map[string]any, stated string) (bool, error) {
+func parseSensitiveField(stated string) (sensitiveField, error) {
 	pointer, err := ParseJSONPointer(stated)
 	if err != nil {
-		return false, err
+		return sensitiveField{}, err
 	}
-	return removeAt(tree, pointer)
-}
-
-func removeAt(tree map[string]any, pointer JSONPointer) (bool, error) {
 	tokens := pointer.Tokens()
-	var node any = tree
-	for _, token := range tokens[:len(tokens)-1] {
-		child, exists, err := childOf(node, token)
+	switch {
+	case slices.Equal(tokens, []string{"pr", "author", "login"}):
+		return sensitiveField{stated: stated, location: authorLogin}, nil
+	case len(tokens) == 4 && tokens[0] == "pr" && tokens[1] == "approvals" && tokens[3] == "login":
+		index, err := parseIndex(tokens[2])
 		if err != nil {
-			return false, err
+			return sensitiveField{}, err
 		}
-		if !exists {
-			return false, nil
+		return sensitiveField{stated: stated, location: approvalLogin, index: index}, nil
+	case len(tokens) == 3 && tokens[0] == "analyzers" && tokens[1] == "findings":
+		index, err := parseIndex(tokens[2])
+		if err != nil {
+			return sensitiveField{}, err
 		}
-		node = child
+		return sensitiveField{stated: stated, location: analyzerFinding, index: index}, nil
 	}
-	return removeChild(node, tokens[len(tokens)-1])
+	return sensitiveField{}, ErrUnmaskableField
 }
 
-func childOf(node any, token string) (any, bool, error) {
-	switch container := node.(type) {
-	case map[string]any:
-		child, exists := container[token]
-		return child, exists, nil
-	case []any:
-		index, exists, err := arrayIndex(container, token)
-		if !exists {
-			return nil, false, err
-		}
-		return container[index], true, nil
-	default:
-		return nil, false, nil
-	}
-}
-
-func removeChild(node any, token string) (bool, error) {
-	switch container := node.(type) {
-	case map[string]any:
-		_, exists := container[token]
-		delete(container, token)
-		return exists, nil
-	case []any:
-		index, exists, err := arrayIndex(container, token)
-		if !exists {
-			return false, err
-		}
-		container[index] = removedElement{}
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-func arrayIndex(elements []any, token string) (int, bool, error) {
-	if hasForbiddenIndexSpelling(token) {
-		return 0, false, fmt.Errorf("%w: %q is not an array index", ErrMalformedJSONPointer, token)
+func parseIndex(token string) (int, error) {
+	if strings.HasPrefix(token, "+") || len(token) > 1 && (strings.HasPrefix(token, "0") || strings.HasPrefix(token, "-")) {
+		return 0, fmt.Errorf("%w: %q is not an array index", ErrMalformedJSONPointer, token)
 	}
 	index, err := strconv.Atoi(token)
-	if err != nil || index >= len(elements) {
-		return 0, false, nil
+	if err != nil {
+		return 0, ErrUnmaskableField
 	}
-	return index, true, nil
+	return index, nil
 }
 
-func hasForbiddenIndexSpelling(token string) bool {
-	if strings.HasPrefix(token, "+") {
+func (field sensitiveField) redactIn(document *Document) bool {
+	switch field.location {
+	case authorLogin:
+		if document.PR.Author.Login == "" {
+			return false
+		}
+		document.PR.Author.Login = ""
+		return true
+	case approvalLogin:
+		if field.index >= len(document.PR.Approvals) || document.PR.Approvals[field.index].Login == "" {
+			return false
+		}
+		document.PR.Approvals[field.index].Login = ""
+		return true
+	case analyzerFinding:
+		if field.index >= len(document.Analyzers.Findings) {
+			return false
+		}
+		document.Analyzers.Findings = slices.Delete(document.Analyzers.Findings, field.index, field.index+1)
 		return true
 	}
-	isLongerThanOneCharacter := len(token) > 1
-	hasLeadingZero := isLongerThanOneCharacter && strings.HasPrefix(token, "0")
-	hasMinusSign := isLongerThanOneCharacter && strings.HasPrefix(token, "-")
-	return hasLeadingZero || hasMinusSign
-}
-
-type removedElement struct{}
-
-func dropRemovedElements(node any) {
-	switch container := node.(type) {
-	case map[string]any:
-		for key, child := range container {
-			container[key] = withoutRemovedElements(child)
-			dropRemovedElements(container[key])
-		}
-	case []any:
-		for index, child := range container {
-			container[index] = withoutRemovedElements(child)
-			dropRemovedElements(container[index])
-		}
-	}
-}
-
-func withoutRemovedElements(node any) any {
-	elements, isArray := node.([]any)
-	if !isArray {
-		return node
-	}
-	return slices.DeleteFunc(elements, isRemovedElement)
-}
-
-func isRemovedElement(node any) bool {
-	_, isRemoved := node.(removedElement)
-	return isRemoved
+	return false
 }
