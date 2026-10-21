@@ -3,6 +3,7 @@
 package policy
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -44,7 +45,9 @@ func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
 
 func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 	var document catalogDocument
-	if err := yaml.Unmarshal(content, &document); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&document); err != nil {
 		return domain.CatalogPolicy{}, ErrMalformedPolicyFile
 	}
 	statement, err := catalogStatementOf(document)
