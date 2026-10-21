@@ -28,7 +28,8 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	source := memory.ChangeSource{
 		Changes: map[domain.PullRequestLocator]memory.Change{
 			locator: {
-				PullRequest: domain.PullRequest{Number: 412, Repository: "acme/payments"},
+				PullRequest: domain.PullRequest{
+					Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
 				Files: []domain.File{
 					{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
 						Additions: 12, Deletions: 3, PatchBytes: 1840},
@@ -39,7 +40,12 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		},
 	}
 
-	useCase := application.BuildDocument{Source: source, Limits: domain.DeclaredLimits()}
+	useCase := application.BuildDocument{
+		Source:    source,
+		Contents:  recordedAtHead(t, locator, "internal/auth/middleware.go", sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
 
 	document, err := useCase.Execute(context.Background(), locator)
 
@@ -55,8 +61,6 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	}
 }
 
-const headOfTheChange = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
-
 func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
@@ -65,15 +69,13 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 			Changes: map[domain.PullRequestLocator]memory.Change{
 				locator: {
 					PullRequest: domain.PullRequest{
-						Number: 412, Repository: "acme/payments", HeadSHA: headOfTheChange},
+						Number: 412, Repository: "acme/payments", HeadSHA: recordedHeadSHA},
 					Files: []domain.File{file},
 				},
 			},
 		},
-		Contents: memory.FileContents{Files: map[domain.FileAtCommit][]byte{
-			{Repository: "acme/payments", Commit: commitOf(t, headOfTheChange), Path: file.Path}: []byte(
-				"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
-		}},
+		Contents: recordedAtHead(t, locator, file.Path,
+			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -91,14 +93,4 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	if !reflect.DeepEqual(document.Diff.Imports, want) {
 		t.Fatalf("imports are %+v, want %+v", document.Diff.Imports, want)
 	}
-}
-
-func commitOf(t *testing.T, stated string) domain.CommitSHA {
-	t.Helper()
-
-	commit, err := domain.ParseCommitSHA(stated)
-	if err != nil {
-		t.Fatalf("parse commit %q: %v", stated, err)
-	}
-	return commit
 }
