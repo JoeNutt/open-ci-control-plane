@@ -12,7 +12,7 @@ import (
 
 var ErrNoSuchInstallation = errors.New("the forge found no App installation with the configured installation id")
 
-var ErrIncompleteGrant = errors.New("incomplete")
+var ErrIncompleteGrant = errors.New("the forge granted an installation token with no token or no expiry")
 
 type Installation struct {
 	Key   AppKey
@@ -42,6 +42,14 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
+	minted, err := tokens.exchanged(ctx)
+	if err != nil {
+		return Credential{}, err
+	}
+	return minted.credential, nil
+}
+
+func (tokens *InstallationTokens) exchanged(ctx context.Context) (installationToken, error) {
 	granted, err := exchanged[accessTokenGrant](ctx, tokens.asApp, exchange{
 		method:    http.MethodPost,
 		endpoint:  tokens.accessTokensEndpoint(),
@@ -50,12 +58,9 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 		notFound:  ErrNoSuchInstallation,
 	})
 	if err != nil {
-		return Credential{}, err
+		return installationToken{}, fmt.Errorf("exchange the App JWT for an installation token: %w", err)
 	}
-	if granted.Token == "" || granted.ExpiresAt.IsZero() {
-		return Credential{}, ErrIncompleteGrant
-	}
-	return NewCredential(granted.Token), nil
+	return parseGrant(granted)
 }
 
 func (tokens *InstallationTokens) accessTokensEndpoint() string {
@@ -88,4 +93,16 @@ type accessTokenRequest struct {
 type accessTokenGrant struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type installationToken struct {
+	credential Credential
+	expiresAt  time.Time
+}
+
+func parseGrant(granted accessTokenGrant) (installationToken, error) {
+	if granted.Token == "" || granted.ExpiresAt.IsZero() {
+		return installationToken{}, ErrIncompleteGrant
+	}
+	return installationToken{credential: NewCredential(granted.Token), expiresAt: granted.ExpiresAt}, nil
 }
