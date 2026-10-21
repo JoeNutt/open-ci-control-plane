@@ -98,7 +98,7 @@ func incompletenessOf(settings ActionsTokenSettings) error {
 		{isAbsent: settings.Issuer == "", description: "no issuer to expect"},
 		{isAbsent: settings.Audience == "", description: "no audience to expect"},
 		{isAbsent: settings.Client == nil, description: "no client to reach the issuer with"},
-		{isAbsent: settings.Client == nil || settings.Client.Timeout == 0, description: "no timeout on the client"},
+		{isAbsent: hasNoTimeout(settings.Client), description: "no timeout on the client"},
 		{isAbsent: settings.Now == nil, description: "no clock to judge a token's lifetime by"},
 	}
 	absent := slices.IndexFunc(parts, func(part settingsPart) bool { return part.isAbsent })
@@ -114,6 +114,10 @@ func httpsURLOf(stated string) (*url.URL, error) {
 		return nil, fmt.Errorf("%w: %q", ErrMalformedActionsTokens, stated)
 	}
 	return parsed, nil
+}
+
+func hasNoTimeout(client *http.Client) bool {
+	return client == nil || client.Timeout <= 0
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
