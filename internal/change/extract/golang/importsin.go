@@ -3,6 +3,7 @@
 package golang
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -12,10 +13,12 @@ import (
 
 const unnamedSource = ""
 
+var ErrUnparsableSource = errors.New("the source does not parse as Go")
+
 func ImportsIn(source []byte) ([]string, error) {
 	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source, parser.ImportsOnly)
 	if err != nil {
-		return nil, fmt.Errorf("parse the import declarations: %w", err)
+		return nil, ErrUnparsableSource
 	}
 	imports := make([]string, 0, len(parsed.Imports))
 	for _, declared := range parsed.Imports {
