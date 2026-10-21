@@ -25,6 +25,10 @@ func (imported ImportedFile) edgesAdded() []ModuleEdge {
 	return imported.edgesTo(imported.Head.importsAbsentFrom(imported.Base))
 }
 
+func (imported ImportedFile) edgesRemoved() []ModuleEdge {
+	return imported.edgesTo(imported.Base.importsAbsentFrom(imported.Head))
+}
+
 func (imported ImportedFile) edgesTo(targets []string) []ModuleEdge {
 	edges := make([]ModuleEdge, 0, len(targets))
 	for _, target := range targets {

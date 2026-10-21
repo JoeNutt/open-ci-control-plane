@@ -108,8 +108,9 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 
 func graphDeltaFor(resolution importResolution, imported []ImportedFile) ModuleGraphDelta {
 	return ModuleGraphDelta{
-		EdgesAdded: edgesAddedIn(imported),
-		Incomplete: resolution.unresolved > 0,
+		EdgesAdded:   edgesAddedIn(imported),
+		EdgesRemoved: edgesRemovedIn(imported),
+		Incomplete:   resolution.unresolved > 0,
 	}
 }
 
@@ -119,4 +120,12 @@ func edgesAddedIn(imported []ImportedFile) Declared[ModuleEdge] {
 		added = append(added, file.edgesAdded()...)
 	}
 	return added
+}
+
+func edgesRemovedIn(imported []ImportedFile) Declared[ModuleEdge] {
+	var removed Declared[ModuleEdge]
+	for _, file := range imported {
+		removed = append(removed, file.edgesRemoved()...)
+	}
+	return removed
 }
