@@ -29,12 +29,7 @@ func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUploa
 	if err := useCase.authorise(ctx, upload); err != nil {
 		return err
 	}
-	reported, _ := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
-	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
-	if err != nil {
-		return fmt.Errorf("read the paths %s holds: %w", upload.Repository, err)
-	}
-	coverage, err := domain.ParseSuiteCoverage(reported, known)
+	coverage, err := useCase.coverageIn(ctx, upload)
 	if err != nil {
 		return fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
@@ -50,4 +45,13 @@ func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpl
 		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
 	}
 	return nil
+}
+
+func (useCase ReplaceCoverage) coverageIn(ctx context.Context, upload CoverageUpload) (domain.SuiteCoverage, error) {
+	reported, _ := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
+	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
+	if err != nil {
+		return domain.SuiteCoverage{}, fmt.Errorf("read the paths it holds: %w", err)
+	}
+	return domain.ParseSuiteCoverage(reported, known)
 }
