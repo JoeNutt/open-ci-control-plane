@@ -26,3 +26,5 @@ var ErrCheckRunTextUnidentified = errCheckRunTextUnidentified
 var AppJWTAt = appJWTAt
 
 const PKCS1PrivateKeyBlock = pkcs1PrivateKeyBlock
+
+const RedactionMarker = redactionMarker

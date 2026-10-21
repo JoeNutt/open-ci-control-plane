@@ -2,7 +2,13 @@
 
 package github
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"io"
+)
+
+const redactionMarker = "[redacted]"
 
 type Credential struct {
 	token *string
@@ -19,6 +25,8 @@ func (credential Credential) bearer() string { return "Bearer " + *credential.to
 func (credential Credential) authorization(context.Context) (Credential, error) {
 	return credential, nil
 }
+
+func (credential Credential) Format(state fmt.State, verb rune) { io.WriteString(state, "[redacted]") }
 
 func (credential Credential) String() string { return "[redacted]" }
 
