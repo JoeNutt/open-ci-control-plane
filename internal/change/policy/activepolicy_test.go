@@ -5,6 +5,7 @@ package policy_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
@@ -59,6 +60,50 @@ func TestActivePolicyKeepsThePreviousRevisionWhenACandidateIsRefused(t *testing.
 	}
 }
 
+func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T) {
+	refused := map[string]struct {
+		candidate []domain.PolicyFile
+		reason    error
+	}{
+		"an unknown key":                     {liveFilesWithBinding(t, liveBindingWithUnknownKey(t, "timeout")), policy.ErrMalformedPolicyFile},
+		"a YAML alias":                       {liveFilesWithBinding(t, liveBindingWithAlias(t)), policy.ErrAliasOrAnchor},
+		"a YAML anchor":                      {liveFilesWithCatalog(t, liveCatalogWithAnchor(t)), policy.ErrAliasOrAnchor},
+		"two bindings for one repository":    {liveFilesAnd(liveFiles(t)[1], "bindings/JoeNutt/copy.yaml"), domain.ErrDuplicateBinding},
+		"two catalog policies with one name": {liveFilesAnd(liveFiles(t)[0], "catalog/copy.yaml"), domain.ErrDuplicateCatalogPolicy},
+		"a binding naming an unknown policy": {liveFilesWithBinding(t, liveBindingWith(t, "use: clean-architecture", "use: mvvm")), domain.ErrUnknownCatalogPolicy},
+		"a binding naming an undeclared group": {
+			liveFilesWithBinding(t, liveBindingWith(t, liveDriverPaths, liveDriverPaths+"\n      infrastructure: [\"deploy/**\"]")),
+			domain.ErrUndeclaredGroup,
+		},
+		"a missing workflow":             {liveFilesWithBinding(t, liveBindingWithoutWorkflow(t)), domain.ErrMissingWorkflow},
+		"an empty import-root prefix":    {liveFilesWithBinding(t, liveBindingWith(t, "prefix: "+liveModule, `prefix: ""`)), domain.ErrMalformedGoImportPath},
+		"two roots sharing one prefix":   {liveFilesWithBinding(t, liveBindingWithImportRoots(t, 1)), domain.ErrSharedImportRootPrefix},
+		"one path in two groups":         {liveFilesWithBinding(t, liveBindingPlacingOnePathInTwoGroups(t)), domain.ErrPathInTwoGroups},
+		"a file outside the directories": {liveFilesAnd(liveFiles(t)[1], "templates/copy.yaml"), policy.ErrUnplacedPolicyFile},
+		"a file above 1 MiB": {
+			liveFilesWithBinding(t, string(fixture(t, liveBindingPath))+strings.Repeat(" ", domain.MaxPolicyFileBytes)),
+			domain.ErrPolicyFileTooLarge,
+		},
+		"more than 256 files":             {policyFilesBeyondTheBound(t), domain.ErrTooManyPolicyFiles},
+		"more than 64 module groups":      {liveFilesWithBinding(t, liveBindingWithGroups(t, domain.MaxBindingGroups)), domain.ErrTooManyBindingGroups},
+		"more than 512 path patterns":     {liveFilesWithBinding(t, liveBindingWithDriverPatterns(t, domain.MaxBindingPathPatterns)), domain.ErrTooManyBindingPathPatterns},
+		"more than 64 import roots":       {liveFilesWithBinding(t, liveBindingWithImportRoots(t, domain.MaxBindingImportRoots)), domain.ErrTooManyBindingImportRoots},
+		"more than 512 always-run suites": {liveFilesWithBinding(t, liveBindingWithAlwaysRun(t, domain.MaxBindingAlwaysRunSuites)), domain.ErrTooManyAlwaysRunSuites},
+	}
+	for form, refusal := range refused {
+		t.Run(form, func(t *testing.T) {
+			active := activeAtFirstCommit(t)
+
+			if err := active.Offer(policyCommit(t, secondPolicyCommit), refusal.candidate); !errors.Is(err, refusal.reason) {
+				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
+			}
+			if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
+				t.Errorf("accepted revision %s after %s, want the previous %s", revision, form, firstPolicyCommit)
+			}
+		})
+	}
+}
+
 func TestActivePolicyLogsARefusalWithItsReasonAndNoFileContent(t *testing.T) {
 	var logged bytes.Buffer
 	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
@@ -107,4 +152,68 @@ func policyCommit(t *testing.T, stated string) domain.CommitSHA {
 		t.Fatalf("parse commit %s: %v", stated, err)
 	}
 	return commit
+}
+
+func liveFilesWithBinding(t *testing.T, binding string) []domain.PolicyFile {
+	t.Helper()
+
+	files := liveFiles(t)
+	files[1].Content = []byte(binding)
+	return files
+}
+
+func liveFilesWithCatalog(t *testing.T, catalog string) []domain.PolicyFile {
+	t.Helper()
+
+	files := liveFiles(t)
+	files[0].Content = []byte(catalog)
+	return files
+}
+
+func liveFilesAnd(copied domain.PolicyFile, path string) []domain.PolicyFile {
+	return []domain.PolicyFile{copied, {Path: path, Content: copied.Content}}
+}
+
+func policyFilesBeyondTheBound(t *testing.T) []domain.PolicyFile {
+	t.Helper()
+
+	files := liveFiles(t)
+	for index := len(files); index <= domain.MaxPolicyFiles; index++ {
+		files = append(files, domain.PolicyFile{Path: fmt.Sprintf("bindings/owner/repository%d.yaml", index), Content: files[1].Content})
+	}
+	return files
+}
+
+func liveBindingWithGroups(t *testing.T, beyondTheLive int) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveDriverPaths, liveDriverPaths+linesOf(beyondTheLive, "\n      group%d: []"))
+}
+
+func liveBindingWithDriverPatterns(t *testing.T, beyondTheLive int) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveDriverPaths, `driver: ["cmd/**"`+linesOf(beyondTheLive, `, "cmd%d/**"`)+"]")
+}
+
+func liveBindingWithImportRoots(t *testing.T, beyondTheLive int) string {
+	t.Helper()
+
+	return liveBindingWith(t, "        path: \"\"\n", "        path: \"\"\n"+linesOf(beyondTheLive, "      - prefix: "+liveModule+"\n        path: internal%d\n"))
+}
+
+func liveBindingWithAlwaysRun(t *testing.T, beyondTheLive int) string {
+	t.Helper()
+
+	liveSuite := "    - " + liveModule + "/internal/change/domain"
+
+	return liveBindingWith(t, liveSuite, liveSuite+linesOf(beyondTheLive, "\n    - "+liveModule+"/internal/suite%d"))
+}
+
+func linesOf(count int, format string) string {
+	var lines strings.Builder
+	for index := range count {
+		fmt.Fprintf(&lines, format, index)
+	}
+	return lines.String()
 }
