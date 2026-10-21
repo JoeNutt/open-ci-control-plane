@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -27,7 +28,7 @@ func (store *CoverageMaps) ReplaceSuiteCoverage(
 
 	replaced, err := store.held[repository].Replacing(suite, coverage, store.limits)
 	if err != nil {
-		return err
+		return fmt.Errorf("replace coverage of %s in %s: %w", suite, repository, err)
 	}
 	store.held[repository] = replaced
 	return nil
