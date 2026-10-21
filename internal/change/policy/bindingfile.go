@@ -44,34 +44,52 @@ func bindingIn(content []byte) (domain.Binding, error) {
 	if err != nil {
 		return domain.Binding{}, err
 	}
-	return domain.ParseBinding(bindingStatementOf(document))
+	statement, err := bindingStatementOf(document)
+	if err != nil {
+		return domain.Binding{}, err
+	}
+	return domain.ParseBinding(statement)
 }
 
-func bindingStatementOf(document bindingDocument) domain.BindingStatement {
+func bindingStatementOf(document bindingDocument) (domain.BindingStatement, error) {
+	if !isReadSchemaVersion(document.SchemaVersion) {
+		return domain.BindingStatement{}, fmt.Errorf("%w: want %d", ErrUnsupportedSchemaVersion, readSchemaVersion)
+	}
+	policies, err := boundPolicyStatementsOf(document.Policies)
+	if err != nil {
+		return domain.BindingStatement{}, err
+	}
 	return domain.BindingStatement{
 		Repository: document.Repository,
 		Workflow:   document.Tests.Workflow,
 		AlwaysRun:  document.Tests.AlwaysRun,
-		Policies:   boundPolicyStatementsOf(document.Policies),
-	}
+		Policies:   policies,
+	}, nil
 }
 
-func boundPolicyStatementsOf(entries []bindingPolicyEntry) []domain.BoundPolicyStatement {
+func boundPolicyStatementsOf(entries []bindingPolicyEntry) ([]domain.BoundPolicyStatement, error) {
 	policies := make([]domain.BoundPolicyStatement, 0, len(entries))
 	for _, entry := range entries {
+		roots, err := importRootStatementsOf(entry.ImportRoots)
+		if err != nil {
+			return nil, err
+		}
 		policies = append(policies, domain.BoundPolicyStatement{
 			Use:         entry.Use,
-			ImportRoots: importRootStatementsOf(entry.ImportRoots),
+			ImportRoots: roots,
 			Paths:       entry.Paths,
 		})
 	}
-	return policies
+	return policies, nil
 }
 
-func importRootStatementsOf(entries []importRootEntry) []domain.ImportRootStatement {
+func importRootStatementsOf(entries []importRootEntry) ([]domain.ImportRootStatement, error) {
 	roots := make([]domain.ImportRootStatement, 0, len(entries))
 	for _, entry := range entries {
+		if entry.Path == nil {
+			return nil, fmt.Errorf("%w: path of an import root", ErrMissingKey)
+		}
 		roots = append(roots, domain.ImportRootStatement{Prefix: entry.Prefix, Path: *entry.Path})
 	}
-	return roots
+	return roots, nil
 }
