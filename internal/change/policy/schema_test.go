@@ -32,21 +32,23 @@ func TestTheLiveAndExampleBindingsMatchThePublishedBindingSchema(t *testing.T) {
 	}
 }
 
-func TestThePublishedCatalogSchemaRefusesEveryCatalogRefusedByItsShape(t *testing.T) {
-	for form, refusal := range catalogsRefusedByTheirShape(t) {
-		t.Run(form, func(t *testing.T) {
-			if faults := schemaFaultsOf(t, refusal.written, catalogSchemaPath); len(faults) == 0 {
-				t.Errorf("a catalog with %s matches %s", form, catalogSchemaPath)
-			}
-		})
+func TestEachPublishedSchemaRefusesEveryFileRefusedByItsShape(t *testing.T) {
+	refusedBySchema := map[string]map[string]refusedFile{
+		catalogSchemaPath: catalogsRefusedByTheirShape(t),
+		bindingSchemaPath: bindingsRefusedByTheirShape(t),
+	}
+	for schemaPath, refused := range refusedBySchema {
+		t.Run(schemaPath, func(t *testing.T) { expectEachRefusedBy(t, schemaPath, refused) })
 	}
 }
 
-func TestThePublishedBindingSchemaRefusesEveryBindingRefusedByItsShape(t *testing.T) {
-	for form, refusal := range bindingsRefusedByTheirShape(t) {
+func expectEachRefusedBy(t *testing.T, schemaPath string, refused map[string]refusedFile) {
+	t.Helper()
+
+	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
-			if faults := schemaFaultsOf(t, refusal.written, bindingSchemaPath); len(faults) == 0 {
-				t.Errorf("a binding with %s matches %s", form, bindingSchemaPath)
+			if faults := schemaFaultsOf(t, refusal.written, schemaPath); len(faults) == 0 {
+				t.Errorf("a file with %s matches %s", form, schemaPath)
 			}
 		})
 	}
