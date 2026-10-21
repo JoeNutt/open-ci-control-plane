@@ -81,6 +81,27 @@ func TestARecordOfAnUndecidedDecisionThatFailsClosedPublishesARefusal(t *testing
 	}
 }
 
+func TestARecordOfADecidedDecisionPublishesTheVerdictItsEffectEarns(t *testing.T) {
+	earned := map[string]struct {
+		effect  string
+		verdict string
+	}{
+		"an allow with no rule fired": {"allow", "admit"},
+		"a review with no rule fired": {"review", "review"},
+		"a block":                     {"block", "refuse"},
+	}
+
+	for form, want := range earned {
+		t.Run(form, func(t *testing.T) {
+			published := publishedFrom(t, writtenLineOf(t, recordOf(t, decidedStructural(t, want.effect), domain.Document{})))
+
+			if published.Verdict != want.verdict {
+				t.Errorf("verdict is %q, want %q", published.Verdict, want.verdict)
+			}
+		})
+	}
+}
+
 func TestARecordWithNothingMaskedListsNoRedactionsAsAnEmptyArray(t *testing.T) {
 	published := publishedFrom(t, writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{})))
 
@@ -179,6 +200,22 @@ func undecidedStructural(t *testing.T) domain.FamilyDecision {
 		Family:   domain.PolicyFamilyStructural,
 		Decision: domain.UndecidedDecision(revision),
 	}
+}
+
+func decidedStructural(t *testing.T, effect string) domain.FamilyDecision {
+	t.Helper()
+	revision, err := domain.ParseBundleRevision(recordedRevision)
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	decided, err := domain.ParseDecision([]byte(`{
+		"input_wellformed": true, "schema_version_accepted": 1, "effect": "`+effect+`",
+		"violations": [], "reviewers": []
+	}`), revision)
+	if err != nil {
+		t.Fatalf("parse decision: %v", err)
+	}
+	return domain.FamilyDecision{Family: domain.PolicyFamilyStructural, Decision: decided}
 }
 
 func faultedStructural(t *testing.T) domain.FamilyDecision {
