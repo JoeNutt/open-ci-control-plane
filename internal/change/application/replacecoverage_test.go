@@ -184,13 +184,13 @@ func (unreadableArtifact) ReportedFiles(domain.CoverageLimits) ([]domain.Reporte
 
 type unverifiedTokens struct{ refusal error }
 
-func (unverified unverifiedTokens) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
-	return domain.Repository{}, unverified.refusal
+func (unverified unverifiedTokens) RepositoryOf(context.Context, domain.IdentityToken) (domain.GovernedRepository, error) {
+	return domain.GovernedRepository{}, unverified.refusal
 }
 
-type tokensNaming struct{ repository domain.Repository }
+type tokensNaming struct{ repository domain.GovernedRepository }
 
-func (naming tokensNaming) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
+func (naming tokensNaming) RepositoryOf(context.Context, domain.IdentityToken) (domain.GovernedRepository, error) {
 	return naming.repository, nil
 }
 
@@ -213,12 +213,12 @@ func presentedToken(t *testing.T) domain.IdentityToken {
 
 type unreadablePaths struct{ failure error }
 
-func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.Repository) (domain.KnownPaths, error) {
+func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.GovernedRepository) (domain.KnownPaths, error) {
 	return domain.KnownPaths{}, unreadable.failure
 }
 
 func assertNothingStored(
-	t *testing.T, maps domain.CoverageMaps, repository domain.Repository, suite domain.SuiteName,
+	t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.SuiteName,
 ) {
 	t.Helper()
 
@@ -229,7 +229,7 @@ func assertNothingStored(
 
 type repositoryHolding []domain.RepositoryPath
 
-func (held repositoryHolding) KnownPathsOf(context.Context, domain.Repository) (domain.KnownPaths, error) {
+func (held repositoryHolding) KnownPathsOf(context.Context, domain.GovernedRepository) (domain.KnownPaths, error) {
 	return domain.NewKnownPaths(held), nil
 }
 
@@ -247,20 +247,20 @@ func reportOf(path domain.RepositoryPath) artifactReporting {
 	return artifactReporting{reported: []domain.ReportedFile{domain.NewReportedFile(path, true)}, reads: new(int)}
 }
 
-func parsedRepository(t *testing.T) domain.Repository {
+func parsedRepository(t *testing.T) domain.GovernedRepository {
 	t.Helper()
 
-	repository, err := domain.ParseRepository(uploadingRepository)
+	repository, err := domain.ParseGovernedRepository(uploadingRepository)
 	if err != nil {
 		t.Fatalf("parse repository: %v", err)
 	}
 	return repository
 }
 
-func parsedStranger(t *testing.T) domain.Repository {
+func parsedStranger(t *testing.T) domain.GovernedRepository {
 	t.Helper()
 
-	stranger, err := domain.ParseRepository(strangerRepository)
+	stranger, err := domain.ParseGovernedRepository(strangerRepository)
 	if err != nil {
 		t.Fatalf("parse repository: %v", err)
 	}

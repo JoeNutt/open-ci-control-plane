@@ -12,16 +12,16 @@ import (
 
 type CoverageMaps struct {
 	guard  sync.RWMutex
-	held   map[domain.Repository]domain.RepositoryCoverage
+	held   map[domain.GovernedRepository]domain.RepositoryCoverage
 	limits domain.CoverageLimits
 }
 
 func NewCoverageMaps(limits domain.CoverageLimits) *CoverageMaps {
-	return &CoverageMaps{held: map[domain.Repository]domain.RepositoryCoverage{}, limits: limits}
+	return &CoverageMaps{held: map[domain.GovernedRepository]domain.RepositoryCoverage{}, limits: limits}
 }
 
 func (store *CoverageMaps) ReplaceSuiteCoverage(
-	_ context.Context, repository domain.Repository, suite domain.SuiteName, coverage domain.SuiteCoverage,
+	_ context.Context, repository domain.GovernedRepository, suite domain.SuiteName, coverage domain.SuiteCoverage,
 ) error {
 	store.guard.Lock()
 	defer store.guard.Unlock()
@@ -35,7 +35,7 @@ func (store *CoverageMaps) ReplaceSuiteCoverage(
 }
 
 func (store *CoverageMaps) SuiteCoverageOf(
-	_ context.Context, repository domain.Repository, suite domain.SuiteName,
+	_ context.Context, repository domain.GovernedRepository, suite domain.SuiteName,
 ) (domain.SuiteCoverage, error) {
 	store.guard.RLock()
 	defer store.guard.RUnlock()

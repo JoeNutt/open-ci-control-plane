@@ -10,10 +10,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestParseRepositoryAcceptsAGitHubRepository(t *testing.T) {
+func TestParseGovernedRepositoryAcceptsAGitHubRepository(t *testing.T) {
 	const governed = "JoeNutt/open-ci-control-plane"
 
-	repository, err := domain.ParseRepository(governed)
+	repository, err := domain.ParseGovernedRepository(governed)
 
 	if err != nil {
 		t.Fatalf("parse %s: %v", governed, err)
@@ -23,7 +23,7 @@ func TestParseRepositoryAcceptsAGitHubRepository(t *testing.T) {
 	}
 }
 
-func TestParseRepositoryRefusesAnythingButGitHubNameCharacters(t *testing.T) {
+func TestParseGovernedRepositoryRefusesAnythingButGitHubNameCharacters(t *testing.T) {
 	refused := map[string]string{
 		"no separator":      "open-ci-control-plane",
 		"empty owner":       "/open-ci-control-plane",
@@ -38,7 +38,7 @@ func TestParseRepositoryRefusesAnythingButGitHubNameCharacters(t *testing.T) {
 
 	for form, repository := range refused {
 		t.Run(form, func(t *testing.T) {
-			_, err := domain.ParseRepository(repository)
+			_, err := domain.ParseGovernedRepository(repository)
 
 			if !errors.Is(err, domain.ErrMalformedRepository) {
 				t.Fatalf("want ErrMalformedRepository for %q, got %v", repository, err)

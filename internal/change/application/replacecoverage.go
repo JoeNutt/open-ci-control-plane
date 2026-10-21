@@ -20,7 +20,7 @@ type ReplaceCoverage struct {
 
 type CoverageUpload struct {
 	Token      domain.IdentityToken
-	Repository domain.Repository
+	Repository domain.GovernedRepository
 	Suite      domain.SuiteName
 	Report     domain.CoverageReport
 }

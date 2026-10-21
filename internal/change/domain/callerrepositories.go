@@ -5,5 +5,5 @@ package domain
 import "context"
 
 type CallerRepositories interface {
-	RepositoryOf(ctx context.Context, token IdentityToken) (Repository, error)
+	RepositoryOf(ctx context.Context, token IdentityToken) (GovernedRepository, error)
 }

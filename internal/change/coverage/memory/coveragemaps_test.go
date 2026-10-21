@@ -70,7 +70,7 @@ func TestCoverageMapsKeepServingWhatIsHeldWhenAReplaceIsRefused(t *testing.T) {
 	}
 }
 
-func mustReplace(t *testing.T, maps domain.CoverageMaps, repository domain.Repository, suite domain.SuiteName) {
+func mustReplace(t *testing.T, maps domain.CoverageMaps, repository domain.GovernedRepository, suite domain.SuiteName) {
 	t.Helper()
 
 	if err := maps.ReplaceSuiteCoverage(t.Context(), repository, suite, coverageOf(t, effectFile)); err != nil {
@@ -101,10 +101,10 @@ func parsedPath(t *testing.T, path string) domain.RepositoryPath {
 	return parsed
 }
 
-func parsedRepository(t *testing.T, repository string) domain.Repository {
+func parsedRepository(t *testing.T, repository string) domain.GovernedRepository {
 	t.Helper()
 
-	parsed, err := domain.ParseRepository(repository)
+	parsed, err := domain.ParseGovernedRepository(repository)
 	if err != nil {
 		t.Fatalf("parse repository %q: %v", repository, err)
 	}
