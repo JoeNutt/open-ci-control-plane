@@ -121,34 +121,29 @@ func TestParseDocumentListsOnlyThePathsTheChangeAdds(t *testing.T) {
 	}
 }
 
-func TestParseDocumentCarriesAnImportEntryForEveryChangedFile(t *testing.T) {
+func TestParseDocumentPublishesNoImportEntryForAFileNoExtractorRead(t *testing.T) {
 	bounded := withinBounds(t,
-		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
-		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
-	)
-
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
-
-	want := domain.Declared[domain.Import]{
-		{Path: "internal/auth/middleware.go", State: domain.ImportStateUnknown},
-		{Path: "infra/iam.tf", State: domain.ImportStateUnknown},
-	}
-	if !reflect.DeepEqual(document.Diff.Imports, want) {
-		t.Fatalf("imports is %+v, want %+v", document.Diff.Imports, want)
-	}
-}
-
-func TestParseDocumentCountsTheFilesNoExtractorClaims(t *testing.T) {
-	bounded := withinBounds(t,
-		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 		domain.File{Path: "README.md", Action: domain.FileActionModified},
 	)
 
 	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
 
-	if document.Diff.UnresolvedImportFiles != 3 {
-		t.Fatalf("unresolved_import_files is %d, want 3",
+	if len(document.Diff.Imports) != 0 {
+		t.Fatalf("imports is %+v, want none", document.Diff.Imports)
+	}
+}
+
+func TestParseDocumentCountsNoUnresolvedFileForFilesNoExtractorRead(t *testing.T) {
+	bounded := withinBounds(t,
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
+		domain.File{Path: "README.md", Action: domain.FileActionModified},
+	)
+
+	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
+
+	if document.Diff.UnresolvedImportFiles != 0 {
+		t.Fatalf("unresolved_import_files is %d, want 0",
 			document.Diff.UnresolvedImportFiles)
 	}
 }
@@ -158,9 +153,8 @@ func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
 		files []domain.File
 		want  float64
 	}{
-		"no extractor claims any of three": {
+		"no extractor reads either of two": {
 			files: []domain.File{
-				{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 				{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 				{Path: "README.md", Action: domain.FileActionModified},
 			},
@@ -181,15 +175,15 @@ func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
 	}
 }
 
-func TestParseDocumentMarksTheGraphDeltaIncompleteWhileAnyImportIsUnresolved(t *testing.T) {
+func TestParseDocumentKeepsTheGraphDeltaCompleteOverFilesNoExtractorRead(t *testing.T) {
 	bounded := withinBounds(t,
-		domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	)
 
 	delta := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{}).Diff.ModuleGraphDelta
 
-	if !delta.Incomplete {
-		t.Errorf("delta reports itself complete while an import is unresolved")
+	if delta.Incomplete {
+		t.Errorf("delta reports itself incomplete over a file that carries no imports")
 	}
 	if len(delta.EdgesAdded) != 0 || len(delta.EdgesRemoved) != 0 {
 		t.Errorf("delta claims edges with no extractor to find them: %+v", delta)

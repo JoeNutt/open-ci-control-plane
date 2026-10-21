@@ -79,11 +79,7 @@ func byDirOf(files []File) PathsByDir {
 }
 
 func importsOf(files []File) Declared[Import] {
-	imports := make(Declared[Import], 0, len(files))
-	for _, file := range files {
-		imports = append(imports, Import{Path: file.Path, State: ImportStateUnknown})
-	}
-	return imports
+	return Declared[Import]{}
 }
 
 type importResolution struct {
