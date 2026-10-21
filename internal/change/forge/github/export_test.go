@@ -10,3 +10,5 @@ func RenderedForGitHub(run domain.CheckRun) (title, summary, text string, err er
 }
 
 var ErrCheckRunTextUnidentified = errCheckRunTextUnidentified
+
+var AppJWTAt = appJWTAt
