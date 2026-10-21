@@ -14,38 +14,38 @@ import (
 
 const (
 	MaxFileBytes       = 64 << 10
-	MaxSecretFileBytes = 4 << 10
 	MaxAppKeyFileBytes = 16 << 10
+	MaxSecretFileBytes = 4 << 10
 	MaxInstallations   = 256
 )
 
 const (
-	webhookSecretFile item = "webhookSecretFile"
-	appKeyFile        item = "appKeyFile"
-	installationIDs   item = "installationIds"
-	families          item = "families"
 	listenAddress     item = "listenAddress"
 	appID             item = "appId"
+	appKeyFile        item = "appKeyFile"
+	webhookSecretFile item = "webhookSecretFile"
+	installationIDs   item = "installationIds"
+	families          item = "families"
 )
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 type Configuration struct {
-	webhookSecret   Secret
-	appKey          Secret
-	installationIDs []int64
-	families        []domain.PolicyFamily
 	listenAddress   netip.AddrPort
 	appID           int64
+	appKey          Secret
+	webhookSecret   Secret
+	installationIDs []int64
+	families        []domain.PolicyFamily
 }
 
 type statedConfiguration struct {
-	WebhookSecretFile string   `json:"webhookSecretFile"`
-	AppKeyFile        string   `json:"appKeyFile"`
-	InstallationIDs   []int64  `json:"installationIds"`
-	Families          []string `json:"families"`
 	ListenAddress     string   `json:"listenAddress"`
 	AppID             *int64   `json:"appId"`
+	AppKeyFile        string   `json:"appKeyFile"`
+	WebhookSecretFile string   `json:"webhookSecretFile"`
+	InstallationIDs   []int64  `json:"installationIds"`
+	Families          []string `json:"families"`
 }
 
 func Read(path string) (Configuration, error) {
@@ -60,11 +60,15 @@ func Read(path string) (Configuration, error) {
 	return stated.configuration()
 }
 
+func (configured Configuration) ListenAddress() netip.AddrPort { return configured.listenAddress }
+
+func (configured Configuration) AppID() int64 { return configured.appID }
+
+func (configured Configuration) AppKey() Secret { return configured.appKey }
+
 func (configured Configuration) WebhookSecret() domain.WebhookSecret {
 	return domain.WebhookSecret(configured.webhookSecret.Reveal())
 }
-
-func (configured Configuration) AppKey() Secret { return configured.appKey }
 
 func (configured Configuration) InstallationIDs() []int64 {
 	return slices.Clone(configured.installationIDs)
@@ -73,10 +77,6 @@ func (configured Configuration) InstallationIDs() []int64 {
 func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
-
-func (configured Configuration) ListenAddress() netip.AddrPort { return configured.listenAddress }
-
-func (configured Configuration) AppID() int64 { return configured.appID }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
@@ -87,21 +87,21 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 }
 
 func (stated statedConfiguration) configuration() (Configuration, error) {
-	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
-	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
-	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
-	named, familiesErr := familiesIn(stated.Families)
-	listening, listenErr := listenAddressIn(stated.ListenAddress)
+	address, addressErr := listenAddressIn(stated.ListenAddress)
 	app, appErr := appIDIn(stated.AppID)
-	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr, appErr); err != nil {
+	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
+	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
+	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
+	policyFamilies, familiesErr := familiesIn(stated.Families)
+	if err := errors.Join(addressErr, appErr, keyErr, secretErr, installationsErr, familiesErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{
-		webhookSecret:   secret,
-		appKey:          secretOf(key),
-		installationIDs: installations,
-		families:        named,
-		listenAddress:   listening,
+		listenAddress:   address,
 		appID:           app,
+		appKey:          secretOf(key),
+		webhookSecret:   secret,
+		installationIDs: installations,
+		families:        policyFamilies,
 	}, nil
 }
