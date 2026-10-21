@@ -5,7 +5,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"io"
 )
 
 const redactionMarker = "[redacted]"
@@ -26,8 +25,8 @@ func (credential Credential) authorization(context.Context) (Credential, error) 
 	return credential, nil
 }
 
-func (credential Credential) Format(state fmt.State, verb rune) { io.WriteString(state, "[redacted]") }
+func (Credential) Format(state fmt.State, _ rune) { writeRedactionMarker(state) }
 
-func (credential Credential) String() string { return "[redacted]" }
-
-func (credential Credential) GoString() string { return `"[redacted]"` }
+func writeRedactionMarker(state fmt.State) {
+	_, _ = fmt.Fprint(state, redactionMarker)
+}
