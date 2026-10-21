@@ -16,14 +16,14 @@ const (
 )
 
 func TestCoverageMapsServeTheMapASuiteWasReplacedWith(t *testing.T) {
-	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	var maps domain.CoverageMaps = memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite := parsedRepository(t, governedRepository), parsedSuite(t, domainSuite)
 
-	if err := maps.ReplaceSuiteCoverage(repository, suite, coverageOf(t, effectFile)); err != nil {
+	if err := maps.ReplaceSuiteCoverage(t.Context(), repository, suite, coverageOf(t, effectFile)); err != nil {
 		t.Fatalf("replace the suite's map: %v", err)
 	}
 
-	served, err := maps.SuiteCoverageOf(repository, suite)
+	served, err := maps.SuiteCoverageOf(t.Context(), repository, suite)
 	if err != nil {
 		t.Fatalf("serve the suite's map: %v", err)
 	}

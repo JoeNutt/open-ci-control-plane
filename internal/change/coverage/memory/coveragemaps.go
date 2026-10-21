@@ -3,6 +3,7 @@
 package memory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -19,7 +20,7 @@ func NewCoverageMaps(limits domain.CoverageLimits) *CoverageMaps {
 }
 
 func (store *CoverageMaps) ReplaceSuiteCoverage(
-	repository domain.Repository, suite domain.SuiteName, coverage domain.SuiteCoverage,
+	_ context.Context, repository domain.Repository, suite domain.SuiteName, coverage domain.SuiteCoverage,
 ) error {
 	store.guard.Lock()
 	defer store.guard.Unlock()
@@ -33,7 +34,7 @@ func (store *CoverageMaps) ReplaceSuiteCoverage(
 }
 
 func (store *CoverageMaps) SuiteCoverageOf(
-	repository domain.Repository, suite domain.SuiteName,
+	_ context.Context, repository domain.Repository, suite domain.SuiteName,
 ) (domain.SuiteCoverage, error) {
 	store.guard.RLock()
 	defer store.guard.RUnlock()
