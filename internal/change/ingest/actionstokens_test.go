@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,6 +42,17 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	}
 	if repository.String() != governedRepository {
 		t.Fatalf("repository is %s, want %s", repository, governedRepository)
+	}
+}
+
+func TestActionsTokensRefuseATokenFromAnotherIssuer(t *testing.T) {
+	issuer := newIssuer(t)
+	claims := issuer.claims(governedRepository).Issuer("https://token.actions.example")
+
+	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, claims))
+
+	if !errors.Is(err, ingest.ErrUnverifiedToken) {
+		t.Fatalf("want ErrUnverifiedToken, got %v", err)
 	}
 }
 

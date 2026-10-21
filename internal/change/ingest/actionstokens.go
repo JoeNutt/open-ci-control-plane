@@ -23,6 +23,8 @@ const (
 	maxDiscoveryBytes = 64 << 10
 )
 
+var ErrUnverifiedToken = errors.New("bad token")
+
 type ActionsTokenSettings struct {
 	Issuer   string
 	Audience string
@@ -49,9 +51,10 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 	}
 	verified, err := jwt.ParseString(bearer,
 		jwt.WithKeySet(keys),
+		jwt.WithIssuer(tokens.settings.Issuer),
 		jwt.WithClock(jwt.ClockFunc(tokens.settings.Now)))
 	if err != nil {
-		return domain.Repository{}, fmt.Errorf("verify token: %w", err)
+		return domain.Repository{}, ErrUnverifiedToken
 	}
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
