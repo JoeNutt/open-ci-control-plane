@@ -39,8 +39,8 @@ var errEmptyFile = errors.New("the file is empty")
 var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
 type Configuration struct {
-	webhookSecret domain.WebhookSecret
-	appKey        []byte
+	webhookSecret Secret
+	appKey        Secret
 }
 
 type statedConfiguration struct {
@@ -61,10 +61,10 @@ func Read(path string) (Configuration, error) {
 }
 
 func (configured Configuration) WebhookSecret() domain.WebhookSecret {
-	return configured.webhookSecret
+	return domain.WebhookSecret(configured.webhookSecret.Reveal())
 }
 
-func (configured Configuration) AppKey() []byte { return configured.appKey }
+func (configured Configuration) AppKey() Secret { return configured.appKey }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
@@ -80,7 +80,9 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	if err := errors.Join(secretErr, keyErr); err != nil {
 		return Configuration{}, err
 	}
-	return Configuration{webhookSecret: secret, appKey: key}, nil
+	secretText := string(secret)
+	keyText := string(key)
+	return Configuration{webhookSecret: Secret{content: &secretText}, appKey: Secret{content: &keyText}}, nil
 }
 
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {

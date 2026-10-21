@@ -3,8 +3,10 @@
 package configuration_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,7 +113,7 @@ func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 		t.Fatalf("read: %v", err)
 	}
 
-	if string(configured.AppKey()) != statedAppKey {
+	if string(configured.AppKey().Reveal()) != statedAppKey {
 		t.Errorf("the App key is not the content of %s", stated.AppKeyFile)
 	}
 }
@@ -127,9 +129,48 @@ func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
+	configured, err := configuration.Read(configurationFile(t, completeItems(t)))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	held := map[string]any{
+		"the configuration":              configured,
+		"a pointer to the configuration": &configured,
+		"the App key":                    configured.AppKey(),
+	}
+
+	for name, value := range held {
+		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%d", "%x", "%X", "%q", "%p", "%+d", "%#x"} {
+			printed := fmt.Sprintf(verb, value)
+			for _, form := range printedFormsOf(string(statedWebhookSecret), statedAppKeyBody) {
+				if strings.Contains(printed, form) {
+					t.Errorf("%s under %s prints a secret as %q: %s", name, verb, form, printed)
+				}
+			}
+		}
+	}
+}
+
+func printedFormsOf(secrets ...string) []string {
+	var forms []string
+	for _, secret := range secrets {
+		decimal := fmt.Sprint([]byte(secret))
+		forms = append(forms,
+			secret,
+			hex.EncodeToString([]byte(secret)),
+			strings.ToUpper(hex.EncodeToString([]byte(secret))),
+			strings.Trim(decimal, "[]"),
+		)
+	}
+	return forms
+}
+
 const statedWebhookSecret = domain.WebhookSecret("s3cret")
 
-const statedAppKey = "-----BEGIN RSA PRIVATE KEY-----\nstated\n-----END RSA PRIVATE KEY-----\n"
+const statedAppKeyBody = "c3RhdGVkIGtleQ"
+
+const statedAppKey = "-----BEGIN RSA PRIVATE KEY-----\n" + statedAppKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
 
 func completeItems(t *testing.T) statedItems {
 	t.Helper()
