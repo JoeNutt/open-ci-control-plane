@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -22,5 +23,13 @@ func TestChangeBasesAnswersTheBaseCommitRecordedForAPullRequest(t *testing.T) {
 	}
 	if answered != base {
 		t.Fatalf("base commit is %s, want %s", answered, base)
+	}
+}
+
+func TestChangeBasesRefusesAPullRequestItHoldsNoBaseFor(t *testing.T) {
+	_, err := memory.ChangeBases{}.BaseCommitOf(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
 	}
 }
