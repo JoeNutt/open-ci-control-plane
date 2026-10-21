@@ -45,6 +45,10 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: liveCatalogWith(t, "lower_order_may_not_import_higher", "higher_may_import_lower"),
 			reason:  domain.ErrUnknownPolicyDirection,
 		},
+		"an unknown key": {
+			written: liveCatalogWith(t, "rule: direction", "rule: direction\nowner: platform"),
+			reason:  policy.ErrMalformedPolicyFile,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
