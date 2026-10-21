@@ -8,10 +8,12 @@ decision := {
 	"reviewers": [],
 	"fail_closed": true,
 } if {
-	every bound in data.ci.policy.bindings[input.pr.repository].policies {
-		data.ci.policy.catalog[bound.use].direction == "lower_order_may_not_import_higher"
+	every bound in bound_policies {
+		refused_relation_by_direction[data.ci.policy.catalog[bound.use].direction]
 	}
 }
+
+bound_policies := data.ci.policy.bindings[input.pr.repository].policies
 
 default input_wellformed := false
 
@@ -29,13 +31,21 @@ violations contains {
 	"message": refusal_of(edge, importer, imported),
 	"severity": "deny",
 } if {
-	some bound in data.ci.policy.bindings[input.pr.repository].policies
+	some bound in bound_policies
 	model := data.ci.policy.catalog[bound.use]
 	some edge in input.diff.module_graph_delta.edges_added
 	importer := group_containing(bound, edge.from)
 	imported := group_containing(bound, go_file_in(package_path(bound, edge.to)))
-	forbids(model.direction, order_of(model, importer), order_of(model, imported))
+	refused_relation_by_direction[model.direction] == relation_of(order_of(model, importer), order_of(model, imported))
 }
+
+refused_relation_by_direction := {"lower_order_may_not_import_higher": "lower"}
+
+relation_of(importer_order, imported_order) := "lower" if importer_order < imported_order
+
+relation_of(importer_order, imported_order) := "same" if importer_order == imported_order
+
+relation_of(importer_order, imported_order) := "higher" if importer_order > imported_order
 
 refusal_of(edge, importer, imported) := concat(": ", [
 	$"{edge.from} imports {edge.to}",
@@ -59,5 +69,3 @@ order_of(model, name) := group.order if {
 	some group in model.groups
 	group.name == name
 }
-
-forbids("lower_order_may_not_import_higher", importer_order, imported_order) if importer_order < imported_order
