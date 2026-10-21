@@ -44,7 +44,7 @@ func (facts StructuralFacts) moduleGraphDelta() ModuleGraphDelta {
 	return ModuleGraphDelta{
 		EdgesAdded:   slices.Clone(facts.edgesAdded),
 		EdgesRemoved: slices.Clone(facts.edgesRemoved),
-		Incomplete:   facts.incomplete || importResolutionIn(facts.imports).unresolved > 0,
+		Incomplete:   facts.incomplete,
 	}
 }
 

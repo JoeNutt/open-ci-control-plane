@@ -15,6 +15,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
+const sourceThatDoesNotParse = "package auth\n\nimport (\n\t\"context\" unterminated\n)\n"
+
 func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLocator {
 	t.Helper()
 
@@ -249,7 +251,7 @@ func TestBuildDocumentPublishesAGoFileThatDoesNotParseAtHeadAsErrored(t *testing
 		Source: changeSourceOver(locator, file),
 		Bases:  recordedBases(t, locator),
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
-			"package auth\n\nimport (\n\t\"context\" unterminated\n)\n"),
+			sourceThatDoesNotParse),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -272,7 +274,7 @@ func TestBuildDocumentDerivesNoEdgeFromAGoFileThatDoesNotParseAndMarksTheDeltaIn
 		Source: changeSourceOver(locator, file),
 		Bases:  recordedBases(t, locator),
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
-			"package auth\n\nimport (\n\t\"context\" unterminated\n)\n"),
+			sourceThatDoesNotParse),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -295,7 +297,7 @@ func TestBuildDocumentMarksTheDeltaIncompleteForAGoFileThatDoesNotParseAtBase(t 
 		Source: changeSourceOver(locator, file),
 		Bases:  recordedBases(t, locator),
 		Contents: recordedAtBothEnds(t, locator, file.Path,
-			"package auth\n\nimport (\n\t\"context\" unterminated\n)\n", sourceImportingContext),
+			sourceThatDoesNotParse, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
