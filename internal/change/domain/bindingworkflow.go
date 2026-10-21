@@ -31,12 +31,16 @@ func ParseWorkflowFile(stated string) (WorkflowFile, error) {
 	if stated == "" {
 		return WorkflowFile{}, ErrMissingWorkflow
 	}
-	if !workflowFileRule.admits(stated) || !slices.ContainsFunc(workflowFileExtensions, func(extension string) bool {
-		return strings.HasSuffix(stated, extension)
-	}) {
+	if !(workflowFileRule.admits(stated) && hasWorkflowExtension(stated)) {
 		return WorkflowFile{}, fmt.Errorf("%w: %d bytes", ErrMalformedWorkflow, len(stated))
 	}
 	return WorkflowFile{value: stated}, nil
 }
 
 func (workflow WorkflowFile) String() string { return workflow.value }
+
+func hasWorkflowExtension(stated string) bool {
+	return slices.ContainsFunc(workflowFileExtensions, func(extension string) bool {
+		return strings.HasSuffix(stated, extension)
+	})
+}
