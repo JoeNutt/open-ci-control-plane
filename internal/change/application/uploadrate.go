@@ -4,10 +4,13 @@ package application
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+const uploadRateWindow = time.Minute
 
 var ErrUploadRateExceeded = errors.New("coverage uploads exceed the repository's rate")
 
@@ -23,16 +26,19 @@ func NewUploadRate(limits domain.CoverageLimits, now func() time.Time) *UploadRa
 
 func (rate *UploadRate) Admit(repository domain.GovernedRepository) error {
 	now := rate.now()
-	var recent []time.Time
-	for _, at := range rate.admitted[repository] {
-		if now.Sub(at) < time.Minute {
-			recent = append(recent, at)
-		}
-	}
-	rate.admitted[repository] = recent
+	recent := rate.admissionsWithinWindow(repository, now)
 	if len(recent) >= rate.limits.MaxUploadsPerMinute {
 		return ErrUploadRateExceeded
 	}
 	rate.admitted[repository] = append(recent, now)
 	return nil
+}
+
+func (rate *UploadRate) admissionsWithinWindow(repository domain.GovernedRepository, now time.Time) []time.Time {
+	admitted := rate.admitted[repository]
+	firstRecent := slices.IndexFunc(admitted, func(at time.Time) bool { return now.Sub(at) < uploadRateWindow })
+	if firstRecent < 0 {
+		return nil
+	}
+	return admitted[firstRecent:]
 }
