@@ -22,18 +22,19 @@ type CoverageUpload struct {
 	Token      domain.IdentityToken
 	Repository domain.Repository
 	Suite      domain.SuiteName
-	Reported   []domain.ReportedFile
+	Report     domain.CoverageReport
 }
 
 func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) error {
 	if err := useCase.authorise(ctx, upload); err != nil {
 		return err
 	}
+	reported, _ := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
 	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
 	if err != nil {
 		return fmt.Errorf("read the paths %s holds: %w", upload.Repository, err)
 	}
-	coverage, err := domain.ParseSuiteCoverage(upload.Reported, known)
+	coverage, err := domain.ParseSuiteCoverage(reported, known)
 	if err != nil {
 		return fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
