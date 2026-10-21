@@ -10,6 +10,8 @@ import (
 
 var ErrUnknownCatalogPolicy = errors.New("binding names a policy absent from the catalog")
 
+var ErrDuplicateCatalogPolicy = errors.New("catalog holds two policies with one name")
+
 var ErrDuplicateBinding = errors.New("policy repository holds two bindings for one repository")
 
 var ErrUndeclaredGroup = errors.New("binding names a group its catalog policy does not declare")
@@ -20,6 +22,11 @@ type PolicyModel struct {
 }
 
 func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel, error) {
+	for index, policy := range catalog {
+		if slices.ContainsFunc(catalog[:index], func(earlier CatalogPolicy) bool { return earlier.name == policy.name }) {
+			return PolicyModel{}, ErrDuplicateCatalogPolicy
+		}
+	}
 	if err := duplicateBindingIn(bindings); err != nil {
 		return PolicyModel{}, err
 	}

@@ -61,6 +61,15 @@ func TestParsePolicyModelRefusesTwoBindingsForOneRepository(t *testing.T) {
 	}
 }
 
+func TestParsePolicyModelRefusesTwoCatalogPoliciesWithOneName(t *testing.T) {
+	policy := parsedCatalogPolicy(t, cleanArchitecture())
+
+	_, err := domain.ParsePolicyModel([]domain.CatalogPolicy{policy, policy}, nil)
+	if !errors.Is(err, domain.ErrDuplicateCatalogPolicy) {
+		t.Fatalf("two catalog policies named clean-architecture gave %v, want ErrDuplicateCatalogPolicy", err)
+	}
+}
+
 func parsedCatalogPolicy(t *testing.T, stated domain.CatalogPolicyStatement) domain.CatalogPolicy {
 	t.Helper()
 
