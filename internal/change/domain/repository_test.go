@@ -10,6 +10,19 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func TestParseRepositoryAcceptsAGitHubRepository(t *testing.T) {
+	const governed = "JoeNutt/open-ci-control-plane"
+
+	repository, err := domain.ParseRepository(governed)
+
+	if err != nil {
+		t.Fatalf("parse %s: %v", governed, err)
+	}
+	if repository.String() != governed {
+		t.Fatalf("repository reads %q, want %q", repository.String(), governed)
+	}
+}
+
 func TestParseRepositoryRefusesAnythingButGitHubNameCharacters(t *testing.T) {
 	refused := map[string]string{
 		"no separator":      "open-ci-control-plane",
