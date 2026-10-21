@@ -213,6 +213,29 @@ func TestAnUnknownOrRepeatedPolicyFamilyIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestAListenAddressOffLoopbackOrWithoutAPortIsRefusedNamingIt(t *testing.T) {
+	for _, address := range []string{
+		"0.0.0.0:8080",
+		"[::]:8080",
+		"192.0.2.10:8080",
+		"localhost:8080",
+		"127.0.0.1",
+		"127.0.0.1:0",
+		"127.0.0.1:http",
+	} {
+		t.Run(address, func(t *testing.T) {
+			stated := completeItems(t)
+			stated.ListenAddress = address
+
+			_, err := configuration.Read(configurationFile(t, stated))
+
+			if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), "listenAddress") {
+				t.Fatalf("refusal is not an invalid listenAddress: %v", err)
+			}
+		})
+	}
+}
+
 func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	stated := completeItems(t)
 	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
