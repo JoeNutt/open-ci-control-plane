@@ -18,6 +18,7 @@ type Limits struct {
 	MaxPathBytes         int
 	MaxPathSegments      int
 	MaxSourceBytes       int
+	MaxImportsPerFile    int
 }
 
 func DeclaredLimits() Limits {
