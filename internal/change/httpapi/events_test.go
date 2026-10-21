@@ -152,11 +152,20 @@ func TestACorrectlySignedDeliveryIsAdmitted(t *testing.T) {
 	}
 }
 
-func TestASignedDeliveryFromAnInstallationOutsideTheAllowlistIsNotFound(t *testing.T) {
-	answered := answerTo(t, signedDelivery(statedEvent, `{"installation":{"id":99}}`))
+func TestASignedDeliveryFromNoAllowlistedInstallationIsNotFound(t *testing.T) {
+	unlisted := map[string]string{
+		"an installation outside the allowlist": `{"installation":{"id":99}}`,
+		"no installation":                       `{}`,
+		"an installation with no ID":            `{"installation":{}}`,
+	}
+	for form, payload := range unlisted {
+		t.Run(form, func(t *testing.T) {
+			answered := answerTo(t, signedDelivery(statedEvent, payload))
 
-	if answered.Code != http.StatusNotFound {
-		t.Errorf("status is %d, want %d", answered.Code, http.StatusNotFound)
+			if answered.Code != http.StatusNotFound {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusNotFound)
+			}
+		})
 	}
 }
 

@@ -17,7 +17,7 @@ const eventsRoute = "POST /v1/forge/github/events"
 
 func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []int64) (http.Handler, error) {
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{installations: installations},
+		Accepted: admitted{allowed: allowlist(slices.Clone(installations))},
 		Secret:   secret,
 		Refusals: refusals{log: log},
 	})
@@ -55,15 +55,11 @@ func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, 
 	}
 }
 
-type admitted struct{ installations []int64 }
+type admitted struct{ allowed allowlist }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	var payload struct {
-		Installation struct {
-			ID int64 `json:"id"`
-		} `json:"installation"`
-	}
-	if err := json.NewDecoder(asked.Body).Decode(&payload); err != nil || !slices.Contains(stage.installations, payload.Installation.ID) {
+	stated, err := payloadOf(asked.Body)
+	if err != nil || !stage.allowed.admits(stated) {
 		answer.WriteHeader(http.StatusNotFound)
 		return
 	}
