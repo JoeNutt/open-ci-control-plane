@@ -32,6 +32,8 @@ const (
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
+var errTrailingContent = errors.New("content follows the configuration object")
+
 type Configuration struct {
 	listenAddress   netip.AddrPort
 	appID           int64
@@ -88,7 +90,7 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
 	}
 	if _, err := decoding.Token(); !errors.Is(err, io.EOF) {
-		return statedConfiguration{}, fmt.Errorf("%w: trailing", ErrMalformedConfiguration)
+		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, errTrailingContent)
 	}
 	return stated, nil
 }
