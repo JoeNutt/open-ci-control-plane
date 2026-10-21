@@ -29,6 +29,30 @@ func TestMaskedInputOfOmitsAFieldTheMaskNames(t *testing.T) {
 	}
 }
 
+func TestMaskedInputOfOmitsAFieldInsideAnArrayElement(t *testing.T) {
+	document := domain.Document{}
+	document.Analyzers.Findings = domain.Declared[domain.Finding]{
+		{Path: "internal/kept.go"}, {Path: "internal/leaked.go"},
+	}
+	document.Diff.Sensitive = domain.Declared[string]{"/analyzers/findings/1/path"}
+
+	masked, err := domain.MaskedInputOf(document)
+	if err != nil {
+		t.Fatalf("mask: %v", err)
+	}
+
+	encoded, err := json.Marshal(masked)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	if strings.Contains(string(encoded), "leaked.go") {
+		t.Errorf("masked input still carries the sensitive value: %s", encoded)
+	}
+	if !strings.Contains(string(encoded), "kept.go") {
+		t.Errorf("masked input lost a value the mask did not name: %s", encoded)
+	}
+}
+
 func TestMaskedInputOfSkipsAPointerToAFieldThatCannotExist(t *testing.T) {
 	unreachable := map[string]string{
 		"through a missing member": "/pr/missing/login",

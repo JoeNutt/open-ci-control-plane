@@ -2,7 +2,10 @@
 
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strconv"
+)
 
 type MaskedInput struct {
 	tree map[string]any
@@ -39,13 +42,24 @@ func treeOf(document Document) (map[string]any, error) {
 
 func removeAt(tree map[string]any, pointer JSONPointer) {
 	tokens := pointer.Tokens()
-	parent := tree
+	var node any = tree
 	for _, token := range tokens[:len(tokens)-1] {
-		child, isObject := parent[token].(map[string]any)
-		if !isObject {
+		switch container := node.(type) {
+		case map[string]any:
+			node = container[token]
+		case []any:
+			index, err := strconv.Atoi(token)
+			if err != nil || index < 0 || index >= len(container) {
+				return
+			}
+			node = container[index]
+		default:
 			return
 		}
-		parent = child
+	}
+	parent, isObject := node.(map[string]any)
+	if !isObject {
+		return
 	}
 	delete(parent, tokens[len(tokens)-1])
 }
