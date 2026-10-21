@@ -10,9 +10,9 @@ import (
 
 var ErrTooManyImportsInFile = errors.New("file exceeds the per-file import bound")
 
-type FileImports struct{ imports []string }
+type FileImports struct{ imports []GoImportPath }
 
-func ParseFileImports(imports []string, limits Limits) (FileImports, error) {
+func ParseFileImports(imports []GoImportPath, limits Limits) (FileImports, error) {
 	if len(imports) > limits.MaxImportsPerFile {
 		return FileImports{}, fmt.Errorf("%w: %d imports exceeds %d",
 			ErrTooManyImportsInFile, len(imports), limits.MaxImportsPerFile)
@@ -20,14 +20,14 @@ func ParseFileImports(imports []string, limits Limits) (FileImports, error) {
 	return FileImports{imports: slices.Clone(imports)}, nil
 }
 
-func (parsed FileImports) ImportPaths() []string { return slices.Clone(parsed.imports) }
+func (parsed FileImports) ImportPaths() []GoImportPath { return slices.Clone(parsed.imports) }
 
-func (parsed FileImports) importsAbsentFrom(other FileImports) []string {
-	present := make(map[string]bool, len(other.imports))
+func (parsed FileImports) importsAbsentFrom(other FileImports) []GoImportPath {
+	present := make(map[GoImportPath]bool, len(other.imports))
 	for _, imported := range other.imports {
 		present[imported] = true
 	}
-	var absent []string
+	var absent []GoImportPath
 	for _, imported := range parsed.imports {
 		if !present[imported] {
 			absent = append(absent, imported)

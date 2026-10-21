@@ -27,12 +27,12 @@ func (Extractor) Claims(path string) bool {
 	return strings.HasSuffix(path, goSourceSuffix)
 }
 
-func (Extractor) ImportsIn(source domain.BoundedSource) ([]string, error) {
+func (Extractor) ImportsIn(source domain.BoundedSource) ([]domain.GoImportPath, error) {
 	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source.Reader(), parser.ImportsOnly)
 	if err != nil {
 		return nil, ErrUnparsableSource
 	}
-	imports := make([]string, 0, len(parsed.Imports))
+	imports := make([]domain.GoImportPath, 0, len(parsed.Imports))
 	for _, declared := range parsed.Imports {
 		imported, err := importPathOf(declared)
 		if err != nil {
@@ -43,14 +43,15 @@ func (Extractor) ImportsIn(source domain.BoundedSource) ([]string, error) {
 	return imports, nil
 }
 
-func importPathOf(declared *ast.ImportSpec) (string, error) {
+func importPathOf(declared *ast.ImportSpec) (domain.GoImportPath, error) {
 	imported, err := strconv.Unquote(declared.Path.Value)
 	if err != nil {
-		return "", fmt.Errorf("%w: an import path is not a string literal: %w",
+		return domain.GoImportPath{}, fmt.Errorf("%w: an import path is not a string literal: %w",
 			ErrUnparsableSource, err)
 	}
-	if _, err := domain.ParseGoImportPath(imported); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrUnparsableSource, err)
+	parsed, err := domain.ParseGoImportPath(imported)
+	if err != nil {
+		return domain.GoImportPath{}, fmt.Errorf("%w: %w", ErrUnparsableSource, err)
 	}
-	return imported, nil
+	return parsed, nil
 }
