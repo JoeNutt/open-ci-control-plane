@@ -58,10 +58,7 @@ func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 	t.Helper()
 
 	for _, verb := range verbs {
-		printed := fmt.Sprintf(verb, holder)
-		if reveals(printed, forgeToken) {
-			t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
-		}
+		mustRevealNoneOf(t, name+" under "+verb, fmt.Sprintf(verb, holder), []string{forgeToken})
 	}
 }
 
