@@ -74,9 +74,9 @@ func (engine *Engine) decisionFor(
 	if err != nil && !isUndefined {
 		return domain.Decision{}, fmt.Errorf("%w: %v", domain.ErrEngineFault, err)
 	}
-	revision, err := domain.ParseBundleRevision(answered.Provenance.Bundles[string(engine.family)].Revision)
+	revision, err := engine.revisionOf(answered)
 	if err != nil {
-		return domain.Decision{}, fmt.Errorf("%w: %w", domain.ErrEngineFault, err)
+		return domain.Decision{}, err
 	}
 	if isUndefined {
 		return domain.UndecidedDecision(revision), nil
@@ -86,6 +86,15 @@ func (engine *Engine) decisionFor(
 		return domain.Decision{}, fmt.Errorf("re-encode the decision: %w", err)
 	}
 	return domain.ParseDecision(stated, revision)
+}
+
+func (engine *Engine) revisionOf(answered *sdk.DecisionResult) (domain.BundleRevision, error) {
+	stated := answered.Provenance.Bundles[bundleNameFor(engine.family)].Revision
+	revision, err := domain.ParseBundleRevision(stated)
+	if err != nil {
+		return domain.BundleRevision{}, fmt.Errorf("%w: the %q bundle: %w", domain.ErrEngineFault, engine.family, err)
+	}
+	return revision, nil
 }
 
 func decisionPathFor(family domain.PolicyFamily) string {
@@ -111,7 +120,9 @@ func configurationFor(settings Settings) configuration {
 	return configuration{
 		Services: map[string]service{family: {URL: settings.BundleService}},
 		Bundles: map[string]bundle{
-			family: {Service: family, Resource: "/bundles/" + family},
+			bundleNameFor(settings.Family): {Service: family, Resource: "/bundles/" + family},
 		},
 	}
 }
+
+func bundleNameFor(family domain.PolicyFamily) string { return string(family) }

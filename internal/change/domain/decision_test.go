@@ -206,7 +206,7 @@ func TestADecisionKeepsTheBundleRevisionItWasMadeAgainst(t *testing.T) {
 
 func revisionForTest(t *testing.T) domain.BundleRevision {
 	t.Helper()
-	revision, err := domain.ParseBundleRevision("4f368b8c2e1d0a9b8c7d6e5f4a3b2c1d0e9f8a7b")
+	revision, err := domain.ParseBundleRevision(wellFormedRevision)
 	if err != nil {
 		t.Fatalf("parse revision: %v", err)
 	}
