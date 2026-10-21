@@ -36,7 +36,7 @@ func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUploa
 		return ReplacedCoverage{}, err
 	}
 	if err := useCase.Rate.Admit(upload.Repository); err != nil {
-		return ReplacedCoverage{}, err
+		return ReplacedCoverage{}, fmt.Errorf("admit coverage for %s: %w", upload.Repository, err)
 	}
 	coverage, err := useCase.coverageIn(ctx, upload)
 	if err != nil {
