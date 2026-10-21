@@ -116,16 +116,16 @@ func TestAConfigurationFileThatCannotBeOpenedIsRefused(t *testing.T) {
 
 func TestNoFormattingVerbPrintsASecretTheConfigurationHolds(t *testing.T) {
 	configured := readConfiguration(t, completeItems(t))
-	held := map[string]any{
-		"the configuration":              configured,
-		"a pointer to the configuration": &configured,
-		"the App key":                    configured.AppKey(),
-		"the webhook secret":             configured.WebhookSecret(),
+	held := map[string]func(verb string) string{
+		"the configuration":              func(verb string) string { return fmt.Sprintf(verb, configured) },
+		"a pointer to the configuration": func(verb string) string { return fmt.Sprintf(verb, &configured) },
+		"the App key":                    func(verb string) string { return fmt.Sprintf(verb, configured.AppKey()) },
+		"the webhook secret":             func(verb string) string { return fmt.Sprintf(verb, configured.WebhookSecret()) },
 	}
 
-	for name, value := range held {
+	for name, printedUnder := range held {
 		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%d", "%x", "%X", "%q", "%p", "%+d", "%#x"} {
-			printed := fmt.Sprintf(verb, value)
+			printed := printedUnder(verb)
 			for _, form := range printedFormsOf(statedWebhookSecret, statedAppKeyBody) {
 				if strings.Contains(printed, form) {
 					t.Errorf("%s under %s prints a secret as %q: %s", name, verb, form, printed)
