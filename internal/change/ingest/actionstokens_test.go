@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -69,6 +70,21 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)
 			}
 		})
+	}
+}
+
+func TestActionsTokensRefuseATokenOverTheBoundBeforeParsingIt(t *testing.T) {
+	issuer := newIssuer(t)
+	padding := strings.Repeat("a", ingest.MaxActionsTokenBytes)
+	oversized := issuer.sign(t, issuer.claims(governedRepository).Claim("padding", padding))
+
+	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), oversized)
+
+	if !errors.Is(err, ingest.ErrUnverifiedToken) {
+		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+	}
+	if fetches := issuer.keySetFetches.Load(); fetches != 0 {
+		t.Fatalf("fetched the key set %d times for an oversized token, want 0", fetches)
 	}
 }
 

@@ -18,6 +18,8 @@ import (
 
 const repositoryClaim = "repository"
 
+const MaxActionsTokenBytes = 16 << 10
+
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
 var (
@@ -68,6 +70,9 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
+	if len(bearer) > MaxActionsTokenBytes {
+		return domain.Repository{}, ErrUnverifiedToken
+	}
 	keyID, err := keyIDOf(bearer)
 	if err != nil {
 		return domain.Repository{}, err
