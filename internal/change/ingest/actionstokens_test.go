@@ -61,6 +61,22 @@ func TestActionsTokensRefuseAMisaddressedToken(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefuseATokenOutsideItsLifetime(t *testing.T) {
+	issuer := newIssuer(t)
+	for name, outside := range map[string]*jwt.Builder{
+		"expired":       issuer.claims(governedRepository).Expiration(issuedAt.Add(-time.Second)),
+		"not yet valid": issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, outside))
+
+			if !errors.Is(err, ingest.ErrUnverifiedToken) {
+				t.Fatalf("want ErrUnverifiedToken, got %v", err)
+			}
+		})
+	}
+}
+
 type issuer struct {
 	t          *testing.T
 	server     *httptest.Server
