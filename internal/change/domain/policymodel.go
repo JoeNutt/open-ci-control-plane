@@ -22,10 +22,8 @@ type PolicyModel struct {
 }
 
 func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel, error) {
-	for index, policy := range catalog {
-		if slices.ContainsFunc(catalog[:index], func(earlier CatalogPolicy) bool { return earlier.name == policy.name }) {
-			return PolicyModel{}, ErrDuplicateCatalogPolicy
-		}
+	if err := duplicateCatalogPolicyIn(catalog); err != nil {
+		return PolicyModel{}, err
 	}
 	if err := duplicateBindingIn(bindings); err != nil {
 		return PolicyModel{}, err
@@ -39,6 +37,15 @@ func ParsePolicyModel(catalog []CatalogPolicy, bindings []Binding) (PolicyModel,
 func (model PolicyModel) Catalog() []CatalogPolicy { return slices.Clone(model.catalog) }
 
 func (model PolicyModel) Bindings() []Binding { return slices.Clone(model.bindings) }
+
+func duplicateCatalogPolicyIn(catalog []CatalogPolicy) error {
+	for index, policy := range catalog {
+		if slices.ContainsFunc(catalog[:index], policy.sharesNameWith) {
+			return fmt.Errorf("%w: %s", ErrDuplicateCatalogPolicy, policy.name)
+		}
+	}
+	return nil
+}
 
 func duplicateBindingIn(bindings []Binding) error {
 	for index, binding := range bindings {
@@ -56,6 +63,10 @@ func unresolvedBindingIn(bindings []Binding, catalog []CatalogPolicy) error {
 		}
 	}
 	return nil
+}
+
+func (policy CatalogPolicy) sharesNameWith(other CatalogPolicy) bool {
+	return policy.name == other.name
 }
 
 func (binding Binding) governsSameRepositoryAs(other Binding) bool {
