@@ -5,6 +5,7 @@ package policy_test
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -36,6 +37,14 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 		reason  error
 	}{
 		"not yaml at all": {written: "name: [clean\n", reason: policy.ErrMalformedPolicyFile},
+		"an unknown rule word": {
+			written: liveCatalogWith(t, "rule: direction", "rule: layering"),
+			reason:  domain.ErrUnknownPolicyRule,
+		},
+		"an unknown direction word": {
+			written: liveCatalogWith(t, "lower_order_may_not_import_higher", "higher_may_import_lower"),
+			reason:  domain.ErrUnknownPolicyDirection,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
@@ -44,6 +53,16 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			}
 		})
 	}
+}
+
+func liveCatalogWith(t *testing.T, written, replacement string) string {
+	t.Helper()
+
+	live := string(fixture(t, liveCatalogPath))
+	if !strings.Contains(live, written) {
+		t.Fatalf("the live catalog does not contain %q, so the replacement tests nothing", written)
+	}
+	return strings.Replace(live, written, replacement, 1)
 }
 
 func fixture(t *testing.T, path string) []byte {
