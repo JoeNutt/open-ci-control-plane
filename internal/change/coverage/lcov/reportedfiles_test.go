@@ -26,6 +26,24 @@ func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
+	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
+		"SF:internal/change/domain/gate.go\nDA:7,0\nDA:8,0\nend_of_record\n"
+
+	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+
+	if err != nil {
+		t.Fatalf("parse two records: %v", err)
+	}
+	want := []domain.ReportedFile{
+		domain.NewReportedFile(repositoryPath(t, "internal/change/domain/effect.go"), true),
+		domain.NewReportedFile(repositoryPath(t, "internal/change/domain/gate.go"), false),
+	}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
 	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
 		"SF:/home/runner/work/effect.go\nDA:7,3\nend_of_record\n"
