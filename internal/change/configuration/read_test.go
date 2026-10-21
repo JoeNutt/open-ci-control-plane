@@ -3,6 +3,7 @@
 package configuration_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +20,7 @@ func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
 
 	_, err := configuration.Read(path)
 
-	if err == nil || !strings.Contains(err.Error(), "webhookSecretFile") {
-		t.Fatalf("refusal does not name webhookSecretFile: %v", err)
+	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "webhookSecretFile") {
+		t.Fatalf("refusal is not a missing webhookSecretFile: %v", err)
 	}
 }
