@@ -36,6 +36,8 @@ var ErrOversizedFile = errors.New("the file exceeds its byte bound")
 
 var errEmptyFile = errors.New("the file is empty")
 
+var errEmptySecret = errors.New("the secret is empty once its line break is removed")
+
 var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
 type Configuration struct {
@@ -90,7 +92,7 @@ func webhookSecretIn(path string) (Secret, error) {
 	}
 	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
 	if len(secret) == 0 {
-		return Secret{}, webhookSecretFile.invalid(errEmptyFile)
+		return Secret{}, webhookSecretFile.invalid(errEmptySecret)
 	}
 	if bytes.ContainsFunc(secret, isControlOrBeyondASCII) {
 		return Secret{}, webhookSecretFile.invalid(errUnprintableSecret)
