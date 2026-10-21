@@ -10,10 +10,10 @@ import (
 type refusals struct{ log *slog.Logger }
 
 func (recording refusals) RecordRefusal(refused *http.Request, reason error) {
-	received, isCarried := deliveryOf(refused.Context())
-	if !isCarried {
-		recording.log.LogAttrs(refused.Context(), slog.LevelError, uncarriedRefusal,
-			slog.String(reasonKey, reason.Error()))
+	received, err := deliveryOf(refused.Context())
+	if err != nil {
+		recording.log.LogAttrs(refused.Context(), slog.LevelError, refusedDelivery,
+			slog.String(reasonKey, reason.Error()), slog.String(faultKey, err.Error()))
 		return
 	}
 	recording.log.LogAttrs(refused.Context(), slog.LevelWarn, refusedDelivery,

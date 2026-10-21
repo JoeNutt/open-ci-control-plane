@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -84,9 +83,9 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		answer.WriteHeader(http.StatusNotFound)
 		return
 	}
-	received, isCarried := deliveryOf(asked.Context())
-	if !isCarried {
-		stage.answering.write(asked.Context(), answer, stage.failedEvaluationAnswer(asked.Context(), errors.New("the delivery's headers were not carried")))
+	received, err := deliveryOf(asked.Context())
+	if err != nil {
+		stage.answering.write(asked.Context(), answer, stage.failedEvaluationAnswer(asked.Context(), err))
 		return
 	}
 	if !isEvaluated(received.event, stated.Action) {
