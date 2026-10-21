@@ -3,12 +3,9 @@
 package configuration
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -27,21 +24,7 @@ const (
 	installationIDs   item = "installationIds"
 )
 
-const (
-	textFileEnd         = "\n"
-	firstPrintableASCII = ' '
-	lastPrintableASCII  = '~'
-)
-
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
-
-var ErrOversizedFile = errors.New("the file exceeds its byte bound")
-
-var errEmptyFile = errors.New("the file is empty")
-
-var errEmptySecret = errors.New("the secret is empty once its line break is removed")
-
-var errUnprintableSecret = errors.New("the secret holds a character outside printable ASCII")
 
 type Configuration struct {
 	webhookSecret   Secret
@@ -97,55 +80,4 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 		appKey:          secretOf(key),
 		installationIDs: installations,
 	}, nil
-}
-
-func webhookSecretIn(path string) (Secret, error) {
-	content, err := webhookSecretFile.contentAt(path, MaxSecretFileBytes)
-	if err != nil {
-		return Secret{}, err
-	}
-	secret := bytes.TrimSuffix(content, []byte(textFileEnd))
-	if len(secret) == 0 {
-		return Secret{}, webhookSecretFile.invalid(errEmptySecret)
-	}
-	if bytes.ContainsFunc(secret, isControlOrBeyondASCII) {
-		return Secret{}, webhookSecretFile.invalid(errUnprintableSecret)
-	}
-	return secretOf(secret), nil
-}
-
-func installationIDsIn(stated []int64) ([]int64, error) {
-	if len(stated) == 0 {
-		return nil, installationIDs.missing()
-	}
-	if len(stated) > MaxInstallations {
-		return nil, installationIDs.invalid(errors.New("too many"))
-	}
-	seen := map[int64]bool{}
-	for _, id := range stated {
-		if id <= 0 || seen[id] {
-			return nil, installationIDs.invalid(errors.New("bad id"))
-		}
-		seen[id] = true
-	}
-	return slices.Clone(stated), nil
-}
-
-func isControlOrBeyondASCII(character rune) bool {
-	return character < firstPrintableASCII || character > lastPrintableASCII
-}
-
-func boundedContentOf(path string, maxBytes int) ([]byte, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	content, readErr := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
-	if err := errors.Join(readErr, file.Close()); err != nil {
-		return nil, err
-	}
-	if len(content) > maxBytes {
-		return nil, fmt.Errorf("%w: more than %d bytes", ErrOversizedFile, maxBytes)
-	}
-	return content, nil
 }
