@@ -220,3 +220,24 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 			document.Diff.ModuleGraphDelta.EdgesRemoved, want)
 	}
 }
+
+func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
+	limits := domain.DeclaredLimits()
+	limits.MaxGraphEdges = 1
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAt(t, locator, recordedHeadSHA, file.Path,
+			"package auth\n\nimport (\n\t\"context\"\n\t\"errors\"\n)\n"),
+		Extractor: golang.Extractor{},
+		Limits:    limits,
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrTooManyEdges) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyEdges)
+	}
+}
