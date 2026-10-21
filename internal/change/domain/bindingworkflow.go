@@ -31,7 +31,7 @@ func ParseWorkflowFile(stated string) (WorkflowFile, error) {
 	if stated == "" {
 		return WorkflowFile{}, ErrMissingWorkflow
 	}
-	if !(workflowFileRule.admits(stated) && hasWorkflowExtension(stated)) {
+	if !workflowFileRule.admits(stated) || !hasWorkflowExtension(stated) {
 		return WorkflowFile{}, fmt.Errorf("%w: %d bytes", ErrMalformedWorkflow, len(stated))
 	}
 	return WorkflowFile{value: stated}, nil

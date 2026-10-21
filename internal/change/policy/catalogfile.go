@@ -50,8 +50,8 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
-	if !isReadSchemaVersion(document.SchemaVersion) {
-		return domain.CatalogPolicyStatement{}, fmt.Errorf("%w: want %d", ErrUnsupportedSchemaVersion, readSchemaVersion)
+	if err := refuseUnreadSchemaVersion(document.SchemaVersion); err != nil {
+		return domain.CatalogPolicyStatement{}, err
 	}
 	rule, isKnownRule := policyRuleByWord[document.Rule]
 	if !isKnownRule {

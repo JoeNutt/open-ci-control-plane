@@ -5,6 +5,7 @@ package policy
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 
@@ -45,8 +46,11 @@ func decodedStrictly[Document policyDocument](content []byte) (Document, error) 
 	return document, nil
 }
 
-func isReadSchemaVersion(stated *int) bool {
-	return stated != nil && *stated == readSchemaVersion
+func refuseUnreadSchemaVersion(stated *int) error {
+	if stated == nil || *stated != readSchemaVersion {
+		return fmt.Errorf("%w: want %d", ErrUnsupportedSchemaVersion, readSchemaVersion)
+	}
+	return nil
 }
 
 func refuseAliasOrAnchor(content []byte) error {
