@@ -76,6 +76,8 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 
 func (configured Configuration) ListenAddress() netip.AddrPort { return configured.listenAddress }
 
+func (configured Configuration) AppID() int64 { return configured.appID }
+
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {

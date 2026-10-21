@@ -222,6 +222,17 @@ func TestAListenAddressOffLoopbackOrWithoutAPortIsRefusedNamingIt(t *testing.T) 
 	}
 }
 
+func TestTheAppIDIsTheOneTheConfigurationStates(t *testing.T) {
+	configured, err := configuration.Read(configurationFile(t, completeItems(t)))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if configured.AppID() != statedAppID {
+		t.Errorf("the App ID is %d, want %d", configured.AppID(), statedAppID)
+	}
+}
+
 func TestANonPositiveAppIDIsRefusedNamingIt(t *testing.T) {
 	for _, stated := range []int64{0, -statedAppID} {
 		t.Run(fmt.Sprint(stated), func(t *testing.T) {
