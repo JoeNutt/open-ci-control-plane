@@ -16,6 +16,7 @@ import (
 const (
 	MaxFileBytes       = 64 << 10
 	MaxSecretFileBytes = 4 << 10
+	MaxAppKeyFileBytes = 16 << 10
 )
 
 const (
@@ -86,7 +87,7 @@ func appKeyIn(path string) ([]byte, error) {
 	if path == "" {
 		return nil, appKeyFile.missing()
 	}
-	key, err := os.ReadFile(path)
+	key, err := boundedContentOf(path, MaxAppKeyFileBytes)
 	if err != nil {
 		return nil, appKeyFile.invalid(err)
 	}

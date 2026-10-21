@@ -116,6 +116,17 @@ func TestTheAppKeyIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 	}
 }
 
+func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
+	stated := completeItems(t)
+	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
+
+	_, err := configuration.Read(configurationFile(t, stated))
+
+	if !errors.Is(err, configuration.ErrOversizedFile) || !strings.Contains(err.Error(), "appKeyFile") {
+		t.Fatalf("refusal is not an oversized appKeyFile: %v", err)
+	}
+}
+
 const statedWebhookSecret = domain.WebhookSecret("s3cret")
 
 const statedAppKey = "-----BEGIN RSA PRIVATE KEY-----\nstated\n-----END RSA PRIVATE KEY-----\n"
