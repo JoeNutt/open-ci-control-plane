@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -18,5 +19,22 @@ func TestParseJSONPointerUnescapesEachReferenceToken(t *testing.T) {
 	want := []string{"diff", "a/b", "c~d", "0"}
 	if !slices.Equal(parsed.Tokens(), want) {
 		t.Errorf("tokens %q, want %q", parsed.Tokens(), want)
+	}
+}
+
+func TestParseJSONPointerRefusesAnythingThatNamesNoField(t *testing.T) {
+	refused := map[string]string{
+		"the whole document": "",
+		"no leading slash":   "diff/files",
+		"tilde then two":     "/diff/a~2b",
+		"trailing tilde":     "/diff/a~",
+	}
+
+	for form, stated := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := domain.ParseJSONPointer(stated); !errors.Is(err, domain.ErrMalformedJSONPointer) {
+				t.Fatalf("%q gave %v, want ErrMalformedJSONPointer", stated, err)
+			}
+		})
 	}
 }
