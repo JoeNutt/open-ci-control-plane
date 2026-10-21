@@ -2,14 +2,28 @@
 
 package domain
 
+import (
+	"errors"
+	"maps"
+)
+
+var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
+
 type RepositoryCoverage struct {
 	suites map[SuiteName]SuiteCoverage
 }
 
 func (repositoryCoverage RepositoryCoverage) Replacing(suite SuiteName, coverage SuiteCoverage) RepositoryCoverage {
-	return RepositoryCoverage{suites: map[SuiteName]SuiteCoverage{suite: coverage}}
+	suites := make(map[SuiteName]SuiteCoverage, len(repositoryCoverage.suites)+1)
+	maps.Copy(suites, repositoryCoverage.suites)
+	suites[suite] = coverage
+	return RepositoryCoverage{suites: suites}
 }
 
 func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite SuiteName) (SuiteCoverage, error) {
-	return repositoryCoverage.suites[suite], nil
+	coverage, isHeld := repositoryCoverage.suites[suite]
+	if !isHeld {
+		return SuiteCoverage{}, ErrNoCoverageMap
+	}
+	return coverage, nil
 }
