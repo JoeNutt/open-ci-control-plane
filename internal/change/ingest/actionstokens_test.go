@@ -47,39 +47,16 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 
 func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 	issuer := newIssuer(t)
-	for name, unverifiable := range map[string]*jwt.Builder{
-		"another issuer":   issuer.claims(governedRepository).Issuer("https://token.actions.example"),
-		"another audience": issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"}),
-		"expired":          issuer.claims(governedRepository).Expiration(issuedAt.Add(-time.Second)),
-		"not yet valid":    issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second)),
+	for name, unverifiable := range map[string]string{
+		"another issuer":   issuer.sign(t, issuer.claims(governedRepository).Issuer("https://token.actions.example")),
+		"another audience": issuer.sign(t, issuer.claims(governedRepository).Audience([]string{"https://another-instance.example"})),
+		"expired":          issuer.sign(t, issuer.claims(governedRepository).Expiration(issuedAt.Add(-time.Second))),
+		"not yet valid":    issuer.sign(t, issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second))),
+		"no expiry":        issuer.signWithout(t, issuer.claims(governedRepository), jwt.ExpirationKey),
+		"no not-before":    issuer.signWithout(t, issuer.claims(governedRepository), jwt.NotBeforeKey),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, unverifiable))
-
-			if !errors.Is(err, ingest.ErrUnverifiedToken) {
-				t.Fatalf("want ErrUnverifiedToken, got %v", err)
-			}
-		})
-	}
-}
-
-func TestActionsTokensRefuseATokenWithoutALifetime(t *testing.T) {
-	issuer := newIssuer(t)
-	for _, absent := range []string{jwt.ExpirationKey, jwt.NotBeforeKey} {
-		t.Run(absent, func(t *testing.T) {
-			token, err := issuer.claims(governedRepository).Build()
-			if err != nil {
-				t.Fatalf("build token: %v", err)
-			}
-			if err := token.Remove(absent); err != nil {
-				t.Fatalf("remove %s: %v", absent, err)
-			}
-			signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), issuer.signingKey))
-			if err != nil {
-				t.Fatalf("sign token: %v", err)
-			}
-
-			_, err = issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), string(signed))
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), unverifiable)
 
 			if !errors.Is(err, ingest.ErrUnverifiedToken) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)
@@ -177,10 +154,32 @@ func (minted *issuer) claims(repository string) *jwt.Builder {
 func (minted *issuer) sign(t *testing.T, claims *jwt.Builder) string {
 	t.Helper()
 
+	return minted.signed(t, minted.built(t, claims))
+}
+
+func (minted *issuer) signWithout(t *testing.T, claims *jwt.Builder, absent string) string {
+	t.Helper()
+
+	token := minted.built(t, claims)
+	if err := token.Remove(absent); err != nil {
+		t.Fatalf("remove %s: %v", absent, err)
+	}
+	return minted.signed(t, token)
+}
+
+func (minted *issuer) built(t *testing.T, claims *jwt.Builder) jwt.Token {
+	t.Helper()
+
 	token, err := claims.Build()
 	if err != nil {
 		t.Fatalf("build token: %v", err)
 	}
+	return token
+}
+
+func (minted *issuer) signed(t *testing.T, token jwt.Token) string {
+	t.Helper()
+
 	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), minted.signingKey))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)

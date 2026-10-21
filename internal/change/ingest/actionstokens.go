@@ -32,6 +32,7 @@ var (
 	errForeignAudience       = fmt.Errorf("%w: it was minted for another audience", ErrUnverifiedToken)
 	errExpired               = fmt.Errorf("%w: it has expired", ErrUnverifiedToken)
 	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", ErrUnverifiedToken)
+	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", ErrUnverifiedToken)
 )
 
 type unverifiedReason struct {
@@ -44,6 +45,7 @@ var unverifiedReasons = []unverifiedReason{
 	{cause: jwt.InvalidAudienceError(), reason: errForeignAudience},
 	{cause: jwt.TokenExpiredError(), reason: errExpired},
 	{cause: jwt.TokenNotYetValidError(), reason: errNotYetValid},
+	{cause: jwt.MissingRequiredClaimError(), reason: errNoLifetime},
 }
 
 type ActionsTokenSettings struct {
@@ -74,8 +76,8 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 		jwt.WithKeySet(keys),
 		jwt.WithIssuer(tokens.settings.Issuer),
 		jwt.WithAudience(tokens.settings.Audience),
-		jwt.WithRequiredClaim("exp"),
-		jwt.WithRequiredClaim("nbf"),
+		jwt.WithRequiredClaim(jwt.ExpirationKey),
+		jwt.WithRequiredClaim(jwt.NotBeforeKey),
 		jwt.WithClock(jwt.ClockFunc(tokens.settings.Now)))
 	if err != nil {
 		return domain.Repository{}, unverifiedReasonOf(err)
