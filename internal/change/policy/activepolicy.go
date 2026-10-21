@@ -13,6 +13,12 @@ import (
 
 var ErrNoPolicyLoaded = errors.New("no policy loaded")
 
+const (
+	refusedRevisionMessage = "policy revision refused"
+	revisionLogKey         = "revision"
+	reasonLogKey           = "reason"
+)
+
 type ActivePolicy struct {
 	log      *slog.Logger
 	accepted atomic.Pointer[AcceptedRevision]
@@ -23,7 +29,7 @@ func NewActivePolicy(log *slog.Logger) *ActivePolicy { return &ActivePolicy{log:
 func (active *ActivePolicy) Offer(revision domain.CommitSHA, files []domain.PolicyFile) error {
 	model, err := ParseRevision(files)
 	if err != nil {
-		active.log.Error("policy revision refused", "revision", revision.String(), "reason", err.Error())
+		active.log.Error(refusedRevisionMessage, revisionLogKey, revision.String(), reasonLogKey, err.Error())
 		return fmt.Errorf("candidate at %s: %w", revision, err)
 	}
 	active.accepted.Store(&AcceptedRevision{revision: revision, model: model})
