@@ -2,11 +2,15 @@
 
 package httpapi
 
-const (
-	pullRequestEvent = "pull_request"
-	openedAction     = "opened"
-)
+import "slices"
+
+const pullRequestEvent = "pull_request"
+
+var evaluatedActionsByEvent = map[string][]string{
+	pullRequestEvent: {"opened", "synchronize", "reopened"},
+}
 
 func isEvaluated(event, action string) bool {
-	return event == pullRequestEvent && (action == openedAction || action == "synchronize" || action == "reopened")
+	actions, isRouted := evaluatedActionsByEvent[event]
+	return isRouted && slices.Contains(actions, action)
 }
