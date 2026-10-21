@@ -22,18 +22,25 @@ func ParseCatalogPolicy(stated CatalogPolicyStatement) (CatalogPolicy, error) {
 	if err != nil {
 		return CatalogPolicy{}, fmt.Errorf("catalog policy: %w", err)
 	}
-	return CatalogPolicy{name: name, groups: policyGroupsOf(stated.Groups)}, nil
+	groups, err := policyGroupsOf(stated.Groups)
+	if err != nil {
+		return CatalogPolicy{}, err
+	}
+	return CatalogPolicy{name: name, groups: groups}, nil
 }
 
 func (policy CatalogPolicy) Name() PolicyName { return policy.name }
 
 func (policy CatalogPolicy) Groups() []PolicyGroup { return slices.Clone(policy.groups) }
 
-func policyGroupsOf(stated []GroupStatement) []PolicyGroup {
+func policyGroupsOf(stated []GroupStatement) ([]PolicyGroup, error) {
 	groups := make([]PolicyGroup, 0, len(stated))
 	for _, group := range stated {
-		name, _ := ParseGroupName(group.Name)
+		name, err := ParseGroupName(group.Name)
+		if err != nil {
+			return nil, err
+		}
 		groups = append(groups, PolicyGroup{name: name, order: group.Order})
 	}
-	return groups
+	return groups, nil
 }
