@@ -21,15 +21,7 @@ func TestParsePolicyNameKeepsTheName(t *testing.T) {
 }
 
 func TestParsePolicyNameRefusesWhatIsNotAnIdentifier(t *testing.T) {
-	refused := map[string]string{
-		"empty":               "",
-		"a space":             "clean architecture",
-		"a leading hyphen":    "-clean",
-		"a path separator":    "clean/architecture",
-		"a non-ASCII letter":  "cléan",
-		"one byte over bound": strings.Repeat("a", domain.MaxPolicyNameBytes+1),
-	}
-	for form, stated := range refused {
+	for form, stated := range malformedIdentifiers() {
 		t.Run(form, func(t *testing.T) {
 			if _, err := domain.ParsePolicyName(stated); !errors.Is(err, domain.ErrMalformedPolicyName) {
 				t.Fatalf("%s gave %v, want ErrMalformedPolicyName", form, err)
@@ -41,5 +33,16 @@ func TestParsePolicyNameRefusesWhatIsNotAnIdentifier(t *testing.T) {
 func TestParsePolicyNameAdmitsANameAtTheBound(t *testing.T) {
 	if _, err := domain.ParsePolicyName(strings.Repeat("a", domain.MaxPolicyNameBytes)); err != nil {
 		t.Fatalf("a name at the bound was refused: %v", err)
+	}
+}
+
+func malformedIdentifiers() map[string]string {
+	return map[string]string{
+		"empty":               "",
+		"a space":             "clean architecture",
+		"a leading hyphen":    "-clean",
+		"a path separator":    "clean/architecture",
+		"a non-ASCII letter":  "cléan",
+		"one byte over bound": strings.Repeat("a", domain.MaxPolicyNameBytes+1),
 	}
 }
