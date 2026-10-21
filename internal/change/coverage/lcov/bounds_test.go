@@ -60,6 +60,18 @@ func TestReportedFilesInReadsAGzippedArtifact(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInAcceptsAnArtifactExpandingToTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	compressed := gzipped(t, paddedRecord(limits.MaxDecompressedBytes))
+	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
+
+	_, err := lcov.ReportedFilesIn(artifact, limits)
+
+	if err != nil {
+		t.Fatalf("want an artifact expanding to the bound accepted, got %v", err)
+	}
+}
+
 func TestReportedFilesInRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	compressed := gzipped(t, paddedRecord(limits.MaxDecompressedBytes+1))
