@@ -60,8 +60,8 @@ type Artifact struct {
 }
 
 func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	if artifact.DeclaredBytes > limits.MaxCompressedBytes {
-		return nil, domain.ErrCoverageBoundExceeded
+	if breach := limits.DeclaredBytesBreach(artifact.DeclaredBytes); breach != nil {
+		return nil, breach
 	}
 	var reading recordReading
 	lines := bufio.NewScanner(artifact.Body)
