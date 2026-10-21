@@ -85,6 +85,20 @@ test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
 	decided.violations == []
 }
 
+test_the_longest_matching_import_root_places_the_import if {
+	forge_vendored_elsewhere := json.patch(policy, [{
+		"op": "add",
+		"path": "/bindings/JoeNutt~1open-ci-control-plane/policies/0/import_roots/-",
+		"value": {"prefix": $"{module_root}/internal/change/forge", "path": "third_party/forge"},
+	}])
+
+	decided := structural.decision with input as change_adding([domain_imports_forge])
+		with data.ci.policy as forge_vendored_elsewhere
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
