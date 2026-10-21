@@ -21,26 +21,43 @@ func fileImportsOf(t *testing.T, imports ...string) domain.FileImports {
 	return parsed
 }
 
+func TestFileImportsInReportsAnExtractorFailureOtherThanUnparsableAsAnError(t *testing.T) {
+	failure := errors.New("the extractor ran out of memory")
+
+	_, err := domain.FileImportsIn(emptySource(t), failingExtractor{failure}, domain.DeclaredLimits())
+
+	if !errors.Is(err, failure) {
+		t.Fatalf("error is %v, want %v", err, failure)
+	}
+}
+
 func erroredFileImports(t *testing.T) domain.FileImports {
 	t.Helper()
 
-	source, err := domain.ParseBoundedSource(nil, domain.DeclaredLimits())
-	if err != nil {
-		t.Fatalf("bound an empty source: %v", err)
-	}
-	errored, err := domain.FileImportsIn(source, refusingExtractor{}, domain.DeclaredLimits())
+	errored, err := domain.FileImportsIn(
+		emptySource(t), failingExtractor{domain.ErrUnparsableSource}, domain.DeclaredLimits())
 	if err != nil {
 		t.Fatalf("read the imports of a source that does not parse: %v", err)
 	}
 	return errored
 }
 
-type refusingExtractor struct{}
+func emptySource(t *testing.T) domain.BoundedSource {
+	t.Helper()
 
-func (refusingExtractor) Claims(string) bool { return true }
+	source, err := domain.ParseBoundedSource(nil, domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("bound an empty source: %v", err)
+	}
+	return source
+}
 
-func (refusingExtractor) ImportsIn(domain.BoundedSource) ([]string, error) {
-	return nil, domain.ErrUnparsableSource
+type failingExtractor struct{ failure error }
+
+func (failingExtractor) Claims(string) bool { return true }
+
+func (extractor failingExtractor) ImportsIn(domain.BoundedSource) ([]string, error) {
+	return nil, extractor.failure
 }
 
 func TestParseFileImportsKeepsEveryImportAtTheLimit(t *testing.T) {
