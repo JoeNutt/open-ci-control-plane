@@ -56,11 +56,11 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrMalformedPolicyFile,
 		},
 		"a YAML alias": {
-			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: &driver [\"cmd/**\"]\n      extra: *driver"),
+			written: liveBindingWithAlias(t),
 			reason:  policy.ErrAliasOrAnchor,
 		},
 		"no workflow": {
-			written: liveBindingWith(t, liveWorkflowLine+"\n", ""),
+			written: liveBindingWithoutWorkflow(t),
 			reason:  domain.ErrMissingWorkflow,
 		},
 		"one path bound to two groups": {
@@ -80,7 +80,19 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 func liveBindingPlacingOnePathInTwoGroups(t *testing.T) string {
 	t.Helper()
 
-	return liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]")
+	return liveBindingWith(t, liveDriverPaths, `driver: ["cmd/**", "internal/change/rules/**"]`)
+}
+
+func liveBindingWithAlias(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveDriverPaths, `driver: &driver ["cmd/**"]`+"\n      extra: *driver")
+}
+
+func liveBindingWithoutWorkflow(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveWorkflowLine+"\n", "")
 }
 
 func liveBindingWithUnknownKey(t *testing.T, key string) string {
