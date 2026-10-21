@@ -190,6 +190,25 @@ func TestReplaceCoverageRefusesAnUploadOverTheRateWithoutReadingIt(t *testing.T)
 	assertNothingStored(t, maps, parsedRepository(t), parsedSuite(t))
 }
 
+func TestReplaceCoverageNeverSpendsTheAllowanceOnARefusedUploader(t *testing.T) {
+	path := parsedPath(t)
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	rate := freshRate()
+	strangers := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedStranger(t)}, Rate: rate}
+	for range domain.DeclaredCoverageLimits().MaxUploadsPerMinute {
+		if _, err := strangers.Execute(t.Context(), uploadOf(t, reportOf(path))); !errors.Is(err, application.ErrForeignRepository) {
+			t.Fatalf("want ErrForeignRepository, got %v", err)
+		}
+	}
+	governed := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedRepository(t)}, Rate: rate}
+
+	if _, err := governed.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
+		t.Fatalf("refused uploaders spent the repository's allowance: %v", err)
+	}
+}
+
 type unreadableArtifact struct{}
 
 func (unreadableArtifact) ReportedFiles(domain.CoverageLimits) ([]domain.ReportedFile, error) {
