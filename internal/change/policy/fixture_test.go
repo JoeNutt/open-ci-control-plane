@@ -17,6 +17,8 @@ const (
 	liveRepository   = "JoeNutt/open-ci-control-plane"
 	liveWorkflow     = "open-ci-tests.yml"
 	liveWorkflowLine = "  workflow: " + liveWorkflow
+	liveModule       = "github.com/" + liveRepository
+	liveDriverPaths  = `driver: ["cmd/**"]`
 )
 
 func fixtureWith(t *testing.T, path, written, replacement string) string {
