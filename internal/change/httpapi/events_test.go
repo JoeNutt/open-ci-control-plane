@@ -4,11 +4,13 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -188,6 +190,21 @@ func TestAnAllowlistedEventThatCarriesNoDecisionIsAnsweredWithNoContent(t *testi
 	}
 }
 
+func TestAnOpenedPullRequestIsHandedToTheGateAndAccepted(t *testing.T) {
+	gate := &recordingGate{}
+	answered := httptest.NewRecorder()
+
+	routedWith(t, discardedLog(), gate).ServeHTTP(answered,
+		signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if answered.Code != http.StatusAccepted {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusAccepted)
+	}
+	if len(gate.evaluated) != 1 || gate.evaluated[0] != gatedPullRequest(t) {
+		t.Errorf("the gate evaluated %v, want only %v", gate.evaluated, gatedPullRequest(t))
+	}
+}
+
 func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
 	var logged bytes.Buffer
 
@@ -258,10 +275,16 @@ const (
 
 func routed(t *testing.T, log *slog.Logger) http.Handler {
 	t.Helper()
+	return routedWith(t, log, &recordingGate{})
+}
+
+func routedWith(t *testing.T, log *slog.Logger, gate *recordingGate) http.Handler {
+	t.Helper()
 	routes, err := httpapi.ParseRoutes(httpapi.Settings{
 		Log:           log,
 		Secret:        domain.WebhookSecret(webhookSecret),
 		Installations: []int64{allowlistedInstallation},
+		Gate:          gate,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -281,6 +304,35 @@ func answerTo(t *testing.T, delivery *http.Request) *httptest.ResponseRecorder {
 	answered := httptest.NewRecorder()
 	routed(t, discardedLog()).ServeHTTP(answered, delivery)
 	return answered
+}
+
+type recordingGate struct{ evaluated []domain.PullRequestLocator }
+
+func (gate *recordingGate) Execute(
+	_ context.Context, locator domain.PullRequestLocator, _ domain.DecisionID,
+) error {
+	gate.evaluated = append(gate.evaluated, locator)
+	return nil
+}
+
+const (
+	gatedRepository = "JoeNutt/open-ci-control-plane"
+	gatedNumber     = 7
+)
+
+func pullRequestPayload(action string) string {
+	return fmt.Sprintf(
+		`{"action":%q,"number":%d,"repository":{"full_name":%q},"installation":{"id":%d}}`,
+		action, gatedNumber, gatedRepository, allowlistedInstallation)
+}
+
+func gatedPullRequest(t *testing.T) domain.PullRequestLocator {
+	t.Helper()
+	locator, err := domain.ParsePullRequestLocator(gatedRepository, gatedNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return locator
 }
 
 func signatureOf(body string) string {

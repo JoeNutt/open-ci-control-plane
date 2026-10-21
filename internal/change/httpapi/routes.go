@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -13,16 +14,21 @@ import (
 
 const eventsRoute = "POST /v1/forge/github/events"
 
+type ChangeGate interface {
+	Execute(ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID) error
+}
+
 type Settings struct {
 	Log           *slog.Logger
 	Secret        domain.WebhookSecret
 	Installations []int64
+	Gate          ChangeGate
 }
 
 func ParseRoutes(settings Settings) (http.Handler, error) {
 	refusing := problems{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing},
+		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing, gate: settings.Gate},
 		Secret:   settings.Secret,
 		Refusals: refusals{log: settings.Log},
 	})
@@ -55,6 +61,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 type admitted struct {
 	allowed  allowlist
 	refusing problems
+	gate     ChangeGate
 }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
@@ -65,6 +72,13 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 	}
 	if !stage.allowed.admits(stated) {
 		answer.WriteHeader(http.StatusNotFound)
+		return
+	}
+	received, _ := deliveryOf(asked.Context())
+	if received.event == "pull_request" && stated.Action == "opened" {
+		locator, _ := domain.ParsePullRequestLocator(stated.Repository.FullName, stated.Number)
+		_ = stage.gate.Execute(asked.Context(), locator, domain.DecisionID{})
+		answer.WriteHeader(http.StatusAccepted)
 		return
 	}
 	answer.WriteHeader(http.StatusNoContent)
