@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v3/jwk"
@@ -23,7 +24,21 @@ const (
 	maxDiscoveryBytes = 64 << 10
 )
 
-var ErrUnverifiedToken = errors.New("bad token")
+var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
+
+var (
+	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", ErrUnverifiedToken)
+	errForeignIssuer         = fmt.Errorf("%w: another issuer signed it", ErrUnverifiedToken)
+)
+
+type unverifiedReason struct {
+	cause  error
+	reason error
+}
+
+var unverifiedReasons = []unverifiedReason{
+	{cause: jwt.InvalidIssuerError(), reason: errForeignIssuer},
+}
 
 type ActionsTokenSettings struct {
 	Issuer   string
@@ -54,13 +69,23 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 		jwt.WithIssuer(tokens.settings.Issuer),
 		jwt.WithClock(jwt.ClockFunc(tokens.settings.Now)))
 	if err != nil {
-		return domain.Repository{}, ErrUnverifiedToken
+		return domain.Repository{}, unverifiedReasonOf(err)
 	}
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
 		return domain.Repository{}, fmt.Errorf("read the %s claim: %w", repositoryClaim, err)
 	}
 	return domain.ParseRepository(claimed)
+}
+
+func unverifiedReasonOf(failure error) error {
+	matching := slices.IndexFunc(unverifiedReasons, func(row unverifiedReason) bool {
+		return errors.Is(failure, row.cause)
+	})
+	if matching < 0 {
+		return errUnverifiableSignature
+	}
+	return unverifiedReasons[matching].reason
 }
 
 func (tokens *ActionsTokens) signingKeys(ctx context.Context) (jwk.Set, error) {
