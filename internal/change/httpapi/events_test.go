@@ -107,6 +107,9 @@ func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
 	if unread.isRead {
 		t.Error("the body of an oversized delivery was read")
 	}
+	if !strings.Contains(answered.Body.String(), `"limit":"`) {
+		t.Errorf("the refusal does not name the limit: %s", answered.Body.String())
+	}
 }
 
 type untouchedBody struct{ isRead bool }

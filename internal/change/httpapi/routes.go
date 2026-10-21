@@ -29,15 +29,15 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 		return
 	}
 	if asked.ContentLength > ingest.MaxDeliveryBytes {
-		answer.WriteHeader(http.StatusRequestEntityTooLarge)
+		receiving.refuse(asked.Context(), answer, oversizedBodyProblem())
 		return
 	}
 }
 
-func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refusal fieldProblem) {
+func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, refused refusal) {
 	answer.Header().Set(contentTypeHeader, jsonMediaType)
-	answer.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(answer).Encode(refusal); err != nil {
+	answer.WriteHeader(refused.status())
+	if err := json.NewEncoder(answer).Encode(refused); err != nil {
 		receiving.log.LogAttrs(ctx, slog.LevelWarn, unwrittenAnswer, slog.String("error", err.Error()))
 	}
 }
