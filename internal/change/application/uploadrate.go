@@ -4,6 +4,7 @@ package application
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -28,8 +29,7 @@ func (rate *UploadRate) Admit(repository domain.GovernedRepository) error {
 	now := rate.now()
 	recent := rate.admissionsWithinWindow(repository, now)
 	if len(recent) >= rate.limits.MaxUploadsPerMinute {
-		left := recent[0].Add(uploadRateWindow).Sub(now)
-		return UploadRateRefusal{RetryAfter: (left + time.Second - 1).Truncate(time.Second)}
+		return UploadRateRefusal{RetryAfter: wholeSecondsCovering(recent[0].Add(uploadRateWindow).Sub(now))}
 	}
 	rate.admitted[repository] = append(recent, now)
 	return nil
@@ -48,6 +48,16 @@ type UploadRateRefusal struct {
 	RetryAfter time.Duration
 }
 
-func (refusal UploadRateRefusal) Error() string { return ErrUploadRateExceeded.Error() }
+func (refusal UploadRateRefusal) Error() string {
+	return fmt.Sprintf("%s: retry after %s", ErrUploadRateExceeded, refusal.RetryAfter)
+}
 
 func (refusal UploadRateRefusal) Is(target error) bool { return target == ErrUploadRateExceeded }
+
+func wholeSecondsCovering(wait time.Duration) time.Duration {
+	whole := wait.Truncate(time.Second)
+	if whole < wait {
+		return whole + time.Second
+	}
+	return whole
+}
