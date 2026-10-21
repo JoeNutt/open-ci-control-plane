@@ -12,23 +12,31 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const (
+	effectPath  = "internal/change/domain/effect.go"
+	gatePath    = "internal/change/domain/gate.go"
+	runnerPath  = "/home/runner/work/effect.go"
+	lineHit     = "DA:7,3"
+	lineMissed  = "DA:7,0"
+	recordClose = "end_of_record"
+)
+
 func TestReportedFilesInReadsAnExercisedRecord(t *testing.T) {
-	artifact := "TN:\nSF:internal/change/domain/effect.go\nDA:7,3\nLF:1\nLH:1\nend_of_record\n"
+	artifact := lines("TN:", "SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose)
 
 	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
 
 	if err != nil {
 		t.Fatalf("parse one exercised record: %v", err)
 	}
-	want := []domain.ReportedFile{domain.NewReportedFile(repositoryPath(t, "internal/change/domain/effect.go"), true)}
+	want := []domain.ReportedFile{domain.NewReportedFile(repositoryPath(t, effectPath), true)}
 	if !slices.Equal(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
 }
 
 func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
-	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
-		"SF:internal/change/domain/gate.go\nDA:7,0\nDA:8,0\nend_of_record\n"
+	artifact := record(effectPath, lineHit) + record(gatePath, lineMissed, "DA:8,0")
 
 	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
 
@@ -36,8 +44,8 @@ func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
 		t.Fatalf("parse two records: %v", err)
 	}
 	want := []domain.ReportedFile{
-		domain.NewReportedFile(repositoryPath(t, "internal/change/domain/effect.go"), true),
-		domain.NewReportedFile(repositoryPath(t, "internal/change/domain/gate.go"), false),
+		domain.NewReportedFile(repositoryPath(t, effectPath), true),
+		domain.NewReportedFile(repositoryPath(t, gatePath), false),
 	}
 	if !slices.Equal(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
@@ -45,10 +53,7 @@ func TestReportedFilesInReportsEachRecordOnItsOwnCounts(t *testing.T) {
 }
 
 func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
-	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
-		"SF:/home/runner/work/effect.go\nDA:7,3\nend_of_record\n"
-
-	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	err := refusalOf(t, record(effectPath, lineHit)+record(runnerPath, lineHit))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -56,27 +61,18 @@ func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
 	if errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("a readable artifact with an absolute path is not malformed: %v", err)
 	}
-	if reported != nil {
-		t.Fatalf("want nothing reported alongside the refusal, got %+v", reported)
-	}
 }
 
 func TestReportedFilesInRefusesATruncatedArtifactWhole(t *testing.T) {
-	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
-		"SF:internal/change/domain/gate.go\nDA:7,3\n"
-
-	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	err := refusalOf(t, record(effectPath, lineHit)+lines("SF:"+gatePath, lineHit))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
 	}
-	if reported != nil {
-		t.Fatalf("want nothing reported alongside the refusal, got %+v", reported)
-	}
 }
 
 func TestReportedFilesInRefusesAnArtifactWithNoRecord(t *testing.T) {
-	_, err := lcov.ReportedFilesIn(strings.NewReader(""))
+	err := refusalOf(t, "")
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -85,14 +81,14 @@ func TestReportedFilesInRefusesAnArtifactWithNoRecord(t *testing.T) {
 
 func TestReportedFilesInRefusesARecordOutOfOrder(t *testing.T) {
 	refused := map[string]string{
-		"line data before any record":    "DA:7,3\nSF:internal/change/domain/effect.go\nend_of_record\n",
-		"a record opened inside another": "SF:internal/change/domain/effect.go\nSF:internal/change/domain/gate.go\nend_of_record\n",
-		"a record closed twice":          "SF:internal/change/domain/effect.go\nend_of_record\nend_of_record\n",
+		"line data before any record":    lineHit + "\n" + record(effectPath),
+		"a record opened inside another": lines("SF:"+effectPath) + record(gatePath),
+		"a record closed twice":          record(effectPath) + lines(recordClose),
 	}
 
 	for form, artifact := range refused {
 		t.Run(form, func(t *testing.T) {
-			_, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+			err := refusalOf(t, artifact)
 
 			if !errors.Is(err, lcov.ErrMalformedArtifact) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -111,15 +107,35 @@ func TestReportedFilesInRefusesAMalformedLine(t *testing.T) {
 
 	for form, line := range refused {
 		t.Run(form, func(t *testing.T) {
-			artifact := "SF:internal/change/domain/effect.go\n" + line + "\nend_of_record\n"
-
-			_, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+			err := refusalOf(t, record(effectPath, line))
 
 			if !errors.Is(err, lcov.ErrMalformedArtifact) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)
 			}
 		})
 	}
+}
+
+func refusalOf(t *testing.T, artifact string) error {
+	t.Helper()
+
+	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+	if reported != nil {
+		t.Fatalf("want nothing reported alongside a refusal, got %+v", reported)
+	}
+	return err
+}
+
+func record(path string, body ...string) string {
+	return lines("SF:"+path) + lines(body...) + lines(recordClose)
+}
+
+func lines(each ...string) string {
+	var joined strings.Builder
+	for _, line := range each {
+		joined.WriteString(line + "\n")
+	}
+	return joined.String()
 }
 
 func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
