@@ -13,6 +13,8 @@ type ImportedFile struct {
 	Head FileImports
 }
 
+func (imported ImportedFile) existsAtHead() bool { return imported.File.Action.ExistsAtHead() }
+
 func (imported ImportedFile) headImport() Import {
 	return Import{
 		Path:  imported.File.Path,
