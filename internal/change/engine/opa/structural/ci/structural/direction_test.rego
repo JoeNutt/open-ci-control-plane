@@ -45,3 +45,20 @@ test_an_added_edge_into_a_higher_order_group_is_refused_naming_file_import_and_g
 		`group "domain" may not import group "adapter"`,
 	])
 }
+
+test_a_refusal_is_stated_in_the_decision_contract_the_engine_parses if {
+	decided := structural.decision
+		with input as change_adding([{
+			"from": "internal/change/domain/gate.go",
+			"to": "github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github",
+		}])
+		with data.ci.policy as policy
+
+	decided.input_wellformed == true
+	decided.schema_version_accepted == 1
+	decided.reviewers == []
+	decided.fail_closed == true
+	[violation] := decided.violations
+	violation.rule_id == "clean-architecture"
+	violation.severity == "deny"
+}

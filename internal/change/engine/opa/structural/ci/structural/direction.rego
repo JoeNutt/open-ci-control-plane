@@ -1,11 +1,19 @@
 package ci.structural
 
 decision := {
+	"input_wellformed": true,
+	"schema_version_accepted": 1,
 	"effect": "block",
 	"violations": sort([violation | some violation in violations]),
+	"reviewers": [],
+	"fail_closed": true,
 }
 
-violations contains {"message": refusal_of(edge, importer, imported)} if {
+violations contains {
+	"rule_id": bound.use,
+	"message": refusal_of(edge, importer, imported),
+	"severity": "deny",
+} if {
 	some bound in data.ci.policy.bindings[input.pr.repository].policies
 	model := data.ci.policy.catalog[bound.use]
 	some edge in input.diff.module_graph_delta.edges_added
