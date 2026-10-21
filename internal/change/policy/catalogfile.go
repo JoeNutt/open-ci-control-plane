@@ -44,17 +44,25 @@ func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
-	var document catalogDocument
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&document); err != nil {
-		return domain.CatalogPolicy{}, ErrMalformedPolicyFile
+	document, err := decodedCatalog(content)
+	if err != nil {
+		return domain.CatalogPolicy{}, err
 	}
 	statement, err := catalogStatementOf(document)
 	if err != nil {
 		return domain.CatalogPolicy{}, err
 	}
 	return domain.ParseCatalogPolicy(statement)
+}
+
+func decodedCatalog(content []byte) (catalogDocument, error) {
+	var document catalogDocument
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&document); err != nil {
+		return catalogDocument{}, ErrMalformedPolicyFile
+	}
+	return document, nil
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
