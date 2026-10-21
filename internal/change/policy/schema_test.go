@@ -22,6 +22,16 @@ func TestTheLiveCatalogMatchesThePublishedCatalogSchema(t *testing.T) {
 	}
 }
 
+func TestThePublishedCatalogSchemaRefusesEveryCatalogRefusedByItsShape(t *testing.T) {
+	for form, refusal := range catalogsRefusedByTheirShape(t) {
+		t.Run(form, func(t *testing.T) {
+			if faults := schemaFaultsOf(t, refusal.written, catalogSchemaPath); len(faults) == 0 {
+				t.Errorf("a catalog with %s matches %s", form, catalogSchemaPath)
+			}
+		})
+	}
+}
+
 func schemaFaultsOf(t *testing.T, written, schemaPath string) []string {
 	t.Helper()
 
