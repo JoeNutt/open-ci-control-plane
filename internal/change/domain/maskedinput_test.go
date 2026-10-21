@@ -38,6 +38,17 @@ func TestMaskedInputOfOmitsAWholeAnalyzerFinding(t *testing.T) {
 	}
 }
 
+func TestMaskedInputOfTreatsARepeatedPointerAsOneField(t *testing.T) {
+	document := documentWithFindings("internal/leaked.go", "internal/kept.go")
+	document.Diff.Sensitive = domain.Declared[string]{"/analyzers/findings/0", "/analyzers/findings/0"}
+
+	encoded := encodedMaskOf(t, document)
+
+	if !strings.Contains(encoded, "kept.go") {
+		t.Errorf("a repeated pointer removed a second finding: %s", encoded)
+	}
+}
+
 func TestMaskedInputOfListsOnlyThePointersItRemoved(t *testing.T) {
 	document := documentWithFindings("internal/leaked.go")
 	document.Diff.Sensitive = domain.Declared[string]{"/analyzers/findings/0", "/analyzers/findings/5"}

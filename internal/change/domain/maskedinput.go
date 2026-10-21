@@ -55,6 +55,9 @@ type sensitiveField struct {
 func sensitiveFieldsOf(sensitive []string) ([]sensitiveField, error) {
 	fields := make([]sensitiveField, 0, len(sensitive))
 	for _, stated := range sensitive {
+		if slices.ContainsFunc(fields, func(field sensitiveField) bool { return field.stated == stated }) {
+			continue
+		}
 		field, err := parseSensitiveField(stated)
 		if err != nil {
 			return nil, fmt.Errorf("mask %q: %w", stated, err)
