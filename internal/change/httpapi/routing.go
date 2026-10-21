@@ -8,5 +8,5 @@ const (
 )
 
 func isEvaluated(event, action string) bool {
-	return event == pullRequestEvent && action == openedAction
+	return event == pullRequestEvent && (action == openedAction || action == "synchronize" || action == "reopened")
 }

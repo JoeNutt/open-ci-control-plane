@@ -190,18 +190,22 @@ func TestAnAllowlistedEventThatCarriesNoDecisionIsAnsweredWithNoContent(t *testi
 	}
 }
 
-func TestAnOpenedPullRequestIsHandedToTheGateAndAccepted(t *testing.T) {
-	gate := &recordingGate{}
-	answered := httptest.NewRecorder()
+func TestAnEvaluatedPullRequestActionIsHandedToTheGateAndAccepted(t *testing.T) {
+	for _, action := range []string{"opened", "synchronize", "reopened"} {
+		t.Run(action, func(t *testing.T) {
+			gate := &recordingGate{}
+			answered := httptest.NewRecorder()
 
-	routedWith(t, discardedLog(), gate).ServeHTTP(answered,
-		signedDelivery("pull_request", pullRequestPayload("opened")))
+			routedWith(t, discardedLog(), gate).ServeHTTP(answered,
+				signedDelivery("pull_request", pullRequestPayload(action)))
 
-	if answered.Code != http.StatusAccepted {
-		t.Errorf("status is %d, want %d", answered.Code, http.StatusAccepted)
-	}
-	if len(gate.evaluated) != 1 || gate.evaluated[0] != gatedPullRequest(t) {
-		t.Errorf("the gate evaluated %v, want only %v", gate.evaluated, gatedPullRequest(t))
+			if answered.Code != http.StatusAccepted {
+				t.Errorf("status is %d, want %d", answered.Code, http.StatusAccepted)
+			}
+			if len(gate.evaluated) != 1 || gate.evaluated[0] != gatedPullRequest(t) {
+				t.Errorf("the gate evaluated %v, want only %v", gate.evaluated, gatedPullRequest(t))
+			}
+		})
 	}
 }
 
