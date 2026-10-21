@@ -26,3 +26,23 @@ func TestARefusalWithoutItsParsedDeliveryIsLoggedAsAnError(t *testing.T) {
 		t.Errorf("an uncarried refusal lost its reason: %q", logged.String())
 	}
 }
+
+func TestTheAdmittedStageWithoutItsParsedDeliveryAnswersAFailure(t *testing.T) {
+	var logged bytes.Buffer
+	stage := admitted{
+		allowed:   allowlist{41},
+		answering: answers{log: slog.New(slog.DiscardHandler)},
+		log:       slog.New(slog.NewJSONHandler(&logged, nil)),
+	}
+	answered := httptest.NewRecorder()
+
+	stage.ServeHTTP(answered, httptest.NewRequest(http.MethodPost, "/",
+		strings.NewReader(`{"action":"opened","installation":{"id":41}}`)))
+
+	if answered.Code != http.StatusInternalServerError {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusInternalServerError)
+	}
+	if !strings.Contains(logged.String(), `"level":"ERROR"`) {
+		t.Errorf("the wiring fault was not logged as an error: %q", logged.String())
+	}
+}
