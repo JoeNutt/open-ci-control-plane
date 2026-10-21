@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
 
 func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
@@ -88,6 +89,31 @@ func TestAMalformedHeaderIsRefusedNamingIt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestADeliveryDeclaringMoreThanTheBoundIsRefusedUnread(t *testing.T) {
+	unread := &untouchedBody{}
+	delivery := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", unread)
+	delivery.Header.Set("X-GitHub-Event", "pull_request")
+	delivery.Header.Set("X-GitHub-Delivery", "72d3162e-cc78-11e3-81ab-4c9367dc0958")
+	delivery.ContentLength = ingest.MaxDeliveryBytes + 1
+	answered := httptest.NewRecorder()
+
+	httpapi.Routes(discardedLog()).ServeHTTP(answered, delivery)
+
+	if answered.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusRequestEntityTooLarge)
+	}
+	if unread.isRead {
+		t.Error("the body of an oversized delivery was read")
+	}
+}
+
+type untouchedBody struct{ isRead bool }
+
+func (body *untouchedBody) Read([]byte) (int, error) {
+	body.isRead = true
+	return 0, io.EOF
 }
 
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {

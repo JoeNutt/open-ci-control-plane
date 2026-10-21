@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
 
 const eventsRoute = "POST /v1/forge/github/events"
@@ -24,6 +26,10 @@ type events struct {
 func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	if refusal, isRefused := headerProblemIn(asked.Header); isRefused {
 		receiving.refuse(asked.Context(), answer, refusal)
+		return
+	}
+	if asked.ContentLength > ingest.MaxDeliveryBytes {
+		answer.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
 }
