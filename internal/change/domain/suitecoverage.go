@@ -9,14 +9,16 @@ import (
 
 var errUnknownPath = fmt.Errorf("%w: the repository holds no such path", ErrPathOutsideRepository)
 
-type SuiteCoverage struct{}
+type SuiteCoverage struct {
+	fileEntryCount int
+}
 
 func ParseSuiteCoverage(reported []ReportedFile, known KnownPaths) (SuiteCoverage, error) {
 	isUnknown := func(file ReportedFile) bool { return !known.Contains(file.Path()) }
 	if slices.ContainsFunc(reported, isUnknown) {
 		return SuiteCoverage{}, errUnknownPath
 	}
-	return SuiteCoverage{}, nil
+	return SuiteCoverage{fileEntryCount: len(reported)}, nil
 }
 
-func (coverage SuiteCoverage) FileEntryCount() int { return 2 }
+func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
