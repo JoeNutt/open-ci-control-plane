@@ -33,9 +33,10 @@ type Configuration struct {
 }
 
 type statedConfiguration struct {
-	WebhookSecretFile string  `json:"webhookSecretFile"`
-	AppKeyFile        string  `json:"appKeyFile"`
-	InstallationIDs   []int64 `json:"installationIds"`
+	WebhookSecretFile string   `json:"webhookSecretFile"`
+	AppKeyFile        string   `json:"appKeyFile"`
+	InstallationIDs   []int64  `json:"installationIds"`
+	Families          []string `json:"families"`
 }
 
 func Read(path string) (Configuration, error) {
@@ -72,7 +73,11 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
-	if err := errors.Join(secretErr, keyErr, installationsErr); err != nil {
+	var familiesErr error
+	if len(stated.Families) == 0 {
+		familiesErr = fmt.Errorf("%w: families", ErrMissingItem)
+	}
+	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{

@@ -41,6 +41,14 @@ func TestAConfigurationWithoutTheInstallationAllowlistIsRefusedNamingIt(t *testi
 	}
 }
 
+func TestAConfigurationNamingNoPolicyFamilyIsRefusedNamingIt(t *testing.T) {
+	_, err := configuration.Read(writtenFile(t, `{}`))
+
+	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "families") {
+		t.Fatalf("refusal is not a missing families: %v", err)
+	}
+}
+
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
@@ -235,13 +243,15 @@ func completeItems(t *testing.T) statedItems {
 		WebhookSecretFile: writtenFile(t, string(statedWebhookSecret)),
 		AppKeyFile:        writtenFile(t, statedAppKey),
 		InstallationIDs:   []int64{statedInstallationID},
+		Families:          []string{string(domain.PolicyFamilyStructural)},
 	}
 }
 
 type statedItems struct {
-	WebhookSecretFile string  `json:"webhookSecretFile,omitempty"`
-	AppKeyFile        string  `json:"appKeyFile,omitempty"`
-	InstallationIDs   []int64 `json:"installationIds,omitempty"`
+	WebhookSecretFile string   `json:"webhookSecretFile,omitempty"`
+	AppKeyFile        string   `json:"appKeyFile,omitempty"`
+	InstallationIDs   []int64  `json:"installationIds,omitempty"`
+	Families          []string `json:"families,omitempty"`
 }
 
 func configurationFile(t *testing.T, stated statedItems) string {
