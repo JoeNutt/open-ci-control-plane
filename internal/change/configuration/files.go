@@ -14,6 +14,8 @@ var ErrOversizedFile = errors.New("the file exceeds its byte bound")
 
 var errEmptyFile = errors.New("the file is empty")
 
+var errNotRegularFile = errors.New("the path does not name a regular file")
+
 func fileContentOf(stated statedItems, named item, maxBytes int) ([]byte, error) {
 	path, err := valueOf[string](stated, named)
 	if err != nil {
@@ -30,13 +32,9 @@ func fileContentOf(stated statedItems, named item, maxBytes int) ([]byte, error)
 }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	file, err := openedRegularFile(path)
 	if err != nil {
 		return nil, err
-	}
-	described, err := file.Stat()
-	if err != nil || !described.Mode().IsRegular() {
-		return nil, errors.Join(errors.New("not regular"), err, file.Close())
 	}
 	content, readErr := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err := errors.Join(readErr, file.Close()); err != nil {
@@ -46,4 +44,19 @@ func boundedContentOf(path string, maxBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("%w: more than %d bytes", ErrOversizedFile, maxBytes)
 	}
 	return content, nil
+}
+
+func openedRegularFile(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	described, err := file.Stat()
+	if err != nil {
+		return nil, errors.Join(err, file.Close())
+	}
+	if !described.Mode().IsRegular() {
+		return nil, errors.Join(errNotRegularFile, file.Close())
+	}
+	return file, nil
 }
