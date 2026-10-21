@@ -12,8 +12,8 @@ type AppKey struct {
 	key *rsa.PrivateKey
 }
 
-func ParseAppKey(b []byte) (AppKey, error) {
-	blk, _ := pem.Decode(b)
-	k, err := x509.ParsePKCS1PrivateKey(blk.Bytes)
-	return AppKey{k}, err
+func ParseAppKey(encoded []byte) (AppKey, error) {
+	block, _ := pem.Decode(encoded)
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	return AppKey{key: key}, err
 }
