@@ -69,6 +69,22 @@ test_an_added_edge_the_direction_allows_passes if {
 	decided.violations == []
 }
 
+test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
+	gate_still_imports_forge := object.union(change_adding([]), {"diff": {"imports": [{
+		"path": domain_imports_forge.from,
+		"language": "go",
+		"extractor": "go/parser",
+		"state": "resolved",
+		"refs": [domain_imports_forge.to],
+		"declarations_added": [],
+	}]}})
+
+	decided := structural.decision with input as gate_still_imports_forge with data.ci.policy as policy
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
