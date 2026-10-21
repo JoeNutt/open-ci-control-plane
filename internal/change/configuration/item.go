@@ -19,6 +19,10 @@ var ErrOversizedFile = errors.New("the file exceeds its byte bound")
 
 var errEmptyFile = errors.New("the file is empty")
 
+var errNonPositiveID = errors.New("a GitHub ID is not positive")
+
+const firstGitHubID = 1
+
 type item string
 
 func (absent item) missing() error {
