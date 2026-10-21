@@ -40,6 +40,20 @@ func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInRefusesATruncatedArtifactWhole(t *testing.T) {
+	artifact := "SF:internal/change/domain/effect.go\nDA:7,3\nend_of_record\n" +
+		"SF:internal/change/domain/gate.go\nDA:7,3\n"
+
+	reported, err := lcov.ReportedFilesIn(strings.NewReader(artifact))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+	if reported != nil {
+		t.Fatalf("want nothing reported alongside the refusal, got %+v", reported)
+	}
+}
+
 func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
 	t.Helper()
 
