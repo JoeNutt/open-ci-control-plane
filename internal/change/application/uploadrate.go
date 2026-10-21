@@ -14,17 +14,25 @@ var ErrUploadRateExceeded = errors.New("coverage uploads exceed the repository's
 type UploadRate struct {
 	limits   domain.CoverageLimits
 	now      func() time.Time
-	admitted map[domain.GovernedRepository]int
+	admitted map[domain.GovernedRepository][]time.Time
 }
 
 func NewUploadRate(limits domain.CoverageLimits, now func() time.Time) *UploadRate {
-	return &UploadRate{limits: limits, now: now, admitted: map[domain.GovernedRepository]int{}}
+	return &UploadRate{limits: limits, now: now, admitted: map[domain.GovernedRepository][]time.Time{}}
 }
 
 func (rate *UploadRate) Admit(repository domain.GovernedRepository) error {
-	if rate.admitted[repository] >= rate.limits.MaxUploadsPerMinute {
+	now := rate.now()
+	var recent []time.Time
+	for _, at := range rate.admitted[repository] {
+		if now.Sub(at) < time.Minute {
+			recent = append(recent, at)
+		}
+	}
+	rate.admitted[repository] = recent
+	if len(recent) >= rate.limits.MaxUploadsPerMinute {
 		return ErrUploadRateExceeded
 	}
-	rate.admitted[repository]++
+	rate.admitted[repository] = append(recent, now)
 	return nil
 }

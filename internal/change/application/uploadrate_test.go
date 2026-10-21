@@ -29,3 +29,21 @@ func TestUploadRateRefusesTheUploadOneOverTheLimit(t *testing.T) {
 		t.Fatalf("want ErrUploadRateExceeded, got %v", err)
 	}
 }
+
+func TestUploadRateAdmitsAgainOnceTheEarliestUploadIsAMinuteOld(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	clock := windowOpens
+	rate := application.NewUploadRate(limits, func() time.Time { return clock })
+	repository := parsedRepository(t)
+	for range limits.MaxUploadsPerMinute {
+		if err := rate.Admit(repository); err != nil {
+			t.Fatalf("an upload within the limit was refused: %v", err)
+		}
+	}
+
+	clock = windowOpens.Add(time.Minute)
+
+	if err := rate.Admit(repository); err != nil {
+		t.Fatalf("an upload a minute after the first was refused: %v", err)
+	}
+}
