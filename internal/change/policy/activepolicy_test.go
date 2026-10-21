@@ -27,6 +27,17 @@ func TestActivePolicyHoldsNoRevisionBeforeOneIsAccepted(t *testing.T) {
 	}
 }
 
+func TestActivePolicyStaysUnloadedWhenTheFirstCandidateIsRefused(t *testing.T) {
+	active := policy.NewActivePolicy(slog.New(slog.DiscardHandler))
+
+	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFilesWithBinding(t, liveBindingWithAlias(t))); !errors.Is(err, policy.ErrAliasOrAnchor) {
+		t.Fatalf("a first candidate with a YAML alias gave %v, want ErrAliasOrAnchor", err)
+	}
+	if _, err := active.Accepted(); !errors.Is(err, policy.ErrNoPolicyLoaded) {
+		t.Fatalf("after a refused first candidate the active policy gave %v, want ErrNoPolicyLoaded", err)
+	}
+}
+
 func TestActivePolicyAcceptsAValidCandidateAtItsCommit(t *testing.T) {
 	active := activeAtFirstCommit(t)
 
