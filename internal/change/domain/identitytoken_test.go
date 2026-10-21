@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -36,5 +37,13 @@ func TestAnIdentityTokenIsNeverFormattedWithItsValue(t *testing.T) {
 	}
 	if token.Reveal() != presentedToken {
 		t.Errorf("Reveal returned another value")
+	}
+}
+
+func TestAnAbsentIdentityTokenIsRefused(t *testing.T) {
+	_, err := domain.ParseIdentityToken("")
+
+	if !errors.Is(err, domain.ErrAbsentIdentityToken) {
+		t.Fatalf("want ErrAbsentIdentityToken, got %v", err)
 	}
 }

@@ -4,17 +4,23 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
 
 const redacted = "[redacted]"
 
+var ErrAbsentIdentityToken = errors.New("no identity token was presented")
+
 type IdentityToken struct {
 	value *string
 }
 
 func ParseIdentityToken(presented string) (IdentityToken, error) {
+	if presented == "" {
+		return IdentityToken{}, ErrAbsentIdentityToken
+	}
 	return IdentityToken{value: &presented}, nil
 }
 
