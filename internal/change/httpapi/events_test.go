@@ -3,6 +3,8 @@
 package httpapi_test
 
 import (
+	"bytes"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -26,5 +28,26 @@ func TestADeliveryWithoutAnEventHeaderIsRefusedNamingIt(t *testing.T) {
 		t.Errorf("the refusal does not name X-GitHub-Event: %s", answered.Body.String())
 	}
 }
+
+func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
+	delivery := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events", strings.NewReader(`{}`))
+	var logged bytes.Buffer
+
+	httpapi.Routes(slog.New(slog.NewJSONHandler(&logged, nil))).ServeHTTP(hungUpForge{}, delivery)
+
+	if !strings.Contains(logged.String(), `"level":"WARN"`) || !strings.Contains(logged.String(), hangUp.Error()) {
+		t.Errorf("the unwritten answer was not logged with its cause: %q", logged.String())
+	}
+}
+
+var hangUp = errors.New("the forge hung up")
+
+type hungUpForge struct{}
+
+func (hungUpForge) Header() http.Header { return http.Header{} }
+
+func (hungUpForge) Write([]byte) (int, error) { return 0, hangUp }
+
+func (hungUpForge) WriteHeader(int) {}
 
 func discardedLog() *slog.Logger { return slog.New(slog.DiscardHandler) }
