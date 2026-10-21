@@ -5,6 +5,7 @@ package golang_test
 import (
 	"testing"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
@@ -17,7 +18,7 @@ func TestExtractorClaimsOnlyGoSourceFiles(t *testing.T) {
 		"schema/ci.diff.v1.schema.json": false,
 		"internal/change/domain/go":     false,
 	}
-	extractor := golang.Extractor{}
+	var extractor domain.ImportExtractor = golang.Extractor{}
 
 	for path, want := range claimed {
 		t.Run(path, func(t *testing.T) {
