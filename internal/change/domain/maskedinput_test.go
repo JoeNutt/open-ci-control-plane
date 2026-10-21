@@ -70,6 +70,13 @@ func TestMaskedInputOfRefusesAFieldThatCannotBeMasked(t *testing.T) {
 		"a member that does not exist":            "/pr/missing",
 		"a field inside a finding":                "/analyzers/findings/1/path",
 		"a whole approval":                        "/pr/approvals/0",
+		"an index with a leading zero":            "/analyzers/findings/01",
+		"an index with a plus sign":               "/analyzers/findings/+1",
+		"an index with a minus sign":              "/analyzers/findings/-1",
+		"an escaped member name":                  "/pr/author/log~0in",
+		"a lone tilde":                            "/pr/author/login~",
+		"no leading slash":                        "pr/author/login",
+		"the whole document":                      "",
 	}
 
 	for form, stated := range unmaskable {
@@ -79,25 +86,6 @@ func TestMaskedInputOfRefusesAFieldThatCannotBeMasked(t *testing.T) {
 
 			if _, err := domain.MaskedInputOf(document); !errors.Is(err, domain.ErrUnmaskableField) {
 				t.Fatalf("mask %q gave %v, want ErrUnmaskableField", stated, err)
-			}
-		})
-	}
-}
-
-func TestMaskedInputOfRefusesAnArrayIndexRFC6901Forbids(t *testing.T) {
-	forbidden := map[string]string{
-		"leading zero": "/analyzers/findings/01",
-		"plus sign":    "/analyzers/findings/+1",
-		"minus sign":   "/analyzers/findings/-1",
-	}
-
-	for form, stated := range forbidden {
-		t.Run(form, func(t *testing.T) {
-			document := documentWithFindings("internal/kept.go", "internal/leaked.go")
-			document.Diff.Sensitive = domain.Declared[string]{stated}
-
-			if _, err := domain.MaskedInputOf(document); !errors.Is(err, domain.ErrMalformedJSONPointer) {
-				t.Fatalf("mask %q gave %v, want ErrMalformedJSONPointer", stated, err)
 			}
 		})
 	}

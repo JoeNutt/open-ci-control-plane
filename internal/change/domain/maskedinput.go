@@ -33,34 +33,34 @@ func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(ma
 
 func (masked MaskedInput) RedactedPointers() []string { return slices.Clone(masked.redacted) }
 
-const arrayIndexSlot = "{index}"
+var redactorByPointer = map[string]func(document *Document) bool{
+	"/pr/author/login": redactAuthorLogin,
+}
 
-type maskableField struct {
-	shape  []string
+type maskableArrayElement struct {
+	prefix string
+	suffix string
 	redact func(document *Document, index int) bool
 }
 
-var maskableFields = []maskableField{
-	{shape: []string{"pr", "author", "login"}, redact: redactAuthorLogin},
-	{shape: []string{"pr", "approvals", arrayIndexSlot, "login"}, redact: redactApprovalLogin},
-	{shape: []string{"analyzers", "findings", arrayIndexSlot}, redact: redactAnalyzerFinding},
+var maskableArrayElements = []maskableArrayElement{
+	{prefix: "/pr/approvals/", suffix: "/login", redact: redactApprovalLogin},
+	{prefix: "/analyzers/findings/", suffix: "", redact: redactAnalyzerFinding},
 }
 
 type sensitiveField struct {
 	stated string
 	index  int
-	redact func(document *Document, index int) bool
+	redact func(document *Document) bool
 }
 
 func sensitiveFieldsOf(sensitive []string) ([]sensitiveField, error) {
-	fields := make([]sensitiveField, 0, len(sensitive))
-	for _, stated := range sensitive {
-		if slices.ContainsFunc(fields, func(field sensitiveField) bool { return field.stated == stated }) {
-			continue
-		}
+	distinct := slices.Compact(slices.Sorted(slices.Values(sensitive)))
+	fields := make([]sensitiveField, 0, len(distinct))
+	for _, stated := range distinct {
 		field, err := parseSensitiveField(stated)
 		if err != nil {
-			return nil, fmt.Errorf("mask %q: %w", stated, err)
+			return nil, err
 		}
 		fields = append(fields, field)
 	}
@@ -68,69 +68,33 @@ func sensitiveFieldsOf(sensitive []string) ([]sensitiveField, error) {
 }
 
 func parseSensitiveField(stated string) (sensitiveField, error) {
-	pointer, err := ParseJSONPointer(stated)
-	if err != nil {
-		return sensitiveField{}, err
+	if redact, isMaskable := redactorByPointer[stated]; isMaskable {
+		return sensitiveField{stated: stated, redact: redact}, nil
 	}
-	tokens := pointer.Tokens()
-	for _, maskable := range maskableFields {
-		index, matches, err := maskable.indexIn(tokens)
-		if err != nil {
-			return sensitiveField{}, err
-		}
-		if matches {
-			return sensitiveField{stated: stated, index: index, redact: maskable.redact}, nil
+	for _, element := range maskableArrayElements {
+		if index, matches := element.indexIn(stated); matches {
+			redact := func(document *Document) bool { return element.redact(document, index) }
+			return sensitiveField{stated: stated, index: index, redact: redact}, nil
 		}
 	}
-	return sensitiveField{}, ErrUnmaskableField
+	return sensitiveField{}, fmt.Errorf("%w: %q", ErrUnmaskableField, stated)
 }
 
-func (maskable maskableField) indexIn(tokens []string) (int, bool, error) {
-	if !maskable.matchesMembers(tokens) {
-		return 0, false, nil
+func (element maskableArrayElement) indexIn(stated string) (int, bool) {
+	afterPrefix, hasPrefix := strings.CutPrefix(stated, element.prefix)
+	token, hasSuffix := strings.CutSuffix(afterPrefix, element.suffix)
+	if !hasPrefix || !hasSuffix {
+		return 0, false
 	}
-	slot := slices.Index(maskable.shape, arrayIndexSlot)
-	if slot < 0 {
-		return 0, true, nil
-	}
-	index, err := parseArrayIndex(tokens[slot])
-	if err != nil {
-		return 0, false, err
-	}
-	return index, true, nil
+	return arrayIndexOf(token)
 }
 
-func (maskable maskableField) matchesMembers(tokens []string) bool {
-	if len(tokens) != len(maskable.shape) {
-		return false
+func arrayIndexOf(token string) (int, bool) {
+	index, err := strconv.ParseUint(token, 10, strconv.IntSize-1)
+	if err != nil || strconv.FormatUint(index, 10) != token {
+		return 0, false
 	}
-	for at, expected := range maskable.shape {
-		if expected != arrayIndexSlot && tokens[at] != expected {
-			return false
-		}
-	}
-	return true
-}
-
-func parseArrayIndex(token string) (int, error) {
-	if hasForbiddenIndexSpelling(token) {
-		return 0, fmt.Errorf("%w: %q is not an array index", ErrMalformedJSONPointer, token)
-	}
-	index, err := strconv.Atoi(token)
-	if err != nil {
-		return 0, fmt.Errorf("%w: %q is not an array index", ErrUnmaskableField, token)
-	}
-	return index, nil
-}
-
-func hasForbiddenIndexSpelling(token string) bool {
-	if strings.HasPrefix(token, "+") {
-		return true
-	}
-	isLongerThanOneCharacter := len(token) > 1
-	hasLeadingZero := isLongerThanOneCharacter && strings.HasPrefix(token, "0")
-	hasMinusSign := isLongerThanOneCharacter && strings.HasPrefix(token, "-")
-	return hasLeadingZero || hasMinusSign
+	return int(index), true
 }
 
 func copyForMasking(document Document) Document {
@@ -141,16 +105,13 @@ func copyForMasking(document Document) Document {
 }
 
 func redactAll(document *Document, fields []sensitiveField) []string {
-	removed := make(map[string]bool, len(fields))
-	for _, field := range highestIndexFirst(fields) {
-		removed[field.stated] = field.redact(document, field.index)
-	}
 	var redacted []string
-	for _, field := range fields {
-		if removed[field.stated] {
+	for _, field := range highestIndexFirst(fields) {
+		if field.redact(document) {
 			redacted = append(redacted, field.stated)
 		}
 	}
+	slices.Sort(redacted)
 	return redacted
 }
 
@@ -162,7 +123,7 @@ func highestIndexFirst(fields []sensitiveField) []sensitiveField {
 	return ordered
 }
 
-func redactAuthorLogin(document *Document, _ int) bool {
+func redactAuthorLogin(document *Document) bool {
 	if document.PR.Author.Login == "" {
 		return false
 	}
