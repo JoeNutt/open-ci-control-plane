@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -23,12 +24,13 @@ type Settings struct {
 	Secret        domain.WebhookSecret
 	Installations []int64
 	Gate          ChangeGate
+	DecisionIDs   domain.DecisionIDSource
 }
 
 func ParseRoutes(settings Settings) (http.Handler, error) {
 	refusing := problems{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing, gate: settings.Gate},
+		Accepted: admitted{allowed: allowlist(slices.Clone(settings.Installations)), refusing: refusing, gate: settings.Gate, ids: settings.DecisionIDs},
 		Secret:   settings.Secret,
 		Refusals: refusals{log: settings.Log},
 	})
@@ -62,6 +64,7 @@ type admitted struct {
 	allowed  allowlist
 	refusing problems
 	gate     ChangeGate
+	ids      domain.DecisionIDSource
 }
 
 func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
@@ -88,6 +91,10 @@ func (stage admitted) evaluate(answer http.ResponseWriter, asked *http.Request, 
 		stage.refusing.refuse(asked.Context(), answer, unparseablePullRequestProblem())
 		return
 	}
-	_ = stage.gate.Execute(asked.Context(), locator, domain.DecisionID{})
+	id, _ := stage.ids.NextDecisionID()
+	_ = stage.gate.Execute(asked.Context(), locator, id)
+	received, _ := deliveryOf(asked.Context())
+	answer.Header().Set(contentTypeHeader, jsonMediaType)
 	answer.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(answer).Encode(map[string]any{"deliveryId": received.id, "decisionId": id.String(), "accepted": true})
 }

@@ -205,6 +205,30 @@ func TestAnOpenedPullRequestIsHandedToTheGateAndAccepted(t *testing.T) {
 	}
 }
 
+func TestTheAcceptanceNamesTheDeliveryAndTheDecisionTheGateWasGiven(t *testing.T) {
+	gate := &recordingGate{}
+	answered := httptest.NewRecorder()
+
+	routedWith(t, discardedLog(), gate).ServeHTTP(answered,
+		signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	var accepted struct {
+		DeliveryID string `json:"deliveryId"`
+		DecisionID string `json:"decisionId"`
+		Accepted   bool   `json:"accepted"`
+	}
+	if err := json.Unmarshal(answered.Body.Bytes(), &accepted); err != nil {
+		t.Fatalf("the acceptance is not JSON: %v: %q", err, answered.Body.String())
+	}
+	if accepted.DeliveryID != statedDeliveryID || !accepted.Accepted {
+		t.Errorf("the acceptance is %+v, want delivery %s accepted", accepted, statedDeliveryID)
+	}
+	if accepted.DecisionID != mintedDecisionID || len(gate.decided) != 1 || gate.decided[0].String() != mintedDecisionID {
+		t.Errorf("the acceptance names decision %q and the gate was given %v, want %s for both",
+			accepted.DecisionID, gate.decided, mintedDecisionID)
+	}
+}
+
 func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing.T) {
 	unparseable := map[string]string{
 		"no number":         `{"action":"opened","repository":{"full_name":"JoeNutt/open-ci-control-plane"},"installation":{"id":41}}`,
@@ -311,6 +335,7 @@ func routedWith(t *testing.T, log *slog.Logger, gate *recordingGate) http.Handle
 		Secret:        domain.WebhookSecret(webhookSecret),
 		Installations: []int64{allowlistedInstallation},
 		Gate:          gate,
+		DecisionIDs:   mintedDecisions{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -332,13 +357,25 @@ func answerTo(t *testing.T, delivery *http.Request) *httptest.ResponseRecorder {
 	return answered
 }
 
-type recordingGate struct{ evaluated []domain.PullRequestLocator }
+type recordingGate struct {
+	evaluated []domain.PullRequestLocator
+	decided   []domain.DecisionID
+}
 
 func (gate *recordingGate) Execute(
-	_ context.Context, locator domain.PullRequestLocator, _ domain.DecisionID,
+	_ context.Context, locator domain.PullRequestLocator, id domain.DecisionID,
 ) error {
 	gate.evaluated = append(gate.evaluated, locator)
+	gate.decided = append(gate.decided, id)
 	return nil
+}
+
+const mintedDecisionID = "dec_0123456789abcdef0123456789abcdef"
+
+type mintedDecisions struct{}
+
+func (mintedDecisions) NextDecisionID() (domain.DecisionID, error) {
+	return domain.ParseDecisionID(mintedDecisionID)
 }
 
 const (
