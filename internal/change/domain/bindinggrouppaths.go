@@ -3,10 +3,13 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 )
+
+var ErrPathInTwoGroups = errors.New("binding places one path in two groups")
 
 type GroupPaths struct {
 	group    GroupName
@@ -24,6 +27,9 @@ func groupPathsOf(stated map[string][]string) ([]GroupPaths, error) {
 		if err != nil {
 			return nil, err
 		}
+		if slices.ContainsFunc(groups, parsed.sharesAPatternWith) {
+			return nil, fmt.Errorf("%w: a pattern of %s", ErrPathInTwoGroups, parsed.group)
+		}
 		groups = append(groups, parsed)
 	}
 	return groups, nil
@@ -39,6 +45,16 @@ func parseGroupPaths(stated string, written []string) (GroupPaths, error) {
 		return GroupPaths{}, fmt.Errorf("paths of %s: %w", group, err)
 	}
 	return GroupPaths{group: group, patterns: patterns}, nil
+}
+
+func (paths GroupPaths) sharesAPatternWith(other GroupPaths) bool {
+	return slices.ContainsFunc(paths.patterns, other.holds)
+}
+
+func (paths GroupPaths) holds(pattern PathPattern) bool {
+	return slices.ContainsFunc(paths.patterns, func(held PathPattern) bool {
+		return held.expression.String() == pattern.expression.String()
+	})
 }
 
 func pathPatternsOf(written []string) ([]PathPattern, error) {
