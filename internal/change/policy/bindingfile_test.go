@@ -10,8 +10,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-const liveBindingPath = "testdata/bindings/JoeNutt/open-ci-control-plane.yaml"
-
 func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 	parsed, err := policy.ParseBindingFile(fixture(t, liveBindingPath))
 	if err != nil {

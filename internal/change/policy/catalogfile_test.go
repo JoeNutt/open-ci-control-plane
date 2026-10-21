@@ -10,8 +10,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-const liveCatalogPath = "testdata/catalog/clean-architecture.yaml"
-
 func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
 	parsed, err := policy.ParseCatalogFile(fixture(t, liveCatalogPath))
 	if err != nil {

@@ -8,6 +8,14 @@ import (
 	"testing"
 )
 
+const (
+	fixtureDirectory = "testdata/"
+	liveCatalogFile  = "catalog/clean-architecture.yaml"
+	liveBindingFile  = "bindings/JoeNutt/open-ci-control-plane.yaml"
+	liveCatalogPath  = fixtureDirectory + liveCatalogFile
+	liveBindingPath  = fixtureDirectory + liveBindingFile
+)
+
 func fixtureWith(t *testing.T, path, written, replacement string) string {
 	t.Helper()
 
