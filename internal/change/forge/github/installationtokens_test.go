@@ -96,16 +96,19 @@ func (held *tokenForge) answeringAsTheRepository(repository http.Handler) {
 }
 
 func (held *tokenForge) authenticated(writer http.ResponseWriter, request *http.Request) {
-	held.mutex.Lock()
-	minted, repository := "Bearer "+grantedToken(held.exchanges), held.repository
-	held.mutex.Unlock()
-
-	if held.exchangeCount() == 0 || request.Header.Get("Authorization") != minted {
+	repository, isMinted := held.repositoryFor(request.Header.Get("Authorization"))
+	if !isMinted {
 		held.t.Errorf("%s %s did not present the minted installation token", request.Method, request.URL.Path)
 		writer.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	repository.ServeHTTP(writer, request)
+}
+
+func (held *tokenForge) repositoryFor(presented string) (http.Handler, bool) {
+	held.mutex.Lock()
+	defer held.mutex.Unlock()
+	return held.repository, held.exchanges > 0 && presented == "Bearer "+grantedToken(held.exchanges)
 }
 
 func (held *tokenForge) refuseFromNowOn() {
