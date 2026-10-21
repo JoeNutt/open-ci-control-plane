@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"syscall"
 )
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
@@ -29,9 +30,13 @@ func fileContentOf(stated statedItems, named item, maxBytes int) ([]byte, error)
 }
 
 func boundedContentOf(path string, maxBytes int) ([]byte, error) {
-	file, err := os.Open(path)
+	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
+	}
+	described, err := file.Stat()
+	if err != nil || !described.Mode().IsRegular() {
+		return nil, errors.Join(errors.New("not regular"), err, file.Close())
 	}
 	content, readErr := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err := errors.Join(readErr, file.Close()); err != nil {

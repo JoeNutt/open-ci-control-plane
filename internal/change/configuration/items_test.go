@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
@@ -114,6 +115,21 @@ func TestANamedFileThatIsEmptyOrAbsentIsRefusedNamingItsItem(t *testing.T) {
 				assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, key)
 			})
 		}
+	}
+}
+
+func TestANamedPathThatIsNotARegularFileIsRefusedNamingItsItem(t *testing.T) {
+	pipe := filepath.Join(t.TempDir(), "pipe")
+	if err := syscall.Mkfifo(pipe, 0o600); err != nil {
+		t.Fatalf("make a named pipe: %v", err)
+	}
+	for _, key := range []string{appKeyFileKey, webhookSecretFileKey} {
+		t.Run(key, func(t *testing.T) {
+			stated := completeItems(t)
+			stated[key] = quoted(t, pipe)
+
+			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, key)
+		})
 	}
 }
 
