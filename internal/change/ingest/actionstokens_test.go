@@ -102,6 +102,25 @@ func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
+	issuer := newIssuer(t)
+	tokens := issuer.tokensFor(t, instanceURL)
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+		t.Fatalf("verify a token GitHub Actions issued: %v", err)
+	}
+
+	for _, unknownKeyID := range []string{"unknown-1", "unknown-2", "unknown-3"} {
+		forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, unknownKeyID))
+		if _, err := tokens.RepositoryOf(t.Context(), forged); !errors.Is(err, ingest.ErrUnverifiedToken) {
+			t.Fatalf("want ErrUnverifiedToken, got %v", err)
+		}
+	}
+
+	if fetches := issuer.keySetFetches.Load(); fetches != 2 {
+		t.Fatalf("fetched the key set %d times, want 2", fetches)
+	}
+}
+
 type issuer struct {
 	t             *testing.T
 	server        *httptest.Server

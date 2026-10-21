@@ -60,9 +60,10 @@ type ActionsTokenSettings struct {
 }
 
 type ActionsTokens struct {
-	settings ActionsTokenSettings
-	guard    sync.Mutex
-	keys     jwk.Set
+	settings    ActionsTokenSettings
+	guard       sync.Mutex
+	keys        jwk.Set
+	refetchedAt time.Time
 }
 
 type discoveryDocument struct {
@@ -135,6 +136,12 @@ func (tokens *ActionsTokens) keysHolding(ctx context.Context, keyID string) (jwk
 
 	if tokens.isHolding(keyID) {
 		return tokens.keys, nil
+	}
+	if tokens.keys != nil && !tokens.refetchedAt.IsZero() && tokens.settings.Now().Sub(tokens.refetchedAt) < time.Minute {
+		return tokens.keys, nil
+	}
+	if tokens.keys != nil {
+		tokens.refetchedAt = tokens.settings.Now()
 	}
 	keys, err := tokens.signingKeys(ctx)
 	if err != nil {
