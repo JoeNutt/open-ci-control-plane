@@ -27,8 +27,8 @@ var (
 	errUnknownTag         = fmt.Errorf("%w: unknown line tag", ErrMalformedArtifact)
 	errOutOfOrder         = fmt.Errorf("%w: line is out of place for an open or closed record", ErrMalformedArtifact)
 	errUnreadableLineData = fmt.Errorf("%w: line data is not a line number and an execution count", ErrMalformedArtifact)
-	errTruncatedRecord    = errors.New("input ends inside a record")
-	errNoRecord           = errors.New("input reports no file")
+	errTruncatedRecord    = fmt.Errorf("%w: input ends inside a record", ErrMalformedArtifact)
+	errNoRecord           = fmt.Errorf("%w: input reports no file", ErrMalformedArtifact)
 )
 
 type lineReading struct {
@@ -113,10 +113,10 @@ func carryingNothing(*recordReading, string) error { return nil }
 
 func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
+		return nil, errTruncatedRecord
 	}
 	if len(reading.reported) == 0 {
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errNoRecord)
+		return nil, errNoRecord
 	}
 	return reading.reported, nil
 }
