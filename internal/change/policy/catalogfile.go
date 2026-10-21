@@ -50,6 +50,9 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 }
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
+	if document.SchemaVersion != 1 {
+		return domain.CatalogPolicyStatement{}, ErrUnsupportedSchemaVersion
+	}
 	rule, isKnownRule := policyRuleByWord[document.Rule]
 	if !isKnownRule {
 		return domain.CatalogPolicyStatement{}, fmt.Errorf("%w: %d bytes", domain.ErrUnknownPolicyRule, len(document.Rule))
