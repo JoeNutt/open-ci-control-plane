@@ -94,6 +94,30 @@ func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *te
 	}
 }
 
+func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.T) {
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
+	unverified := errors.New("token is absent, expired or not verifiable")
+
+	useCase := application.ReplaceCoverage{
+		Maps: maps, Paths: repositoryHolding{path}, Callers: unverifiedTokens{unverified}}
+	err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Reported: reportOf(path)})
+
+	if !errors.Is(err, unverified) || errors.Is(err, application.ErrForeignRepository) {
+		t.Fatalf("want only the verifier's refusal, got %v", err)
+	}
+	if _, err := maps.SuiteCoverageOf(t.Context(), repository, suite); !errors.Is(err, domain.ErrNoCoverageMap) {
+		t.Fatalf("an unverified upload was stored: %v", err)
+	}
+}
+
+type unverifiedTokens struct{ refusal error }
+
+func (unverified unverifiedTokens) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
+	return domain.Repository{}, unverified.refusal
+}
+
 type tokensNaming struct{ repository domain.Repository }
 
 func (naming tokensNaming) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {

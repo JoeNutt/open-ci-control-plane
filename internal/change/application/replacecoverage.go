@@ -26,7 +26,10 @@ type CoverageUpload struct {
 }
 
 func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) error {
-	caller, _ := useCase.Callers.RepositoryOf(ctx, upload.Token)
+	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
+	if err != nil {
+		return err
+	}
 	if caller != upload.Repository {
 		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
 	}
