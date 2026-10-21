@@ -3,6 +3,7 @@
 package github
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -29,6 +30,20 @@ type appJWTClaims struct {
 	Issuer    string `json:"iss"`
 	IssuedAt  int64  `json:"iat"`
 	ExpiresAt int64  `json:"exp"`
+}
+
+type appJWTIssuer struct {
+	key   AppKey
+	app   appID
+	clock func() time.Time
+}
+
+func (issuer appJWTIssuer) authorization(context.Context) (Credential, error) {
+	minted, err := appJWTAt(issuer.key, issuer.app, issuer.clock())
+	if err != nil {
+		return Credential{}, err
+	}
+	return NewCredential(minted), nil
 }
 
 func appJWTAt(appKey AppKey, app appID, now time.Time) (string, error) {

@@ -97,7 +97,11 @@ func requestFor(
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", over.endpoint, err)
 	}
-	request.Header.Set("Authorization", forge.token.bearer())
+	credential, err := forge.authority.authorization(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %s %s: %w", over.method, over.endpoint, err)
+	}
+	request.Header.Set("Authorization", credential.bearer())
 	return request, nil
 }
 

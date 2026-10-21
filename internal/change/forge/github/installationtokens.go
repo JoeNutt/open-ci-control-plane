@@ -16,44 +16,59 @@ type Installation struct {
 }
 
 type InstallationTokens struct {
-	settings     Settings
-	installation Installation
+	asApp        connection
+	installation int64
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
-	return &InstallationTokens{settings: settings, installation: installation}, nil
+	asApp, err := parseConnection(settings, appJWTIssuer{
+		key:   installation.Key,
+		app:   appID(settings.AppID),
+		clock: installation.Clock,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &InstallationTokens{asApp: asApp, installation: installation.ID}, nil
 }
 
-type perms struct {
+func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
+	granted, err := exchanged[accessTokenGrant](ctx, tokens.asApp, exchange{
+		method:    http.MethodPost,
+		endpoint:  fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation),
+		sent:      accessTokenRequest{Permissions: leastPrivilege},
+		succeeded: http.StatusCreated,
+	})
+	if err != nil {
+		return Credential{}, err
+	}
+	return NewCredential(granted.Token), nil
+}
+
+const (
+	permissionRead  = "read"
+	permissionWrite = "write"
+)
+
+type tokenPermissions struct {
 	Checks       string `json:"checks"`
 	PullRequests string `json:"pull_requests"`
 	Contents     string `json:"contents"`
 	Actions      string `json:"actions"`
 }
 
-type tokenReq struct {
-	Permissions perms `json:"permissions"`
+var leastPrivilege = tokenPermissions{
+	Checks:       permissionWrite,
+	PullRequests: permissionRead,
+	Contents:     permissionRead,
+	Actions:      permissionWrite,
 }
 
-type grant struct {
+type accessTokenRequest struct {
+	Permissions tokenPermissions `json:"permissions"`
+}
+
+type accessTokenGrant struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
-}
-
-func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
-	jwt, err := appJWTAt(tokens.installation.Key, appID(tokens.settings.AppID), tokens.installation.Clock())
-	if err != nil {
-		return Credential{}, err
-	}
-	forge := connection{settings: tokens.settings, token: NewCredential(jwt)}
-	g, err := exchanged[grant](ctx, forge, exchange{
-		method:    http.MethodPost,
-		endpoint:  fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation.ID),
-		sent:      tokenReq{Permissions: perms{"write", "read", "read", "write"}},
-		succeeded: http.StatusCreated,
-	})
-	if err != nil {
-		return Credential{}, err
-	}
-	return NewCredential(g.Token), nil
 }
