@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 type FamilyEngine interface {
@@ -14,7 +15,7 @@ type FamilyEngine interface {
 
 var ErrEngineFault = errors.New("policy engine failed to evaluate")
 
-var ErrIncompleteGate = errors.New("gate is missing an engine for a declared family")
+var ErrIncompleteGate = errors.New("gate is configured with a family that has no engine")
 
 type FamilyDecision struct {
 	Family   PolicyFamily
@@ -29,7 +30,8 @@ func (decided FamilyDecision) FailurePosture() FailurePosture {
 }
 
 type Gate struct {
-	engines map[PolicyFamily]FamilyEngine
+	families []PolicyFamily
+	engines  map[PolicyFamily]FamilyEngine
 }
 
 func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
@@ -40,21 +42,25 @@ func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
 		}
 		held[family] = engine
 	}
-	return Gate{engines: held}, nil
+	return Gate{families: configuredIn(held), engines: held}, nil
 }
 
 func (gate Gate) DecisionsFor(ctx context.Context, document Document) []FamilyDecision {
-	decisions := make([]FamilyDecision, 0, len(gate.engines))
-	for _, family := range declaredPolicyFamilies {
-		if _, isConfigured := gate.engines[family]; !isConfigured {
-			continue
-		}
+	decisions := make([]FamilyDecision, 0, len(gate.families))
+	for _, family := range gate.families {
 		decisions = append(decisions, FamilyDecision{
 			Family:   family,
 			Decision: gate.decisionFor(ctx, family, document),
 		})
 	}
 	return decisions
+}
+
+func configuredIn(engines map[PolicyFamily]FamilyEngine) []PolicyFamily {
+	return slices.DeleteFunc(DeclaredPolicyFamilies(), func(family PolicyFamily) bool {
+		_, isConfigured := engines[family]
+		return !isConfigured
+	})
 }
 
 func (gate Gate) decisionFor(
