@@ -2,13 +2,19 @@
 
 package domain
 
+import (
+	"fmt"
+	"slices"
+)
+
+var errUnknownPath = fmt.Errorf("%w: the repository holds no such path", ErrPathOutsideRepository)
+
 type SuiteCoverage struct{}
 
 func ParseSuiteCoverage(reported []ReportedFile, known KnownPaths) (SuiteCoverage, error) {
-	for _, file := range reported {
-		if !known.Contains(file.Path()) {
-			return SuiteCoverage{}, ErrPathOutsideRepository
-		}
+	isUnknown := func(file ReportedFile) bool { return !known.Contains(file.Path()) }
+	if slices.ContainsFunc(reported, isUnknown) {
+		return SuiteCoverage{}, errUnknownPath
 	}
 	return SuiteCoverage{}, nil
 }
