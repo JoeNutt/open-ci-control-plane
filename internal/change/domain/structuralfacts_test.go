@@ -49,6 +49,22 @@ func TestParseStructuralFactsRefusesOneEdgeOverTheDeltaLimit(t *testing.T) {
 	}
 }
 
+func TestParseStructuralFactsPublishesEveryEdgeOfAChangeAtTheDeltaLimit(t *testing.T) {
+	limits := domain.DeclaredLimits()
+	imported := filesAdding(t, limits.MaxGraphEdges)
+
+	facts, err := domain.ParseStructuralFacts(imported, limits)
+
+	if err != nil {
+		t.Fatalf("parse %d edges: %v", limits.MaxGraphEdges, err)
+	}
+	change := domain.Change{Files: withinBounds(t, changedFilesOf(imported)...), Structure: facts}
+	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+	if len(delta.EdgesAdded) != limits.MaxGraphEdges {
+		t.Fatalf("published %d edges, want %d", len(delta.EdgesAdded), limits.MaxGraphEdges)
+	}
+}
+
 func structureOf(t *testing.T, imported ...domain.ImportedFile) domain.StructuralFacts {
 	t.Helper()
 
