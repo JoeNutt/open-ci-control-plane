@@ -64,7 +64,7 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  domain.ErrMissingWorkflow,
 		},
 		"one path bound to two groups": {
-			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]"),
+			written: liveBindingPlacingOnePathInTwoGroups(t),
 			reason:  domain.ErrPathInTwoGroups,
 		},
 	}
@@ -75,6 +75,12 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			}
 		})
 	}
+}
+
+func liveBindingPlacingOnePathInTwoGroups(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]")
 }
 
 func liveBindingWith(t *testing.T, written, replacement string) string {
