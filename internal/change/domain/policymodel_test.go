@@ -36,6 +36,19 @@ func TestParsePolicyModelRefusesABindingNamingAnUnknownPolicy(t *testing.T) {
 	}
 }
 
+func TestParsePolicyModelRefusesABindingNamingAnUndeclaredGroup(t *testing.T) {
+	stated := thisRepositorysBinding()
+	stated.Policies[0].Paths["infrastructure"] = []string{"deploy/**"}
+
+	_, err := domain.ParsePolicyModel(
+		[]domain.CatalogPolicy{parsedCatalogPolicy(t, cleanArchitecture())},
+		[]domain.Binding{parsedBinding(t, stated)},
+	)
+	if !errors.Is(err, domain.ErrUndeclaredGroup) {
+		t.Fatalf("a binding naming group infrastructure gave %v, want ErrUndeclaredGroup", err)
+	}
+}
+
 func parsedCatalogPolicy(t *testing.T, stated domain.CatalogPolicyStatement) domain.CatalogPolicy {
 	t.Helper()
 
