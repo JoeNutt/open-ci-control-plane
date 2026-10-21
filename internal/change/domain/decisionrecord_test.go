@@ -81,6 +81,19 @@ func TestARecordWithNothingMaskedListsNoRedactionsAsAnEmptyArray(t *testing.T) {
 	}
 }
 
+func TestARecordOfAnUndecidedDecisionPublishesTheContractsOutcomeClass(t *testing.T) {
+	var published struct {
+		OutcomeClass string `json:"outcomeClass"`
+	}
+	if err := json.Unmarshal(encodedRecordOf(t, undecidedStructuralDecision(t)), &published); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if published.OutcomeClass != "undecided" {
+		t.Errorf("outcomeClass is %q, want %q", published.OutcomeClass, "undecided")
+	}
+}
+
 func undecidedStructuralDecision(t *testing.T) domain.FamilyDecision {
 	t.Helper()
 	return domain.FamilyDecision{
