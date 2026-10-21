@@ -63,10 +63,14 @@ package_path(bound, imported) := trim_prefix($"{root.path}{trim_prefix(imported,
 }
 
 root_of(bound, imported) := root if {
-	roots := [candidate | some candidate in bound.import_roots; startswith(imported, candidate.prefix)]
+	roots := [candidate | some candidate in bound.import_roots; is_under(imported, candidate.prefix)]
 	some root in roots
 	count(root.prefix) == max({count(candidate.prefix) | some candidate in roots})
 }
+
+is_under(imported, prefix) if imported == prefix
+
+is_under(imported, prefix) if startswith(imported, $"{prefix}/")
 
 go_file_in(directory) := $"{directory}/package.go"
 

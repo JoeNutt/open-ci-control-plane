@@ -99,6 +99,21 @@ test_the_longest_matching_import_root_places_the_import if {
 	decided.violations == []
 }
 
+test_an_import_root_matches_whole_path_segments_only if {
+	vendored_into_forge := json.patch(policy, [{
+		"op": "add",
+		"path": "/bindings/JoeNutt~1open-ci-control-plane/policies/0/import_roots/-",
+		"value": {"prefix": "example.com/vendored", "path": "internal/change/forge/vendored"},
+	}])
+	domain_imports_lookalike := {"from": domain_imports_forge.from, "to": "example.com/vendoredextra/thing"}
+
+	decided := structural.decision with input as change_adding([domain_imports_lookalike])
+		with data.ci.policy as vendored_into_forge
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
