@@ -14,6 +14,7 @@ type GateChange struct {
 	Build     BuildDocument
 	Gate      domain.Gate
 	Publisher domain.CheckRunPublisher
+	Recorder  domain.DecisionRecorder
 }
 
 func (useCase GateChange) Execute(
@@ -30,6 +31,7 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
+		_ = useCase.Recorder.RecordDecision(posting, domain.RecordFor(decided, id))
 		run := domain.CheckRunFor(decided, id)
 		if err := useCase.Publisher.PublishCheckRun(posting, locator, head, run); err != nil {
 			failures = append(failures, fmt.Errorf("post %s: %w", run.Name, err))

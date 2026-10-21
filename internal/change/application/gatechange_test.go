@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -20,7 +21,7 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	gate, _ := recordingGate(t)
 	published := &memory.CheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
-	useCase := application.GateChange{
+	useCase := application.GateChange{Recorder: &recordedDecisions{},
 		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: published,
@@ -46,11 +47,56 @@ func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	}
 }
 
+func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	gate, _ := recordingGate(t)
+	recorded := &recordedDecisions{}
+	id := decisionIDOf(t, gatedDecisionID)
+	useCase := application.GateChange{
+		Build:     buildOverAnAuthChange(locator),
+		Gate:      gate,
+		Publisher: &memory.CheckRuns{},
+		Recorder:  recorded,
+	}
+
+	if err := useCase.Execute(context.Background(), locator, id); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	if len(recorded.records) != len(domain.DeclaredPolicyFamilies()) {
+		t.Fatalf("recorded %d decisions, want one per family", len(recorded.records))
+	}
+	for _, record := range recorded.records {
+		encoded, err := json.Marshal(record)
+		if err != nil {
+			t.Fatalf("encode: %v", err)
+		}
+		var published struct {
+			DecisionID string `json:"decisionId"`
+		}
+		if err := json.Unmarshal(encoded, &published); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if published.DecisionID != id.String() {
+			t.Errorf("recorded under %q, want %q", published.DecisionID, id)
+		}
+	}
+}
+
+type recordedDecisions struct {
+	records []domain.DecisionRecord
+}
+
+func (recorded *recordedDecisions) RecordDecision(_ context.Context, record domain.DecisionRecord) error {
+	recorded.records = append(recorded.records, record)
+	return nil
+}
+
 func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	build := buildOverAnAuthChange(locator)
 	gate, engines := recordingGate(t)
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: &memory.CheckRuns{}}
+	useCase := application.GateChange{Recorder: &recordedDecisions{}, Build: build, Gate: gate, Publisher: &memory.CheckRuns{}}
 
 	err := useCase.Execute(context.Background(), locator,
 		decisionIDOf(t, gatedDecisionID))
@@ -82,7 +128,7 @@ func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 	})
 	gate, engines := recordingGate(t)
 	published := &memory.CheckRuns{}
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+	useCase := application.GateChange{Recorder: &recordedDecisions{}, Build: build, Gate: gate, Publisher: published}
 
 	err := useCase.Execute(context.Background(), locator,
 		decisionIDOf(t, gatedDecisionID))
@@ -105,7 +151,7 @@ func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 	gate, _ := recordingGate(t)
 	recorded := &memory.CheckRuns{}
 	refused := errors.New("the forge refused the post")
-	useCase := application.GateChange{
+	useCase := application.GateChange{Recorder: &recordedDecisions{},
 		Build:     buildOverAnAuthChange(locator),
 		Gate:      gate,
 		Publisher: refusingOne{name: "policy/structural", refusal: refused, rest: recorded},
@@ -166,7 +212,7 @@ func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testin
 	}
 	published := &memory.CheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
-	useCase := application.GateChange{
+	useCase := application.GateChange{Recorder: &recordedDecisions{},
 		Build: buildOverAnAuthChange(locator), Gate: gate, Publisher: published,
 	}
 
@@ -211,7 +257,7 @@ func TestAChangeWhoseHeadCommitIsMalformedIsNeverPublished(t *testing.T) {
 	build.Source.(memory.ChangeSource).Changes[locator] = recorded
 	gate, _ := recordingGate(t)
 	published := &spyPublisher{}
-	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published}
+	useCase := application.GateChange{Recorder: &recordedDecisions{}, Build: build, Gate: gate, Publisher: published}
 
 	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
 
@@ -245,7 +291,7 @@ func TestAVerdictReachedAtTheDeadlineIsStillPosted(t *testing.T) {
 		t.Fatalf("parse gate: %v", err)
 	}
 	recorded := &memory.CheckRuns{}
-	useCase := application.GateChange{
+	useCase := application.GateChange{Recorder: &recordedDecisions{},
 		Build: buildOverAnAuthChange(locator), Gate: gate,
 		Publisher: honouringCancellation{rest: recorded},
 	}
