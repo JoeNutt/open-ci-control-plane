@@ -2,7 +2,19 @@
 
 package github
 
-import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+import (
+	"context"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+func AuthorizationOf(ctx context.Context, tokens *InstallationTokens) (string, error) {
+	credential, err := tokens.authorization(ctx)
+	if err != nil {
+		return "", err
+	}
+	return credential.bearer(), nil
+}
 
 func RenderedForGitHub(run domain.CheckRun) (title, summary, text string, err error) {
 	rendered, err := checkRunTextFor(run, MaxOutputCharacters)
