@@ -24,7 +24,7 @@ var ErrMissingKey = errors.New("policy file omits a key it must state")
 const readSchemaVersion = 1
 
 type policyDocument interface {
-	catalogDocument
+	catalogDocument | bindingDocument
 }
 
 func decodedStrictly[Document policyDocument](content []byte) (Document, error) {
