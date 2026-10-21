@@ -22,14 +22,15 @@ type CoverageLimits struct {
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
-	return CoverageLimits{MaxCompressedBytes: 64 << 20, MaxDecompressedBytes: 256 << 20, MaxFileEntries: 200_000}
+	return CoverageLimits{
+		MaxCompressedBytes:   64 << 20,
+		MaxDecompressedBytes: 256 << 20,
+		MaxFileEntries:       200_000,
+	}
 }
 
 func (limits CoverageLimits) FileEntriesBreach(fileEntries int) error {
-	if fileEntries > limits.MaxFileEntries {
-		return ErrTooManyFileEntries
-	}
-	return nil
+	return breachOf(ErrTooManyFileEntries, int64(fileEntries), int64(limits.MaxFileEntries))
 }
 
 func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {
