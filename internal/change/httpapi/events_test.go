@@ -160,6 +160,14 @@ func TestASignedDeliveryFromAnInstallationOutsideTheAllowlistIsNotFound(t *testi
 	}
 }
 
+func TestAnAllowlistedEventThatCarriesNoDecisionIsAnsweredWithNoContent(t *testing.T) {
+	answered := answerTo(t, signedDelivery("issues", `{"installation":{"id":41}}`))
+
+	if answered.Code != http.StatusNoContent {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusNoContent)
+	}
+}
+
 func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
 	var logged bytes.Buffer
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
@@ -16,7 +17,7 @@ const eventsRoute = "POST /v1/forge/github/events"
 
 func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret, installations []int64) (http.Handler, error) {
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: admitted{},
+		Accepted: admitted{installations: installations},
 		Secret:   secret,
 		Refusals: refusals{log: log},
 	})
@@ -54,8 +55,17 @@ func (receiving events) refuse(ctx context.Context, answer http.ResponseWriter, 
 	}
 }
 
-type admitted struct{}
+type admitted struct{ installations []int64 }
 
-func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
-	answer.WriteHeader(http.StatusNotFound)
+func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
+	var payload struct {
+		Installation struct {
+			ID int64 `json:"id"`
+		} `json:"installation"`
+	}
+	if err := json.NewDecoder(asked.Body).Decode(&payload); err != nil || !slices.Contains(stage.installations, payload.Installation.ID) {
+		answer.WriteHeader(http.StatusNotFound)
+		return
+	}
+	answer.WriteHeader(http.StatusNoContent)
 }
