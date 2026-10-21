@@ -25,7 +25,8 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{repository}}
-	if err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path)); err != nil {
+	if err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Reported: reportOf(path)}); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
@@ -43,7 +44,8 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{}, Callers: tokensNaming{repository}}
-	err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path))
+	err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Reported: reportOf(path)})
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -60,7 +62,8 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: unreadablePaths{unreadable}, Callers: tokensNaming{repository}}
-	err := useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(parsedPath(t)))
+	err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Reported: reportOf(parsedPath(t))})
 
 	if !errors.Is(err, unreadable) {
 		t.Fatalf("want the read failure, got %v", err)
@@ -80,7 +83,8 @@ func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *te
 
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{stranger}}
-	err = useCase.Execute(t.Context(), presentedToken(t), repository, suite, reportOf(path))
+	err = useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Reported: reportOf(path)})
 
 	if !errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want ErrForeignRepository, got %v", err)

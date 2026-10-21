@@ -10,28 +10,33 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var ErrForeignRepository = errors.New("the token was issued to another repository")
+
 type ReplaceCoverage struct {
 	Maps    domain.CoverageMaps
 	Paths   domain.RepositoryPaths
 	Callers domain.CallerRepositories
 }
 
-var ErrForeignRepository = errors.New("the token was issued to another repository")
+type CoverageUpload struct {
+	Token      domain.IdentityToken
+	Repository domain.Repository
+	Suite      domain.SuiteName
+	Reported   []domain.ReportedFile
+}
 
-func (useCase ReplaceCoverage) Execute(
-	ctx context.Context, token domain.IdentityToken, repository domain.Repository, suite domain.SuiteName, reported []domain.ReportedFile,
-) error {
-	caller, _ := useCase.Callers.RepositoryOf(ctx, token)
-	if caller != repository {
-		return ErrForeignRepository
+func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) error {
+	caller, _ := useCase.Callers.RepositoryOf(ctx, upload.Token)
+	if caller != upload.Repository {
+		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
 	}
-	known, err := useCase.Paths.KnownPathsOf(ctx, repository)
+	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
 	if err != nil {
-		return fmt.Errorf("read the paths %s holds: %w", repository, err)
+		return fmt.Errorf("read the paths %s holds: %w", upload.Repository, err)
 	}
-	coverage, err := domain.ParseSuiteCoverage(reported, known)
+	coverage, err := domain.ParseSuiteCoverage(upload.Reported, known)
 	if err != nil {
-		return fmt.Errorf("refuse coverage of %s for %s: %w", suite, repository, err)
+		return fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
-	return useCase.Maps.ReplaceSuiteCoverage(ctx, repository, suite, coverage)
+	return useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage)
 }
