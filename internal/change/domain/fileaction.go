@@ -33,3 +33,7 @@ func ParseFileAction(name string) (FileAction, error) {
 func (action FileAction) ExistsAtHead() bool {
 	return action != FileActionRemoved
 }
+
+func (action FileAction) ExistsAtBase() bool {
+	return action == FileActionModified || action == FileActionRemoved || action == FileActionChanged
+}
