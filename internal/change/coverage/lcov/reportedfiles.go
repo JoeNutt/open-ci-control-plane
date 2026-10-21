@@ -55,12 +55,14 @@ func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
 
 var errTruncatedRecord = errors.New("input ends inside a record")
 
+var errNoRecord = errors.New("input reports no file")
+
 func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
 		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
 	}
 	if len(reading.reported) == 0 {
-		return nil, ErrMalformedArtifact
+		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errNoRecord)
 	}
 	return reading.reported, nil
 }
