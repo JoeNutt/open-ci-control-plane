@@ -57,7 +57,7 @@ type changeEnds struct {
 func (useCase BuildDocument) readableAtHeadOf(files []domain.File) []domain.File {
 	var readable []domain.File
 	for _, file := range files {
-		if useCase.Extractor.Claims(file.Path) && file.Action.ExistsAtHead() {
+		if useCase.Extractor.Claims(file.Path) && (file.Action.ExistsAtHead() || file.Action.ExistsAtBase()) {
 			readable = append(readable, file)
 		}
 	}
@@ -108,9 +108,11 @@ func (useCase BuildDocument) importedFileAt(
 			return domain.ImportedFile{}, fmt.Errorf("at base: %w", err)
 		}
 	}
-	imported.Head, err = useCase.importsAt(ctx, ends.fileAt(ends.head, file.Path))
-	if err != nil {
-		return domain.ImportedFile{}, fmt.Errorf("at head: %w", err)
+	if file.Action.ExistsAtHead() {
+		imported.Head, err = useCase.importsAt(ctx, ends.fileAt(ends.head, file.Path))
+		if err != nil {
+			return domain.ImportedFile{}, fmt.Errorf("at head: %w", err)
+		}
 	}
 	return imported, nil
 }

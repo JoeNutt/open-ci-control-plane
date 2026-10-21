@@ -477,6 +477,20 @@ func recordedAtBothEnds(
 	return contents
 }
 
+func recordedAtBase(
+	t *testing.T, locator domain.PullRequestLocator, path, source string,
+) memory.FileContents {
+	t.Helper()
+
+	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
+		{
+			Repository: locator.Repository(),
+			Commit:     commitSHAOf(t, recordedBaseSHA),
+			Path:       path,
+		}: []byte(source),
+	}}
+}
+
 func recordedAtHead(
 	t *testing.T, locator domain.PullRequestLocator, path, source string,
 ) memory.FileContents {
