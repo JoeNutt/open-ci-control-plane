@@ -19,10 +19,10 @@ func DeclaredCoverageLimits() CoverageLimits {
 	return CoverageLimits{MaxCompressedBytes: 64 << 20}
 }
 
-func (limits CoverageLimits) DeclaredBytesBreach(declaredBytes int64) error {
-	if declaredBytes > limits.MaxCompressedBytes {
-		return fmt.Errorf("%w: %d declared exceeds %d",
-			ErrCompressedArtifactTooLarge, declaredBytes, limits.MaxCompressedBytes)
+func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {
+	if compressedBytes > limits.MaxCompressedBytes {
+		return fmt.Errorf("%w: %d exceeds %d",
+			ErrCompressedArtifactTooLarge, compressedBytes, limits.MaxCompressedBytes)
 	}
 	return nil
 }
