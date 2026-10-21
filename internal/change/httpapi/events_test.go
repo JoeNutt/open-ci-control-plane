@@ -224,6 +224,9 @@ func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing
 			if len(gate.evaluated) != 0 {
 				t.Errorf("the gate evaluated %v", gate.evaluated)
 			}
+			if !strings.Contains(answered.Body.String(), `"code":"unparseable_pull_request"`) {
+				t.Errorf("the refusal does not say which pull request: %s", answered.Body.String())
+			}
 		})
 	}
 }
