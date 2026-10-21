@@ -51,7 +51,7 @@ func catalogPolicyIn(content []byte) (domain.CatalogPolicy, error) {
 
 func catalogStatementOf(document catalogDocument) (domain.CatalogPolicyStatement, error) {
 	if !isReadSchemaVersion(document.SchemaVersion) {
-		return domain.CatalogPolicyStatement{}, ErrUnsupportedSchemaVersion
+		return domain.CatalogPolicyStatement{}, fmt.Errorf("%w: want %d", ErrUnsupportedSchemaVersion, readSchemaVersion)
 	}
 	rule, isKnownRule := policyRuleByWord[document.Rule]
 	if !isKnownRule {
@@ -78,7 +78,7 @@ func groupStatementsOf(entries []catalogGroupEntry) ([]domain.GroupStatement, er
 	groups := make([]domain.GroupStatement, 0, len(entries))
 	for _, entry := range entries {
 		if entry.Order == nil {
-			return nil, ErrMissingKey
+			return nil, fmt.Errorf("%w: order of a group", ErrMissingKey)
 		}
 		groups = append(groups, domain.GroupStatement{Name: entry.Name, Order: *entry.Order})
 	}
