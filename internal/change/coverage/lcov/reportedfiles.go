@@ -63,20 +63,28 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
+	body := &boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach}
 	var reading recordReading
-	lines := bufio.NewScanner(&boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach})
-	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
-		if err := reading.take(lines.Text()); err != nil {
-			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
-		}
-	}
-	if err := lines.Err(); err != nil {
-		if errors.Is(err, domain.ErrCoverageBoundExceeded) {
-			return nil, err
-		}
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
+	if err := reading.takeAll(bufio.NewScanner(body)); err != nil {
+		return nil, err
 	}
 	return reading.completed()
+}
+
+func (reading *recordReading) takeAll(lines *bufio.Scanner) error {
+	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
+		if err := reading.take(lines.Text()); err != nil {
+			return fmt.Errorf("line %d: %w", lineNumber, err)
+		}
+	}
+	return readFailureOf(lines.Err())
+}
+
+func readFailureOf(err error) error {
+	if err == nil || errors.Is(err, domain.ErrCoverageBoundExceeded) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
 }
 
 func (reading *recordReading) take(line string) error {
