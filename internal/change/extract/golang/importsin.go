@@ -18,7 +18,7 @@ const unnamedSource = ""
 var ErrUnparsableSource = errors.New("the source does not parse as Go")
 
 func ImportsIn(source domain.BoundedSource) ([]string, error) {
-	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source.Contents(), parser.ImportsOnly)
+	parsed, err := parser.ParseFile(token.NewFileSet(), unnamedSource, source.Reader(), parser.ImportsOnly)
 	if err != nil {
 		return nil, ErrUnparsableSource
 	}
