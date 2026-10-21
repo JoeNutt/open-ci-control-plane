@@ -79,24 +79,7 @@ func removeAt(tree map[string]any, pointer JSONPointer) error {
 		}
 		node = child
 	}
-	last := tokens[len(tokens)-1]
-	if elements, isArray := node.([]any); isArray {
-		_, exists, err := arrayElement(elements, last)
-		if err != nil {
-			return err
-		}
-		if exists {
-			index, _ := strconv.Atoi(last)
-			elements[index] = removedElement{}
-		}
-		return nil
-	}
-	parent, isObject := node.(map[string]any)
-	if !isObject {
-		return nil
-	}
-	delete(parent, last)
-	return nil
+	return removeChild(node, tokens[len(tokens)-1])
 }
 
 func childOf(node any, token string) (any, bool, error) {
@@ -105,21 +88,39 @@ func childOf(node any, token string) (any, bool, error) {
 		child, exists := container[token]
 		return child, exists, nil
 	case []any:
-		return arrayElement(container, token)
+		index, exists, err := arrayIndex(container, token)
+		if !exists {
+			return nil, false, err
+		}
+		return container[index], true, nil
 	default:
 		return nil, false, nil
 	}
 }
 
-func arrayElement(elements []any, token string) (any, bool, error) {
+func removeChild(node any, token string) error {
+	switch container := node.(type) {
+	case map[string]any:
+		delete(container, token)
+	case []any:
+		index, exists, err := arrayIndex(container, token)
+		if !exists {
+			return err
+		}
+		container[index] = removedElement{}
+	}
+	return nil
+}
+
+func arrayIndex(elements []any, token string) (int, bool, error) {
 	if hasForbiddenIndexSpelling(token) {
-		return nil, false, ErrMalformedJSONPointer
+		return 0, false, ErrMalformedJSONPointer
 	}
 	index, err := strconv.Atoi(token)
 	if err != nil || index >= len(elements) {
-		return nil, false, nil
+		return 0, false, nil
 	}
-	return elements[index], true, nil
+	return index, true, nil
 }
 
 func hasForbiddenIndexSpelling(token string) bool {
