@@ -138,8 +138,8 @@ func TestParseDocumentPublishesTheImportsAFileDeclaresAtHead(t *testing.T) {
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	declared := []string{"context", "github.com/acme/payments/internal/session"}
 	change := domain.Change{
-		Files:    withinBounds(t, file),
-		Imported: []domain.ImportedFile{{File: file, Head: fileImportsOf(t, declared...)}},
+		Files:     withinBounds(t, file),
+		Structure: structureOf(t, domain.ImportedFile{File: file, Head: fileImportsOf(t, declared...)}),
 	}
 
 	document := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{})
@@ -158,11 +158,11 @@ func TestParseDocumentAddsAnEdgeForEachImportTheChangeAddsToAFile(t *testing.T) 
 	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
 	change := domain.Change{
 		Files: withinBounds(t, file),
-		Imported: []domain.ImportedFile{{
+		Structure: structureOf(t, domain.ImportedFile{
 			File: file,
 			Base: fileImportsOf(t, "context"),
 			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
-		}},
+		}),
 	}
 
 	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
@@ -179,11 +179,11 @@ func TestParseDocumentRemovesAnEdgeForEachImportTheChangeDropsFromAFile(t *testi
 	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
 	change := domain.Change{
 		Files: withinBounds(t, file),
-		Imported: []domain.ImportedFile{{
+		Structure: structureOf(t, domain.ImportedFile{
 			File: file,
 			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
 			Head: fileImportsOf(t, "context"),
-		}},
+		}),
 	}
 
 	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
@@ -201,11 +201,11 @@ func TestParseDocumentFindsNoEdgeInAFileWhoseImportsAreUnchanged(t *testing.T) {
 	declared := []string{"context", "github.com/acme/payments/internal/forge"}
 	change := domain.Change{
 		Files: withinBounds(t, file),
-		Imported: []domain.ImportedFile{{
+		Structure: structureOf(t, domain.ImportedFile{
 			File: file,
 			Base: fileImportsOf(t, declared...),
 			Head: fileImportsOf(t, declared...),
-		}},
+		}),
 	}
 
 	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
@@ -218,8 +218,8 @@ func TestParseDocumentFindsNoEdgeInAFileWhoseImportsAreUnchanged(t *testing.T) {
 func TestParseDocumentPublishesNoImportEntryForARemovedFile(t *testing.T) {
 	file := domain.File{Path: "internal/change/domain/legacy.go", Action: domain.FileActionRemoved}
 	change := domain.Change{
-		Files:    withinBounds(t, file),
-		Imported: []domain.ImportedFile{{File: file, Base: fileImportsOf(t, "context")}},
+		Files:     withinBounds(t, file),
+		Structure: structureOf(t, domain.ImportedFile{File: file, Base: fileImportsOf(t, "context")}),
 	}
 
 	document := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{})

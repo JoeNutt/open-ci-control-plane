@@ -39,6 +39,16 @@ func TestParseStructuralFactsPublishesEveryImportOfAChangeAtTheLimit(t *testing.
 	}
 }
 
+func structureOf(t *testing.T, imported ...domain.ImportedFile) domain.StructuralFacts {
+	t.Helper()
+
+	facts, err := domain.ParseStructuralFacts(imported, domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("parse the structural facts of %d files: %v", len(imported), err)
+	}
+	return facts
+}
+
 func changedFilesOf(imported []domain.ImportedFile) []domain.File {
 	files := make([]domain.File, 0, len(imported))
 	for _, file := range imported {
