@@ -23,13 +23,26 @@ const (
 
 var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
 
-var readingByTag = map[string]func(*recordReading, string) error{
-	"TN":        carryingNothing,
-	"SF":        (*recordReading).openRecord,
-	"DA":        (*recordReading).countExecutions,
-	"LF":        carryingNothing,
-	"LH":        carryingNothing,
-	endOfRecord: (*recordReading).closeRecord,
+var (
+	errUnknownTag         = errors.New("unknown line tag")
+	errOutOfOrder         = errors.New("line is out of place for an open or closed record")
+	errUnreadableLineData = errors.New("line data is not a line number and an execution count")
+	errTruncatedRecord    = errors.New("input ends inside a record")
+	errNoRecord           = errors.New("input reports no file")
+)
+
+type lineReading struct {
+	isInsideRecord bool
+	step           func(*recordReading, string) error
+}
+
+var readingByTag = map[string]lineReading{
+	"TN":        {isInsideRecord: false, step: carryingNothing},
+	"SF":        {isInsideRecord: false, step: (*recordReading).openRecord},
+	"DA":        {isInsideRecord: true, step: (*recordReading).countExecutions},
+	"LF":        {isInsideRecord: true, step: carryingNothing},
+	"LH":        {isInsideRecord: true, step: carryingNothing},
+	endOfRecord: {isInsideRecord: true, step: (*recordReading).closeRecord},
 }
 
 type recordReading struct {
@@ -53,35 +66,19 @@ func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
 	return reading.completed()
 }
 
-var errTruncatedRecord = errors.New("input ends inside a record")
-
-var errNoRecord = errors.New("input reports no file")
-
-func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
-	if reading.isRecordOpen {
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
-	}
-	if len(reading.reported) == 0 {
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errNoRecord)
-	}
-	return reading.reported, nil
-}
-
-var errUnknownTag = errors.New("unknown line tag")
-
 func (reading *recordReading) take(line string) error {
 	tag, value, _ := strings.Cut(line, tagSeparator)
-	step, isKnown := readingByTag[tag]
+	known, isKnown := readingByTag[tag]
 	if !isKnown {
 		return errUnknownTag
 	}
-	return step(reading, value)
+	if known.isInsideRecord != reading.isRecordOpen {
+		return errOutOfOrder
+	}
+	return known.step(reading, value)
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if reading.isRecordOpen {
-		return errors.New("nested")
-	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
 		return err
@@ -92,12 +89,7 @@ func (reading *recordReading) openRecord(path string) error {
 	return nil
 }
 
-var errUnreadableLineData = errors.New("line data is not a line number and an execution count")
-
 func (reading *recordReading) countExecutions(lineData string) error {
-	if !reading.isRecordOpen {
-		return errors.New("outside")
-	}
 	fields := strings.Split(lineData, lineDataSeparator)
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
@@ -111,9 +103,6 @@ func (reading *recordReading) countExecutions(lineData string) error {
 }
 
 func (reading *recordReading) closeRecord(string) error {
-	if !reading.isRecordOpen {
-		return errors.New("outside")
-	}
 	reading.reported = append(reading.reported,
 		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	reading.isRecordOpen = false
@@ -121,3 +110,13 @@ func (reading *recordReading) closeRecord(string) error {
 }
 
 func carryingNothing(*recordReading, string) error { return nil }
+
+func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
+	if reading.isRecordOpen {
+		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
+	}
+	if len(reading.reported) == 0 {
+		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errNoRecord)
+	}
+	return reading.reported, nil
+}
