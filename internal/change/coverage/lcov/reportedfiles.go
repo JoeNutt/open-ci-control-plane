@@ -19,6 +19,8 @@ const (
 	endOfRecord        = "end_of_record"
 	executionCountSlot = 1
 	firstLineNumber    = 1
+	decimal            = 10
+	countBits          = 64
 )
 
 var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
@@ -94,8 +96,8 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
 	}
-	executions, err := strconv.Atoi(fields[executionCountSlot])
-	if err != nil || executions < 0 {
+	executions, err := strconv.ParseUint(fields[executionCountSlot], decimal, countBits)
+	if err != nil {
 		return errUnreadableLineData
 	}
 	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
