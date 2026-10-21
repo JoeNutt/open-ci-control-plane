@@ -9,12 +9,8 @@ type MaskedInput struct {
 }
 
 func MaskedInputOf(document Document) (MaskedInput, error) {
-	encoded, err := json.Marshal(document)
+	tree, err := treeOf(document)
 	if err != nil {
-		return MaskedInput{}, err
-	}
-	var tree map[string]any
-	if err := json.Unmarshal(encoded, &tree); err != nil {
 		return MaskedInput{}, err
 	}
 	for _, stated := range document.Diff.Sensitive {
@@ -22,14 +18,30 @@ func MaskedInputOf(document Document) (MaskedInput, error) {
 		if err != nil {
 			return MaskedInput{}, err
 		}
-		tokens := pointer.Tokens()
-		parent := tree
-		for _, token := range tokens[:len(tokens)-1] {
-			parent = parent[token].(map[string]any)
-		}
-		delete(parent, tokens[len(tokens)-1])
+		removeAt(tree, pointer)
 	}
 	return MaskedInput{tree: tree}, nil
 }
 
 func (masked MaskedInput) MarshalJSON() ([]byte, error) { return json.Marshal(masked.tree) }
+
+func treeOf(document Document) (map[string]any, error) {
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		return nil, err
+	}
+	var tree map[string]any
+	if err := json.Unmarshal(encoded, &tree); err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+func removeAt(tree map[string]any, pointer JSONPointer) {
+	tokens := pointer.Tokens()
+	parent := tree
+	for _, token := range tokens[:len(tokens)-1] {
+		parent = parent[token].(map[string]any)
+	}
+	delete(parent, tokens[len(tokens)-1])
+}
