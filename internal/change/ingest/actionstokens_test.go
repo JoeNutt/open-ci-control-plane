@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package ingest_test
+
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwt"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
+)
+
+const (
+	governedRepository = "JoeNutt/open-ci-control-plane"
+	instanceURL        = "https://control-plane.example"
+	signingKeyID       = "actions-signing-key"
+	rsaKeyBits         = 2048
+	discoveryPath      = "/.well-known/openid-configuration"
+	keySetPath         = "/.well-known/jwks"
+	tokenLifetime      = 5 * time.Minute
+)
+
+var issuedAt = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
+
+func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
+	issuer := newIssuer(t)
+	tokens := issuer.tokensFor(t, instanceURL)
+
+	repository, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+
+	if err != nil {
+		t.Fatalf("verify a token GitHub Actions issued: %v", err)
+	}
+	if repository.String() != governedRepository {
+		t.Fatalf("repository is %s, want %s", repository, governedRepository)
+	}
+}
+
+type issuer struct {
+	t          *testing.T
+	server     *httptest.Server
+	signingKey jwk.Key
+}
+
+type discoveryDocument struct {
+	Issuer  string `json:"issuer"`
+	KeySets string `json:"jwks_uri"`
+}
+
+func newIssuer(t *testing.T) *issuer {
+	t.Helper()
+
+	minted := &issuer{t: t, signingKey: newSigningKey(t, signingKeyID)}
+	minted.server = httptest.NewTLSServer(http.HandlerFunc(minted.serve))
+	t.Cleanup(minted.server.Close)
+	return minted
+}
+
+func (minted *issuer) serve(answer http.ResponseWriter, asked *http.Request) {
+	switch asked.URL.Path {
+	case discoveryPath:
+		minted.write(answer, minted.discovery())
+	case keySetPath:
+		minted.write(answer, minted.publishedKeys())
+	default:
+		answer.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func (minted *issuer) discovery() []byte {
+	encoded, err := json.Marshal(discoveryDocument{Issuer: minted.server.URL, KeySets: minted.server.URL + keySetPath})
+	if err != nil {
+		minted.t.Errorf("encode discovery: %v", err)
+	}
+	return encoded
+}
+
+func (minted *issuer) publishedKeys() []byte {
+	public, err := jwk.PublicKeyOf(minted.signingKey)
+	if err != nil {
+		minted.t.Errorf("derive public key: %v", err)
+	}
+	published := jwk.NewSet()
+	if err := published.AddKey(public); err != nil {
+		minted.t.Errorf("publish key: %v", err)
+	}
+	encoded, err := json.Marshal(published)
+	if err != nil {
+		minted.t.Errorf("encode key set: %v", err)
+	}
+	return encoded
+}
+
+func (minted *issuer) write(answer http.ResponseWriter, body []byte) {
+	answer.Header().Set("Content-Type", "application/json")
+	if _, err := answer.Write(body); err != nil {
+		minted.t.Errorf("serve %d bytes: %v", len(body), err)
+	}
+}
+
+func (minted *issuer) tokensFor(t *testing.T, audience string) *ingest.ActionsTokens {
+	t.Helper()
+
+	tokens, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
+		Issuer:   minted.server.URL,
+		Audience: audience,
+		Client:   minted.server.Client(),
+		Now:      func() time.Time { return issuedAt },
+	})
+	if err != nil {
+		t.Fatalf("configure token verification: %v", err)
+	}
+	return tokens
+}
+
+func (minted *issuer) claims(repository string) *jwt.Builder {
+	return jwt.NewBuilder().
+		Issuer(minted.server.URL).
+		Audience([]string{instanceURL}).
+		NotBefore(issuedAt.Add(-time.Minute)).
+		Expiration(issuedAt.Add(tokenLifetime)).
+		Claim("repository", repository)
+}
+
+func (minted *issuer) sign(t *testing.T, claims *jwt.Builder) string {
+	t.Helper()
+
+	token, err := claims.Build()
+	if err != nil {
+		t.Fatalf("build token: %v", err)
+	}
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), minted.signingKey))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return string(signed)
+}
+
+func newSigningKey(t *testing.T, keyID string) jwk.Key {
+	t.Helper()
+
+	private, err := rsa.GenerateKey(rand.Reader, rsaKeyBits)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	key, err := jwk.Import(private)
+	if err != nil {
+		t.Fatalf("import key: %v", err)
+	}
+	if err := key.Set(jwk.KeyIDKey, keyID); err != nil {
+		t.Fatalf("name key: %v", err)
+	}
+	if err := key.Set(jwk.AlgorithmKey, jwa.RS256()); err != nil {
+		t.Fatalf("assign algorithm: %v", err)
+	}
+	return key
+}
