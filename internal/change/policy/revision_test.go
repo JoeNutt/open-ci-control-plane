@@ -3,6 +3,7 @@
 package policy_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -22,6 +23,16 @@ func TestParseRevisionParsesTheLivePolicyRepository(t *testing.T) {
 	if len(model.Catalog()) != 1 || len(model.Bindings()) != 1 {
 		t.Errorf("model holds %d catalog policies and %d bindings, want one of each",
 			len(model.Catalog()), len(model.Bindings()))
+	}
+}
+
+func TestParseRevisionRefusesAFileOutsideTheCatalogAndBindings(t *testing.T) {
+	files := liveFiles(t)
+	files[1].Path = "templates/JoeNutt/open-ci-control-plane.yaml"
+
+	_, err := policy.ParseRevision(files)
+	if !errors.Is(err, policy.ErrUnplacedPolicyFile) {
+		t.Fatalf("a binding under templates/ gave %v, want ErrUnplacedPolicyFile", err)
 	}
 }
 
