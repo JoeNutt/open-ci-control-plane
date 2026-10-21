@@ -26,6 +26,11 @@ func (recording refusals) record(ctx context.Context, received delivery, reason 
 		slog.String(deliveryIDKey, received.id), slog.String(reasonKey, reason))
 }
 
+func (recording refusals) recordUnidentified(ctx context.Context, refused fieldProblem) {
+	recording.log.LogAttrs(ctx, slog.LevelWarn, refusedDelivery,
+		slog.String(reasonKey, refused.reason()), slog.String(fieldKey, refused.Field))
+}
+
 func (recording refusals) logged(ctx context.Context, received delivery, refused refusal) refusal {
 	recording.record(ctx, received, refused.reason())
 	return refused
