@@ -22,6 +22,14 @@ func TestParseGoImportPathKeepsThePath(t *testing.T) {
 	}
 }
 
+func TestParseGoImportPathAdmitsEveryCharacterGoAdmitsInAPathElement(t *testing.T) {
+	const stated = "example.com/c++/a-b_c.d~e"
+
+	if _, err := domain.ParseGoImportPath(stated); err != nil {
+		t.Fatalf("%s, a Go import path, was refused: %v", stated, err)
+	}
+}
+
 func TestParseGoImportPathRefusesWhatIsNotAnImportPath(t *testing.T) {
 	refused := map[string]string{
 		"empty":               "",
