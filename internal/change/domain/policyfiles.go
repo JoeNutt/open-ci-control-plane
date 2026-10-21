@@ -17,6 +17,8 @@ var ErrTooManyPolicyFiles = errors.New("policy repository exceeds the policy fil
 
 var ErrPolicyFileTooLarge = errors.New("policy file exceeds the policy file byte bound")
 
+var ErrMalformedPolicyFilePath = errors.New("policy file path is not a repository-relative path")
+
 type PolicyFile struct {
 	Path    string
 	Content []byte
@@ -29,6 +31,11 @@ type BoundedPolicyFiles struct {
 func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
 	if len(files) > MaxPolicyFiles {
 		return BoundedPolicyFiles{}, fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, len(files), MaxPolicyFiles)
+	}
+	for _, file := range files {
+		if len(file.Path) > DeclaredLimits().MaxPathBytes || !isSlashSeparatedNames(file.Path) {
+			return BoundedPolicyFiles{}, ErrMalformedPolicyFilePath
+		}
 	}
 	if breach := oversizedPolicyFileIn(files); breach != nil {
 		return BoundedPolicyFiles{}, breach
