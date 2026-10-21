@@ -3,12 +3,15 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 
 	"go.yaml.in/yaml/v3"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var ErrMalformedPolicyFile = errors.New("policy file is not YAML of the declared shape")
 
 var policyRuleByWord = map[string]domain.PolicyRule{
 	"direction": domain.DirectionRule,
@@ -33,7 +36,9 @@ type catalogGroupEntry struct {
 
 func ParseCatalogFile(content []byte) (domain.CatalogPolicy, error) {
 	var document catalogDocument
-	yaml.Unmarshal(content, &document)
+	if err := yaml.Unmarshal(content, &document); err != nil {
+		return domain.CatalogPolicy{}, ErrMalformedPolicyFile
+	}
 
 	statement, err := catalogStatementOf(document)
 	if err != nil {
