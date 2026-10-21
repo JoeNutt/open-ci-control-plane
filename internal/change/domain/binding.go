@@ -3,9 +3,12 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
+
+var ErrDuplicateBoundPolicy = errors.New("binding uses one catalog policy twice")
 
 type BindingStatement struct {
 	Repository string
@@ -63,6 +66,9 @@ func boundPoliciesOf(stated []BoundPolicyStatement) ([]BoundPolicy, error) {
 		policy, err := parseBoundPolicy(written)
 		if err != nil {
 			return nil, err
+		}
+		if slices.ContainsFunc(policies, func(earlier BoundPolicy) bool { return earlier.use == policy.use }) {
+			return nil, ErrDuplicateBoundPolicy
 		}
 		policies = append(policies, policy)
 	}

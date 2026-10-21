@@ -108,6 +108,10 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			},
 			reason: domain.ErrPathInTwoGroups,
 		},
+		"one policy used twice": {
+			stated: func(s *domain.BindingStatement) { s.Policies = append(s.Policies, s.Policies[0]) },
+			reason: domain.ErrDuplicateBoundPolicy,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
