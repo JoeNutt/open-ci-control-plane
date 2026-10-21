@@ -151,6 +151,24 @@ func TestParseInstallationTokensRefusesWhatCannotMintAToken(t *testing.T) {
 	}
 }
 
+func TestATokenEndpointErrorFailsTheExchange(t *testing.T) {
+	for _, status := range []int{
+		http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity,
+		http.StatusInternalServerError, http.StatusServiceUnavailable,
+	} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			tokens := installationTokensAt(t, answering(t, status, `{"message": "refused"}`), mintedAt)
+
+			authorization, err := github.AuthorizationOf(context.Background(), tokens)
+
+			if !errors.Is(err, github.ErrUnexpectedStatus) || authorization != "" {
+				t.Fatalf("error is %v and an authorization was presented, want %v and none",
+					err, github.ErrUnexpectedStatus)
+			}
+		})
+	}
+}
+
 func TestAGrantWithNoTokenOrNoExpiryIsRefused(t *testing.T) {
 	expiry := mintedAt.Add(time.Hour).Format(time.RFC3339)
 	incomplete := map[string]string{
