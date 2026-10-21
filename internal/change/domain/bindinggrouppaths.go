@@ -52,7 +52,7 @@ func (paths GroupPaths) sharesAPatternWith(other GroupPaths) bool {
 }
 
 func (paths GroupPaths) holds(glob BoundGlob) bool {
-	return slices.ContainsFunc(paths.patterns, glob.translatesLike)
+	return slices.ContainsFunc(paths.patterns, glob.namesSameDirectoryAs)
 }
 
 func boundGlobsOf(written []string) ([]BoundGlob, error) {
