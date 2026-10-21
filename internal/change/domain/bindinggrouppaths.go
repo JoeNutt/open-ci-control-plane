@@ -27,8 +27,8 @@ func groupPathsOf(stated map[string][]string) ([]GroupPaths, error) {
 		if err != nil {
 			return nil, err
 		}
-		if slices.ContainsFunc(groups, parsed.sharesAPatternWith) {
-			return nil, fmt.Errorf("%w: a pattern of %s", ErrPathInTwoGroups, parsed.group)
+		if earlier := slices.IndexFunc(groups, parsed.sharesAPatternWith); earlier >= 0 {
+			return nil, fmt.Errorf("%w: %s and %s", ErrPathInTwoGroups, groups[earlier].group, parsed.group)
 		}
 		groups = append(groups, parsed)
 	}
@@ -52,9 +52,7 @@ func (paths GroupPaths) sharesAPatternWith(other GroupPaths) bool {
 }
 
 func (paths GroupPaths) holds(pattern PathPattern) bool {
-	return slices.ContainsFunc(paths.patterns, func(held PathPattern) bool {
-		return held.expression.String() == pattern.expression.String()
-	})
+	return slices.ContainsFunc(paths.patterns, pattern.translatesLike)
 }
 
 func pathPatternsOf(written []string) ([]PathPattern, error) {
