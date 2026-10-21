@@ -40,7 +40,7 @@ violations contains {
 	model := data.ci.policy.catalog[bound.use]
 	some edge in input.diff.module_graph_delta.edges_added
 	importer := group_containing(bound, edge.from)
-	imported := group_containing(bound, go_file_in(package_path(bound, edge.to)))
+	imported := group_containing_package(bound, package_path(bound, edge.to))
 	refused_relation_by_direction[model.direction] == relation_of(order_of(model, importer), order_of(model, imported))
 }
 
@@ -77,7 +77,19 @@ is_under(imported, prefix) if imported == prefix
 
 is_under(imported, prefix) if startswith(imported, $"{prefix}/")
 
-go_file_in(directory) := $"{directory}/package.go"
+group_containing_package(bound, directory) := group if {
+	some group, patterns in bound.paths
+	some pattern in patterns
+	endswith(pattern, "/**")
+	glob.match(trim_suffix(pattern, "/**"), ["/"], directory)
+}
+
+group_containing_package(bound, directory) := group if {
+	some group, patterns in bound.paths
+	some pattern in patterns
+	endswith(pattern, "/**")
+	glob.match(pattern, ["/"], directory)
+}
 
 order_of(model, name) := group.order if {
 	some group in model.groups

@@ -127,6 +127,24 @@ test_a_package_in_no_group_at_either_end_is_never_refused[note] if {
 	decided.violations == []
 }
 
+test_only_a_directory_pattern_places_an_imported_package[note] if {
+	some note, file_patterns in {
+		"a pattern naming one file": ["internal/change/forge/github/package.go"],
+		"a pattern over the files of one directory": ["internal/change/forge/github/*.go"],
+	}
+	adapter_files_only := json.patch(policy, [{
+		"op": "replace",
+		"path": $"{control_plane_policies}/0/paths/adapter",
+		"value": file_patterns,
+	}])
+
+	decided := structural.decision with input as change_adding([domain_imports_forge])
+		with data.ci.policy as adapter_files_only
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 mobile_app := "acme/mobile-app"
 
 model_imports_view := {"from": "app/model/user.go", "to": "example.com/mobile/app/view"}
