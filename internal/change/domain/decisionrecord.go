@@ -16,11 +16,19 @@ func RecordFor(decided FamilyDecision, id DecisionID) DecisionRecord {
 func (record DecisionRecord) MarshalJSON() ([]byte, error) {
 	return json.Marshal(publishedRecord{
 		DecisionID:     record.decisionID.String(),
-		BundleRevision: record.revision.String(),
+		BundleRevision: publishedRevisionOf(record.revision),
 	})
 }
 
 type publishedRecord struct {
-	DecisionID     string `json:"decisionId"`
-	BundleRevision string `json:"bundleRevision,omitempty"`
+	DecisionID     string  `json:"decisionId"`
+	BundleRevision *string `json:"bundleRevision,omitempty"`
+}
+
+func publishedRevisionOf(revision BundleRevision) *string {
+	if !revision.isKnown() {
+		return nil
+	}
+	stated := revision.String()
+	return &stated
 }

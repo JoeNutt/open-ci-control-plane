@@ -25,3 +25,5 @@ func ParseBundleRevision(stated string) (BundleRevision, error) {
 }
 
 func (revision BundleRevision) String() string { return revision.commit.String() }
+
+func (revision BundleRevision) isKnown() bool { return revision != BundleRevision{} }
