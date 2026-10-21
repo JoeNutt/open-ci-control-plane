@@ -4,10 +4,13 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 )
+
+var ErrNoSuchInstallation = errors.New("no installation")
 
 type Installation struct {
 	Key   AppKey
@@ -38,6 +41,7 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 		endpoint:  fmt.Sprintf("/app/installations/%d/access_tokens", tokens.installation),
 		sent:      accessTokenRequest{Permissions: leastPrivilege},
 		succeeded: http.StatusCreated,
+		notFound:  ErrNoSuchInstallation,
 	})
 	if err != nil {
 		return Credential{}, err

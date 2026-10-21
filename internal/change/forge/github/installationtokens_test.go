@@ -5,6 +5,7 @@ package github_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
@@ -107,6 +109,17 @@ func installationTokensAt(t *testing.T, server *httptest.Server, now time.Time) 
 		t.Fatalf("parse installation tokens: %v", err)
 	}
 	return tokens
+}
+
+func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testing.T) {
+	tokens := installationTokensAt(t, answering(t, http.StatusNotFound, `{"message": "Not Found"}`), mintedAt)
+
+	_, err := github.AuthorizationOf(context.Background(), tokens)
+
+	if !errors.Is(err, github.ErrNoSuchInstallation) || errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v and not %v",
+			err, github.ErrNoSuchInstallation, domain.ErrNoSuchPullRequest)
+	}
 }
 
 func TestAnInstallationTokenIsExchangedForTheAppJWTAskingExactlyLeastPrivilege(t *testing.T) {
