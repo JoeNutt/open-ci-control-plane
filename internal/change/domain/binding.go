@@ -3,12 +3,9 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 )
-
-var ErrDuplicateBoundPolicy = errors.New("binding uses one catalog policy twice")
 
 type BindingStatement struct {
 	Repository string
@@ -58,21 +55,6 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 		return Binding{}, err
 	}
 	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
-}
-
-func boundPoliciesOf(stated []BoundPolicyStatement) ([]BoundPolicy, error) {
-	policies := make([]BoundPolicy, 0, len(stated))
-	for _, written := range stated {
-		policy, err := parseBoundPolicy(written)
-		if err != nil {
-			return nil, err
-		}
-		if slices.ContainsFunc(policies, func(earlier BoundPolicy) bool { return earlier.use == policy.use }) {
-			return nil, ErrDuplicateBoundPolicy
-		}
-		policies = append(policies, policy)
-	}
-	return policies, nil
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {
