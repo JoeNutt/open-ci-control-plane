@@ -81,13 +81,18 @@ func arrayElement(elements []any, token string) (any, bool, error) {
 		return nil, false, ErrMalformedJSONPointer
 	}
 	index, err := strconv.Atoi(token)
-	if err != nil || index < 0 || index >= len(elements) {
+	if err != nil || index >= len(elements) {
 		return nil, false, nil
 	}
 	return elements[index], true, nil
 }
 
 func hasForbiddenIndexSpelling(token string) bool {
-	hasLeadingZero := len(token) > 1 && strings.HasPrefix(token, "0")
-	return hasLeadingZero || strings.HasPrefix(token, "+") || len(token) > 1 && strings.HasPrefix(token, "-")
+	if strings.HasPrefix(token, "+") {
+		return true
+	}
+	isLongerThanOneCharacter := len(token) > 1
+	hasLeadingZero := isLongerThanOneCharacter && strings.HasPrefix(token, "0")
+	hasMinusSign := isLongerThanOneCharacter && strings.HasPrefix(token, "-")
+	return hasLeadingZero || hasMinusSign
 }
