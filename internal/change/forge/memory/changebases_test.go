@@ -14,7 +14,9 @@ import (
 func TestChangeBasesAnswersTheBaseCommitRecordedForAPullRequest(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	base := commitOf(t, "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567")
-	bases := memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{locator: base}}
+	var bases domain.ChangeBase = memory.ChangeBases{
+		Bases: map[domain.PullRequestLocator]domain.CommitSHA{locator: base},
+	}
 
 	answered, err := bases.BaseCommitOf(context.Background(), locator)
 
