@@ -38,8 +38,10 @@ func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUploa
 	if err != nil {
 		return ReplacedCoverage{}, fmt.Errorf("refuse coverage of %s for %s: %w", upload.Suite, upload.Repository, err)
 	}
-	err = useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage)
-	return ReplacedCoverage{Suite: upload.Suite, FileEntryCount: 1}, err
+	if err := useCase.Maps.ReplaceSuiteCoverage(ctx, upload.Repository, upload.Suite, coverage); err != nil {
+		return ReplacedCoverage{}, err
+	}
+	return ReplacedCoverage{Suite: upload.Suite, FileEntryCount: coverage.FileEntryCount()}, nil
 }
 
 func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpload) error {
