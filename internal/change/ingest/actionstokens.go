@@ -121,8 +121,7 @@ func hasNoTimeout(client *http.Client) bool {
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.IdentityToken) (domain.Repository, error) {
-	bearer := token.Reveal()
-	keyID, err := keyIDOf(bearer)
+	keyID, err := keyIDOf(token)
 	if err != nil {
 		return domain.Repository{}, err
 	}
@@ -130,7 +129,7 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.Iden
 	if err != nil {
 		return domain.Repository{}, err
 	}
-	verified, err := jwt.ParseString(bearer,
+	verified, err := jwt.ParseString(token.Reveal(),
 		jwt.WithKeySet(keys),
 		jwt.WithIssuer(tokens.issuer.String()),
 		jwt.WithAudience(tokens.audience.String()),
@@ -143,11 +142,11 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.Iden
 	return repositoryClaimedBy(verified)
 }
 
-func keyIDOf(bearer string) (string, error) {
-	if len(bearer) > MaxActionsTokenBytes {
+func keyIDOf(token domain.IdentityToken) (string, error) {
+	if len(token.Reveal()) > MaxActionsTokenBytes {
 		return "", errOversizedToken
 	}
-	message, err := jws.ParseString(bearer)
+	message, err := jws.ParseString(token.Reveal())
 	if err != nil || len(message.Signatures()) != 1 {
 		return "", errUnverifiableSignature
 	}

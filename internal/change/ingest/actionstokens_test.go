@@ -95,7 +95,7 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
 
-	repository, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
+	repository, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t))
 
 	if err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
@@ -169,7 +169,7 @@ func TestActionsTokensRefuseAnIssuerTheyCannotRead(t *testing.T) {
 			issuer := newIssuer(t)
 			misanswering(issuer)
 
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.governedToken(t))
 
 			if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
 				t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
@@ -183,7 +183,7 @@ func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 	tokens := issuer.tokensFor(t, instanceURL)
 
 	for range 2 {
-		if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
+		if _, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t)); err != nil {
 			t.Fatalf("verify a token GitHub Actions issued: %v", err)
 		}
 	}
@@ -196,12 +196,12 @@ func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t)); err != nil {
 		t.Fatalf("verify a token before rotation: %v", err)
 	}
 
 	issuer.rotate(t, "rotated-signing-key")
-	_, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
+	_, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t))
 
 	if err != nil {
 		t.Fatalf("verify a token signed by the rotated key: %v", err)
@@ -211,7 +211,7 @@ func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t)); err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
 	}
 
@@ -230,7 +230,7 @@ func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t)); err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
 	}
 	forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, "unknown"))
@@ -240,7 +240,7 @@ func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
 
 	issuer.advance(24 * time.Hour)
 	issuer.rotate(t, "rotated-signing-key")
-	_, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
+	_, err := tokens.RepositoryOf(t.Context(), issuer.governedToken(t))
 
 	if err != nil {
 		t.Fatalf("verify a token signed by a key rotated a day later: %v", err)
@@ -452,6 +452,12 @@ func signed(t *testing.T, token jwt.Token, key jwk.Key) string {
 		t.Fatalf("sign token: %v", err)
 	}
 	return string(signature)
+}
+
+func (minted *issuer) governedToken(t *testing.T) domain.IdentityToken {
+	t.Helper()
+
+	return identity(t, minted.sign(t, minted.claims(governedRepository)))
 }
 
 func identity(t *testing.T, presented string) domain.IdentityToken {
