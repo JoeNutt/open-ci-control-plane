@@ -40,6 +40,11 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
 				"context", "github.com/acme/payments/internal/session"),
 			domain.ClassificationRules{}),
+		"a change that adds and removes an edge": domain.ParseDocument(
+			domain.PullRequest{Number: 412, Repository: "acme/payments", HeadSHA: "9f1cabc"},
+			changeMovingAnEdge(t, domain.File{
+				Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}),
+			domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {
@@ -57,6 +62,19 @@ func changeImporting(t *testing.T, file domain.File, imports ...string) domain.C
 	return domain.Change{
 		Files:    boundedFor(t, file),
 		Imported: []domain.ImportedFile{{File: file, Head: fileImportsOf(t, imports...)}},
+	}
+}
+
+func changeMovingAnEdge(t *testing.T, file domain.File) domain.Change {
+	t.Helper()
+
+	return domain.Change{
+		Files: boundedFor(t, file),
+		Imported: []domain.ImportedFile{{
+			File: file,
+			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
+			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/session"),
+		}},
 	}
 }
 
