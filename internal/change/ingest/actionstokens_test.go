@@ -119,6 +119,9 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 			if !errors.Is(err, ingest.ErrUnverifiedToken) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)
 			}
+			if strings.Contains(err.Error(), unverifiable) {
+				t.Fatalf("the refusal carries the token: %v", err)
+			}
 		})
 	}
 }
