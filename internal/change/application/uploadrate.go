@@ -28,7 +28,8 @@ func (rate *UploadRate) Admit(repository domain.GovernedRepository) error {
 	now := rate.now()
 	recent := rate.admissionsWithinWindow(repository, now)
 	if len(recent) >= rate.limits.MaxUploadsPerMinute {
-		return ErrUploadRateExceeded
+		left := recent[0].Add(uploadRateWindow).Sub(now)
+		return UploadRateRefusal{RetryAfter: (left + time.Second - 1).Truncate(time.Second)}
 	}
 	rate.admitted[repository] = append(recent, now)
 	return nil
@@ -42,3 +43,11 @@ func (rate *UploadRate) admissionsWithinWindow(repository domain.GovernedReposit
 	}
 	return admitted[firstRecent:]
 }
+
+type UploadRateRefusal struct {
+	RetryAfter time.Duration
+}
+
+func (refusal UploadRateRefusal) Error() string { return ErrUploadRateExceeded.Error() }
+
+func (refusal UploadRateRefusal) Is(target error) bool { return target == ErrUploadRateExceeded }
