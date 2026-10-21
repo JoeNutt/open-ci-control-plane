@@ -12,6 +12,8 @@ import (
 
 var ErrNoSuchInstallation = errors.New("the forge found no App installation with the configured installation id")
 
+var ErrIncompleteGrant = errors.New("incomplete")
+
 type Installation struct {
 	Key   AppKey
 	ID    int64
@@ -49,6 +51,9 @@ func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential
 	})
 	if err != nil {
 		return Credential{}, err
+	}
+	if granted.Token == "" || granted.ExpiresAt.IsZero() {
+		return Credential{}, ErrIncompleteGrant
 	}
 	return NewCredential(granted.Token), nil
 }

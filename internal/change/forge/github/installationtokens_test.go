@@ -151,6 +151,28 @@ func TestParseInstallationTokensRefusesWhatCannotMintAToken(t *testing.T) {
 	}
 }
 
+func TestAGrantWithNoTokenOrNoExpiryIsRefused(t *testing.T) {
+	expiry := mintedAt.Add(time.Hour).Format(time.RFC3339)
+	incomplete := map[string]string{
+		"no token":     `{"expires_at": "` + expiry + `"}`,
+		"empty token":  `{"token": "", "expires_at": "` + expiry + `"}`,
+		"no expiry":    `{"token": "` + recordedInstallationToken + `"}`,
+		"empty object": `{}`,
+	}
+
+	for name, body := range incomplete {
+		t.Run(name, func(t *testing.T) {
+			tokens := installationTokensAt(t, answering(t, http.StatusCreated, body), mintedAt)
+
+			_, err := github.AuthorizationOf(context.Background(), tokens)
+
+			if !errors.Is(err, github.ErrIncompleteGrant) {
+				t.Fatalf("error is %v, want %v", err, github.ErrIncompleteGrant)
+			}
+		})
+	}
+}
+
 func TestAnUnknownInstallationIsReportedAsSuchNotAsAMissingPullRequest(t *testing.T) {
 	tokens := installationTokensAt(t, answering(t, http.StatusNotFound, `{"message": "Not Found"}`), mintedAt)
 
