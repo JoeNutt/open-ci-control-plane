@@ -18,16 +18,16 @@ const (
 	exampleBindingPath = fixtureDirectory + "section13/binding.yaml"
 )
 
-func TestTheLiveCatalogMatchesThePublishedCatalogSchema(t *testing.T) {
-	if faults := schemaFaultsOf(t, string(fixture(t, liveCatalogPath)), catalogSchemaPath); len(faults) != 0 {
-		t.Errorf("the live catalog does not match %s: %v", catalogSchemaPath, faults)
+func TestEachPublishedSchemaAdmitsTheLiveAndSection13Files(t *testing.T) {
+	admittedBySchema := map[string][]string{
+		catalogSchemaPath: {liveCatalogPath},
+		bindingSchemaPath: {liveBindingPath, exampleBindingPath},
 	}
-}
-
-func TestTheLiveAndExampleBindingsMatchThePublishedBindingSchema(t *testing.T) {
-	for _, path := range []string{liveBindingPath, exampleBindingPath} {
-		if faults := schemaFaultsOf(t, string(fixture(t, path)), bindingSchemaPath); len(faults) != 0 {
-			t.Errorf("%s does not match %s: %v", path, bindingSchemaPath, faults)
+	for schemaPath, admitted := range admittedBySchema {
+		for _, path := range admitted {
+			if faults := schemaFaultsOf(t, string(fixture(t, path)), schemaPath); len(faults) != 0 {
+				t.Errorf("%s does not match %s: %v", path, schemaPath, faults)
+			}
 		}
 	}
 }
