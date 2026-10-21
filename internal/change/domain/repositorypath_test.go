@@ -16,3 +16,24 @@ func TestParseRepositoryPathRefusesAnAbsolutePath(t *testing.T) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
 	}
 }
+
+func TestParseRepositoryPathRefusesAPathNotInCanonicalForm(t *testing.T) {
+	refused := map[string]string{
+		"empty":                 "",
+		"climbing out":          "../secrets/key.pem",
+		"climbing out mid-path": "internal/../../key.pem",
+		"a current segment":     "internal/./effect.go",
+		"an empty segment":      "internal//effect.go",
+		"a trailing separator":  "internal/",
+	}
+
+	for form, path := range refused {
+		t.Run(form, func(t *testing.T) {
+			_, err := domain.ParseRepositoryPath(path)
+
+			if !errors.Is(err, domain.ErrPathOutsideRepository) {
+				t.Fatalf("want ErrPathOutsideRepository for %q, got %v", path, err)
+			}
+		})
+	}
+}
