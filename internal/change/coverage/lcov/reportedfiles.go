@@ -125,8 +125,9 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if err := reading.limits.FileEntriesBreach(len(reading.reported) + 1); err != nil {
-		return err
+	entriesWithThisOne := len(reading.reported) + 1
+	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
+		return breach
 	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
