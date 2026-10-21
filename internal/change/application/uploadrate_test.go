@@ -4,6 +4,8 @@ package application_test
 
 import (
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -100,5 +102,26 @@ func admitAll(t *testing.T, rate *application.UploadRate, repository domain.Gove
 		if err := rate.Admit(repository); err != nil {
 			t.Fatalf("upload %d of %d was refused: %v", upload+1, uploads, err)
 		}
+	}
+}
+
+func TestUploadRateAdmitsExactlyTheLimitFromConcurrentUploads(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
+	repository := parsedRepository(t)
+	var admitted atomic.Int64
+	var uploads sync.WaitGroup
+
+	for range 2 * limits.MaxUploadsPerMinute {
+		uploads.Go(func() {
+			if rate.Admit(repository) == nil {
+				admitted.Add(1)
+			}
+		})
+	}
+	uploads.Wait()
+
+	if admitted.Load() != int64(limits.MaxUploadsPerMinute) {
+		t.Fatalf("admitted %d concurrent uploads, want %d", admitted.Load(), limits.MaxUploadsPerMinute)
 	}
 }

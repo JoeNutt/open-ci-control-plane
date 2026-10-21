@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -16,6 +17,7 @@ const uploadRateWindow = time.Minute
 var ErrUploadRateExceeded = errors.New("coverage uploads exceed the repository's rate")
 
 type UploadRate struct {
+	guard    sync.Mutex
 	limits   domain.CoverageLimits
 	now      func() time.Time
 	admitted map[domain.GovernedRepository][]time.Time
@@ -26,6 +28,9 @@ func NewUploadRate(limits domain.CoverageLimits, now func() time.Time) *UploadRa
 }
 
 func (rate *UploadRate) Admit(repository domain.GovernedRepository) error {
+	rate.guard.Lock()
+	defer rate.guard.Unlock()
+
 	now := rate.now()
 	recent := rate.admissionsWithinWindow(repository, now)
 	if len(recent) >= rate.limits.MaxUploadsPerMinute {
