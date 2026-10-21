@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var windowOpens = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 
 func TestUploadRateRefusesTheUploadOneOverTheLimit(t *testing.T) {
-	rate := application.NewUploadRate(func() time.Time { return windowOpens })
+	limits := domain.DeclaredCoverageLimits()
+	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
-	for upload := range 60 {
+	for upload := range limits.MaxUploadsPerMinute {
 		if err := rate.Admit(repository); err != nil {
 			t.Fatalf("upload %d was refused: %v", upload+1, err)
 		}
