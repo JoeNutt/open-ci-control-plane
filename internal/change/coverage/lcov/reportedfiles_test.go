@@ -35,6 +35,9 @@ func TestReportedFilesInRefusesAnAbsolutePathWhole(t *testing.T) {
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
 	}
+	if errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("a readable artifact with an absolute path is not malformed: %v", err)
+	}
 	if reported != nil {
 		t.Fatalf("want nothing reported alongside the refusal, got %+v", reported)
 	}

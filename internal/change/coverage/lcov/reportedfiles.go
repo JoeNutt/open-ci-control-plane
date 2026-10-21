@@ -24,9 +24,9 @@ const (
 var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
 
 var (
-	errUnknownTag         = errors.New("unknown line tag")
-	errOutOfOrder         = errors.New("line is out of place for an open or closed record")
-	errUnreadableLineData = errors.New("line data is not a line number and an execution count")
+	errUnknownTag         = fmt.Errorf("%w: unknown line tag", ErrMalformedArtifact)
+	errOutOfOrder         = fmt.Errorf("%w: line is out of place for an open or closed record", ErrMalformedArtifact)
+	errUnreadableLineData = fmt.Errorf("%w: line data is not a line number and an execution count", ErrMalformedArtifact)
 	errTruncatedRecord    = errors.New("input ends inside a record")
 	errNoRecord           = errors.New("input reports no file")
 )
@@ -57,7 +57,7 @@ func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
 	lines := bufio.NewScanner(artifact)
 	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
 		if err := reading.take(lines.Text()); err != nil {
-			return nil, fmt.Errorf("%w: line %d: %w", ErrMalformedArtifact, lineNumber, err)
+			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
 		}
 	}
 	if err := lines.Err(); err != nil {
