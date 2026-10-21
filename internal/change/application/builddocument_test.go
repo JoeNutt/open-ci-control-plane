@@ -241,3 +241,26 @@ func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrTooManyEdges)
 	}
 }
+
+func TestBuildDocumentPublishesAGoFileThatDoesNotParseAtHeadAsErrored(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
+			"package auth\n\nimport (\n\t\"context\" unterminated\n)\n"),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.Declared[domain.Import]{{Path: file.Path, State: domain.ImportStateErrored}}
+	if !reflect.DeepEqual(document.Diff.Imports, want) {
+		t.Fatalf("imports are %+v, want %+v", document.Diff.Imports, want)
+	}
+}

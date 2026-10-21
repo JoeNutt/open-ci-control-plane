@@ -16,6 +16,9 @@ type ImportedFile struct {
 func (imported ImportedFile) existsAtHead() bool { return imported.File.Action.ExistsAtHead() }
 
 func (imported ImportedFile) headImport() Import {
+	if imported.Head.isErrored {
+		return Import{Path: imported.File.Path, State: ImportStateErrored}
+	}
 	return Import{
 		Path:  imported.File.Path,
 		State: ImportStateResolved,

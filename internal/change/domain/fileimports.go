@@ -10,7 +10,12 @@ import (
 
 var ErrTooManyImportsInFile = errors.New("file exceeds the per-file import bound")
 
-type FileImports struct{ imports []string }
+type FileImports struct {
+	imports   []string
+	isErrored bool
+}
+
+func ErroredFileImports() FileImports { return FileImports{isErrored: true} }
 
 func ParseFileImports(imports []string, limits Limits) (FileImports, error) {
 	if len(imports) > limits.MaxImportsPerFile {
