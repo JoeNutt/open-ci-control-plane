@@ -18,7 +18,7 @@ func TestParseDocumentAggregatesTotalsOverChangedFiles(t *testing.T) {
 			Additions: 35, Deletions: 0, PatchBytes: 7280},
 	}
 
-	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...), domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t, files...)}, domain.ClassificationRules{})
 
 	want := domain.Totals{Files: 2, Additions: 47, Deletions: 3, PatchBytes: 9120}
 	if document.Diff.Totals != want {
@@ -32,7 +32,7 @@ func TestParseDocumentCarriesEveryChangedFileRecord(t *testing.T) {
 			Additions: 12, Deletions: 3, PatchBytes: 1840},
 	}
 
-	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...), domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t, files...)}, domain.ClassificationRules{})
 
 	if !slices.Equal(document.Diff.Files, files) {
 		t.Fatalf("files are %+v, want %+v", document.Diff.Files, files)
@@ -45,7 +45,7 @@ func TestParseDocumentDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 			PatchBytes: 1840},
 	}
 
-	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...), domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t, files...)}, domain.ClassificationRules{})
 	files[0] = domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded}
 
 	if document.Diff.Files[0].Path != "internal/auth/middleware.go" {
@@ -60,7 +60,7 @@ func TestParseDocumentDoesNotAliasTheSuppliedPullRequest(t *testing.T) {
 		Approvals: domain.Declared[domain.Approval]{{Login: "sam"}},
 	}
 
-	document := domain.ParseDocument(pullRequest, withinBounds(t), domain.ClassificationRules{})
+	document := domain.ParseDocument(pullRequest, domain.Change{Files: withinBounds(t)}, domain.ClassificationRules{})
 
 	pullRequest.Labels[0] = "frontend"
 	pullRequest.Approvals[0] = domain.Approval{Login: "jo", IsAuthor: true}
@@ -79,7 +79,7 @@ func TestParseDocumentListsEveryChangedPath(t *testing.T) {
 		{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	}
 
-	document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, files...), domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t, files...)}, domain.ClassificationRules{})
 
 	want := domain.Paths{"infra/iam.tf", "internal/http/routes.go"}
 	if !slices.Equal(slices.Sorted(slices.Values(document.Diff.Paths)), want) {
@@ -94,7 +94,7 @@ func TestParseDocumentGroupsChangedPathsByDirectory(t *testing.T) {
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	)
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, domain.ClassificationRules{})
 
 	want := domain.PathsByDir{
 		"infra":         {"infra/iam.tf"},
@@ -113,7 +113,7 @@ func TestParseDocumentListsOnlyThePathsTheChangeAdds(t *testing.T) {
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	)
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, domain.ClassificationRules{})
 
 	want := domain.Paths{"internal/auth/session.go", "infra/iam.tf"}
 	if !slices.Equal(document.Diff.NewFiles, want) {
@@ -127,10 +127,30 @@ func TestParseDocumentPublishesNoImportEntryForAFileNoExtractorRead(t *testing.T
 		domain.File{Path: "README.md", Action: domain.FileActionModified},
 	)
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, domain.ClassificationRules{})
 
 	if len(document.Diff.Imports) != 0 {
 		t.Fatalf("imports is %+v, want none", document.Diff.Imports)
+	}
+}
+
+func TestParseDocumentPublishesTheImportsAFileDeclaresAtHead(t *testing.T) {
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	declared := []string{"context", "github.com/acme/payments/internal/session"}
+	change := domain.Change{
+		Files:    withinBounds(t, file),
+		Imported: []domain.ImportedFile{{File: file, Head: fileImportsOf(t, declared...)}},
+	}
+
+	document := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{})
+
+	want := domain.Declared[domain.Import]{{
+		Path:  "internal/auth/middleware.go",
+		State: domain.ImportStateResolved,
+		Refs:  declared,
+	}}
+	if !reflect.DeepEqual(document.Diff.Imports, want) {
+		t.Fatalf("imports is %+v, want %+v", document.Diff.Imports, want)
 	}
 }
 
@@ -140,7 +160,7 @@ func TestParseDocumentCountsNoUnresolvedFileForFilesNoExtractorRead(t *testing.T
 		domain.File{Path: "README.md", Action: domain.FileActionModified},
 	)
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{})
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, domain.ClassificationRules{})
 
 	if document.Diff.UnresolvedImportFiles != 0 {
 		t.Fatalf("unresolved_import_files is %d, want 0",
@@ -165,7 +185,7 @@ func TestParseDocumentReportsTheShareOfFilesWithResolvedImports(t *testing.T) {
 
 	for form, share := range shares {
 		t.Run(form, func(t *testing.T) {
-			document := domain.ParseDocument(domain.PullRequest{}, withinBounds(t, share.files...), domain.ClassificationRules{})
+			document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t, share.files...)}, domain.ClassificationRules{})
 
 			if document.Diff.ResolvedImportShare != share.want {
 				t.Fatalf("resolved_import_share is %v, want %v",
@@ -180,7 +200,7 @@ func TestParseDocumentKeepsTheGraphDeltaCompleteOverFilesNoExtractorRead(t *test
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},
 	)
 
-	delta := domain.ParseDocument(domain.PullRequest{}, bounded, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+	delta := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, domain.ClassificationRules{}).Diff.ModuleGraphDelta
 
 	if delta.Incomplete {
 		t.Errorf("delta reports itself incomplete over a file that carries no imports")
@@ -191,7 +211,7 @@ func TestParseDocumentKeepsTheGraphDeltaCompleteOverFilesNoExtractorRead(t *test
 }
 
 func TestParseDocumentMarksTheGraphDeltaCompleteWhenThereIsNothingUnresolved(t *testing.T) {
-	delta := domain.ParseDocument(domain.PullRequest{}, withinBounds(t), domain.ClassificationRules{}).Diff.ModuleGraphDelta
+	delta := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: withinBounds(t)}, domain.ClassificationRules{}).Diff.ModuleGraphDelta
 
 	if delta.Incomplete {
 		t.Errorf("delta reports itself incomplete with no changed files")

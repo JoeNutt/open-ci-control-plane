@@ -31,5 +31,5 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	return domain.ParseDocument(pullRequest, bounded, useCase.Rules), nil
+	return domain.ParseDocument(pullRequest, domain.Change{Files: bounded}, useCase.Rules), nil
 }

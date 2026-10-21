@@ -11,6 +11,16 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func fileImportsOf(t *testing.T, imports ...string) domain.FileImports {
+	t.Helper()
+
+	parsed, err := domain.ParseFileImports(imports, domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("parse %d imports: %v", len(imports), err)
+	}
+	return parsed
+}
+
 func TestParseFileImportsKeepsEveryImportAtTheLimit(t *testing.T) {
 	limits := domain.DeclaredLimits()
 	imports := make([]string, limits.MaxImportsPerFile)

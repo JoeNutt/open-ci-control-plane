@@ -27,13 +27,13 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				Labels:    domain.Declared[string]{"backend"},
 				Approvals: domain.Declared[domain.Approval]{{Login: "sam"}},
 			},
-			boundedFor(t,
+			domain.Change{Files: boundedFor(t,
 				domain.File{Path: "internal/auth/middleware.go",
 					Action:    domain.FileActionModified,
 					Additions: 12, Deletions: 3, PatchBytes: 1840},
 				domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded,
 					Additions: 35, PatchBytes: 7280},
-			), domain.ClassificationRules{}),
+			)}, domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {
