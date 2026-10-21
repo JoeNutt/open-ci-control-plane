@@ -63,6 +63,31 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 	}
 }
 
+func TestActionsTokensRefuseATokenWithoutALifetime(t *testing.T) {
+	issuer := newIssuer(t)
+	for _, absent := range []string{jwt.ExpirationKey, jwt.NotBeforeKey} {
+		t.Run(absent, func(t *testing.T) {
+			token, err := issuer.claims(governedRepository).Build()
+			if err != nil {
+				t.Fatalf("build token: %v", err)
+			}
+			if err := token.Remove(absent); err != nil {
+				t.Fatalf("remove %s: %v", absent, err)
+			}
+			signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), issuer.signingKey))
+			if err != nil {
+				t.Fatalf("sign token: %v", err)
+			}
+
+			_, err = issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), string(signed))
+
+			if !errors.Is(err, ingest.ErrUnverifiedToken) {
+				t.Fatalf("want ErrUnverifiedToken, got %v", err)
+			}
+		})
+	}
+}
+
 type issuer struct {
 	t          *testing.T
 	server     *httptest.Server
