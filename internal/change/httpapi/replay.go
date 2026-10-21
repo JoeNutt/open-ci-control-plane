@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"maps"
 	"sync"
 	"time"
 )
@@ -41,6 +42,8 @@ func (accepted *acceptedDeliveries) originalOf(received delivery) (acceptance, b
 func (accepted *acceptedDeliveries) held(answered acceptance) acceptance {
 	accepted.mutex.Lock()
 	defer accepted.mutex.Unlock()
-	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: accepted.clock()}
+	now := accepted.clock()
+	maps.DeleteFunc(accepted.byID, func(_ string, held heldAcceptance) bool { return held.isLapsedAt(now) })
+	accepted.byID[answered.DeliveryID] = heldAcceptance{answered: answered, heldAt: now}
 	return answered
 }
