@@ -20,3 +20,15 @@ func (imported ImportedFile) headImport() Import {
 		Refs:  imported.Head.ImportPaths(),
 	}
 }
+
+func (imported ImportedFile) edgesAdded() []ModuleEdge {
+	return imported.edgesTo(imported.Head.importsAbsentFrom(imported.Base))
+}
+
+func (imported ImportedFile) edgesTo(targets []string) []ModuleEdge {
+	edges := make([]ModuleEdge, 0, len(targets))
+	for _, target := range targets {
+		edges = append(edges, ModuleEdge{From: imported.File.Path, To: target})
+	}
+	return edges
+}
