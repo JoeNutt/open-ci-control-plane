@@ -73,16 +73,17 @@ func edgeCountBreachIn(facts StructuralFacts, limits Limits) error {
 }
 
 func serialisedBytesBreachIn(facts StructuralFacts, limits Limits) error {
-	serialised, err := json.Marshal(struct {
-		Imports          Declared[Import] `json:"imports"`
-		ModuleGraphDelta ModuleGraphDelta `json:"module_graph_delta"`
-	}{facts.imports, facts.moduleGraphDelta()})
+	imports, err := json.Marshal(facts.imports)
 	if err != nil {
 		return fmt.Errorf("serialise the structural facts: %w", err)
 	}
-	if len(serialised) > limits.MaxStructuralBytes {
+	delta, err := json.Marshal(facts.moduleGraphDelta())
+	if err != nil {
+		return fmt.Errorf("serialise the structural facts: %w", err)
+	}
+	if len(imports)+len(delta) > limits.MaxStructuralBytes {
 		return fmt.Errorf("%w: %d bytes exceeds %d",
-			ErrStructuralFactsTooLarge, len(serialised), limits.MaxStructuralBytes)
+			ErrStructuralFactsTooLarge, len(imports)+len(delta), limits.MaxStructuralBytes)
 	}
 	return nil
 }
