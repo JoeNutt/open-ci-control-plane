@@ -16,9 +16,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const repositoryClaim = "repository"
-
-const MaxActionsTokenBytes = 16 << 10
+const (
+	MaxActionsTokenBytes = 16 << 10
+	repositoryClaim      = "repository"
+)
 
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
@@ -31,6 +32,7 @@ var (
 	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", ErrUnverifiedToken)
 	errNoRepository          = fmt.Errorf("%w: it names no repository", ErrUnverifiedToken)
 	errNotARepository        = fmt.Errorf("%w: its repository claim is not an owner/name pair", ErrUnverifiedToken)
+	errOversizedToken        = fmt.Errorf("%w: it exceeds %d bytes", ErrUnverifiedToken, MaxActionsTokenBytes)
 )
 
 type unverifiedReason struct {
@@ -70,9 +72,6 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 }
 
 func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
-	if len(bearer) > MaxActionsTokenBytes {
-		return domain.Repository{}, ErrUnverifiedToken
-	}
 	keyID, err := keyIDOf(bearer)
 	if err != nil {
 		return domain.Repository{}, err
@@ -95,6 +94,9 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (d
 }
 
 func keyIDOf(bearer string) (string, error) {
+	if len(bearer) > MaxActionsTokenBytes {
+		return "", errOversizedToken
+	}
 	message, err := jws.ParseString(bearer)
 	if err != nil || len(message.Signatures()) != 1 {
 		return "", errUnverifiableSignature
