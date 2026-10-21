@@ -132,7 +132,7 @@ There is no `main` package and no binary yet. Nothing runs except the suite.
 Everything lives under `internal/change/`, arranged as ports and adapters:
 
 - `domain/` owns the types and the ports (`ChangeSource`, `CheckRunPublisher`,
-  `DecisionIDSource`). Its constructors are `Parse*`, which return domain values.
+  `DecisionIDSource`, `FamilyEngine`). Its constructors are `Parse*`, which return domain values.
   `architecture_test.go` fails the suite if a domain package imports anything except the
   standard library and other `domain` packages.
 - `application/` holds two use cases. `BuildDocument` assembles the policy input document
