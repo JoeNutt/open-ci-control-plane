@@ -45,6 +45,16 @@ func TestTheWebhookSecretIsReadFromTheFileTheConfigurationNames(t *testing.T) {
 	}
 }
 
+func TestAWebhookSecretFileAboveTheBoundIsRefused(t *testing.T) {
+	secretFile := writtenFile(t, strings.Repeat("s", configuration.MaxSecretFileBytes+1))
+
+	_, err := configuration.Read(writtenFile(t, `{"webhookSecretFile":"`+secretFile+`"}`))
+
+	if !errors.Is(err, configuration.ErrOversizedFile) {
+		t.Fatalf("an oversized webhook secret file was not refused as oversized: %v", err)
+	}
+}
+
 func writtenFile(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "controlplane.json")

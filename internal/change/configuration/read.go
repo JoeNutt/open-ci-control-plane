@@ -14,6 +14,8 @@ import (
 
 const MaxFileBytes = 64 << 10
 
+const MaxSecretFileBytes = 4 << 10
+
 const webhookSecretFileItem = "webhookSecretFile"
 
 var ErrMissingItem = errors.New("the configuration is missing a required item")
@@ -66,7 +68,7 @@ func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if path == "" {
 		return "", fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
 	}
-	content, err := os.ReadFile(path)
+	content, err := boundedContentOf(path, MaxSecretFileBytes)
 	if err != nil {
 		return "", fmt.Errorf("read the %s: %w", webhookSecretFileItem, err)
 	}
