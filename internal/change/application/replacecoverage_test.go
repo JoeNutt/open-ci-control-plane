@@ -10,29 +10,18 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const (
+	uploadingRepository = "JoeNutt/open-ci-control-plane"
+	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	coveredFile         = "internal/change/domain/effect.go"
+)
+
 func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
-	repository, err := domain.ParseRepository("JoeNutt/open-ci-control-plane")
-	if err != nil {
-		t.Fatal(err)
-	}
-	suite, err := domain.ParseSuiteName("github.com/JoeNutt/open-ci-control-plane/internal/change/domain")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path, err := domain.ParseRepositoryPath("internal/change/domain/effect.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	coverage, err := domain.ParseSuiteCoverage(
-		[]domain.ReportedFile{domain.NewReportedFile(path, true)},
-		domain.NewKnownPaths([]domain.RepositoryPath{path}))
-	if err != nil {
-		t.Fatal(err)
-	}
+	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := application.ReplaceCoverage{Maps: maps}
-	if err := useCase.Execute(t.Context(), repository, suite, coverage); err != nil {
+	if err := useCase.Execute(t.Context(), repository, suite, coverageOf(t, path)); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
@@ -43,4 +32,46 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	if !served.Covers(path) {
 		t.Fatalf("the served map does not cover %s", path)
 	}
+}
+
+func parsedRepository(t *testing.T) domain.Repository {
+	t.Helper()
+
+	repository, err := domain.ParseRepository(uploadingRepository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	return repository
+}
+
+func parsedSuite(t *testing.T) domain.SuiteName {
+	t.Helper()
+
+	suite, err := domain.ParseSuiteName(uploadedSuite)
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	return suite
+}
+
+func parsedPath(t *testing.T) domain.RepositoryPath {
+	t.Helper()
+
+	path, err := domain.ParseRepositoryPath(coveredFile)
+	if err != nil {
+		t.Fatalf("parse path: %v", err)
+	}
+	return path
+}
+
+func coverageOf(t *testing.T, path domain.RepositoryPath) domain.SuiteCoverage {
+	t.Helper()
+
+	coverage, err := domain.ParseSuiteCoverage(
+		[]domain.ReportedFile{domain.NewReportedFile(path, true)},
+		domain.NewKnownPaths([]domain.RepositoryPath{path}))
+	if err != nil {
+		t.Fatalf("parse coverage: %v", err)
+	}
+	return coverage
 }
