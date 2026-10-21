@@ -15,7 +15,7 @@ func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse binding file: %v", err)
 	}
-	if parsed.Repository().String() != "JoeNutt/open-ci-control-plane" {
+	if parsed.Repository().String() != liveRepository {
 		t.Errorf("repository is %q", parsed.Repository())
 	}
 	if parsed.Workflow().String() != "open-ci-tests.yml" {

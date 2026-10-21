@@ -41,8 +41,8 @@ func TestActivePolicyServesTheModelParsedAtTheAcceptedCommit(t *testing.T) {
 	}
 
 	bindings := accepted.Model().Bindings()
-	if len(bindings) != 1 || bindings[0].Repository().String() != "JoeNutt/open-ci-control-plane" {
-		t.Errorf("accepted model binds %v, want the live binding for JoeNutt/open-ci-control-plane", bindings)
+	if len(bindings) != 1 || bindings[0].Repository().String() != liveRepository {
+		t.Errorf("accepted model binds %v, want the live binding for %s", bindings, liveRepository)
 	}
 }
 

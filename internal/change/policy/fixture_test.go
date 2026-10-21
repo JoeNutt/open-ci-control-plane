@@ -14,6 +14,7 @@ const (
 	liveBindingFile  = "bindings/JoeNutt/open-ci-control-plane.yaml"
 	liveCatalogPath  = fixtureDirectory + liveCatalogFile
 	liveBindingPath  = fixtureDirectory + liveBindingFile
+	liveRepository   = "JoeNutt/open-ci-control-plane"
 )
 
 func fixtureWith(t *testing.T, path, written, replacement string) string {
