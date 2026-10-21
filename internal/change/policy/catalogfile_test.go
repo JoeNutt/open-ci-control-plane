@@ -4,6 +4,7 @@ package policy_test
 
 import (
 	"errors"
+	"maps"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -28,11 +29,32 @@ func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
 }
 
 func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
-	refused := map[string]struct {
-		written string
-		reason  error
-	}{
+	refused := catalogsRefusedByTheirShape(t)
+	maps.Copy(refused, map[string]refusedFile{
 		"not yaml at all": {written: "name: [clean\n", reason: policy.ErrMalformedPolicyFile},
+		"a YAML anchor":   {written: liveCatalogWithAnchor(t), reason: policy.ErrAliasOrAnchor},
+		"a YAML alias": {
+			written: liveCatalogWith(t, "rule: direction", "rule: &rule direction\nx: *rule"),
+			reason:  policy.ErrAliasOrAnchor,
+		},
+		"a second YAML document": {
+			written: string(fixture(t, liveCatalogPath)) + "---\nname: shadow\n",
+			reason:  policy.ErrSecondDocument,
+		},
+	})
+	for form, refusal := range refused {
+		t.Run(form, func(t *testing.T) {
+			if _, err := policy.ParseCatalogFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
+				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
+			}
+		})
+	}
+}
+
+func catalogsRefusedByTheirShape(t *testing.T) map[string]refusedFile {
+	t.Helper()
+
+	return map[string]refusedFile{
 		"an unknown rule word": {
 			written: liveCatalogWith(t, "rule: direction", "rule: layering"),
 			reason:  domain.ErrUnknownPolicyRule,
@@ -45,37 +67,18 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: liveCatalogWith(t, "rule: direction", "rule: direction\nowner: platform"),
 			reason:  policy.ErrMalformedPolicyFile,
 		},
-		"a YAML anchor": {
-			written: liveCatalogWithAnchor(t),
-			reason:  policy.ErrAliasOrAnchor,
-		},
-		"a YAML alias": {
-			written: liveCatalogWith(t, "rule: direction", "rule: &rule direction\nx: *rule"),
-			reason:  policy.ErrAliasOrAnchor,
-		},
-		"a second YAML document": {
-			written: string(fixture(t, liveCatalogPath)) + "---\nname: shadow\n",
-			reason:  policy.ErrSecondDocument,
-		},
 		"a later schema version": {
-			written: liveCatalogWith(t, "schema_version: 1", "schema_version: 2"),
+			written: liveCatalogWith(t, liveSchemaVersionLine, laterSchemaVersionLine),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"no schema version": {
-			written: liveCatalogWith(t, "schema_version: 1\n", ""),
+			written: liveCatalogWith(t, liveSchemaVersionLine+"\n", ""),
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"a group with no order": {
 			written: liveCatalogWith(t, "{ name: domain, order: 0 }", "{ name: domain }"),
 			reason:  policy.ErrMissingKey,
 		},
-	}
-	for form, refusal := range refused {
-		t.Run(form, func(t *testing.T) {
-			if _, err := policy.ParseCatalogFile([]byte(refusal.written)); !errors.Is(err, refusal.reason) {
-				t.Fatalf("%s gave %v, want %v", form, err, refusal.reason)
-			}
-		})
 	}
 }
 
