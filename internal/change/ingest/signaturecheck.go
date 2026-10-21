@@ -17,29 +17,29 @@ const signatureHeader = "X-Hub-Signature-256"
 
 const MaxDeliveryBytes = 8 << 20
 
-type RejectionCounter interface {
-	CountRejectedDelivery(refused *http.Request, reason error)
+type RefusalRecorder interface {
+	RecordRefusal(refused *http.Request, reason error)
 }
 
 type Settings struct {
-	Accepted   http.Handler
-	Secret     domain.WebhookSecret
-	Rejections RejectionCounter
+	Accepted http.Handler
+	Secret   domain.WebhookSecret
+	Refusals RefusalRecorder
 }
 
 var ErrIncompleteSignatureCheck = errors.New("signature check is missing a part it cannot work without")
 
 type SignatureCheck struct {
-	accepted   http.Handler
-	secret     domain.WebhookSecret
-	rejections RejectionCounter
+	accepted http.Handler
+	secret   domain.WebhookSecret
+	refusals RefusalRecorder
 }
 
 func ParseSignatureCheck(settings Settings) (SignatureCheck, error) {
 	absent := []func(Settings) string{
 		noHandlerWaiting,
 		noSecretToVerifyAgainst,
-		noCounterForRejections,
+		noRecorderForRefusals,
 	}
 	for _, missing := range absent {
 		if part := missing(settings); part != "" {
@@ -47,9 +47,9 @@ func ParseSignatureCheck(settings Settings) (SignatureCheck, error) {
 		}
 	}
 	return SignatureCheck{
-		accepted:   settings.Accepted,
-		secret:     settings.Secret,
-		rejections: settings.Rejections,
+		accepted: settings.Accepted,
+		secret:   settings.Secret,
+		refusals: settings.Refusals,
 	}, nil
 }
 
@@ -67,9 +67,9 @@ func noSecretToVerifyAgainst(settings Settings) string {
 	return ""
 }
 
-func noCounterForRejections(settings Settings) string {
-	if settings.Rejections == nil {
-		return "nothing is counting refusals"
+func noRecorderForRefusals(settings Settings) string {
+	if settings.Refusals == nil {
+		return "nothing is recording refusals"
 	}
 	return ""
 }
@@ -77,14 +77,14 @@ func noCounterForRejections(settings Settings) string {
 func (checking SignatureCheck) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(answer, asked.Body, MaxDeliveryBytes))
 	if err != nil {
-		checking.rejections.CountRejectedDelivery(asked, err)
+		checking.refusals.RecordRefusal(asked, err)
 		answer.WriteHeader(statusForUnreadableBody(err))
 		return
 	}
 	delivered, err := domain.ParseSignedDelivery(
 		body, asked.Header.Get(signatureHeader), checking.secret)
 	if err != nil {
-		checking.rejections.CountRejectedDelivery(asked, err)
+		checking.refusals.RecordRefusal(asked, err)
 		answer.WriteHeader(http.StatusUnauthorized)
 		return
 	}

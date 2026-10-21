@@ -16,9 +16,9 @@ const eventsRoute = "POST /v1/forge/github/events"
 
 func ParseRoutes(log *slog.Logger, secret domain.WebhookSecret) (http.Handler, error) {
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted:   admitted{},
-		Secret:     secret,
-		Rejections: refusals{log: log},
+		Accepted: admitted{},
+		Secret:   secret,
+		Refusals: refusals{log: log},
 	})
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (admitted) ServeHTTP(answer http.ResponseWriter, _ *http.Request) {
 
 type refusals struct{ log *slog.Logger }
 
-func (logging refusals) CountRejectedDelivery(refused *http.Request, reason error) {
+func (logging refusals) RecordRefusal(refused *http.Request, reason error) {
 	logging.log.LogAttrs(refused.Context(), slog.LevelWarn, "delivery refused",
 		slog.String("deliveryId", refused.Header.Get(deliveryHeader)),
 		slog.String("reason", reason.Error()))

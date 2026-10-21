@@ -42,7 +42,7 @@ func delivery(signature string) *http.Request {
 
 func TestASignedDeliveryReachesWhatWasWaitingForIt(t *testing.T) {
 	accepted := &acceptedDelivery{}
-	checking := checkWith(t, accepted, &rejectionTally{})
+	checking := checkWith(t, accepted, &refusalTally{})
 	answered := httptest.NewRecorder()
 
 	checking.ServeHTTP(answered, delivery(trueSignature))
@@ -69,7 +69,7 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 	for form, signature := range refused {
 		t.Run(form, func(t *testing.T) {
 			accepted := &acceptedDelivery{}
-			checking := checkWith(t, accepted, &rejectionTally{})
+			checking := checkWith(t, accepted, &refusalTally{})
 			answered := httptest.NewRecorder()
 
 			checking.ServeHTTP(answered, delivery(signature))
@@ -87,29 +87,29 @@ func TestARefusedDeliveryReachesNothingAndSaysNothing(t *testing.T) {
 	}
 }
 
-type rejectionTally struct{ rejected int }
+type refusalTally struct{ refused int }
 
-func (tally *rejectionTally) CountRejectedDelivery(*http.Request, error) { tally.rejected++ }
+func (tally *refusalTally) RecordRefusal(*http.Request, error) { tally.refused++ }
 
-func TestEveryRefusalIsCounted(t *testing.T) {
+func TestEveryRefusalIsRecorded(t *testing.T) {
 	tallies := map[string]struct {
 		signature string
 		want      int
 	}{
-		"a refusal is counted":           {"sha256=" + strings.Repeat("00", 32), 1},
-		"an absent signature is counted": {"", 1},
-		"an admitted delivery is not":    {trueSignature, 0},
+		"a refusal is recorded":           {"sha256=" + strings.Repeat("00", 32), 1},
+		"an absent signature is recorded": {"", 1},
+		"an admitted delivery is not":     {trueSignature, 0},
 	}
 
 	for form, expected := range tallies {
 		t.Run(form, func(t *testing.T) {
-			tally := &rejectionTally{}
+			tally := &refusalTally{}
 			checking := checkWith(t, &acceptedDelivery{}, tally)
 
 			checking.ServeHTTP(httptest.NewRecorder(), delivery(expected.signature))
 
-			if tally.rejected != expected.want {
-				t.Fatalf("counted %d rejections, want %d", tally.rejected, expected.want)
+			if tally.refused != expected.want {
+				t.Fatalf("recorded %d refusals, want %d", tally.refused, expected.want)
 			}
 		})
 	}
@@ -117,14 +117,14 @@ func TestEveryRefusalIsCounted(t *testing.T) {
 
 func TestParseSignatureCheckRefusesAnIncompleteCheck(t *testing.T) {
 	complete := ingest.Settings{
-		Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: &rejectionTally{}}
+		Accepted: &acceptedDelivery{}, Secret: appSecret, Refusals: &refusalTally{}}
 	incomplete := map[string]func(ingest.Settings) ingest.Settings{
 		"nothing waiting for an admitted delivery": func(s ingest.Settings) ingest.Settings {
 			s.Accepted = nil
 			return s
 		},
-		"nothing counting refusals": func(s ingest.Settings) ingest.Settings {
-			s.Rejections = nil
+		"nothing recording refusals": func(s ingest.Settings) ingest.Settings {
+			s.Refusals = nil
 			return s
 		},
 		"no secret to verify against": func(s ingest.Settings) ingest.Settings {
@@ -146,7 +146,7 @@ func TestParseSignatureCheckRefusesAnIncompleteCheck(t *testing.T) {
 
 func TestParseSignatureCheckAcceptsACompleteCheck(t *testing.T) {
 	_, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: &acceptedDelivery{}, Secret: appSecret, Rejections: &rejectionTally{}})
+		Accepted: &acceptedDelivery{}, Secret: appSecret, Refusals: &refusalTally{}})
 
 	if err != nil {
 		t.Fatalf("parse a complete signature check: %v", err)
@@ -154,12 +154,12 @@ func TestParseSignatureCheckAcceptsACompleteCheck(t *testing.T) {
 }
 
 func checkWith(
-	t *testing.T, accepted http.Handler, rejections ingest.RejectionCounter,
+	t *testing.T, accepted http.Handler, refusals ingest.RefusalRecorder,
 ) ingest.SignatureCheck {
 	t.Helper()
 
 	checking, err := ingest.ParseSignatureCheck(ingest.Settings{
-		Accepted: accepted, Secret: appSecret, Rejections: rejections})
+		Accepted: accepted, Secret: appSecret, Refusals: refusals})
 	if err != nil {
 		t.Fatalf("parse signature check: %v", err)
 	}
@@ -168,7 +168,7 @@ func checkWith(
 
 func TestABodyOverTheBoundIsRefusedBeforeItIsRead(t *testing.T) {
 	accepted := &acceptedDelivery{}
-	tally := &rejectionTally{}
+	tally := &refusalTally{}
 	checking := checkWith(t, accepted, tally)
 	answered := httptest.NewRecorder()
 
@@ -191,7 +191,7 @@ func TestVerificationPrecedesAnyParsingOfTheBody(t *testing.T) {
 	const signedNotJSON = "sha256=126b0613bfa437f09a85e989ea7d007594eccf9f811e5a33b70adfb5b8af5857"
 
 	accepted := &acceptedDelivery{}
-	checking := checkWith(t, accepted, &rejectionTally{})
+	checking := checkWith(t, accepted, &refusalTally{})
 	answered := httptest.NewRecorder()
 
 	asked := httptest.NewRequest(http.MethodPost, "/v1/forge/github/events",
