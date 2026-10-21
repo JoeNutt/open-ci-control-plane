@@ -44,6 +44,7 @@ type publishedRecord struct {
 	DecisionID       string                  `json:"decisionId"`
 	BundleRevision   *string                 `json:"bundleRevision,omitempty"`
 	OutcomeClass     string                  `json:"outcomeClass"`
+	Verdict          string                  `json:"verdict"`
 	MaskedInput      domain.MaskedInput      `json:"maskedInput"`
 	RedactedPointers domain.Declared[string] `json:"redactedPointers"`
 }
@@ -60,6 +61,7 @@ func publishedRecordOf(record domain.DecisionRecord) (publishedRecord, error) {
 		DecisionID:       record.DecisionID().String(),
 		BundleRevision:   publishedRevisionOf(record.Revision()),
 		OutcomeClass:     class,
+		Verdict:          "refuse",
 		MaskedInput:      record.MaskedInput(),
 		RedactedPointers: domain.Declared[string](record.MaskedInput().RedactedPointers()),
 	}, nil

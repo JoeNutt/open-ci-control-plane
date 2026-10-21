@@ -26,6 +26,7 @@ type publishedRecord struct {
 	DecisionID       string           `json:"decisionId"`
 	BundleRevision   *string          `json:"bundleRevision"`
 	OutcomeClass     string           `json:"outcomeClass"`
+	Verdict          string           `json:"verdict"`
 	MaskedInput      *json.RawMessage `json:"maskedInput"`
 	RedactedPointers json.RawMessage  `json:"redactedPointers"`
 }
@@ -69,6 +70,14 @@ func TestARecordOfAnUndecidedDecisionPublishesTheContractsOutcomeClass(t *testin
 
 	if published.OutcomeClass != "undecided" {
 		t.Errorf("outcomeClass is %q, want %q", published.OutcomeClass, "undecided")
+	}
+}
+
+func TestARecordOfAnUndecidedDecisionThatFailsClosedPublishesARefusal(t *testing.T) {
+	published := publishedFrom(t, writtenLineOf(t, recordOf(t, undecidedStructural(t), domain.Document{})))
+
+	if published.Verdict != "refuse" {
+		t.Errorf("verdict is %q, want %q", published.Verdict, "refuse")
 	}
 }
 
