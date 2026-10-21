@@ -7,6 +7,8 @@ import (
 	"fmt"
 )
 
+const lowestGroupOrder = 0
+
 var ErrNegativeGroupOrder = errors.New("group order is negative")
 
 type GroupStatement struct {
@@ -24,7 +26,7 @@ func parsePolicyGroup(stated GroupStatement) (PolicyGroup, error) {
 	if err != nil {
 		return PolicyGroup{}, fmt.Errorf("group: %w", err)
 	}
-	if stated.Order < 0 {
+	if stated.Order < lowestGroupOrder {
 		return PolicyGroup{}, fmt.Errorf("group %s: %w: %d", name, ErrNegativeGroupOrder, stated.Order)
 	}
 	return PolicyGroup{name: name, order: stated.Order}, nil
