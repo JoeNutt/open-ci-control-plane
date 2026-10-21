@@ -2,9 +2,14 @@
 
 package memory
 
-import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+import (
+	"sync"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
 
 type CoverageMaps struct {
+	guard  sync.RWMutex
 	held   map[domain.Repository]domain.RepositoryCoverage
 	limits domain.CoverageLimits
 }
@@ -13,17 +18,25 @@ func NewCoverageMaps(limits domain.CoverageLimits) *CoverageMaps {
 	return &CoverageMaps{held: map[domain.Repository]domain.RepositoryCoverage{}, limits: limits}
 }
 
-func (maps *CoverageMaps) ReplaceSuiteCoverage(
+func (store *CoverageMaps) ReplaceSuiteCoverage(
 	repository domain.Repository, suite domain.SuiteName, coverage domain.SuiteCoverage,
 ) error {
-	replaced, err := maps.held[repository].Replacing(suite, coverage, maps.limits)
+	store.guard.Lock()
+	defer store.guard.Unlock()
+
+	replaced, err := store.held[repository].Replacing(suite, coverage, store.limits)
 	if err != nil {
 		return err
 	}
-	maps.held[repository] = replaced
+	store.held[repository] = replaced
 	return nil
 }
 
-func (maps *CoverageMaps) SuiteCoverageOf(repository domain.Repository, suite domain.SuiteName) (domain.SuiteCoverage, error) {
-	return maps.held[repository].SuiteCoverageOf(suite)
+func (store *CoverageMaps) SuiteCoverageOf(
+	repository domain.Repository, suite domain.SuiteName,
+) (domain.SuiteCoverage, error) {
+	store.guard.RLock()
+	defer store.guard.RUnlock()
+
+	return store.held[repository].SuiteCoverageOf(suite)
 }
