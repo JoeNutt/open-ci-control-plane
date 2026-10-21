@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -71,7 +72,9 @@ func (configured Configuration) WebhookSecret() domain.WebhookSecret {
 
 func (configured Configuration) AppKey() Secret { return configured.appKey }
 
-func (configured Configuration) InstallationIDs() []int64 { return configured.installationIDs }
+func (configured Configuration) InstallationIDs() []int64 {
+	return slices.Clone(configured.installationIDs)
+}
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
@@ -84,10 +87,15 @@ func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
-	if err := errors.Join(secretErr, keyErr, installationsPresentIn(stated.InstallationIDs)); err != nil {
+	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
+	if err := errors.Join(secretErr, keyErr, installationsErr); err != nil {
 		return Configuration{}, err
 	}
-	return Configuration{webhookSecret: secret, appKey: secretOf(key), installationIDs: stated.InstallationIDs}, nil
+	return Configuration{
+		webhookSecret:   secret,
+		appKey:          secretOf(key),
+		installationIDs: installations,
+	}, nil
 }
 
 func webhookSecretIn(path string) (Secret, error) {
@@ -105,11 +113,11 @@ func webhookSecretIn(path string) (Secret, error) {
 	return secretOf(secret), nil
 }
 
-func installationsPresentIn(stated []int64) error {
+func installationIDsIn(stated []int64) ([]int64, error) {
 	if len(stated) == 0 {
-		return installationIDs.missing()
+		return nil, installationIDs.missing()
 	}
-	return nil
+	return slices.Clone(stated), nil
 }
 
 func isControlOrBeyondASCII(character rune) bool {
