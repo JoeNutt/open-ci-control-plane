@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 var ErrTooManyImportsInChange = errors.New("change exceeds the per-change import bound")
@@ -20,37 +21,70 @@ type StructuralFacts struct {
 	edgesRemoved Declared[ModuleEdge]
 }
 
+var boundsOfStructuralFacts = []func(StructuralFacts, Limits) error{
+	edgeCountBreachIn,
+	serialisedBytesBreachIn,
+}
+
 func ParseStructuralFacts(imported []ImportedFile, limits Limits) (StructuralFacts, error) {
-	published := headImportCountOf(imported)
-	if published > limits.MaxImportsPerChange {
-		return StructuralFacts{}, fmt.Errorf("%w: %d imports exceeds %d",
-			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
+	if breach := changeImportCountBreachIn(imported, limits); breach != nil {
+		return StructuralFacts{}, breach
 	}
-	facts := StructuralFacts{
-		imports:      importsOf(imported),
-		edgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
-		edgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
-	}
-	if edges := facts.edgeCount(); edges > limits.MaxGraphEdges {
-		return StructuralFacts{}, fmt.Errorf("%w: %d edges exceeds %d",
-			ErrTooManyEdges, edges, limits.MaxGraphEdges)
-	}
-	serialised, err := json.Marshal(struct {
-		Imports          Declared[Import] `json:"imports"`
-		ModuleGraphDelta ModuleGraphDelta `json:"module_graph_delta"`
-	}{facts.imports, graphDeltaFor(importResolutionIn(facts.imports), facts)})
-	if err != nil {
-		return StructuralFacts{}, err
-	}
-	if len(serialised) > limits.MaxStructuralBytes {
-		return StructuralFacts{}, fmt.Errorf("%w: %d bytes exceeds %d",
-			ErrStructuralFactsTooLarge, len(serialised), limits.MaxStructuralBytes)
+	facts := structuralFactsOf(imported)
+	for _, breachIn := range boundsOfStructuralFacts {
+		if breach := breachIn(facts, limits); breach != nil {
+			return StructuralFacts{}, breach
+		}
 	}
 	return facts, nil
 }
 
-func (facts StructuralFacts) edgeCount() int {
-	return len(facts.edgesAdded) + len(facts.edgesRemoved)
+func (facts StructuralFacts) moduleGraphDelta() ModuleGraphDelta {
+	return ModuleGraphDelta{
+		EdgesAdded:   slices.Clone(facts.edgesAdded),
+		EdgesRemoved: slices.Clone(facts.edgesRemoved),
+		Incomplete:   importResolutionIn(facts.imports).unresolved > 0,
+	}
+}
+
+func changeImportCountBreachIn(imported []ImportedFile, limits Limits) error {
+	published := headImportCountOf(imported)
+	if published > limits.MaxImportsPerChange {
+		return fmt.Errorf("%w: %d imports exceeds %d",
+			ErrTooManyImportsInChange, published, limits.MaxImportsPerChange)
+	}
+	return nil
+}
+
+func structuralFactsOf(imported []ImportedFile) StructuralFacts {
+	return StructuralFacts{
+		imports:      importsOf(imported),
+		edgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
+		edgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
+	}
+}
+
+func edgeCountBreachIn(facts StructuralFacts, limits Limits) error {
+	edges := len(facts.edgesAdded) + len(facts.edgesRemoved)
+	if edges > limits.MaxGraphEdges {
+		return fmt.Errorf("%w: %d edges exceeds %d", ErrTooManyEdges, edges, limits.MaxGraphEdges)
+	}
+	return nil
+}
+
+func serialisedBytesBreachIn(facts StructuralFacts, limits Limits) error {
+	serialised, err := json.Marshal(struct {
+		Imports          Declared[Import] `json:"imports"`
+		ModuleGraphDelta ModuleGraphDelta `json:"module_graph_delta"`
+	}{facts.imports, facts.moduleGraphDelta()})
+	if err != nil {
+		return fmt.Errorf("serialise the structural facts: %w", err)
+	}
+	if len(serialised) > limits.MaxStructuralBytes {
+		return fmt.Errorf("%w: %d bytes exceeds %d",
+			ErrStructuralFactsTooLarge, len(serialised), limits.MaxStructuralBytes)
+	}
+	return nil
 }
 
 func headImportCountOf(imported []ImportedFile) int {
