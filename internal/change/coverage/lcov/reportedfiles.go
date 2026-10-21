@@ -71,7 +71,7 @@ func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.
 		return nil, err
 	}
 	var reading recordReading
-	if err := reading.takeAll(bufio.NewScanner(plain)); err != nil {
+	if err := reading.takeAll(bufio.NewScanner(&boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach})); err != nil {
 		return nil, err
 	}
 	return reading.completed()
