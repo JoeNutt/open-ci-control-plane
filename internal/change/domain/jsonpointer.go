@@ -10,10 +10,15 @@ type JSONPointer struct {
 
 func ParseJSONPointer(stated string) (JSONPointer, error) {
 	var tokens []string
-	for _, raw := range strings.Split(stated, "/")[1:] {
-		tokens = append(tokens, strings.ReplaceAll(strings.ReplaceAll(raw, "~1", "/"), "~0", "~"))
+	for _, escaped := range strings.Split(stated, "/")[1:] {
+		tokens = append(tokens, unescapedToken(escaped))
 	}
 	return JSONPointer{tokens: tokens}, nil
 }
 
 func (pointer JSONPointer) Tokens() []string { return pointer.tokens }
+
+// RFC 6901 §4: "~1" is decoded before "~0", so that "~01" yields "~1" and not "/".
+func unescapedToken(escaped string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(escaped, "~1", "/"), "~0", "~")
+}
