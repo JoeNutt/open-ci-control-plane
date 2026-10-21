@@ -3,6 +3,7 @@
 package httpapi_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -46,6 +47,21 @@ func TestADeliveryReplayedADayLaterIsEvaluatedAgain(t *testing.T) {
 
 	if len(gate.evaluated) != 2 {
 		t.Errorf("the gate evaluated %d times, want twice: the record should have lapsed", len(gate.evaluated))
+	}
+}
+
+func TestARedeliveryOfAFailedEvaluationIsEvaluatedAgain(t *testing.T) {
+	gate := &recordingGate{failure: errors.New("the forge is unreachable")}
+	routes := routedWith(t, discardedLog(), gate)
+
+	routes.ServeHTTP(httptest.NewRecorder(), signedDelivery("pull_request", pullRequestPayload("opened")))
+	gate.failure = nil
+	redelivered := httptest.NewRecorder()
+	routes.ServeHTTP(redelivered, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if redelivered.Code != http.StatusAccepted || len(gate.evaluated) != 2 {
+		t.Errorf("the redelivery was answered %d after %d evaluations, want 202 after 2",
+			redelivered.Code, len(gate.evaluated))
 	}
 }
 
