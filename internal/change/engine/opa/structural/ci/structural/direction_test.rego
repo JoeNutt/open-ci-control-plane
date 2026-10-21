@@ -114,6 +114,15 @@ test_an_import_root_matches_whole_path_segments_only if {
 	decided.violations == []
 }
 
+test_an_import_under_no_declared_root_is_outside_every_group if {
+	domain_imports_unrooted := {"from": domain_imports_forge.from, "to": "internal/change/forge/github"}
+
+	decided := structural.decision with input as change_adding([domain_imports_unrooted]) with data.ci.policy as policy
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
