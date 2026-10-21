@@ -27,7 +27,7 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
-	useCase := replaceCoverage(maps, repositoryHolding{path}, tokensNaming{repository})
+	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{repository})
 	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
 	covered, untouched := parsedPath(t), parsedPathOf(t, untouchedFile)
 	report := artifactReporting{reads: new(int), reported: []domain.ReportedFile{
 		domain.NewReportedFile(covered, true), domain.NewReportedFile(untouched, false)}}
-	useCase := replaceCoverage(memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), repositoryHolding{covered, untouched}, tokensNaming{parsedRepository(t)})
+	useCase := replaceCoverage(t, memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), repositoryHolding{covered, untouched}, tokensNaming{parsedRepository(t)})
 
 	replaced, err := useCase.Execute(t.Context(), uploadOf(t, report))
 
@@ -62,7 +62,7 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
-	useCase := replaceCoverage(maps, repositoryHolding{}, tokensNaming{repository})
+	useCase := replaceCoverage(t, maps, repositoryHolding{}, tokensNaming{repository})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
@@ -76,7 +76,7 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 	repository, suite := parsedRepository(t), parsedSuite(t)
 	unreadable := errors.New("the forge is unreachable")
 
-	useCase := replaceCoverage(maps, unreadablePaths{unreadable}, tokensNaming{repository})
+	useCase := replaceCoverage(t, maps, unreadablePaths{unreadable}, tokensNaming{repository})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(parsedPath(t))))
 
 	if !errors.Is(err, unreadable) {
@@ -89,7 +89,7 @@ func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *te
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
-	useCase := replaceCoverage(maps, repositoryHolding{path}, tokensNaming{parsedStranger(t)})
+	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{parsedStranger(t)})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, application.ErrForeignRepository) {
@@ -103,7 +103,7 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 	unverified := errors.New("token is absent, expired or not verifiable")
 
-	useCase := replaceCoverage(maps, repositoryHolding{path}, unverifiedTokens{unverified})
+	useCase := replaceCoverage(t, maps, repositoryHolding{path}, unverifiedTokens{unverified})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
 
 	if !errors.Is(err, unverified) || errors.Is(err, application.ErrForeignRepository) {
@@ -116,7 +116,7 @@ func TestReplaceCoverageNeverReadsTheArtifactOfARefusedUploader(t *testing.T) {
 	path := parsedPath(t)
 	artifact := reportOf(path)
 
-	useCase := replaceCoverage(memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), repositoryHolding{path}, tokensNaming{parsedStranger(t)})
+	useCase := replaceCoverage(t, memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), repositoryHolding{path}, tokensNaming{parsedStranger(t)})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, artifact))
 
 	if !errors.Is(err, application.ErrForeignRepository) {
@@ -130,7 +130,7 @@ func TestReplaceCoverageNeverReadsTheArtifactOfARefusedUploader(t *testing.T) {
 func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
-	useCase := replaceCoverage(maps, repositoryHolding{path}, tokensNaming{repository})
+	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{repository})
 	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
 		t.Fatalf("accept the first map: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *tes
 func TestReplaceCoverageKeepsServingTheMapATruncatedLCOVArtifactWouldReplace(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	path := parsedPath(t)
-	useCase := replaceCoverage(maps, repositoryHolding{path}, tokensNaming{parsedRepository(t)})
+	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{parsedRepository(t)})
 	whole := "SF:" + coveredFile + "\nDA:7,3\nend_of_record\n"
 	if _, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact(whole))); err != nil {
 		t.Fatalf("accept the whole artifact: %v", err)
@@ -173,7 +173,7 @@ func lcovArtifact(body string) lcov.Artifact {
 func TestReplaceCoverageRefusesAnUploadOverTheRateWithoutReadingIt(t *testing.T) {
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	path := parsedPath(t)
-	rate := application.NewUploadRate(domain.DeclaredCoverageLimits(), func() time.Time { return windowOpens })
+	rate := rateFor(t, domain.DeclaredCoverageLimits(), func() time.Time { return windowOpens })
 	admitAll(t, rate, parsedRepository(t), domain.DeclaredCoverageLimits().MaxUploadsPerMinute)
 	artifact := reportOf(path)
 	useCase := application.ReplaceCoverage{
@@ -193,7 +193,7 @@ func TestReplaceCoverageRefusesAnUploadOverTheRateWithoutReadingIt(t *testing.T)
 func TestReplaceCoverageNeverSpendsTheAllowanceOnARefusedUploader(t *testing.T) {
 	path := parsedPath(t)
 	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
-	rate := freshRate()
+	rate := freshRate(t)
 	strangers := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedStranger(t)}, Rate: rate}
 	for range domain.DeclaredCoverageLimits().MaxUploadsPerMinute {
@@ -251,13 +251,17 @@ func (unreadable unreadablePaths) KnownPathsOf(context.Context, domain.GovernedR
 }
 
 func replaceCoverage(
-	maps domain.CoverageMaps, paths domain.RepositoryPaths, callers domain.CallerRepositories,
+	t *testing.T, maps domain.CoverageMaps, paths domain.RepositoryPaths, callers domain.CallerRepositories,
 ) application.ReplaceCoverage {
-	return application.ReplaceCoverage{Maps: maps, Paths: paths, Callers: callers, Rate: freshRate()}
+	t.Helper()
+
+	return application.ReplaceCoverage{Maps: maps, Paths: paths, Callers: callers, Rate: freshRate(t)}
 }
 
-func freshRate() *application.UploadRate {
-	return application.NewUploadRate(domain.DeclaredCoverageLimits(), func() time.Time { return windowOpens })
+func freshRate(t *testing.T) *application.UploadRate {
+	t.Helper()
+
+	return rateFor(t, domain.DeclaredCoverageLimits(), func() time.Time { return windowOpens })
 }
 
 func assertNothingStored(

@@ -17,7 +17,7 @@ var windowOpens = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 
 func TestUploadRateRefusesTheUploadOneOverTheLimit(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
-	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
+	rate := rateFor(t, limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
 	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
@@ -31,7 +31,7 @@ func TestUploadRateRefusesTheUploadOneOverTheLimit(t *testing.T) {
 func TestUploadRateAdmitsAgainOnceTheEarliestUploadIsAMinuteOld(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	clock := windowOpens
-	rate := application.NewUploadRate(limits, func() time.Time { return clock })
+	rate := rateFor(t, limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
 	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
@@ -45,7 +45,7 @@ func TestUploadRateAdmitsAgainOnceTheEarliestUploadIsAMinuteOld(t *testing.T) {
 func TestUploadRateSaysHowLongUntilTheEarliestUploadLeavesTheWindow(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	clock := windowOpens
-	rate := application.NewUploadRate(limits, func() time.Time { return clock })
+	rate := rateFor(t, limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
 	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 	clock = windowOpens.Add(20*time.Second + 500*time.Millisecond)
@@ -62,7 +62,7 @@ func TestUploadRateSaysHowLongUntilTheEarliestUploadLeavesTheWindow(t *testing.T
 
 func TestUploadRateAdmitsTheUploadAtTheLimit(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
-	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
+	rate := rateFor(t, limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
 	admitAll(t, rate, repository, limits.MaxUploadsPerMinute-1)
 
@@ -74,7 +74,7 @@ func TestUploadRateAdmitsTheUploadAtTheLimit(t *testing.T) {
 func TestUploadRateStillRefusesJustShortOfAMinute(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	clock := windowOpens
-	rate := application.NewUploadRate(limits, func() time.Time { return clock })
+	rate := rateFor(t, limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
 	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
@@ -87,7 +87,7 @@ func TestUploadRateStillRefusesJustShortOfAMinute(t *testing.T) {
 
 func TestUploadRateNeverSpendsOneRepositorysAllowanceOnAnother(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
-	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
+	rate := rateFor(t, limits, func() time.Time { return windowOpens })
 	admitAll(t, rate, parsedStranger(t), limits.MaxUploadsPerMinute)
 
 	if err := rate.Admit(parsedRepository(t)); err != nil {
@@ -107,7 +107,7 @@ func admitAll(t *testing.T, rate *application.UploadRate, repository domain.Gove
 
 func TestUploadRateAdmitsExactlyTheLimitFromConcurrentUploads(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
-	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
+	rate := rateFor(t, limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
 	var admitted atomic.Int64
 	var uploads sync.WaitGroup
@@ -145,4 +145,14 @@ func TestParseUploadRateRefusesNoClockOrNoAllowance(t *testing.T) {
 			}
 		})
 	}
+}
+
+func rateFor(t *testing.T, limits domain.CoverageLimits, now func() time.Time) *application.UploadRate {
+	t.Helper()
+
+	rate, err := application.ParseUploadRate(limits, now)
+	if err != nil {
+		t.Fatalf("build the upload rate: %v", err)
+	}
+	return rate
 }
