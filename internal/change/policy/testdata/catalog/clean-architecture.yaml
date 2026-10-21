@@ -1,0 +1,9 @@
+schema_version: 1
+name: clean-architecture
+rule: direction
+direction: lower_order_may_not_import_higher
+groups:
+  - { name: domain, order: 0 }
+  - { name: application, order: 1 }
+  - { name: adapter, order: 2 }
+  - { name: driver, order: 3 }
