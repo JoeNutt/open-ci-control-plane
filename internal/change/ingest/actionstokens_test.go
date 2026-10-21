@@ -54,6 +54,8 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		"not yet valid":    issuer.sign(t, issuer.claims(governedRepository).NotBefore(issuedAt.Add(time.Second))),
 		"no expiry":        issuer.signWithout(t, issuer.claims(governedRepository), jwt.ExpirationKey),
 		"no not-before":    issuer.signWithout(t, issuer.claims(governedRepository), jwt.NotBeforeKey),
+		"unpublished key":  issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, signingKeyID)),
+		"unsigned":         issuer.unsigned(t, issuer.claims(governedRepository)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), unverifiable)
@@ -175,6 +177,26 @@ func (minted *issuer) built(t *testing.T, claims *jwt.Builder) jwt.Token {
 		t.Fatalf("build token: %v", err)
 	}
 	return token
+}
+
+func (minted *issuer) forge(t *testing.T, claims *jwt.Builder, unpublished jwk.Key) string {
+	t.Helper()
+
+	signed, err := jwt.Sign(minted.built(t, claims), jwt.WithKey(jwa.RS256(), unpublished))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return string(signed)
+}
+
+func (minted *issuer) unsigned(t *testing.T, claims *jwt.Builder) string {
+	t.Helper()
+
+	signed, err := jwt.Sign(minted.built(t, claims), jwt.WithInsecureNoSignature())
+	if err != nil {
+		t.Fatalf("leave token unsigned: %v", err)
+	}
+	return string(signed)
 }
 
 func (minted *issuer) signed(t *testing.T, token jwt.Token) string {
