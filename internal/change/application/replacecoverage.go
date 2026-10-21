@@ -48,7 +48,10 @@ func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpl
 }
 
 func (useCase ReplaceCoverage) coverageIn(ctx context.Context, upload CoverageUpload) (domain.SuiteCoverage, error) {
-	reported, _ := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
+	reported, err := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
+	if err != nil {
+		return domain.SuiteCoverage{}, err
+	}
 	known, err := useCase.Paths.KnownPathsOf(ctx, upload.Repository)
 	if err != nil {
 		return domain.SuiteCoverage{}, fmt.Errorf("read the paths it holds: %w", err)

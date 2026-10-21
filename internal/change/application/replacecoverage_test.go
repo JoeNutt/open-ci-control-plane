@@ -125,6 +125,33 @@ func TestReplaceCoverageNeverReadsTheArtifactOfARefusedUploader(t *testing.T) {
 	}
 }
 
+func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *testing.T) {
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
+	useCase := application.ReplaceCoverage{Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{repository}}
+	if err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Report: reportOf(path)}); err != nil {
+		t.Fatalf("accept the first map: %v", err)
+	}
+
+	err := useCase.Execute(t.Context(), application.CoverageUpload{
+		Token: presentedToken(t), Repository: repository, Suite: suite, Report: unreadableArtifact{}})
+
+	if !errors.Is(err, domain.ErrTooManyFileEntries) {
+		t.Fatalf("want ErrTooManyFileEntries, got %v", err)
+	}
+	served, err := maps.SuiteCoverageOf(t.Context(), repository, suite)
+	if err != nil || !served.Covers(path) {
+		t.Fatalf("the previous map stopped serving: covers %s is false, err %v", path, err)
+	}
+}
+
+type unreadableArtifact struct{}
+
+func (unreadableArtifact) ReportedFiles(domain.CoverageLimits) ([]domain.ReportedFile, error) {
+	return nil, domain.ErrTooManyFileEntries
+}
+
 type unverifiedTokens struct{ refusal error }
 
 func (unverified unverifiedTokens) RepositoryOf(context.Context, domain.IdentityToken) (domain.Repository, error) {
