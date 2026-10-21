@@ -22,5 +22,5 @@ func (record DecisionRecord) MarshalJSON() ([]byte, error) {
 
 type publishedRecord struct {
 	DecisionID     string `json:"decisionId"`
-	BundleRevision string `json:"bundleRevision"`
+	BundleRevision string `json:"bundleRevision,omitempty"`
 }
