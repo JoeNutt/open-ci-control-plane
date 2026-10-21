@@ -38,11 +38,16 @@ const bundleRevision = "revision-the-mock-bundle-declares"
 func engineFor(t *testing.T, policy string, family domain.PolicyFamily) *opa.Engine {
 	t.Helper()
 
-	server := sdktest.MustNewServer(sdktest.MockBundle(
-		"/bundles/"+string(family), map[string]string{
-			"policy.rego": policy,
-			".manifest":   `{"revision": "` + bundleRevision + `"}`,
-		}))
+	return engineServing(t, family, map[string]string{
+		"policy.rego": policy,
+		".manifest":   `{"revision": "` + bundleRevision + `"}`,
+	})
+}
+
+func engineServing(t *testing.T, family domain.PolicyFamily, files map[string]string) *opa.Engine {
+	t.Helper()
+
+	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(family), files))
 	t.Cleanup(server.Stop)
 
 	engine, err := opa.ParseEngine(context.Background(), opa.Settings{
@@ -91,6 +96,16 @@ func TestADecisionCarriesTheRevisionItsBundleDeclares(t *testing.T) {
 
 	if decided.Revision().String() != bundleRevision {
 		t.Errorf("revision is %q, want %q", decided.Revision(), bundleRevision)
+	}
+}
+
+func TestABundleDeclaringNoRevisionIsAnEngineFault(t *testing.T) {
+	engine := engineServing(t, domain.PolicyFamilySecurity, map[string]string{"policy.rego": decidingPolicy})
+
+	_, err := engine.Decide(context.Background(), domain.Document{})
+
+	if !errors.Is(err, domain.ErrEngineFault) || !errors.Is(err, domain.ErrMissingBundleRevision) {
+		t.Fatalf("want an engine fault for the missing revision, got %v", err)
 	}
 }
 
