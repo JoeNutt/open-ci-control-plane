@@ -42,6 +42,22 @@ func TestParseBindingKeepsEachPolicyItUses(t *testing.T) {
 	}
 }
 
+func TestParseBindingKeepsEachGroupsPathsInGroupOrder(t *testing.T) {
+	binding, err := domain.ParseBinding(thisRepositorysBinding())
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	groups := binding.Policies()[0].Groups()
+	if len(groups) != 2 || groups[0].Group().String() != "adapter" || groups[1].Group().String() != "domain" {
+		t.Fatalf("groups are %v, want adapter then domain", groups)
+	}
+	patterns := groups[1].Patterns()
+	if len(patterns) != 1 || !patterns[0].Matches("internal/change/domain/effect.go") {
+		t.Errorf("domain patterns are %v, want one matching the domain package", patterns)
+	}
+}
+
 func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 	refused := map[string]struct {
 		stated func(*domain.BindingStatement)
@@ -78,6 +94,14 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			},
 			reason: domain.ErrSharedImportRootPrefix,
 		},
+		"a malformed group name in paths": {
+			stated: func(s *domain.BindingStatement) { s.Policies[0].Paths["do main"] = []string{"cmd/**"} },
+			reason: domain.ErrMalformedGroupName,
+		},
+		"a path pattern this project does not translate": {
+			stated: func(s *domain.BindingStatement) { s.Policies[0].Paths["domain"] = []string{"internal/[ab]/**"} },
+			reason: domain.ErrUnsupportedPathPattern,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
@@ -103,6 +127,10 @@ func thisRepositorysBinding() domain.BindingStatement {
 		Policies: []domain.BoundPolicyStatement{{
 			Use:         "clean-architecture",
 			ImportRoots: []domain.ImportRootStatement{{Prefix: thisRepositorysModule, Path: ""}},
+			Paths: map[string][]string{
+				"domain":  {"internal/change/domain/**"},
+				"adapter": {"internal/change/forge/**", "internal/change/policy/**"},
+			},
 		}},
 	}
 }
