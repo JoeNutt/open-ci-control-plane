@@ -16,17 +16,15 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
-const MaxIssuerDocumentBytes = 64 << 10
+const (
+	MaxIssuerDocumentBytes = 64 << 10
+	discoveryPath          = "/.well-known/openid-configuration"
+	keySetRefetchInterval  = time.Minute
+)
 
 var ErrIssuerKeysUnavailable = errors.New("the token issuer's signing keys could not be read")
 
-const (
-	discoveryPath         = "/.well-known/openid-configuration"
-	maxDiscoveryBytes     = MaxIssuerDocumentBytes
-	keySetRefetchInterval = time.Minute
-)
-
-var errOversizedConfiguration = fmt.Errorf("the issuer's configuration exceeds %d bytes", maxDiscoveryBytes)
+var errOversizedIssuerDocument = fmt.Errorf("the issuer's document exceeds %d bytes", MaxIssuerDocumentBytes)
 
 type issuerKeys struct {
 	issuer      *url.URL
@@ -69,7 +67,7 @@ func (keys *issuerKeys) replaced(ctx context.Context) (jwk.Set, error) {
 	}
 	published, err := keys.published(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrIssuerKeysUnavailable, err)
 	}
 	keys.held = published
 	return published, nil
@@ -80,17 +78,9 @@ func (keys *issuerKeys) published(ctx context.Context) (jwk.Set, error) {
 	if err != nil {
 		return nil, err
 	}
-	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
+	document, err := keys.documentAt(ctx, location)
 	if err != nil {
-		return nil, fmt.Errorf("fetch the issuer's key set: %w", err)
-	}
-	answer, err := keys.client.Do(asked)
-	if err != nil {
-		return nil, fmt.Errorf("fetch the issuer's key set: %w", err)
-	}
-	document, err := boundedBodyOf(answer)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrIssuerKeysUnavailable, err)
+		return nil, fmt.Errorf("read the issuer's key set: %w", err)
 	}
 	published, err := jwk.Parse(document)
 	if err != nil {
@@ -100,15 +90,7 @@ func (keys *issuerKeys) published(ctx context.Context) (jwk.Set, error) {
 }
 
 func (keys *issuerKeys) keySetLocation(ctx context.Context) (string, error) {
-	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, keys.issuer.JoinPath(discoveryPath).String(), nil)
-	if err != nil {
-		return "", fmt.Errorf("ask the issuer for its configuration: %w", err)
-	}
-	answer, err := keys.client.Do(asked)
-	if err != nil {
-		return "", fmt.Errorf("ask the issuer for its configuration: %w", err)
-	}
-	document, err := boundedBodyOf(answer)
+	document, err := keys.documentAt(ctx, keys.issuer.JoinPath(discoveryPath).String())
 	if err != nil {
 		return "", fmt.Errorf("read the issuer's configuration: %w", err)
 	}
@@ -119,16 +101,28 @@ func (keys *issuerKeys) keySetLocation(ctx context.Context) (string, error) {
 	return discovered.KeySets, nil
 }
 
+func (keys *issuerKeys) documentAt(ctx context.Context, location string) ([]byte, error) {
+	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
+	if err != nil {
+		return nil, err
+	}
+	answer, err := keys.client.Do(asked)
+	if err != nil {
+		return nil, err
+	}
+	return boundedBodyOf(answer)
+}
+
 func boundedBodyOf(answer *http.Response) ([]byte, error) {
-	body, readFailure := io.ReadAll(io.LimitReader(answer.Body, maxDiscoveryBytes+1))
+	body, readFailure := io.ReadAll(io.LimitReader(answer.Body, MaxIssuerDocumentBytes+1))
 	if err := errors.Join(readFailure, answer.Body.Close()); err != nil {
 		return nil, err
 	}
 	if answer.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("the issuer answered %d", answer.StatusCode)
 	}
-	if len(body) > maxDiscoveryBytes {
-		return nil, errOversizedConfiguration
+	if len(body) > MaxIssuerDocumentBytes {
+		return nil, errOversizedIssuerDocument
 	}
 	return body, nil
 }
