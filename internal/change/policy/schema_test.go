@@ -12,13 +12,23 @@ import (
 )
 
 const (
-	schemaDirectory   = "../../../schema/"
-	catalogSchemaPath = schemaDirectory + "policy.catalog.v1.schema.json"
+	schemaDirectory    = "../../../schema/"
+	catalogSchemaPath  = schemaDirectory + "policy.catalog.v1.schema.json"
+	bindingSchemaPath  = schemaDirectory + "policy.binding.v1.schema.json"
+	exampleBindingPath = fixtureDirectory + "section13/binding.yaml"
 )
 
 func TestTheLiveCatalogMatchesThePublishedCatalogSchema(t *testing.T) {
 	if faults := schemaFaultsOf(t, string(fixture(t, liveCatalogPath)), catalogSchemaPath); len(faults) != 0 {
 		t.Errorf("the live catalog does not match %s: %v", catalogSchemaPath, faults)
+	}
+}
+
+func TestTheLiveAndExampleBindingsMatchThePublishedBindingSchema(t *testing.T) {
+	for _, path := range []string{liveBindingPath, exampleBindingPath} {
+		if faults := schemaFaultsOf(t, string(fixture(t, path)), bindingSchemaPath); len(faults) != 0 {
+			t.Errorf("%s does not match %s: %v", path, bindingSchemaPath, faults)
+		}
 	}
 }
 
