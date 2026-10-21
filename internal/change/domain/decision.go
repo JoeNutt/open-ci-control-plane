@@ -24,6 +24,7 @@ type Decision struct {
 	violations Declared[Violation]
 	reviewers  Declared[string]
 	posture    FailurePosture
+	revision   BundleRevision
 }
 
 func (decided Decision) Outcome() Outcome                { return decided.outcome }
@@ -31,6 +32,7 @@ func (decided Decision) Effect() Effect                  { return decided.effect
 func (decided Decision) Violations() Declared[Violation] { return decided.violations }
 func (decided Decision) Reviewers() Declared[string]     { return decided.reviewers }
 func (decided Decision) FailurePosture() FailurePosture  { return decided.posture }
+func (decided Decision) Revision() BundleRevision        { return decided.revision }
 
 type statedDecision struct {
 	InputWellformed       bool                `json:"input_wellformed"`
@@ -41,9 +43,11 @@ type statedDecision struct {
 	FailClosed            *bool               `json:"fail_closed"`
 }
 
-func UndecidedDecision() Decision { return Decision{outcome: OutcomeUndefined} }
+func UndecidedDecision(revision BundleRevision) Decision {
+	return Decision{outcome: OutcomeUndefined, revision: revision}
+}
 
-func ParseDecision(stated []byte) (Decision, error) {
+func ParseDecision(stated []byte, revision BundleRevision) (Decision, error) {
 	var written statedDecision
 	if err := json.Unmarshal(stated, &written); err != nil {
 		return Decision{}, fmt.Errorf("%w: %w", ErrMalformedDecision, err)
@@ -61,7 +65,7 @@ func ParseDecision(stated []byte) (Decision, error) {
 		return Decision{}, err
 	}
 	if !written.InputWellformed {
-		undecided := UndecidedDecision()
+		undecided := UndecidedDecision(revision)
 		undecided.posture = declaredPostureOf(written.FailClosed)
 		return undecided, nil
 	}
@@ -71,6 +75,7 @@ func ParseDecision(stated []byte) (Decision, error) {
 		violations: written.Violations,
 		reviewers:  written.Reviewers,
 		posture:    declaredPostureOf(written.FailClosed),
+		revision:   revision,
 	}, nil
 }
 

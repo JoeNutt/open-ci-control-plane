@@ -30,7 +30,7 @@ func (engine *statedEngine) Decide(
 func decidingEngine(t *testing.T) *statedEngine {
 	t.Helper()
 
-	decided, err := domain.ParseDecision([]byte(wellFormedDecision))
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision), revisionForTest(t))
 	if err != nil {
 		t.Fatalf("parse decision: %v", err)
 	}

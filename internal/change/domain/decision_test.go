@@ -23,7 +23,7 @@ const wellFormedDecision = `{
 }`
 
 func TestADecisionCarryingTheAssertionIsHonoured(t *testing.T) {
-	decided, err := domain.ParseDecision([]byte(wellFormedDecision))
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision), revisionForTest(t))
 
 	if err != nil {
 		t.Fatalf("parse a well-formed decision: %v", err)
@@ -57,7 +57,7 @@ func TestADecisionWithoutTheAssertionIsUndecidedWhateverItSays(t *testing.T) {
 
 	for form, stated := range withheld {
 		t.Run(form, func(t *testing.T) {
-			decided, err := domain.ParseDecision([]byte(stated))
+			decided, err := domain.ParseDecision([]byte(stated), revisionForTest(t))
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -90,7 +90,7 @@ func TestADecisionAcceptingAnotherMajorIsRefused(t *testing.T) {
 
 	for form, stated := range mismatched {
 		t.Run(form, func(t *testing.T) {
-			_, err := domain.ParseDecision([]byte(stated))
+			_, err := domain.ParseDecision([]byte(stated), revisionForTest(t))
 
 			if !errors.Is(err, domain.ErrSchemaMajorMismatch) {
 				t.Fatalf("want ErrSchemaMajorMismatch, got %v", err)
@@ -110,7 +110,7 @@ func TestADecisionWhoseViolationCarriesAnUnknownSeverityIsMalformed(t *testing.T
 		"reviewers": [], "fail_closed": true
 	}`
 
-	_, err := domain.ParseDecision([]byte(stated))
+	_, err := domain.ParseDecision([]byte(stated), revisionForTest(t))
 
 	if !errors.Is(err, domain.ErrMalformedDecision) {
 		t.Fatalf("want ErrMalformedDecision, got %v", err)
@@ -131,7 +131,7 @@ func TestADecisionWhoseViolationOmitsItsSeverityIsMalformed(t *testing.T) {
 		"reviewers": [], "fail_closed": true
 	}`
 
-	_, err := domain.ParseDecision([]byte(stated))
+	_, err := domain.ParseDecision([]byte(stated), revisionForTest(t))
 
 	if !errors.Is(err, domain.ErrMalformedDecision) {
 		t.Fatalf("want ErrMalformedDecision, got %v", err)
@@ -148,8 +148,8 @@ func TestAnUndecidedDocumentKeepsTheFailurePostureItDeclares(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			decided, err := domain.ParseDecision([]byte(`{
 				"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
-				"violations": [], "reviewers": [], ` + field + `
-			}`))
+				"violations": [], "reviewers": [], `+field+`
+			}`), revisionForTest(t))
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -165,9 +165,9 @@ func TestADocumentThatDeclaresNoFailurePostureIsNotReadAsOpen(t *testing.T) {
 	for _, wellformed := range []string{"true", "false"} {
 		t.Run("input_wellformed "+wellformed, func(t *testing.T) {
 			decided, err := domain.ParseDecision([]byte(`{
-				"input_wellformed": ` + wellformed + `, "schema_version_accepted": 1,
+				"input_wellformed": `+wellformed+`, "schema_version_accepted": 1,
 				"effect": "allow", "violations": [], "reviewers": []
-			}`))
+			}`), revisionForTest(t))
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -181,7 +181,7 @@ func TestADocumentThatDeclaresNoFailurePostureIsNotReadAsOpen(t *testing.T) {
 }
 
 func TestADecidedDocumentReportsTheFailurePostureItDeclares(t *testing.T) {
-	decided, err := domain.ParseDecision([]byte(wellFormedDecision))
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision), revisionForTest(t))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -189,4 +189,26 @@ func TestADecidedDocumentReportsTheFailurePostureItDeclares(t *testing.T) {
 	if decided.FailurePosture() != domain.FailurePostureClosed {
 		t.Errorf("posture is %q, want %q", decided.FailurePosture(), domain.FailurePostureClosed)
 	}
+}
+
+func TestADecisionKeepsTheBundleRevisionItWasMadeAgainst(t *testing.T) {
+	revision := revisionForTest(t)
+
+	decided, err := domain.ParseDecision([]byte(wellFormedDecision), revision)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if decided.Revision() != revision {
+		t.Errorf("revision is %q, want %q", decided.Revision(), revision)
+	}
+}
+
+func revisionForTest(t *testing.T) domain.BundleRevision {
+	t.Helper()
+	revision, err := domain.ParseBundleRevision(wellFormedRevision)
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	return revision
 }

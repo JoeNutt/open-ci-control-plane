@@ -9,16 +9,16 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestParseBundleRevisionKeepsTheRevisionStated(t *testing.T) {
-	const stated = "4f368b8c2e1d0a9b8c7d6e5f4a3b2c1d0e9f8a7b"
+const wellFormedRevision = "4f368b8c2e1d0a9b8c7d6e5f4a3b2c1d0e9f8a7b"
 
-	parsed, err := domain.ParseBundleRevision(stated)
+func TestParseBundleRevisionKeepsTheRevisionStated(t *testing.T) {
+	parsed, err := domain.ParseBundleRevision(wellFormedRevision)
 
 	if err != nil {
-		t.Fatalf("parse %q: %v", stated, err)
+		t.Fatalf("parse %q: %v", wellFormedRevision, err)
 	}
-	if parsed.String() != stated {
-		t.Errorf("parsed to %q, want %q", parsed.String(), stated)
+	if parsed.String() != wellFormedRevision {
+		t.Errorf("parsed to %q, want %q", parsed.String(), wellFormedRevision)
 	}
 }
 
