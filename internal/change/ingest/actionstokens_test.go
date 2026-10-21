@@ -20,6 +20,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
 
@@ -94,7 +95,7 @@ func TestActionsTokensReadTheRepositoryOfAVerifiedToken(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
 
-	repository, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+	repository, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
 
 	if err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
@@ -119,7 +120,7 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		"not a repository": issuer.sign(t, issuer.claims("../../etc/passwd")),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), unverifiable)
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, unverifiable))
 
 			if !errors.Is(err, ingest.ErrUnverifiedToken) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)
@@ -136,7 +137,7 @@ func TestActionsTokensRefuseATokenOverTheBoundBeforeParsingIt(t *testing.T) {
 	padding := strings.Repeat("a", ingest.MaxActionsTokenBytes)
 	oversized := issuer.sign(t, issuer.claims(governedRepository).Claim("padding", padding))
 
-	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), oversized)
+	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, oversized))
 
 	if !errors.Is(err, ingest.ErrUnverifiedToken) {
 		t.Fatalf("want ErrUnverifiedToken, got %v", err)
@@ -168,7 +169,7 @@ func TestActionsTokensRefuseAnIssuerTheyCannotRead(t *testing.T) {
 			issuer := newIssuer(t)
 			misanswering(issuer)
 
-			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
 
 			if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
 				t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
@@ -182,7 +183,7 @@ func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 	tokens := issuer.tokensFor(t, instanceURL)
 
 	for range 2 {
-		if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+		if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
 			t.Fatalf("verify a token GitHub Actions issued: %v", err)
 		}
 	}
@@ -195,12 +196,12 @@ func TestActionsTokensFetchTheKeySetOnceForKeysTheyHold(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
 		t.Fatalf("verify a token before rotation: %v", err)
 	}
 
 	issuer.rotate(t, "rotated-signing-key")
-	_, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+	_, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
 
 	if err != nil {
 		t.Fatalf("verify a token signed by the rotated key: %v", err)
@@ -210,13 +211,13 @@ func TestActionsTokensRefetchTheKeySetForAKeyTheyDoNotHold(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
 	}
 
 	for _, unknownKeyID := range []string{"unknown-1", "unknown-2", "unknown-3"} {
 		forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, unknownKeyID))
-		if _, err := tokens.RepositoryOf(t.Context(), forged); !errors.Is(err, ingest.ErrUnverifiedToken) {
+		if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, ingest.ErrUnverifiedToken) {
 			t.Fatalf("want ErrUnverifiedToken, got %v", err)
 		}
 	}
@@ -229,17 +230,17 @@ func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
 	issuer := newIssuer(t)
 	tokens := issuer.tokensFor(t, instanceURL)
-	if _, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository))); err != nil {
+	if _, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository)))); err != nil {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
 	}
 	forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, "unknown"))
-	if _, err := tokens.RepositoryOf(t.Context(), forged); !errors.Is(err, ingest.ErrUnverifiedToken) {
+	if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, ingest.ErrUnverifiedToken) {
 		t.Fatalf("want ErrUnverifiedToken, got %v", err)
 	}
 
 	issuer.advance(24 * time.Hour)
 	issuer.rotate(t, "rotated-signing-key")
-	_, err := tokens.RepositoryOf(t.Context(), issuer.sign(t, issuer.claims(governedRepository)))
+	_, err := tokens.RepositoryOf(t.Context(), identity(t, issuer.sign(t, issuer.claims(governedRepository))))
 
 	if err != nil {
 		t.Fatalf("verify a token signed by a key rotated a day later: %v", err)
@@ -371,7 +372,7 @@ func (minted *issuer) write(answer http.ResponseWriter, body []byte) {
 	}
 }
 
-func (minted *issuer) tokensFor(t *testing.T, audience string) *ingest.ActionsTokens {
+func (minted *issuer) tokensFor(t *testing.T, audience string) domain.CallerRepositories {
 	t.Helper()
 
 	tokens, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
@@ -451,6 +452,16 @@ func signed(t *testing.T, token jwt.Token, key jwk.Key) string {
 		t.Fatalf("sign token: %v", err)
 	}
 	return string(signature)
+}
+
+func identity(t *testing.T, presented string) domain.IdentityToken {
+	t.Helper()
+
+	token, err := domain.ParseIdentityToken(presented)
+	if err != nil {
+		t.Fatalf("parse identity token: %v", err)
+	}
+	return token
 }
 
 func newSigningKey(t *testing.T, keyID string) jwk.Key {

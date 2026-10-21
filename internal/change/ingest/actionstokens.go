@@ -120,7 +120,8 @@ func hasNoTimeout(client *http.Client) bool {
 	return client == nil || client.Timeout <= 0
 }
 
-func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, bearer string) (domain.Repository, error) {
+func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.IdentityToken) (domain.Repository, error) {
+	bearer := token.Reveal()
 	keyID, err := keyIDOf(bearer)
 	if err != nil {
 		return domain.Repository{}, err
