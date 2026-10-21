@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -85,6 +86,27 @@ func TestReportedFilesInRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
 	if errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("an artifact over a bound is not malformed: %v", err)
 	}
+}
+
+func TestReportedFilesInRefusesMoreFileEntriesThanTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := lcov.ReportedFilesIn(artifactOfRecords(limits.MaxFileEntries+1), limits)
+
+	if !errors.Is(err, domain.ErrTooManyFileEntries) {
+		t.Fatalf("want ErrTooManyFileEntries, got %v", err)
+	}
+	if errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("an artifact over a bound is not malformed: %v", err)
+	}
+}
+
+func artifactOfRecords(count int) lcov.Artifact {
+	var records strings.Builder
+	for index := range count {
+		records.WriteString(record(fmt.Sprintf("internal/generated/file%d.go", index), lineHit))
+	}
+	return lcov.Artifact{DeclaredBytes: int64(records.Len()), Body: strings.NewReader(records.String())}
 }
 
 func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
