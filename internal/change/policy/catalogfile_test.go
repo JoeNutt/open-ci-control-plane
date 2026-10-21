@@ -49,6 +49,14 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			written: liveCatalogWith(t, "rule: direction", "rule: direction\nowner: platform"),
 			reason:  policy.ErrMalformedPolicyFile,
 		},
+		"a YAML anchor": {
+			written: liveCatalogWith(t, "name: clean-architecture", "name: &policy clean-architecture"),
+			reason:  policy.ErrAliasOrAnchor,
+		},
+		"a YAML alias": {
+			written: liveCatalogWith(t, "rule: direction", "rule: &rule direction\nx: *rule"),
+			reason:  policy.ErrAliasOrAnchor,
+		},
 	}
 	for form, refusal := range refused {
 		t.Run(form, func(t *testing.T) {
