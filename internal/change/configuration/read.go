@@ -17,15 +17,13 @@ const (
 	MaxSecretFileBytes = 4 << 10
 )
 
-const webhookSecretFileItem = "webhookSecretFile"
-
-var ErrMissingItem = errors.New("the configuration is missing a required item")
-
-var ErrInvalidItem = errors.New("a configuration item is invalid")
+const webhookSecretFile item = "webhookSecretFile"
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 var ErrOversizedFile = errors.New("the file exceeds its byte bound")
+
+var errEmptyFile = errors.New("the file is empty")
 
 type Configuration struct {
 	webhookSecret domain.WebhookSecret
@@ -69,14 +67,14 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 
 func webhookSecretIn(path string) (domain.WebhookSecret, error) {
 	if path == "" {
-		return "", fmt.Errorf("%w: %s", ErrMissingItem, webhookSecretFileItem)
+		return "", webhookSecretFile.missing()
 	}
 	content, err := boundedContentOf(path, MaxSecretFileBytes)
 	if err != nil {
-		return "", fmt.Errorf("read the %s: %w", webhookSecretFileItem, err)
+		return "", webhookSecretFile.invalid(err)
 	}
 	if len(content) == 0 {
-		return "", fmt.Errorf("%w: %s", ErrInvalidItem, webhookSecretFileItem)
+		return "", webhookSecretFile.invalid(errEmptyFile)
 	}
 	return domain.WebhookSecret(content), nil
 }
