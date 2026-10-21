@@ -49,6 +49,14 @@ func TestAConfigurationNamingNoPolicyFamilyIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestAConfigurationWithoutAListenAddressIsRefusedNamingIt(t *testing.T) {
+	_, err := configuration.Read(writtenFile(t, `{}`))
+
+	if !errors.Is(err, configuration.ErrMissingItem) || !strings.Contains(err.Error(), "listenAddress") {
+		t.Fatalf("refusal is not a missing listenAddress: %v", err)
+	}
+}
+
 func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
 	stated := `{"webhookSecretFile":"secret"}`
 	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
@@ -264,6 +272,8 @@ func printedFormsOf(secrets ...string) []string {
 	return forms
 }
 
+const statedListenAddress = "127.0.0.1:8080"
+
 const statedInstallationID = 52_311_907
 
 const statedWebhookSecret = domain.WebhookSecret("s3cret")
@@ -279,6 +289,7 @@ func completeItems(t *testing.T) statedItems {
 		AppKeyFile:        writtenFile(t, statedAppKey),
 		InstallationIDs:   []int64{statedInstallationID},
 		Families:          []string{string(domain.PolicyFamilyStructural)},
+		ListenAddress:     statedListenAddress,
 	}
 }
 
@@ -287,6 +298,7 @@ type statedItems struct {
 	AppKeyFile        string   `json:"appKeyFile,omitempty"`
 	InstallationIDs   []int64  `json:"installationIds,omitempty"`
 	Families          []string `json:"families,omitempty"`
+	ListenAddress     string   `json:"listenAddress,omitempty"`
 }
 
 func configurationFile(t *testing.T, stated statedItems) string {

@@ -39,6 +39,7 @@ type statedConfiguration struct {
 	AppKeyFile        string   `json:"appKeyFile"`
 	InstallationIDs   []int64  `json:"installationIds"`
 	Families          []string `json:"families"`
+	ListenAddress     string   `json:"listenAddress"`
 }
 
 func Read(path string) (Configuration, error) {
@@ -80,7 +81,11 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
 	named, familiesErr := familiesIn(stated.Families)
-	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr); err != nil {
+	var listenErr error
+	if stated.ListenAddress == "" {
+		listenErr = fmt.Errorf("%w: listenAddress", ErrMissingItem)
+	}
+	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr, listenErr); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{
