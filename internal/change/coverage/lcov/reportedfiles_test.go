@@ -54,6 +54,14 @@ func TestReportedFilesInRefusesATruncatedArtifactWhole(t *testing.T) {
 	}
 }
 
+func TestReportedFilesInRefusesAnArtifactWithNoRecord(t *testing.T) {
+	_, err := lcov.ReportedFilesIn(strings.NewReader(""))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
 func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
 	t.Helper()
 

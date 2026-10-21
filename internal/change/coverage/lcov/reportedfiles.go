@@ -59,6 +59,9 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
 		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, errTruncatedRecord)
 	}
+	if len(reading.reported) == 0 {
+		return nil, ErrMalformedArtifact
+	}
 	return reading.reported, nil
 }
 
