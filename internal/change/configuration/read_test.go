@@ -24,3 +24,18 @@ func TestAConfigurationWithoutTheWebhookSecretIsRefusedNamingIt(t *testing.T) {
 		t.Fatalf("refusal is not a missing webhookSecretFile: %v", err)
 	}
 }
+
+func TestAConfigurationFileAboveTheBoundIsRefusedWhateverItSays(t *testing.T) {
+	stated := `{"webhookSecretFile":"secret"}`
+	padded := stated + strings.Repeat(" ", configuration.MaxFileBytes+1-len(stated))
+	path := filepath.Join(t.TempDir(), "controlplane.json")
+	if err := os.WriteFile(path, []byte(padded), 0o600); err != nil {
+		t.Fatalf("write the configuration: %v", err)
+	}
+
+	_, err := configuration.Read(path)
+
+	if err == nil {
+		t.Fatalf("a %d-byte configuration was read", len(padded))
+	}
+}

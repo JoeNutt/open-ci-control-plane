@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 )
+
+const MaxFileBytes = 64 << 10
 
 const webhookSecretFileItem = "webhookSecretFile"
 
@@ -22,9 +25,17 @@ type statedConfiguration struct {
 }
 
 func Read(path string) (Configuration, error) {
-	content, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
+	}
+	defer file.Close()
+	content, err := io.ReadAll(io.LimitReader(file, MaxFileBytes+1))
+	if err != nil {
+		return Configuration{}, fmt.Errorf("read the configuration file: %w", err)
+	}
+	if len(content) > MaxFileBytes {
+		return Configuration{}, errors.New("too big")
 	}
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
