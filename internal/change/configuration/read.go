@@ -34,6 +34,8 @@ var ErrMalformedConfiguration = errors.New("the configuration file is not a conf
 
 var errTrailingContent = errors.New("content follows the configuration object")
 
+var items = []item{listenAddress, appID, appKeyFile, webhookSecretFile, installationIDs, families}
+
 type Configuration struct {
 	listenAddress   netip.AddrPort
 	appID           int64
@@ -83,35 +85,17 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 }
 
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
-	walking := json.NewDecoder(bytes.NewReader(content))
-	if _, err := walking.Token(); err != nil {
-		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
-	}
-	seen := map[string]bool{}
-	for walking.More() {
-		key, err := walking.Token()
-		if err != nil {
-			return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
-		}
-		name, _ := key.(string)
-		known := map[string]bool{"listenAddress": true, "appId": true, "appKeyFile": true, "webhookSecretFile": true, "installationIds": true, "families": true}
-		if seen[name] || !known[name] {
-			return statedConfiguration{}, fmt.Errorf("%w: key %q", ErrMalformedConfiguration, name)
-		}
-		seen[name] = true
-		var skipped json.RawMessage
-		if err := walking.Decode(&skipped); err != nil {
-			return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
-		}
+	if err := keysCheckedIn(content); err != nil {
+		return statedConfiguration{}, malformed(err)
 	}
 	decoding := json.NewDecoder(bytes.NewReader(content))
 	decoding.DisallowUnknownFields()
 	var stated statedConfiguration
 	if err := decoding.Decode(&stated); err != nil {
-		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, err)
+		return statedConfiguration{}, malformed(err)
 	}
 	if _, err := decoding.Token(); !errors.Is(err, io.EOF) {
-		return statedConfiguration{}, fmt.Errorf("%w: %w", ErrMalformedConfiguration, errTrailingContent)
+		return statedConfiguration{}, malformed(errors.Join(errTrailingContent, err))
 	}
 	return stated, nil
 }
@@ -134,4 +118,8 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 		installationIDs: installations,
 		families:        policyFamilies,
 	}, nil
+}
+
+func malformed(reason error) error {
+	return fmt.Errorf("%w: %w", ErrMalformedConfiguration, reason)
 }
