@@ -58,6 +58,7 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		"unpublished key":  issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, signingKeyID)),
 		"unsigned":         issuer.unsigned(t, issuer.claims(governedRepository)),
 		"no repository":    issuer.signWithout(t, issuer.claims(governedRepository), repositoryClaim),
+		"not a repository": issuer.sign(t, issuer.claims("../../etc/passwd")),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), unverifiable)
