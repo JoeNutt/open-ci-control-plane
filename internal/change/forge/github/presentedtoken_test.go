@@ -8,6 +8,24 @@ import (
 	"testing"
 )
 
+func TestCheckRunsPresentTheMintedInstallationToken(t *testing.T) {
+	clock := clockAt(mintedAt)
+	endpoint := newTokenForge(t, clock)
+	held := newCheckRunForge(t)
+	endpoint.answeringAsTheRepository(held.server.Config.Handler)
+	settings := settingsAt(endpoint.server)
+	settings.Token = installationTokensOn(t, endpoint.server, clock)
+	run := securityRun()
+
+	err := checkRunsWith(t, settings).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, run)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	held.mustHoldOnly(heldAs(1, run))
+}
+
 func TestAChangeSourcePresentsTheMintedInstallationToken(t *testing.T) {
 	clock := clockAt(mintedAt)
 	endpoint := newTokenForge(t, clock)
