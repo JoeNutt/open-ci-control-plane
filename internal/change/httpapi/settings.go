@@ -36,6 +36,7 @@ var requiredParts = []requiredPart{
 	{name: "a gate", isMissing: func(settings Settings) bool { return settings.Gate == nil }},
 	{name: "a decision ID source", isMissing: func(settings Settings) bool { return settings.DecisionIDs == nil }},
 	{name: "an allowed installation", isMissing: func(settings Settings) bool { return len(settings.Installations) == 0 }},
+	{name: "a clock", isMissing: func(settings Settings) bool { return settings.Clock == nil }},
 }
 
 func isMissingFrom(settings Settings) func(requiredPart) bool {
