@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestImportsInReadsEveryImportAsWritten(t *testing.T) {
-	imports, err := golang.ImportsIn(fixtureNamed(t, "grouped.go"))
+	imports, err := golang.ImportsIn(boundedFrom(t, fixtureNamed(t, "grouped.go")))
 
 	if err != nil {
 		t.Fatalf("imports in grouped.go: %v", err)
@@ -29,11 +30,28 @@ func TestImportsInReadsEveryImportAsWritten(t *testing.T) {
 	}
 }
 
+func TestImportsInReadsASourceExactlyAtTheSourceByteBound(t *testing.T) {
+	const declaration = "package fixture\n\nimport \"context\"\n\nvar padding = `"
+	const closing = "`\n"
+	limit := domain.DeclaredLimits().MaxSourceBytes
+	padding := strings.Repeat("x", limit-len(declaration)-len(closing))
+	source := []byte(declaration + padding + closing)
+
+	imports, err := golang.ImportsIn(boundedFrom(t, source))
+
+	if err != nil {
+		t.Fatalf("imports in a %d-byte source: %v", len(source), err)
+	}
+	if !slices.Equal(imports, []string{"context"}) {
+		t.Fatalf("imports are %q, want [\"context\"]", imports)
+	}
+}
+
 func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 	const quotedFromTheSource = "hunter2ApiKey"
 	source := []byte("package fixture\n\nimport (\n\t\"context\" " + quotedFromTheSource + "\n)\n")
 
-	_, err := golang.ImportsIn(source)
+	_, err := golang.ImportsIn(boundedFrom(t, source))
 
 	if !errors.Is(err, golang.ErrUnparsableSource) {
 		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
@@ -41,6 +59,16 @@ func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 	if strings.Contains(err.Error(), quotedFromTheSource) {
 		t.Fatalf("the error quotes the source: %v", err)
 	}
+}
+
+func boundedFrom(t *testing.T, source []byte) domain.BoundedSource {
+	t.Helper()
+
+	bounded, err := domain.ParseBoundedSource(source, domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("bound a %d-byte source: %v", len(source), err)
+	}
+	return bounded
 }
 
 func fixtureNamed(t *testing.T, name string) []byte {
