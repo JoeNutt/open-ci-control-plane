@@ -45,6 +45,11 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 			changeMovingAnEdge(t, domain.File{
 				Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}),
 			domain.ClassificationRules{}),
+		"a change whose Go file does not parse at head": domain.ParseDocument(
+			domain.PullRequest{Number: 412, Repository: "acme/payments", HeadSHA: "9f1cabc"},
+			changeUnparsableAtHead(t, domain.File{
+				Path: "internal/auth/middleware.go", Action: domain.FileActionModified}),
+			domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {
@@ -74,6 +79,17 @@ func changeMovingAnEdge(t *testing.T, file domain.File) domain.Change {
 			File: file,
 			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
 			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/session"),
+		}),
+	}
+}
+
+func changeUnparsableAtHead(t *testing.T, file domain.File) domain.Change {
+	t.Helper()
+
+	return domain.Change{
+		Files: boundedFor(t, file),
+		Structure: structureOf(t, domain.ImportedFile{
+			File: file, Base: fileImportsOf(t, "context"), Head: erroredFileImports(t),
 		}),
 	}
 }
