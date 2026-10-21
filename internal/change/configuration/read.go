@@ -22,6 +22,7 @@ const (
 	webhookSecretFile item = "webhookSecretFile"
 	appKeyFile        item = "appKeyFile"
 	installationIDs   item = "installationIds"
+	families          item = "families"
 )
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -73,11 +74,7 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 	secret, secretErr := webhookSecretIn(stated.WebhookSecretFile)
 	key, keyErr := appKeyFile.contentAt(stated.AppKeyFile, MaxAppKeyFileBytes)
 	installations, installationsErr := installationIDsIn(stated.InstallationIDs)
-	var familiesErr error
-	if len(stated.Families) == 0 {
-		familiesErr = fmt.Errorf("%w: families", ErrMissingItem)
-	}
-	if err := errors.Join(secretErr, keyErr, installationsErr, familiesErr); err != nil {
+	if err := errors.Join(secretErr, keyErr, installationsErr, familiesPresentIn(stated.Families)); err != nil {
 		return Configuration{}, err
 	}
 	return Configuration{
