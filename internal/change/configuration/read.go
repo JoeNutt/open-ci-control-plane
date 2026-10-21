@@ -31,6 +31,7 @@ type Configuration struct {
 	webhookSecret   Secret
 	appKey          Secret
 	installationIDs []int64
+	families        []domain.PolicyFamily
 }
 
 type statedConfiguration struct {
@@ -62,6 +63,16 @@ func (configured Configuration) InstallationIDs() []int64 {
 	return slices.Clone(configured.installationIDs)
 }
 
+func (configured Configuration) Families() []domain.PolicyFamily { return configured.families }
+
+func castFamilies(stated []string) []domain.PolicyFamily {
+	var out []domain.PolicyFamily
+	for _, name := range stated {
+		out = append(out, domain.PolicyFamily(name))
+	}
+	return out
+}
+
 func statedConfigurationIn(content []byte) (statedConfiguration, error) {
 	var stated statedConfiguration
 	if err := json.Unmarshal(content, &stated); err != nil {
@@ -81,5 +92,6 @@ func (stated statedConfiguration) configuration() (Configuration, error) {
 		webhookSecret:   secret,
 		appKey:          secretOf(key),
 		installationIDs: installations,
+		families:        castFamilies(stated.Families),
 	}, nil
 }

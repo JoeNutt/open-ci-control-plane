@@ -170,6 +170,21 @@ func TestAnInvalidInstallationAllowlistIsRefusedNamingIt(t *testing.T) {
 	}
 }
 
+func TestThePolicyFamiliesAreTheOnesTheConfigurationNames(t *testing.T) {
+	stated := completeItems(t)
+	stated.Families = []string{string(domain.PolicyFamilyStructural), string(domain.PolicyFamilySecurity)}
+
+	configured, err := configuration.Read(configurationFile(t, stated))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	want := []domain.PolicyFamily{domain.PolicyFamilyStructural, domain.PolicyFamilySecurity}
+	if !slices.Equal(configured.Families(), want) {
+		t.Errorf("the families are %v, want %v", configured.Families(), want)
+	}
+}
+
 func TestAnAppKeyFileAboveTheBoundIsRefusedNamingIt(t *testing.T) {
 	stated := completeItems(t)
 	stated.AppKeyFile = writtenFile(t, strings.Repeat("k", configuration.MaxAppKeyFileBytes+1))
