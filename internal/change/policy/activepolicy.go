@@ -33,6 +33,7 @@ func (active *ActivePolicy) Offer(revision domain.CommitSHA, files []domain.Poli
 		return fmt.Errorf("candidate at %s: %w", revision, err)
 	}
 	active.accepted.Store(&AcceptedRevision{revision: revision, model: model})
+	active.log.Info("policy revision accepted", revisionLogKey, revision.String())
 	return nil
 }
 
