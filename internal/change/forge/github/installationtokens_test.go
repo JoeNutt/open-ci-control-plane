@@ -329,6 +329,27 @@ func TestACallWellBeforeExpiryReusesTheCachedToken(t *testing.T) {
 	}
 }
 
+func TestConcurrentCallsShareOneExchange(t *testing.T) {
+	const callers = 16
+	clock := clockAt(mintedAt)
+	endpoint := newTokenForge(t, clock)
+	tokens := installationTokensOn(t, endpoint.server, clock)
+	var everyone sync.WaitGroup
+
+	for range callers {
+		everyone.Go(func() {
+			if _, err := github.AuthorizationOf(context.Background(), tokens); err != nil {
+				t.Errorf("concurrent call: %v", err)
+			}
+		})
+	}
+	everyone.Wait()
+
+	if endpoint.exchangeCount() != 1 {
+		t.Errorf("%d concurrent callers caused %d exchanges, want 1", callers, endpoint.exchangeCount())
+	}
+}
+
 func TestACallNearExpiryGetsAFreshToken(t *testing.T) {
 	held := tokensExchangedOnce(t)
 	held.clock.advance(grantedLifetime - time.Minute)
