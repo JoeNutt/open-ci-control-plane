@@ -16,7 +16,7 @@ func TestATokenEndpointErrorFailsTheForgeCallWithNoRequestUnauthenticated(t *tes
 	endpoint := newTokenForge(t, clock)
 	endpoint.refuseFromNowOn()
 	settings := settingsAt(endpoint.server)
-	settings.Token = installationTokensOn(t, endpoint.server, clock)
+	settings.Credentials = installationTokensOn(t, endpoint.server, clock)
 
 	_, err := sourceWith(t, settings).FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -31,7 +31,7 @@ func TestCheckRunsPresentTheMintedInstallationToken(t *testing.T) {
 	held := newCheckRunForge(t)
 	endpoint.answeringAsTheRepository(held.server.Config.Handler)
 	settings := settingsAt(endpoint.server)
-	settings.Token = installationTokensOn(t, endpoint.server, clock)
+	settings.Credentials = installationTokensOn(t, endpoint.server, clock)
 	run := securityRun()
 
 	err := checkRunsWith(t, settings).PublishCheckRun(
@@ -50,7 +50,7 @@ func TestAChangeSourcePresentsTheMintedInstallationToken(t *testing.T) {
 		write(t, writer, `[]`)
 	}))
 	settings := settingsAt(endpoint.server)
-	settings.Token = installationTokensOn(t, endpoint.server, clock)
+	settings.Credentials = installationTokensOn(t, endpoint.server, clock)
 
 	_, err := sourceWith(t, settings).FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
 
