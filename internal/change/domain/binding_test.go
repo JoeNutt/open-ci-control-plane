@@ -26,6 +26,22 @@ func TestParseBindingKeepsWhatItStates(t *testing.T) {
 	}
 }
 
+func TestParseBindingKeepsEachPolicyItUses(t *testing.T) {
+	binding, err := domain.ParseBinding(thisRepositorysBinding())
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	policies := binding.Policies()
+	if len(policies) != 1 || policies[0].Use().String() != "clean-architecture" {
+		t.Fatalf("policies are %v, want clean-architecture alone", policies)
+	}
+	roots := policies[0].ImportRoots()
+	if len(roots) != 1 || roots[0].Prefix().String() != thisRepositorysModule || roots[0].Directory().String() != "" {
+		t.Errorf("import roots are %v, want the module at the repository root", roots)
+	}
+}
+
 func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 	refused := map[string]struct {
 		stated func(*domain.BindingStatement)
@@ -42,6 +58,18 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 		"an always-run suite that is no import path": {
 			stated: func(s *domain.BindingStatement) { s.AlwaysRun = []string{"../domain"} },
 			reason: domain.ErrMalformedGoImportPath,
+		},
+		"a malformed policy name": {
+			stated: func(s *domain.BindingStatement) { s.Policies[0].Use = "clean architecture" },
+			reason: domain.ErrMalformedPolicyName,
+		},
+		"an empty import-root prefix": {
+			stated: func(s *domain.BindingStatement) { s.Policies[0].ImportRoots[0].Prefix = "" },
+			reason: domain.ErrMalformedGoImportPath,
+		},
+		"an import root outside the repository": {
+			stated: func(s *domain.BindingStatement) { s.Policies[0].ImportRoots[0].Path = "../elsewhere" },
+			reason: domain.ErrMalformedRepositoryDirectory,
 		},
 	}
 	for form, refusal := range refused {
@@ -65,5 +93,9 @@ func thisRepositorysBinding() domain.BindingStatement {
 		Repository: "JoeNutt/open-ci-control-plane",
 		Workflow:   "open-ci-tests.yml",
 		AlwaysRun:  []string{thisRepositorysDomain},
+		Policies: []domain.BoundPolicyStatement{{
+			Use:         "clean-architecture",
+			ImportRoots: []domain.ImportRootStatement{{Prefix: thisRepositorysModule, Path: ""}},
+		}},
 	}
 }
