@@ -8,3 +8,4 @@ rules:
       except-paths:
         - data.ci.policy
         - data.ci.policy.*
+        - data.testdata.**
