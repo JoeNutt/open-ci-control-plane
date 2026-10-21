@@ -17,11 +17,7 @@ func TestUploadRateRefusesTheUploadOneOverTheLimit(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
-	for upload := range limits.MaxUploadsPerMinute {
-		if err := rate.Admit(repository); err != nil {
-			t.Fatalf("upload %d was refused: %v", upload+1, err)
-		}
-	}
+	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
 	err := rate.Admit(repository)
 
@@ -35,11 +31,7 @@ func TestUploadRateAdmitsAgainOnceTheEarliestUploadIsAMinuteOld(t *testing.T) {
 	clock := windowOpens
 	rate := application.NewUploadRate(limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
-	for range limits.MaxUploadsPerMinute {
-		if err := rate.Admit(repository); err != nil {
-			t.Fatalf("an upload within the limit was refused: %v", err)
-		}
-	}
+	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
 	clock = windowOpens.Add(time.Minute)
 
@@ -53,11 +45,7 @@ func TestUploadRateSaysHowLongUntilTheEarliestUploadLeavesTheWindow(t *testing.T
 	clock := windowOpens
 	rate := application.NewUploadRate(limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
-	for range limits.MaxUploadsPerMinute {
-		if err := rate.Admit(repository); err != nil {
-			t.Fatalf("an upload within the limit was refused: %v", err)
-		}
-	}
+	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 	clock = windowOpens.Add(20*time.Second + 500*time.Millisecond)
 
 	var refusal application.UploadRateRefusal
@@ -74,11 +62,7 @@ func TestUploadRateAdmitsTheUploadAtTheLimit(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
 	repository := parsedRepository(t)
-	for range limits.MaxUploadsPerMinute - 1 {
-		if err := rate.Admit(repository); err != nil {
-			t.Fatalf("an upload under the limit was refused: %v", err)
-		}
-	}
+	admitAll(t, rate, repository, limits.MaxUploadsPerMinute-1)
 
 	if err := rate.Admit(repository); err != nil {
 		t.Fatalf("the upload at the limit was refused: %v", err)
@@ -90,11 +74,7 @@ func TestUploadRateStillRefusesJustShortOfAMinute(t *testing.T) {
 	clock := windowOpens
 	rate := application.NewUploadRate(limits, func() time.Time { return clock })
 	repository := parsedRepository(t)
-	for range limits.MaxUploadsPerMinute {
-		if err := rate.Admit(repository); err != nil {
-			t.Fatalf("an upload within the limit was refused: %v", err)
-		}
-	}
+	admitAll(t, rate, repository, limits.MaxUploadsPerMinute)
 
 	clock = windowOpens.Add(time.Minute - time.Nanosecond)
 
@@ -106,13 +86,19 @@ func TestUploadRateStillRefusesJustShortOfAMinute(t *testing.T) {
 func TestUploadRateNeverSpendsOneRepositorysAllowanceOnAnother(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	rate := application.NewUploadRate(limits, func() time.Time { return windowOpens })
-	for range limits.MaxUploadsPerMinute {
-		if err := rate.Admit(parsedStranger(t)); err != nil {
-			t.Fatalf("an upload within the limit was refused: %v", err)
-		}
-	}
+	admitAll(t, rate, parsedStranger(t), limits.MaxUploadsPerMinute)
 
 	if err := rate.Admit(parsedRepository(t)); err != nil {
 		t.Fatalf("another repository's uploads spent this one's allowance: %v", err)
+	}
+}
+
+func admitAll(t *testing.T, rate *application.UploadRate, repository domain.GovernedRepository, uploads int) {
+	t.Helper()
+
+	for upload := range uploads {
+		if err := rate.Admit(repository); err != nil {
+			t.Fatalf("upload %d of %d was refused: %v", upload+1, uploads, err)
+		}
 	}
 }
