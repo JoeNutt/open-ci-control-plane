@@ -40,6 +40,10 @@ func ParseAppKey(encoded []byte) (AppKey, error) {
 	return AppKey{key: key}, nil
 }
 
+func (AppKey) Format(state fmt.State, _ rune) { writeRedactionMarker(state) }
+
+func (AppKey) MarshalJSON() ([]byte, error) { return redactionMarkerJSON() }
+
 func (appKey AppKey) isPresent() bool {
 	return appKey.key != nil
 }

@@ -14,24 +14,37 @@ import (
 
 var verbsFmtAnswersBeforeAnyMethod = []string{"%T", "%p"}
 
-func TestACredentialMarshalsToJSONAsTheRedactionMarker(t *testing.T) {
-	encoded, err := json.Marshal(forgeCredential)
+func secretHolders(t *testing.T) map[string]any {
+	t.Helper()
 
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if string(encoded) != strconv.Quote(github.RedactionMarker) {
-		t.Errorf("a credential marshals to %s, want %q", encoded, github.RedactionMarker)
+	return map[string]any{
+		"credential": forgeCredential,
+		"App key":    forgeAppKey(t),
 	}
 }
 
-func TestACredentialPrintsOnlyTheRedactionMarkerUnderEveryVerb(t *testing.T) {
-	for _, verb := range everyFormatVerb {
-		if slices.Contains(verbsFmtAnswersBeforeAnyMethod, verb) {
-			continue
+func TestASecretMarshalsToJSONAsTheRedactionMarker(t *testing.T) {
+	for name, secret := range secretHolders(t) {
+		encoded, err := json.Marshal(secret)
+
+		if err != nil {
+			t.Fatalf("marshal the %s: %v", name, err)
 		}
-		if printed := fmt.Sprintf(verb, forgeCredential); printed != github.RedactionMarker {
-			t.Errorf("a credential under %s printed %q, want %q", verb, printed, github.RedactionMarker)
+		if string(encoded) != strconv.Quote(github.RedactionMarker) {
+			t.Errorf("the %s marshals to %.80s, want %q", name, encoded, github.RedactionMarker)
+		}
+	}
+}
+
+func TestASecretPrintsOnlyTheRedactionMarkerUnderEveryVerb(t *testing.T) {
+	for name, secret := range secretHolders(t) {
+		for _, verb := range everyFormatVerb {
+			if slices.Contains(verbsFmtAnswersBeforeAnyMethod, verb) {
+				continue
+			}
+			if printed := fmt.Sprintf(verb, secret); printed != github.RedactionMarker {
+				t.Errorf("the %s under %s printed %.80q, want %q", name, verb, printed, github.RedactionMarker)
+			}
 		}
 	}
 }
