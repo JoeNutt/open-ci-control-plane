@@ -4,6 +4,8 @@ package httpapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -13,6 +15,8 @@ import (
 )
 
 const eventsRoute = "POST /v1/forge/github/events"
+
+var ErrIncompleteRoutes = errors.New("the listener is missing a part it cannot work without")
 
 type ChangeGate interface {
 	Execute(ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID) error
@@ -27,6 +31,18 @@ type Settings struct {
 }
 
 func ParseRoutes(settings Settings) (http.Handler, error) {
+	if settings.Log == nil {
+		return nil, fmt.Errorf("%w: no log", ErrIncompleteRoutes)
+	}
+	if settings.Gate == nil {
+		return nil, fmt.Errorf("%w: no gate", ErrIncompleteRoutes)
+	}
+	if settings.DecisionIDs == nil {
+		return nil, fmt.Errorf("%w: no decision IDs", ErrIncompleteRoutes)
+	}
+	if len(settings.Installations) == 0 {
+		return nil, fmt.Errorf("%w: no installations", ErrIncompleteRoutes)
+	}
 	answering := answers{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted: admitted{
