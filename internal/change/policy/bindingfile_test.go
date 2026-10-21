@@ -18,7 +18,7 @@ func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 	if parsed.Repository().String() != liveRepository {
 		t.Errorf("repository is %q", parsed.Repository())
 	}
-	if parsed.Workflow().String() != "open-ci-tests.yml" {
+	if parsed.Workflow().String() != liveWorkflow {
 		t.Errorf("workflow is %q", parsed.Workflow())
 	}
 	if len(parsed.AlwaysRun()) != 1 {
@@ -52,7 +52,7 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"an unknown key": {
-			written: liveBindingWith(t, "  workflow: open-ci-tests.yml", "  workflow: open-ci-tests.yml\n  timeout: 5"),
+			written: liveBindingWithUnknownKey(t, "timeout"),
 			reason:  policy.ErrMalformedPolicyFile,
 		},
 		"a YAML alias": {
@@ -60,7 +60,7 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrAliasOrAnchor,
 		},
 		"no workflow": {
-			written: liveBindingWith(t, "  workflow: open-ci-tests.yml\n", ""),
+			written: liveBindingWith(t, liveWorkflowLine+"\n", ""),
 			reason:  domain.ErrMissingWorkflow,
 		},
 		"one path bound to two groups": {
@@ -81,6 +81,12 @@ func liveBindingPlacingOnePathInTwoGroups(t *testing.T) string {
 	t.Helper()
 
 	return liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]")
+}
+
+func liveBindingWithUnknownKey(t *testing.T, key string) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  "+key+": 5")
 }
 
 func liveBindingWith(t *testing.T, written, replacement string) string {
