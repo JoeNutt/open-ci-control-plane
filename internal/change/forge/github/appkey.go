@@ -10,6 +10,10 @@ import (
 	"fmt"
 )
 
+const MaxAppKeyBytes = 16 << 10
+
+var ErrAppKeyTooLarge = errors.New("the App key file is larger than the App key byte bound")
+
 var ErrMalformedAppKey = errors.New("the App key is not one PEM-encoded PKCS#1 RSA private key")
 
 const pkcs1PrivateKeyBlock = "RSA PRIVATE KEY"
@@ -18,13 +22,10 @@ type AppKey struct {
 	key *rsa.PrivateKey
 }
 
-const MaxAppKeyBytes = 16 << 10
-
-var ErrAppKeyTooLarge = errors.New("too big")
-
 func ParseAppKey(encoded []byte) (AppKey, error) {
-	if len(encoded) > 16384 {
-		return AppKey{}, ErrAppKeyTooLarge
+	if len(encoded) > MaxAppKeyBytes {
+		return AppKey{}, fmt.Errorf("%w: %d bytes, more than %d",
+			ErrAppKeyTooLarge, len(encoded), MaxAppKeyBytes)
 	}
 	block, rest := pem.Decode(encoded)
 	if !isOnePKCS1Block(block, rest) {
