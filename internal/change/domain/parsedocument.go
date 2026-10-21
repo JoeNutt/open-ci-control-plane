@@ -82,7 +82,9 @@ func byDirOf(files []File) PathsByDir {
 func importsOf(imported []ImportedFile) Declared[Import] {
 	imports := make(Declared[Import], 0, len(imported))
 	for _, file := range imported {
-		imports = append(imports, file.headImport())
+		if file.File.Action.ExistsAtHead() {
+			imports = append(imports, file.headImport())
+		}
 	}
 	return imports
 }
