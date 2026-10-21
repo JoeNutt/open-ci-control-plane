@@ -43,29 +43,31 @@ func bindingBoundBreachIn(stated BindingStatement) error {
 }
 
 func groupCountOf(stated BindingStatement) int {
-	count := 0
-	for _, policy := range stated.Policies {
-		count += len(policy.Paths)
-	}
-	return count
+	return countAcrossPolicies(stated, func(policy BoundPolicyStatement) int { return len(policy.Paths) })
 }
 
 func pathPatternCountOf(stated BindingStatement) int {
-	count := 0
-	for _, policy := range stated.Policies {
-		for _, patterns := range policy.Paths {
-			count += len(patterns)
-		}
-	}
-	return count
+	return countAcrossPolicies(stated, patternCountOf)
 }
 
 func importRootCountOf(stated BindingStatement) int {
+	return countAcrossPolicies(stated, func(policy BoundPolicyStatement) int { return len(policy.ImportRoots) })
+}
+
+func alwaysRunCountOf(stated BindingStatement) int { return len(stated.AlwaysRun) }
+
+func countAcrossPolicies(stated BindingStatement, countIn func(BoundPolicyStatement) int) int {
 	count := 0
 	for _, policy := range stated.Policies {
-		count += len(policy.ImportRoots)
+		count += countIn(policy)
 	}
 	return count
 }
 
-func alwaysRunCountOf(stated BindingStatement) int { return len(stated.AlwaysRun) }
+func patternCountOf(policy BoundPolicyStatement) int {
+	count := 0
+	for _, patterns := range policy.Paths {
+		count += len(patterns)
+	}
+	return count
+}
