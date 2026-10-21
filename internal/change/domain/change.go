@@ -35,6 +35,9 @@ func (imported ImportedFile) edgesRemoved() []ModuleEdge {
 }
 
 func (imported ImportedFile) edgesTo(targets []string) []ModuleEdge {
+	if imported.Base.isErrored || imported.Head.isErrored {
+		return nil
+	}
 	edges := make([]ModuleEdge, 0, len(targets))
 	for _, target := range targets {
 		edges = append(edges, ModuleEdge{From: imported.File.Path, To: target})
