@@ -33,11 +33,16 @@ decision := {
 }
 `
 
+const bundleRevision = "4f368b8c2e1d0a9b8c7d6e5f4a3b2c1d0e9f8a7b"
+
 func engineFor(t *testing.T, policy string, family domain.PolicyFamily) *opa.Engine {
 	t.Helper()
 
 	server := sdktest.MustNewServer(sdktest.MockBundle(
-		"/bundles/"+string(family), map[string]string{"policy.rego": policy}))
+		"/bundles/"+string(family), map[string]string{
+			"policy.rego": policy,
+			".manifest":   `{"revision": "` + bundleRevision + `"}`,
+		}))
 	t.Cleanup(server.Stop)
 
 	engine, err := opa.ParseEngine(context.Background(), opa.Settings{

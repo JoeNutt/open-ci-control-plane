@@ -151,13 +151,13 @@ func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testin
 			  "docs_url": "https://docs.example.com/policy/AUTHZ-1" }
 		],
 		"reviewers": [], "fail_closed": true
-	}`))
+	}`), revisionForTest(t))
 	if err != nil {
 		t.Fatalf("parse decision: %v", err)
 	}
 	engines := map[domain.PolicyFamily]domain.FamilyEngine{}
 	for _, family := range domain.DeclaredPolicyFamilies() {
-		engines[family] = &recordingEngine{}
+		engines[family] = &recordingEngine{revision: revisionForTest(t)}
 	}
 	engines[domain.PolicyFamilySecurity] = answeringEngine{decided: denied}
 	gate, err := domain.ParseGate(engines)
@@ -314,7 +314,7 @@ func recordingGate(t *testing.T) (domain.Gate, map[domain.PolicyFamily]*recordin
 	engines := map[domain.PolicyFamily]*recordingEngine{}
 	held := map[domain.PolicyFamily]domain.FamilyEngine{}
 	for _, family := range domain.DeclaredPolicyFamilies() {
-		engines[family] = &recordingEngine{}
+		engines[family] = &recordingEngine{revision: revisionForTest(t)}
 		held[family] = engines[family]
 	}
 	gate, err := domain.ParseGate(held)
@@ -352,6 +352,7 @@ func buildOverRecorded(locator domain.PullRequestLocator, file domain.File) appl
 }
 
 type recordingEngine struct {
+	revision domain.BundleRevision
 	received []domain.Document
 }
 
@@ -359,5 +360,14 @@ func (engine *recordingEngine) Decide(
 	_ context.Context, document domain.Document,
 ) (domain.Decision, error) {
 	engine.received = append(engine.received, document)
-	return domain.UndecidedDecision(), nil
+	return domain.UndecidedDecision(engine.revision), nil
+}
+
+func revisionForTest(t *testing.T) domain.BundleRevision {
+	t.Helper()
+	revision, err := domain.ParseBundleRevision("4f368b8c2e1d0a9b8c7d6e5f4a3b2c1d0e9f8a7b")
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	return revision
 }

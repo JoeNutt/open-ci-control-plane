@@ -120,7 +120,7 @@ func TestTheMostRestrictiveOfEffectAndSeveritiesConcludesInAnyOrder(t *testing.T
 }
 
 func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
-	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision())
+	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision(revisionForTest(t)))
 
 	if run.Conclusion != domain.ConclusionNeutral {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionNeutral)
@@ -130,7 +130,7 @@ func TestAnUndecidedFamilyThatFailsOpenIsNeutral(t *testing.T) {
 func TestEveryRunCarriesItsDecisionIdentifier(t *testing.T) {
 	runs := map[string]domain.CheckRun{
 		"decided":   checkRunFor(t, domain.PolicyFamilySecurity, decided(t, domain.EffectAllow)),
-		"undecided": checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision()),
+		"undecided": checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision(revisionForTest(t))),
 		"policy error": checkRunFor(t, domain.PolicyFamilySecurity,
 			evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})),
 	}
@@ -181,7 +181,7 @@ func TestTheFirstTwentyViolationsAreCarriedPlainlyInOrder(t *testing.T) {
 }
 
 func TestAnUndecidedFamilyThatFailsOpenSaysThePolicyDidNotDecide(t *testing.T) {
-	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision())
+	run := checkRunFor(t, domain.PolicyFamilyQuality, domain.UndecidedDecision(revisionForTest(t)))
 
 	stated := "Policy quality did not decide, and this change was admitted because it fails open."
 	if !strings.Contains(run.Headline, stated) {
@@ -197,7 +197,7 @@ func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
 		domain.PolicyFamilySecurity, domain.PolicyFamilyStructural,
 	} {
 		t.Run(string(family), func(t *testing.T) {
-			run := checkRunFor(t, family, domain.UndecidedDecision())
+			run := checkRunFor(t, family, domain.UndecidedDecision(revisionForTest(t)))
 
 			if run.Conclusion != domain.ConclusionFailure {
 				t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
@@ -272,8 +272,8 @@ func TestEveryStateIsTitled(t *testing.T) {
 		"policy error": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
 			return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
 		}, "Policy failed to evaluate"},
-		"admitted without a decision": {domain.PolicyFamilyQuality, func(*testing.T) domain.Decision {
-			return domain.UndecidedDecision()
+		"admitted without a decision": {domain.PolicyFamilyQuality, func(t *testing.T) domain.Decision {
+			return domain.UndecidedDecision(revisionForTest(t))
 		}, "Admitted without a decision"},
 	}
 
@@ -369,8 +369,8 @@ func TestEveryStateCarriesAPlainHeadline(t *testing.T) {
 		"policy error": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
 			return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
 		}, "Policy security failed to evaluate. This is not a problem with your change."},
-		"admitted": {domain.PolicyFamilyQuality, func(*testing.T) domain.Decision {
-			return domain.UndecidedDecision()
+		"admitted": {domain.PolicyFamilyQuality, func(t *testing.T) domain.Decision {
+			return domain.UndecidedDecision(revisionForTest(t))
 		}, "Policy quality did not decide, and this change was admitted because it fails open."},
 	}
 
@@ -477,7 +477,7 @@ func decided(t *testing.T, effect domain.Effect, violations ...domain.Violation)
 	if err != nil {
 		t.Fatalf("marshal decision: %v", err)
 	}
-	parsed, err := domain.ParseDecision(stated)
+	parsed, err := domain.ParseDecision(stated, revisionForTest(t))
 	if err != nil {
 		t.Fatalf("parse decision: %v", err)
 	}
@@ -512,8 +512,8 @@ func TestAnUndecidedPolicyIsGovernedByThePostureItDeclaresOverItsFamilys(t *test
 		t.Run(form, func(t *testing.T) {
 			undecided, err := domain.ParseDecision([]byte(`{
 				"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
-				"violations": [], "reviewers": [], "fail_closed": ` + policy.stated + `
-			}`))
+				"violations": [], "reviewers": [], "fail_closed": `+policy.stated+`
+			}`), revisionForTest(t))
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}

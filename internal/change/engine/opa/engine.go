@@ -70,17 +70,22 @@ func (engine *Engine) decisionFor(
 		Input:               document,
 		StrictBuiltinErrors: true,
 	})
-	if sdk.IsUndefinedErr(err) {
-		return domain.UndecidedDecision(), nil
-	}
-	if err != nil {
+	isUndefined := sdk.IsUndefinedErr(err)
+	if err != nil && !isUndefined {
 		return domain.Decision{}, fmt.Errorf("%w: %v", domain.ErrEngineFault, err)
+	}
+	revision, err := domain.ParseBundleRevision(answered.Provenance.Bundles[string(engine.family)].Revision)
+	if err != nil {
+		return domain.Decision{}, fmt.Errorf("%w: %w", domain.ErrEngineFault, err)
+	}
+	if isUndefined {
+		return domain.UndecidedDecision(revision), nil
 	}
 	stated, err := json.Marshal(answered.Result)
 	if err != nil {
 		return domain.Decision{}, fmt.Errorf("re-encode the decision: %w", err)
 	}
-	return domain.ParseDecision(stated)
+	return domain.ParseDecision(stated, revision)
 }
 
 func decisionPathFor(family domain.PolicyFamily) string {
