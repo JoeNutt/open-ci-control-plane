@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -93,7 +94,7 @@ func servedBundles(ctx context.Context, bundles http.Handler, log *slog.Logger) 
 	}
 	server := &http.Server{Handler: bundles, ReadHeaderTimeout: readHeaderBound}
 	go func() {
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error(failedBundleListener, slog.String(reasonKey, err.Error()))
 		}
 	}()
