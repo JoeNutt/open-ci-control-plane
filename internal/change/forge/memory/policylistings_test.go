@@ -15,7 +15,7 @@ import (
 func TestPolicyListingsAnswersTheFilesRecordedAtACommit(t *testing.T) {
 	at := recordedPolicyCommit(t)
 	recorded := []domain.ListedFile{{Path: "catalog/clean-architecture.yaml", Bytes: 242}}
-	listings := memory.PolicyListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: recorded}}
+	var listings domain.PolicyListings = memory.PolicyListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: recorded}}
 
 	answered, err := listings.ListedFilesAt(context.Background(), at)
 
