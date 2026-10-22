@@ -8,32 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
-func TestParseChangeSourceRefusesAnAddressThatIsNotAnHTTPSOrigin(t *testing.T) {
-	malformed := []string{
-		"",
-		"api.example",
-		"http://api.example",
-		"https://",
-		"https://api.example/",
-		"https://api.example/api/v3/",
-		"https://api.example?per_page=1",
-		"https://api.example#fragment",
-	}
+func TestParseChangeSourceRefusesSettingsWithNoForgeAddress(t *testing.T) {
+	settings := wellFormedSettings()
+	settings.BaseURL = domain.HTTPSOrigin{}
 
-	for _, address := range malformed {
-		t.Run(address, func(t *testing.T) {
-			settings := wellFormedSettings()
-			settings.BaseURL = address
+	_, err := github.ParseChangeSource(settings)
 
-			_, err := github.ParseChangeSource(settings)
-
-			if !errors.Is(err, github.ErrMalformedBaseURL) {
-				t.Fatalf("error is %v, want %v", err, github.ErrMalformedBaseURL)
-			}
-		})
+	if !errors.Is(err, github.ErrNoBaseURL) {
+		t.Fatalf("error is %v, want %v", err, github.ErrNoBaseURL)
 	}
 }
 

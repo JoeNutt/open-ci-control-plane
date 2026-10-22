@@ -15,7 +15,7 @@ type ChangeSource struct {
 }
 
 func (source ChangeSource) String() string {
-	return "the forge at " + source.forge.settings.BaseURL
+	return "the forge at " + source.forge.settings.BaseURL.String()
 }
 
 func (source ChangeSource) GoString() string {

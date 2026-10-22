@@ -51,7 +51,7 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 	client.Timeout = 5 * time.Second
 
 	source, err := github.ParseChangeSource(github.Settings{
-		BaseURL:          server.URL,
+		BaseURL:          originAt(t, server.URL),
 		Credentials:      github.NewCredential("s3cret"),
 		Client:           client,
 		MaxResponseBytes: 1 << 20,
@@ -84,4 +84,13 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 	if document.Diff.Totals != want {
 		t.Errorf("totals are %+v, want %+v", document.Diff.Totals, want)
 	}
+}
+
+func originAt(t *testing.T, address string) domain.HTTPSOrigin {
+	t.Helper()
+	origin, err := domain.ParseHTTPSOrigin(address)
+	if err != nil {
+		t.Fatalf("the test server address %q is not an https origin: %v", address, err)
+	}
+	return origin
 }

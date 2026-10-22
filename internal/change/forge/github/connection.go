@@ -7,13 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"slices"
-	"strings"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type Settings struct {
-	BaseURL          string
+	BaseURL          domain.HTTPSOrigin
 	Credentials      CredentialSource
 	AppID            int64
 	Client           *http.Client
@@ -22,7 +21,7 @@ type Settings struct {
 
 var ErrNoCredential = errors.New("the forge settings carry no credential")
 
-var ErrMalformedBaseURL = errors.New("the forge address is not an https origin")
+var ErrNoBaseURL = errors.New("the forge settings carry no forge address")
 
 var ErrMalformedResponseBound = errors.New("the forge settings carry no positive response byte bound")
 
@@ -57,8 +56,8 @@ func parseConnection(settings Settings, authorizer requestAuthorizer) (connectio
 	}
 	client := *settings.Client
 	settings.Client = &client
-	if err := checkBaseURL(settings.BaseURL); err != nil {
-		return connection{}, err
+	if settings.BaseURL == (domain.HTTPSOrigin{}) {
+		return connection{}, ErrNoBaseURL
 	}
 	if settings.MaxResponseBytes <= 0 {
 		return connection{}, fmt.Errorf("%w: %d", ErrMalformedResponseBound, settings.MaxResponseBytes)
@@ -68,28 +67,4 @@ func parseConnection(settings Settings, authorizer requestAuthorizer) (connectio
 	}
 	settings.Credentials = nil
 	return connection{settings: settings, authorizer: authorizer}, nil
-}
-
-func checkBaseURL(address string) error {
-	parsed, err := url.Parse(address)
-	if err != nil {
-		return fmt.Errorf("%w: %q: %w", ErrMalformedBaseURL, address, err)
-	}
-	faults := []baseURLFault{
-		{"is not https", parsed.Scheme != "https"},
-		{"names no host", parsed.Host == ""},
-		{"ends in a slash", strings.HasSuffix(parsed.Path, "/")},
-		{"carries a query", parsed.RawQuery != ""},
-		{"carries a fragment", parsed.Fragment != ""},
-	}
-	held := slices.IndexFunc(faults, func(fault baseURLFault) bool { return fault.holds })
-	if held < 0 {
-		return nil
-	}
-	return fmt.Errorf("%w: %q %s", ErrMalformedBaseURL, address, faults[held].reason)
-}
-
-type baseURLFault struct {
-	reason string
-	holds  bool
 }

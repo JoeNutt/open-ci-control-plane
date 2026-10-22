@@ -29,7 +29,7 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 }
 
 func (runs CheckRuns) String() string {
-	return "the check runs at " + runs.forge.settings.BaseURL
+	return "the check runs at " + runs.forge.settings.BaseURL.String()
 }
 
 func (runs CheckRuns) GoString() string {

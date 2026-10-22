@@ -81,7 +81,7 @@ func write(t *testing.T, writer http.ResponseWriter, body string) {
 
 func wellFormedSettings() github.Settings {
 	return github.Settings{
-		BaseURL:          "https://api.example",
+		BaseURL:          originAt("https://api.example"),
 		Credentials:      forgeCredential,
 		AppID:            forgeAppID,
 		Client:           &http.Client{Timeout: forgeTimeout},
@@ -97,7 +97,7 @@ func sourceAt(t *testing.T, server *httptest.Server) github.ChangeSource {
 
 func settingsAt(server *httptest.Server) github.Settings {
 	settings := wellFormedSettings()
-	settings.BaseURL = server.URL
+	settings.BaseURL = originAt(server.URL)
 	settings.Client = server.Client()
 	settings.Client.Timeout = forgeTimeout
 	return settings
@@ -128,4 +128,12 @@ func pageAsLongAsAsked(t *testing.T, request *http.Request) string {
 			fmt.Sprintf(`{"filename": "internal/%d.go", "status": "added"}`, position))
 	}
 	return "[" + strings.Join(listings, ",") + "]"
+}
+
+func originAt(address string) domain.HTTPSOrigin {
+	origin, err := domain.ParseHTTPSOrigin(address)
+	if err != nil {
+		panic(fmt.Sprintf("the fixture address %q is not an https origin: %v", address, err))
+	}
+	return origin
 }

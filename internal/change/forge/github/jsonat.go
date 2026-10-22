@@ -95,7 +95,7 @@ func requestFor(
 		return nil, err
 	}
 	request, err := http.NewRequestWithContext(
-		ctx, over.method, forge.settings.BaseURL+over.endpoint, body)
+		ctx, over.method, forge.settings.BaseURL.String()+over.endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", over.endpoint, err)
 	}

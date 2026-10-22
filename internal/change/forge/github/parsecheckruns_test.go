@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
@@ -55,9 +56,9 @@ func TestParseCheckRunsRefusesWhatAChangeSourceRefuses(t *testing.T) {
 		"no credential":    {func(s *github.Settings) { s.Credentials = github.Credential{} }, github.ErrNoCredential},
 		"empty credential": {func(s *github.Settings) { s.Credentials = github.NewCredential("") }, github.ErrNoCredential},
 		"no client":        {func(s *github.Settings) { s.Client = nil }, github.ErrNoClient},
-		"plain http": {
-			func(s *github.Settings) { s.BaseURL = "http://api.example" },
-			github.ErrMalformedBaseURL,
+		"no forge address": {
+			func(s *github.Settings) { s.BaseURL = domain.HTTPSOrigin{} },
+			github.ErrNoBaseURL,
 		},
 	}
 
