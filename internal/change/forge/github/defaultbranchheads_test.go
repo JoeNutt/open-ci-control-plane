@@ -23,18 +23,11 @@ const (
 	policyHeadAnswer      = `{"object": {"sha": "` + policyHead + `", "type": "commit"}}`
 )
 
-type askedRequest struct {
-	method        string
-	escapedPath   string
-	rawQuery      string
-	authorization string
-}
-
-func recordingEach(t *testing.T, asked *[]askedRequest, bodies map[string]string) *httptest.Server {
+func recordingEach(t *testing.T, asked *[]recordedRequest, bodies map[string]string) *httptest.Server {
 	t.Helper()
 
 	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		*asked = append(*asked, askedRequest{
+		*asked = append(*asked, recordedRequest{
 			method:        request.Method,
 			escapedPath:   request.URL.EscapedPath(),
 			rawQuery:      request.URL.RawQuery,
@@ -50,7 +43,7 @@ func recordingEach(t *testing.T, asked *[]askedRequest, bodies map[string]string
 }
 
 func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(t *testing.T) {
-	var asked []askedRequest
+	var asked []recordedRequest
 	server := recordingEach(t, &asked, map[string]string{
 		policyRepositoryPath:           `{"default_branch": "main"}`,
 		policyBranchHeadsPath + "main": policyHeadAnswer,
@@ -64,7 +57,7 @@ func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(
 	if head.String() != policyHead {
 		t.Errorf("head is %s, want %s", head, policyHead)
 	}
-	want := []askedRequest{
+	want := []recordedRequest{
 		{method: http.MethodGet, escapedPath: policyRepositoryPath, authorization: "Bearer " + forgeToken},
 		{method: http.MethodGet, escapedPath: policyBranchHeadsPath + "main", authorization: "Bearer " + forgeToken},
 	}
@@ -74,7 +67,7 @@ func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(
 }
 
 func TestDefaultBranchHeadOfAsksForTheBranchTheForgeNamedAsOnePathSegment(t *testing.T) {
-	var asked []askedRequest
+	var asked []recordedRequest
 	const escapedBranch = "release%2F..%2Fv1%3Fref=x"
 	server := recordingEach(t, &asked, map[string]string{
 		policyRepositoryPath:                  `{"default_branch": "release/../v1?ref=x"}`,
@@ -100,7 +93,7 @@ func TestDefaultBranchHeadOfReportsARepositoryTheForgeDoesNotHold(t *testing.T) 
 }
 
 func TestDefaultBranchHeadOfRefusesARepositoryNamingNoDefaultBranchWithoutAskingForIt(t *testing.T) {
-	var asked []askedRequest
+	var asked []recordedRequest
 	server := recordingEach(t, &asked, map[string]string{policyRepositoryPath: `{"default_branch": ""}`})
 
 	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
@@ -114,7 +107,7 @@ func TestDefaultBranchHeadOfRefusesARepositoryNamingNoDefaultBranchWithoutAsking
 }
 
 func TestDefaultBranchHeadOfReportsADefaultBranchTheForgeHoldsNoReferenceFor(t *testing.T) {
-	var asked []askedRequest
+	var asked []recordedRequest
 	server := recordingEach(t, &asked, map[string]string{policyRepositoryPath: `{"default_branch": "main"}`})
 
 	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
