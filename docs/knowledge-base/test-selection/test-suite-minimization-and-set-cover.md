@@ -31,8 +31,11 @@ loss on seeded faults. Minimisation is therefore always shadowed before it is en
   far greedy lands from optimal. Knuth's DLX (Algorithm X over toroidal doubly linked lists,
   §7.2.2.1; the list mechanics are §2.2.6) solves **exact** cover, where every item is covered
   exactly once. Set cover lets an item be covered more than once, so it needs §7.2.2.1's
-  multiplicity variant (Algorithm M) or a bitset branch-and-bound. Neither bounds the worst
-  case below exponential.
+  multiplicity variant (Algorithm M) or a bitset branch-and-bound. Knuth's DLX5 program adds
+  option costs and finds **minimum-cost exact** covers
+  ([dlx5.w](https://www-cs-staff.stanford.edu/~knuth/programs/dlx5.w)). A cost-minimising form
+  of the *multiplicity* solver is **not confirmed** here. None bounds the worst case below
+  exponential.
 
 | Method | Time | Space | Guarantee |
 |---|---|---|---|
