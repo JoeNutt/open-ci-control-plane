@@ -91,7 +91,7 @@ func admittedWithoutDecisionPresentation(decided FamilyDecision) runPresentation
 }
 
 const (
-	policyErrorTitle  = "Policy failed to evaluate"
+	policyErrorTitle  = "Policy fault"
 	policyErrorLayout = "Policy %s failed to evaluate. This is not a problem with your change."
 )
 

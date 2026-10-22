@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -39,6 +40,30 @@ func TestAStructuralPolicyDeclaringItselfOpenStillFailsWhenUndefined(t *testing.
 	if run.Conclusion != domain.ConclusionFailure {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
 	}
+}
+
+const policyFault = "policy fault"
+
+func TestAnEvaluationErrorFailsReportingAPolicyFaultAndNoRule(t *testing.T) {
+	run := structuralCheckRunAfter(t, faultingEngine{fault: errors.New("conflicting rule outputs")})
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+	if !strings.Contains(strings.ToLower(run.Title), policyFault) {
+		t.Errorf("title %q does not report a %s", run.Title, policyFault)
+	}
+	if run.ViolationCount != 0 || len(run.Violations) != 0 {
+		t.Errorf("a policy fault names rules: %+v", run.Violations)
+	}
+}
+
+type faultingEngine struct {
+	fault error
+}
+
+func (engine faultingEngine) Decide(context.Context, domain.Document) (domain.Decision, error) {
+	return domain.Decision{}, engine.fault
 }
 
 func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.CheckRun {
