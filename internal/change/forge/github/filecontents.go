@@ -59,14 +59,21 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 	return answer.decoded(contents.maxFileBytes)
 }
 
-const jsonArrayValue = "array"
-
 func refusalOfAListing(err error) error {
 	var mistyped *json.UnmarshalTypeError
-	if errors.As(err, &mistyped) && mistyped.Value == jsonArrayValue && mistyped.Field == "" {
+	if errors.As(err, &mistyped) && isWholeAnswerAnArray(mistyped) {
 		return fmt.Errorf("%w: a directory listing", errNotAFile)
 	}
 	return err
+}
+
+const (
+	jsonArrayValue  = "array"
+	wholeJSONAnswer = ""
+)
+
+func isWholeAnswerAnArray(mistyped *json.UnmarshalTypeError) bool {
+	return mistyped.Field == wholeJSONAnswer && mistyped.Value == jsonArrayValue
 }
 
 func contentsReading(file domain.FileAtCommit) exchange {
