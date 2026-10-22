@@ -14,9 +14,9 @@ import (
 const catalogPath = "catalog/clean-architecture.yaml"
 
 func TestPolicyContentsReadsAPolicyFileAtThePolicyCommitAsTheInstallation(t *testing.T) {
-	var asked askedForContents
+	var asked recordedRequest
 	const catalog = "schema_version: 1\n"
-	server := recordingContents(t, &asked, fileAnswer(catalog))
+	server := recording(t, &asked, fileAnswer(catalog))
 	contents, err := github.ParsePolicyContents(settingsAt(server))
 	if err != nil {
 		t.Fatalf("parse policy contents: %v", err)
@@ -34,7 +34,7 @@ func TestPolicyContentsReadsAPolicyFileAtThePolicyCommitAsTheInstallation(t *tes
 	if string(read) != catalog {
 		t.Errorf("read %q, want %q", read, catalog)
 	}
-	want := askedForContents{
+	want := recordedRequest{
 		method:        http.MethodGet,
 		escapedPath:   policyRepositoryPath + "/contents/" + catalogPath,
 		rawQuery:      "ref=" + policyHead,
