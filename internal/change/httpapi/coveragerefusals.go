@@ -5,14 +5,40 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"slices"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
 	foreignRepositoryCode    = "foreign_repository"
 	foreignRepositoryMessage = "the token was issued to another repository than the path names"
+	unknownPathCode          = "unknown_path"
+	unknownPathMessage       = "the artifact names a path that is absolute or that the repository does not hold"
 )
+
+type classifiedFailure struct {
+	answer refusal
+}
+
+type causedRefusal struct {
+	cause   error
+	refusal func() refusal
+}
+
+var coverageRefusals = []causedRefusal{
+	{cause: application.ErrForeignRepository, refusal: foreignRepositoryProblem},
+	{cause: domain.ErrPathOutsideRepository, refusal: unknownPathProblem},
+}
+
+func coverageRefusalOf(failure error) classifiedFailure {
+	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
+	if matching < 0 {
+		return classifiedFailure{answer: foreignRepositoryProblem()}
+	}
+	return classifiedFailure{answer: coverageRefusals[matching].refusal()}
+}
 
 type authorizationProblem struct {
 	Code    string `json:"code"`
@@ -36,13 +62,6 @@ func (pathProblem) status() int { return http.StatusUnprocessableEntity }
 
 func (problem pathProblem) reason() string { return problem.Code }
 
-type classifiedFailure struct {
-	answer refusal
-}
-
-func coverageRefusalOf(failure error) classifiedFailure {
-	if errors.Is(failure, domain.ErrPathOutsideRepository) {
-		return classifiedFailure{answer: pathProblem{Code: "unknown_path", Message: "x"}}
-	}
-	return classifiedFailure{answer: foreignRepositoryProblem()}
+func unknownPathProblem() refusal {
+	return pathProblem{Code: unknownPathCode, Message: unknownPathMessage}
 }
