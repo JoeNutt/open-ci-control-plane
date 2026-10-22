@@ -49,12 +49,19 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 }
 
 func contentsEndpoint(file domain.FileAtCommit) string {
-	segments := strings.Split(file.Path, "/")
-	for i, segment := range segments {
-		segments[i] = url.PathEscape(segment)
-	}
 	query := url.Values{"ref": {file.Commit.String()}}
-	return fmt.Sprintf("/repos/%s/contents/%s?%s", file.Repository, strings.Join(segments, "/"), query.Encode())
+	return fmt.Sprintf("/repos/%s/contents/%s?%s",
+		file.Repository, escapedRepositoryPath(file.Path), query.Encode())
+}
+
+const repositoryPathSeparator = "/"
+
+func escapedRepositoryPath(path string) string {
+	segments := strings.Split(path, repositoryPathSeparator)
+	for position, segment := range segments {
+		segments[position] = url.PathEscape(segment)
+	}
+	return strings.Join(segments, repositoryPathSeparator)
 }
 
 type contentsAnswer struct {
