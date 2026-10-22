@@ -5,6 +5,7 @@ package policy_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -55,6 +56,59 @@ func (counted countedListings) ListedFilesAt(ctx context.Context, at domain.Poli
 	return counted.listings.ListedFilesAt(ctx, at)
 }
 
+func TestReadRevisionRefusesAListingOverABoundBeforeFetchingAnyFile(t *testing.T) {
+	overBound := map[string]struct {
+		listed func([]domain.ListedFile) []domain.ListedFile
+		breach error
+	}{
+		"a file listed one byte over the bound": {
+			listed: func(listed []domain.ListedFile) []domain.ListedFile {
+				listed[len(listed)-1].Bytes = domain.MaxPolicyFileBytes + 1
+				return listed
+			},
+			breach: domain.ErrPolicyFileTooLarge,
+		},
+		"one policy file over the count bound": {
+			listed: func(listed []domain.ListedFile) []domain.ListedFile {
+				for index := len(listed); index <= domain.MaxPolicyFiles+1; index++ {
+					listed = append(listed, domain.ListedFile{Path: fmt.Sprintf("bindings/owner/repository%d.yaml", index), Bytes: 1})
+				}
+				return listed
+			},
+			breach: domain.ErrTooManyPolicyFiles,
+		},
+	}
+	for form, bound := range overBound {
+		t.Run(form, func(t *testing.T) {
+			recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+			at := policyHeadAt(t, firstPolicyCommit)
+			recorded.listings.Listings[at] = bound.listed(recorded.listings.Listings[at])
+			contentsAsked := 0
+			ports := portsOver(recorded)
+			ports.Contents = countedContents{contents: recorded.contents, asked: &contentsAsked}
+
+			err := readerWith(t, ports, activePolicyLoggingTo(t, slog.DiscardHandler)).ReadRevision(context.Background())
+
+			if !errors.Is(err, bound.breach) {
+				t.Fatalf("%s gave %v, want %v", form, err, bound.breach)
+			}
+			if contentsAsked != 0 {
+				t.Errorf("the reader fetched %d files from a listing over the bound", contentsAsked)
+			}
+		})
+	}
+}
+
+type countedContents struct {
+	contents domain.PolicyContents
+	asked    *int
+}
+
+func (counted countedContents) ContentsAt(ctx context.Context, at domain.PolicyCommit, path domain.RepositoryPath) ([]byte, error) {
+	*counted.asked++
+	return counted.contents.ContentsAt(ctx, at, path)
+}
+
 func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
 	missing := map[string]func(*readerParts){
 		"no repository":    func(parts *readerParts) { parts.repository = domain.PolicyRepository{} },
@@ -101,10 +155,7 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 	t.Helper()
 
 	repository := readRepository(t)
-	at, err := domain.ParsePolicyCommit(repository, policyCommit(t, head))
-	if err != nil {
-		t.Fatalf("parse policy commit: %v", err)
-	}
+	at := policyHeadAt(t, head)
 	listed := []domain.ListedFile{{Path: "README.md", Bytes: len("# policy\n")}}
 	recorded := map[memory.PolicyFileAt][]byte{}
 	for _, file := range files {
@@ -116,6 +167,16 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 		listings: memory.PolicyListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: listed}},
 		contents: memory.PolicyContents{Files: recorded},
 	}
+}
+
+func policyHeadAt(t *testing.T, head string) domain.PolicyCommit {
+	t.Helper()
+
+	at, err := domain.ParsePolicyCommit(readRepository(t), policyCommit(t, head))
+	if err != nil {
+		t.Fatalf("parse policy commit: %v", err)
+	}
+	return at
 }
 
 func readerOver(t *testing.T, recorded recordedPolicyRepository, active *policy.ActivePolicy) *policy.Reader {
