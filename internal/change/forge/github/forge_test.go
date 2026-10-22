@@ -82,7 +82,7 @@ func write(t *testing.T, writer http.ResponseWriter, body string) {
 func wellFormedSettings() github.Settings {
 	return github.Settings{
 		BaseURL:          "https://api.example",
-		Token:            forgeCredential,
+		Credentials:      forgeCredential,
 		AppID:            forgeAppID,
 		Client:           &http.Client{Timeout: forgeTimeout},
 		MaxResponseBytes: 1 << 20,

@@ -1,0 +1,20 @@
+schema_version: 1
+repository: JoeNutt/open-ci-control-plane
+policies:
+  - use: clean-architecture
+    import_roots:
+      - prefix: github.com/JoeNutt/open-ci-control-plane
+        path: ""
+    paths:
+      domain: ["internal/change/domain/**"]
+      application: ["internal/change/application/**"]
+      adapter: ["internal/change/forge/**", "internal/change/engine/**",
+                "internal/change/ingest/**", "internal/change/rules/**",
+                "internal/change/random/**", "internal/change/jsonlines/**",
+                "internal/change/httpapi/**", "internal/change/policy/**",
+                "internal/change/coverage/**", "internal/change/extract/**"]
+      driver: ["cmd/**"]
+tests:
+  workflow: open-ci-tests.yml
+  always_run:
+    - github.com/JoeNutt/open-ci-control-plane/internal/change/domain

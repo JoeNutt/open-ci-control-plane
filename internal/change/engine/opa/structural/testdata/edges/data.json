@@ -1,0 +1,6 @@
+{
+  "domain_imports_forge": {
+    "from": "internal/change/domain/gate.go",
+    "to": "github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
+  }
+}
