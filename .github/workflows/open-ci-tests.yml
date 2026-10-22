@@ -1,0 +1,93 @@
+name: open-ci tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan:
+        description: The C-9 test plan, as JSON
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLAN: ${{ inputs.plan }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Read the plan
+        id: plan
+        run: |
+          set -euo pipefail
+          head_sha="$(jq -er '.headSha' <<<"$PLAN")"
+          [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "headSha is not a commit SHA" >&2; exit 1; }
+          full_matrix="$(jq -er '.fullMatrix | if type == "boolean" then tostring else error("fullMatrix is not a boolean") end' <<<"$PLAN")"
+          packages="$(jq -er '(.suites + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
+          for package in $packages; do
+            [[ "$package" =~ ^[A-Za-z0-9._~+/-]+$ ]] || { echo "a suite is not a Go import path" >&2; exit 1; }
+          done
+          {
+            echo "head_sha=$head_sha"
+            echo "full_matrix=$full_matrix"
+            echo "packages=$packages"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Ignore a plan for a head that is no longer current
+        id: current
+        env:
+          HEAD_SHA: ${{ steps.plan.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          open_heads="$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/pulls" \
+            --jq "[.[] | select(.state == \"open\" and .head.sha == \"$HEAD_SHA\")] | length")"
+          if [[ "$open_heads" -gt 0 ]]; then
+            echo "is_current=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "is_current=false" >>"$GITHUB_OUTPUT"
+            echo "$HEAD_SHA is not the head of an open pull request; ignoring this plan."
+          fi
+
+      - name: Check out the planned head
+        if: steps.current.outputs.is_current == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ steps.plan.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        if: steps.current.outputs.is_current == 'true'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run the planned suites
+        id: tests
+        if: steps.current.outputs.is_current == 'true'
+        env:
+          FULL_MATRIX: ${{ steps.plan.outputs.full_matrix }}
+          PACKAGES: ${{ steps.plan.outputs.packages }}
+        run: |
+          set -euo pipefail
+          if [[ "$FULL_MATRIX" == "true" ]]; then
+            go test ./...
+          elif [[ -n "$PACKAGES" ]]; then
+            read -ra planned <<<"$PACKAGES"
+            go test "${planned[@]}"
+          fi
+
+      - name: Post open-ci/tests on the planned head
+        if: always() && steps.current.outputs.is_current == 'true'
+        env:
+          HEAD_SHA: ${{ steps.plan.outputs.head_sha }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          set -euo pipefail
+          state=failure
+          if [[ "$OUTCOME" == "success" ]]; then state=success; fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f state="$state" -f context=open-ci/tests -f description="Planned suites: $OUTCOME"
