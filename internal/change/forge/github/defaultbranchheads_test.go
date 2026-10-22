@@ -13,7 +13,13 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
-const policyHead = "637d049f40a67db2936d7c97668b07c531b4dcc5"
+const (
+	policyHead            = "637d049f40a67db2936d7c97668b07c531b4dcc5"
+	readPolicyRepository  = "JoeNutt/open-ci-policy"
+	policyRepositoryPath  = "/repos/" + readPolicyRepository
+	policyBranchHeadsPath = policyRepositoryPath + "/git/ref/heads/"
+	policyHeadAnswer      = `{"object": {"sha": "` + policyHead + `", "type": "commit"}}`
+)
 
 type askedRequest struct {
 	method        string
@@ -44,15 +50,11 @@ func recordingEach(t *testing.T, asked *[]askedRequest, bodies map[string]string
 func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(t *testing.T) {
 	var asked []askedRequest
 	server := recordingEach(t, &asked, map[string]string{
-		"/repos/JoeNutt/open-ci-policy":                    `{"default_branch": "main"}`,
-		"/repos/JoeNutt/open-ci-policy/git/ref/heads/main": `{"object": {"sha": "` + policyHead + `", "type": "commit"}}`,
+		policyRepositoryPath:           `{"default_branch": "main"}`,
+		policyBranchHeadsPath + "main": policyHeadAnswer,
 	})
-	heads, err := github.ParseDefaultBranchHeads(settingsAt(server))
-	if err != nil {
-		t.Fatalf("parse default branch heads: %v", err)
-	}
 
-	head, err := heads.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, "JoeNutt/open-ci-policy"))
+	head, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
 
 	if err != nil {
 		t.Fatalf("default branch head: %v", err)
@@ -61,8 +63,8 @@ func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(
 		t.Errorf("head is %s, want %s", head, policyHead)
 	}
 	want := []askedRequest{
-		{method: http.MethodGet, escapedPath: "/repos/JoeNutt/open-ci-policy", authorization: "Bearer " + forgeToken},
-		{method: http.MethodGet, escapedPath: "/repos/JoeNutt/open-ci-policy/git/ref/heads/main", authorization: "Bearer " + forgeToken},
+		{method: http.MethodGet, escapedPath: policyRepositoryPath, authorization: "Bearer " + forgeToken},
+		{method: http.MethodGet, escapedPath: policyBranchHeadsPath + "main", authorization: "Bearer " + forgeToken},
 	}
 	if !slices.Equal(asked, want) {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
@@ -73,20 +75,26 @@ func TestDefaultBranchHeadOfAsksForTheBranchTheForgeNamedAsOnePathSegment(t *tes
 	var asked []askedRequest
 	const escapedBranch = "release%2F..%2Fv1%3Fref=x"
 	server := recordingEach(t, &asked, map[string]string{
-		"/repos/JoeNutt/open-ci-policy":                                `{"default_branch": "release/../v1?ref=x"}`,
-		"/repos/JoeNutt/open-ci-policy/git/ref/heads/" + escapedBranch: `{"object": {"sha": "` + policyHead + `"}}`,
+		policyRepositoryPath:                  `{"default_branch": "release/../v1?ref=x"}`,
+		policyBranchHeadsPath + escapedBranch: policyHeadAnswer,
 	})
+
+	if _, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository)); err != nil {
+		t.Fatalf("default branch head: %v", err)
+	}
+	if len(asked) != 2 || asked[1].escapedPath != policyBranchHeadsPath+escapedBranch || asked[1].rawQuery != "" {
+		t.Errorf("the adapter asked %+v, want the branch as one escaped segment and no query", asked)
+	}
+}
+
+func headsAt(t *testing.T, server *httptest.Server) github.DefaultBranchHeads {
+	t.Helper()
+
 	heads, err := github.ParseDefaultBranchHeads(settingsAt(server))
 	if err != nil {
 		t.Fatalf("parse default branch heads: %v", err)
 	}
-
-	if _, err := heads.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, "JoeNutt/open-ci-policy")); err != nil {
-		t.Fatalf("default branch head: %v", err)
-	}
-	if len(asked) != 2 || asked[1].escapedPath != "/repos/JoeNutt/open-ci-policy/git/ref/heads/"+escapedBranch || asked[1].rawQuery != "" {
-		t.Errorf("the adapter asked %+v, want the branch as one escaped segment and no query", asked)
-	}
+	return heads
 }
 
 func policyRepositoryOf(t *testing.T, stated string) domain.PolicyRepository {
