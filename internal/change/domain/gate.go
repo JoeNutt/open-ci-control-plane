@@ -28,6 +28,9 @@ type FamilyDecision struct {
 }
 
 func (decided FamilyDecision) FailurePosture() FailurePosture {
+	if decided.Family.FailurePosture() == FailurePostureClosed {
+		return FailurePostureClosed
+	}
 	if declared := decided.Decision.FailurePosture(); declared != "" {
 		return declared
 	}

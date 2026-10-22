@@ -62,7 +62,7 @@ func TestEachFamilyCarriesTheFailurePostureTheDesignStates(t *testing.T) {
 		domain.PolicyFamilySecurity:   domain.FailurePostureClosed,
 		domain.PolicyFamilyRouting:    domain.FailurePostureOpen,
 		domain.PolicyFamilyQuality:    domain.FailurePostureOpen,
-		domain.PolicyFamilyStructural: domain.FailurePostureDeclaredPerPolicy,
+		domain.PolicyFamilyStructural: domain.FailurePostureClosed,
 	}
 
 	for family, want := range postures {

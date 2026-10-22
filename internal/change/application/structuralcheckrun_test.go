@@ -25,6 +25,22 @@ func TestAnUndefinedStructuralDecisionFailsReadingNoPolicyLoaded(t *testing.T) {
 	}
 }
 
+func TestAStructuralPolicyDeclaringItselfOpenStillFailsWhenUndefined(t *testing.T) {
+	undecided, err := domain.ParseDecision([]byte(`{
+		"input_wellformed": false, "schema_version_accepted": 1, "effect": "allow",
+		"violations": [], "reviewers": [], "fail_closed": false
+	}`), revisionForTest(t))
+	if err != nil {
+		t.Fatalf("parse decision: %v", err)
+	}
+
+	run := structuralCheckRunAfter(t, answeringEngine{decided: undecided})
+
+	if run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
+	}
+}
+
 func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.CheckRun {
 	t.Helper()
 

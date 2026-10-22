@@ -496,16 +496,16 @@ func checkRunFor(
 	return domain.CheckRunFor(domain.FamilyDecision{Family: family, Decision: decision}, id)
 }
 
-func TestAnUndecidedPolicyIsGovernedByThePostureItDeclaresOverItsFamilys(t *testing.T) {
+func TestAnUndecidedPolicyMayCloseItsFamilyButNeverOpenAClosedOne(t *testing.T) {
 	declared := map[string]struct {
 		family domain.PolicyFamily
 		stated string
 		want   domain.Conclusion
 	}{
-		"closed in an open family": {domain.PolicyFamilyQuality, "true", domain.ConclusionFailure},
-		"open in a closed family":  {domain.PolicyFamilySecurity, "false", domain.ConclusionNeutral},
-		"open in a family that defers to its policies": {
-			domain.PolicyFamilyStructural, "false", domain.ConclusionNeutral},
+		"closed in an open family":      {domain.PolicyFamilyQuality, "true", domain.ConclusionFailure},
+		"open in an open family":        {domain.PolicyFamilyQuality, "false", domain.ConclusionNeutral},
+		"open in a closed family":       {domain.PolicyFamilySecurity, "false", domain.ConclusionFailure},
+		"open in the structural family": {domain.PolicyFamilyStructural, "false", domain.ConclusionFailure},
 	}
 
 	for form, policy := range declared {

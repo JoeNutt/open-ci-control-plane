@@ -32,7 +32,7 @@ var declaredPolicyFamilies = []PolicyFamily{
 }
 
 var failurePostures = map[PolicyFamily]FailurePosture{
-	PolicyFamilyStructural: FailurePostureDeclaredPerPolicy,
+	PolicyFamilyStructural: FailurePostureClosed,
 	PolicyFamilySecurity:   FailurePostureClosed,
 	PolicyFamilyQuality:    FailurePostureOpen,
 	PolicyFamilyRouting:    FailurePostureOpen,
