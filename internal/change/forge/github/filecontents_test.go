@@ -228,6 +228,21 @@ func TestContentsAtReadsAFileOfExactlyTheBoundAndRefusesOneStatedOverItBeforeDec
 	}
 }
 
+func TestContentsAtRefusesContentLongerOrShorterThanTheSizeTheForgeStates(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(middlewareSource))
+
+	for _, stated := range []int{len(middlewareSource) - 1, len(middlewareSource) + 1} {
+		server := answering(t, http.StatusOK, statedFileAnswer(stated, encoded))
+
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+
+		if !errors.Is(err, github.ErrContentsSizeMismatch) {
+			t.Errorf("stated %d: error is %v, want %v", stated, err, github.ErrContentsSizeMismatch)
+		}
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))

@@ -26,6 +26,8 @@ var ErrFileTooLarge = errors.New("the forge states a file larger than the file b
 
 var ErrMalformedFileBound = errors.New("the file byte bound is not positive")
 
+var ErrContentsSizeMismatch = errors.New("the forge served content of another size than it states")
+
 type FileContents struct {
 	forge        connection
 	maxFileBytes int
@@ -140,6 +142,9 @@ func (answer contentsAnswer) decoded(maxFileBytes int) ([]byte, error) {
 	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
+	}
+	if len(decoded) != answer.Size {
+		return nil, ErrContentsSizeMismatch
 	}
 	return decoded, nil
 }
