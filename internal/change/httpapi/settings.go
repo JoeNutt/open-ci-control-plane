@@ -23,6 +23,8 @@ type Settings struct {
 	Gates       map[int64]ChangeGate
 	DecisionIDs domain.DecisionIDSource
 	Clock       func() time.Time
+	Coverage    CoverageReplacement
+	Artifacts   CoverageArtifacts
 }
 
 type requiredPart struct {
@@ -34,6 +36,8 @@ var requiredParts = []requiredPart{
 	{name: "a log", isMissing: func(settings Settings) bool { return settings.Log == nil }},
 	{name: "a decision ID source", isMissing: func(settings Settings) bool { return settings.DecisionIDs == nil }},
 	{name: "a clock", isMissing: func(settings Settings) bool { return settings.Clock == nil }},
+	{name: "a coverage replacement", isMissing: func(settings Settings) bool { return settings.Coverage == nil }},
+	{name: "an artifact parser", isMissing: func(settings Settings) bool { return settings.Artifacts == nil }},
 }
 
 func isMissingFrom(settings Settings) func(requiredPart) bool {
