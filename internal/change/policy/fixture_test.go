@@ -19,7 +19,16 @@ const (
 	liveWorkflowLine = "  workflow: " + liveWorkflow
 	liveModule       = "github.com/" + liveRepository
 	liveDriverPaths  = `driver: ["cmd/**"]`
+	liveRootPathLine = `        path: ""`
+
+	liveSchemaVersionLine  = "schema_version: 1"
+	laterSchemaVersionLine = "schema_version: 2"
 )
+
+type refusedFile struct {
+	written string
+	reason  error
+}
 
 func fixtureWith(t *testing.T, path, written, replacement string) string {
 	t.Helper()

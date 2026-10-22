@@ -13,6 +13,8 @@ import (
 
 var ErrNoPolicyLoaded = errors.New("no policy loaded")
 
+var ErrNoPolicyLog = errors.New("active policy has no log to record revisions in")
+
 const (
 	acceptedRevisionMessage = "policy revision accepted"
 	refusedRevisionMessage  = "policy revision refused"
@@ -25,7 +27,12 @@ type ActivePolicy struct {
 	accepted atomic.Pointer[AcceptedRevision]
 }
 
-func NewActivePolicy(log *slog.Logger) *ActivePolicy { return &ActivePolicy{log: log} }
+func ParseActivePolicy(log *slog.Logger) (*ActivePolicy, error) {
+	if log == nil {
+		return nil, ErrNoPolicyLog
+	}
+	return &ActivePolicy{log: log}, nil
+}
 
 func (active *ActivePolicy) Offer(revision domain.CommitSHA, files []domain.PolicyFile) error {
 	model, err := ParseRevision(files)

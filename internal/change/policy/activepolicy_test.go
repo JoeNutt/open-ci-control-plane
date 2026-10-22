@@ -19,8 +19,14 @@ const (
 	secondPolicyCommit = "2222222222222222222222222222222222222222"
 )
 
+func TestParseActivePolicyRefusesANilLogger(t *testing.T) {
+	if _, err := policy.ParseActivePolicy(nil); !errors.Is(err, policy.ErrNoPolicyLog) {
+		t.Fatalf("a nil logger gave %v, want ErrNoPolicyLog", err)
+	}
+}
+
 func TestActivePolicyHoldsNoRevisionBeforeOneIsAccepted(t *testing.T) {
-	active := policy.NewActivePolicy(slog.New(slog.DiscardHandler))
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
 
 	if _, err := active.Accepted(); !errors.Is(err, policy.ErrNoPolicyLoaded) {
 		t.Fatalf("a fresh active policy gave %v, want ErrNoPolicyLoaded", err)
@@ -28,7 +34,7 @@ func TestActivePolicyHoldsNoRevisionBeforeOneIsAccepted(t *testing.T) {
 }
 
 func TestActivePolicyStaysUnloadedWhenTheFirstCandidateIsRefused(t *testing.T) {
-	active := policy.NewActivePolicy(slog.New(slog.DiscardHandler))
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
 
 	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFilesWithBinding(t, liveBindingWithAlias(t))); !errors.Is(err, policy.ErrAliasOrAnchor) {
 		t.Fatalf("a first candidate with a YAML alias gave %v, want ErrAliasOrAnchor", err)
@@ -104,7 +110,7 @@ func TestActivePolicyKeepsThePreviousRevisionForEveryRefusalReason(t *testing.T)
 
 func TestActivePolicyLogsTheRevisionItAccepts(t *testing.T) {
 	var logged bytes.Buffer
-	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
+	active := activePolicyLoggingTo(t, slog.NewJSONHandler(&logged, nil))
 
 	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFiles(t)); err != nil {
 		t.Fatalf("offer the live policy files: %v", err)
@@ -116,7 +122,7 @@ func TestActivePolicyLogsTheRevisionItAccepts(t *testing.T) {
 
 func TestActivePolicyLogsARefusalWithItsReasonAndNoFileContent(t *testing.T) {
 	var logged bytes.Buffer
-	active := policy.NewActivePolicy(slog.New(slog.NewJSONHandler(&logged, nil)))
+	active := activePolicyLoggingTo(t, slog.NewJSONHandler(&logged, nil))
 	const contentMarker = "unlogged_content_marker"
 	candidate := liveFiles(t)
 	candidate[1].Content = []byte(liveBindingWithUnknownKey(t, contentMarker))
@@ -134,10 +140,20 @@ func TestActivePolicyLogsARefusalWithItsReasonAndNoFileContent(t *testing.T) {
 	}
 }
 
+func activePolicyLoggingTo(t *testing.T, handler slog.Handler) *policy.ActivePolicy {
+	t.Helper()
+
+	active, err := policy.ParseActivePolicy(slog.New(handler))
+	if err != nil {
+		t.Fatalf("parse active policy: %v", err)
+	}
+	return active
+}
+
 func activeAtFirstCommit(t *testing.T) *policy.ActivePolicy {
 	t.Helper()
 
-	active := policy.NewActivePolicy(slog.New(slog.DiscardHandler))
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
 	if err := active.Offer(policyCommit(t, firstPolicyCommit), liveFiles(t)); err != nil {
 		t.Fatalf("offer the live policy files: %v", err)
 	}
@@ -211,7 +227,7 @@ func liveBindingWithDriverPatterns(t *testing.T, beyondTheLive int) string {
 func liveBindingWithImportRoots(t *testing.T, beyondTheLive int) string {
 	t.Helper()
 
-	return liveBindingWith(t, "        path: \"\"\n", "        path: \"\"\n"+linesOf(beyondTheLive, "      - prefix: "+liveModule+"\n        path: internal%d\n"))
+	return liveBindingWith(t, liveRootPathLine+"\n", liveRootPathLine+"\n"+linesOf(beyondTheLive, "      - prefix: "+liveModule+"\n        path: internal%d\n"))
 }
 
 func liveBindingWithAlwaysRun(t *testing.T, beyondTheLive int) string {
