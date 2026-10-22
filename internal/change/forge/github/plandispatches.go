@@ -56,20 +56,22 @@ func (dispatches PlanDispatches) DispatchPlan(ctx context.Context, plan domain.T
 	if err != nil {
 		return fmt.Errorf("read the default branch of %s: %w", plan.Repository, err)
 	}
-	encoded, err := json.Marshal(payloadOf(plan))
+	encoded, err := boundedEncodingOf(plan)
 	if err != nil {
 		return fmt.Errorf("encode the plan for %s: %w", plan.Repository, err)
-	}
-	if utf8.RuneCount(encoded) > domain.MaxPlanCharacters {
-		encoded, err = json.Marshal(payloadOf(plan.AsTooLarge()))
-		if err != nil {
-			return fmt.Errorf("encode the plan for %s: %w", plan.Repository, err)
-		}
 	}
 	if err := delivered(ctx, dispatches.forge, dispatchOf(plan, branch, string(encoded))); err != nil {
 		return fmt.Errorf("dispatch the plan for %s at %s: %w", plan.Repository, plan.Head, err)
 	}
 	return nil
+}
+
+func boundedEncodingOf(plan domain.TestPlan) ([]byte, error) {
+	encoded, err := json.Marshal(payloadOf(plan))
+	if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
+		return encoded, err
+	}
+	return json.Marshal(payloadOf(plan.AsTooLarge()))
 }
 
 func payloadOf(plan domain.TestPlan) planPayload {
