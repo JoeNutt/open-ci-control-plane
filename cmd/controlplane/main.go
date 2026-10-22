@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"io"
 	"log/slog"
@@ -44,6 +45,15 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 	}
 	configured, err := configuration.Read(path)
 	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	trusted, err := x509.SystemCertPool()
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	if _, err := appForgeOf(configured, forgeEndpoint{baseURL: forgeBaseURL, trusted: trusted}); err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}

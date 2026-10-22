@@ -135,7 +135,7 @@ func TestANamedPathThatIsNotARegularFileIsRefusedNamingItsItem(t *testing.T) {
 
 func TestANamedFileAtItsBoundIsReadAndOneByteMoreIsRefusedNamingItsItem(t *testing.T) {
 	bounds := map[string]int{
-		appKeyFileKey:        configuration.MaxAppKeyFileBytes,
+		appKeyFileKey:        configuration.MaxSecretFileBytes,
 		webhookSecretFileKey: configuration.MaxSecretFileBytes,
 	}
 	for key, maxBytes := range bounds {
@@ -254,5 +254,19 @@ func TestAPolicyRepositoryOrInstallationThatIsMalformedIsRefusedNamingIt(t *test
 
 			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, key)
 		})
+	}
+}
+
+func TestAnAppKeyItsParserRefusesIsRefusedNamingTheAppKeyFile(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+	unparseable := errors.New("not one PKCS#1 RSA private key")
+
+	_, err := configuration.AppKeyParsedBy(configured, func([]byte) (string, error) { return "", unparseable })
+
+	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), appKeyFileKey) {
+		t.Errorf("the refusal is not ErrInvalidItem naming %s: %v", appKeyFileKey, err)
+	}
+	if !errors.Is(err, unparseable) {
+		t.Errorf("the refusal does not carry the parser's reason: %v", err)
 	}
 }
