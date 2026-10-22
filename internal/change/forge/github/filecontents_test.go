@@ -85,6 +85,16 @@ func fileAt(t *testing.T, repository, path string) domain.FileAtCommit {
 	return domain.FileAtCommit{Repository: repository, Commit: commit, Path: path}
 }
 
+func TestParseFileContentsRefusesAFileByteBoundThatIsNotPositive(t *testing.T) {
+	for _, bound := range []int{0, -1} {
+		_, err := github.ParseFileContents(wellFormedSettings(), bound)
+
+		if !errors.Is(err, github.ErrMalformedFileBound) {
+			t.Errorf("bound %d: error is %v, want %v", bound, err, github.ErrMalformedFileBound)
+		}
+	}
+}
+
 func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))

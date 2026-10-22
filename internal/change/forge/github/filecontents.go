@@ -24,12 +24,17 @@ var ErrContentsNotServed = errors.New("the forge answered without the file's con
 
 var ErrFileTooLarge = errors.New("the forge states a file larger than the file byte bound")
 
+var ErrMalformedFileBound = errors.New("the file byte bound is not positive")
+
 type FileContents struct {
 	forge        connection
 	maxFileBytes int
 }
 
 func ParseFileContents(settings Settings, maxFileBytes int) (FileContents, error) {
+	if maxFileBytes <= 0 {
+		return FileContents{}, ErrMalformedFileBound
+	}
 	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
 		return FileContents{}, err
