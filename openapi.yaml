@@ -135,16 +135,17 @@ paths:
     put:
       operationId: replaceCoverage
       tags: [analysis]
-      summary: Replace the coverage map for one suite
+      summary: Replace the coverage map for one suite (C-12)
       description: |
         PUT rather than POST: the coverage map for one suite is a single addressable
         resource that this call replaces wholesale, so the operation is idempotent by
-        method and not only by header.
+        method. No Idempotency-Key is used (D-5).
 
         Parsing is all or nothing. A malformed, truncated or over-limit artifact is
         rejected whole, stores nothing, and leaves the previously accepted map serving
-        plans. A partially parsed coverage map is the worst possible input to a feature
-        whose job is deciding what not to run.
+        plans. The token is verified before any byte of the body is read. A path that
+        is not canonical (an empty, "." or ".." segment, or a trailing slash) is
+        refused 400, never redirected.
       security:
         - workloadToken: []
       parameters:
@@ -153,9 +154,16 @@ paths:
         - name: suite
           in: path
           required: true
-          description: Suite name the artifact's coverage is attributed to.
-          schema: { type: string, maxLength: 200 }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
+          description: |
+            The suite the artifact's coverage is attributed to: a Go import path, at most
+            512 bytes, characters [A-Za-z0-9._/-], no ".." segment. Its slashes are part
+            of the path. It is parsed into a domain type and never joined into a file path.
+          schema: { type: string, maxLength: 512, pattern: '^[A-Za-z0-9._/-]+$' }
+        - name: Content-Length
+          in: header
+          required: true
+          description: Declared before reading; above 64 MiB (67108864 bytes), or absent or chunked, is refused 413 unread.
+          schema: { type: integer, format: int64, maximum: 67108864 }
       requestBody:
         required: true
         content:
@@ -163,30 +171,54 @@ paths:
             schema:
               type: object
               required: [format, artifact]
+              description: The format part comes first, then the artifact part.
               properties:
                 format:
                   type: string
-                  enum: [cobertura, lcov, depgraph]
+                  enum: [lcov]
                 artifact:
                   type: string
                   format: binary
-                  description: The coverage artifact, optionally gzipped.
+                  description: |
+                    The LCOV artifact, optionally gzipped. Its SF paths are repository-relative.
+                    Limits (NFR-5): 256 MiB decompressed, 200,000 file entries, 5,000 suites per
+                    repository.
       responses:
         '201':
           description: Coverage map accepted and now serving plans.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CoverageAccepted' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '403':
-          description: Token scoped to a different repository.
+        '400':
+          description: |
+            A path segment C-12 does not admit, a body that is not multipart/form-data, a
+            missing format or artifact part, a format other than lcov, or an artifact that
+            is not parseable as LCOV. The body names which.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '409': { $ref: '#/components/responses/IdempotencyConflict' }
-        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: The token's repository differs from the path's. Logged; nothing stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413':
+          description: An NFR-5 bound was exceeded, or the length is undeclared. The body names the bound; nothing stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: An SF path is absolute or matches no repository path. Nothing stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '500':
+          description: The coverage could not be replaced for a reason C-12 does not classify. Logged with its cause.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /v1/bindings/{bindingId}:
     put:
@@ -653,13 +685,10 @@ components:
 
     CoverageAccepted:
       type: object
-      required: [artifactId, mapId, fileEntryCount, suiteCount, freshnessDeadline]
+      required: [suite, fileEntryCount]
       properties:
-        artifactId: { $ref: '#/components/schemas/Identifier' }
-        mapId: { $ref: '#/components/schemas/Identifier' }
+        suite: { type: string, maxLength: 512 }
         fileEntryCount: { type: integer, format: int64 }
-        suiteCount: { type: integer, format: int32 }
-        freshnessDeadline: { type: string, format: date-time }
 
     Selector:
       type: object

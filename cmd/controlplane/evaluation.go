@@ -17,6 +17,7 @@ const evaluationBound = 6 * time.Minute
 
 type evaluating struct {
 	app      appForge
+	endpoint forgeEndpoint
 	gate     domain.Gate
 	rules    domain.ClassificationRules
 	recorder domain.DecisionRecorder

@@ -50,13 +50,13 @@ func TestAnUploadThatIsNotAMultipartFormIsRefused400NamingItsContentType(t *test
 func TestAFormMissingItsFormatOrArtifactPartIsRefusedNamingThePart(t *testing.T) {
 	for form, stated := range map[string]struct {
 		parts   []formPart
-		missing string
+		missing error
 	}{
-		"no part":             {nil, formatPart},
-		"the artifact first":  {[]formPart{{"artifact", uploadedArtifact}, {"format", "lcov"}}, formatPart},
-		"another part first":  {[]formPart{{"suite", "x"}, {"format", "lcov"}}, formatPart},
-		"no artifact":         {[]formPart{{"format", "lcov"}}, artifactPart},
-		"another part for it": {[]formPart{{"format", "lcov"}, {"coverage", uploadedArtifact}}, artifactPart},
+		"no part":             {nil, errNoFormatPart},
+		"the artifact first":  {[]formPart{{"artifact", uploadedArtifact}, {"format", "lcov"}}, errNoFormatPart},
+		"another part first":  {[]formPart{{"suite", "x"}, {"format", "lcov"}}, errNoFormatPart},
+		"no artifact":         {[]formPart{{"format", "lcov"}}, errNoArtifactPart},
+		"another part for it": {[]formPart{{"format", "lcov"}, {"coverage", uploadedArtifact}}, errNoArtifactPart},
 	} {
 		t.Run(form, func(t *testing.T) {
 			parsed, refused := uploadedFormOf(formUpload(t, stated.parts...), &recordingArtifacts{})
@@ -66,9 +66,8 @@ func TestAFormMissingItsFormatOrArtifactPartIsRefusedNamingThePart(t *testing.T)
 
 			_, err := parsed.ReportedFiles(domain.DeclaredCoverageLimits())
 
-			var missing missingPartError
-			if !errors.As(err, &missing) || missing.part != stated.missing {
-				t.Errorf("error is %v, want the %s part missing", err, stated.missing)
+			if !errors.Is(err, stated.missing) {
+				t.Errorf("error is %v, want %v", err, stated.missing)
 			}
 		})
 	}

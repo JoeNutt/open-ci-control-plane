@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
@@ -420,6 +421,8 @@ func listenerSettings(log *slog.Logger, gate *recordingGate) httpapi.Settings {
 		Gates:       map[int64]httpapi.ChangeGate{allowlistedInstallation: gate},
 		DecisionIDs: mintedDecisions{},
 		Clock:       time.Now,
+		Coverage:    unexercisedCoverage{},
+		Artifacts:   lcov.Artifacts{},
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/jsonlines"
@@ -84,7 +85,12 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	server, err := serverFor(configured, gatesFor(configured.InstallationIDs(), evaluation), log)
+	coverage, err := coverageReplacementFor(configured, evaluation.app, evaluation.endpoint)
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	server, err := serverFor(configured, servedRoutes{gates: gatesFor(configured.InstallationIDs(), evaluation), coverage: coverage}, log)
 	if err != nil {
 		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -141,22 +147,27 @@ func evaluatingOf(
 	if err != nil {
 		return evaluating{}, err
 	}
-	return evaluating{app: app, rules: rules, recorder: recorder, log: log}, nil
+	return evaluating{app: app, endpoint: endpoint, rules: rules, recorder: recorder, log: log}, nil
 }
 
 func rulesIn(content []byte) (domain.ClassificationRules, error) {
 	return rules.ReadFrom(bytes.NewReader(content))
 }
 
-func serverFor(
-	configured configuration.Configuration, gates map[int64]httpapi.ChangeGate, log *slog.Logger,
-) (*http.Server, error) {
+type servedRoutes struct {
+	gates    map[int64]httpapi.ChangeGate
+	coverage httpapi.CoverageReplacement
+}
+
+func serverFor(configured configuration.Configuration, served servedRoutes, log *slog.Logger) (*http.Server, error) {
 	routes, err := httpapi.ParseRoutes(httpapi.Settings{
 		Log:         log,
 		Secret:      domain.WebhookSecret(configured.WebhookSecret().Reveal()),
-		Gates:       gates,
+		Gates:       served.gates,
 		DecisionIDs: random.DecisionIDs{},
 		Clock:       time.Now,
+		Coverage:    served.coverage,
+		Artifacts:   lcov.Artifacts{},
 	})
 	if err != nil {
 		return nil, err

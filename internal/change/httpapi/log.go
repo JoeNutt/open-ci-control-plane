@@ -10,4 +10,6 @@ const (
 	reasonKey            = "reason"
 	faultKey             = "fault"
 	fieldKey             = "field"
+	causeKey             = "cause"
+	refusedCoverage      = "coverage refused"
 )
