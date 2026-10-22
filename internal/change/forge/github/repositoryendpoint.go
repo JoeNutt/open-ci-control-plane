@@ -9,6 +9,8 @@ type ownedRepository interface {
 	Name() string
 }
 
+const urlPathSeparator = "/"
+
 func repositoryEndpoint(repository ownedRepository) string {
-	return "/repos/" + url.PathEscape(repository.Owner()) + "/" + url.PathEscape(repository.Name())
+	return "/repos/" + url.PathEscape(repository.Owner()) + urlPathSeparator + url.PathEscape(repository.Name())
 }

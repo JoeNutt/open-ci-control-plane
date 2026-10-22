@@ -504,13 +504,11 @@ func recordedAt(
 ) memory.FileContents {
 	t.Helper()
 
-	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
-		{
-			Repository: locator.Repository(),
-			Commit:     commitSHAOf(t, commit),
-			Path:       path,
-		}: []byte(source),
-	}}
+	file, err := domain.ParseFileAtCommit(locator.GovernedRepository(), commitSHAOf(t, commit), path)
+	if err != nil {
+		t.Fatalf("parse file at commit: %v", err)
+	}
+	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{file: []byte(source)}}
 }
 
 type recordingEngine struct {

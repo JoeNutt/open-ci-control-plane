@@ -266,6 +266,24 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 	}
 }
 
+func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheRepository(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/a?ref=main.go", Action: domain.FileActionAdded}
+	useCase := application.BuildDocument{
+		Source:    changeSourceOver(locator, file),
+		Bases:     recordedBases(t, locator),
+		Contents:  memory.FileContents{},
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrPathOutsideRepository) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPathOutsideRepository)
+	}
+}
+
 func TestBuildDocumentNamesTheCommitOfAFileItCannotReadOnce(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}

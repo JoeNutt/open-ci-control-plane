@@ -33,6 +33,7 @@ func TestFormattingAnAdapterDoesNotRevealItsCredential(t *testing.T) {
 		"settings":   settings,
 		"source":     sourceWith(t, settings),
 		"check runs": checkRunsWith(t, settings),
+		"contents":   contentsWith(t, settings),
 	}
 
 	for name, holder := range holders {
@@ -47,6 +48,7 @@ func TestFormattingAHolderNestedInAnUnexportedFieldDoesNotRevealItsCredential(t 
 		"credential": struct{ c github.Credential }{forgeCredential},
 		"check runs": struct{ r github.CheckRuns }{checkRunsWith(t, settings)},
 		"source":     struct{ s github.ChangeSource }{sourceWith(t, settings)},
+		"contents":   struct{ c github.FileContents }{contentsWith(t, settings)},
 	}
 
 	for name, holder := range nested {

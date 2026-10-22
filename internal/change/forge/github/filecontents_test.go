@@ -18,6 +18,8 @@ import (
 
 const contentsCommit = "4b9c4930c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
 
+const middlewarePath = "internal/auth/middleware.go"
+
 const middlewareSource = "package auth\n\nimport \"net/http\"\n"
 
 type askedForContents struct {
@@ -41,25 +43,25 @@ func recordingContents(t *testing.T, asked *askedForContents, body string) *http
 	})
 }
 
-func neverAsked(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
-		writer.WriteHeader(http.StatusNotFound)
-	})
+func fileAnswer(contents string) string {
+	return statedFileAnswer(len(contents), base64.StdEncoding.EncodeToString([]byte(contents)))
 }
 
-func fileAnswer(contents string) string {
-	encoded := base64.StdEncoding.EncodeToString([]byte(contents))
+func statedFileAnswer(size int, encoded string) string {
 	return `{"type": "file", "encoding": "base64", "size": ` +
-		strconv.Itoa(len(contents)) + `, "content": "` + encoded + `"}`
+		strconv.Itoa(size) + `, "content": "` + encoded + `"}`
 }
 
 func contentsAt(t *testing.T, server *httptest.Server) github.FileContents {
 	t.Helper()
 
-	contents, err := github.ParseFileContents(settingsAt(server))
+	return contentsWith(t, settingsAt(server))
+}
+
+func contentsWith(t *testing.T, settings github.Settings) github.FileContents {
+	t.Helper()
+
+	contents, err := github.ParseFileContents(settings, domain.DeclaredLimits().MaxSourceBytes)
 	if err != nil {
 		t.Fatalf("parse file contents: %v", err)
 	}
@@ -73,7 +75,25 @@ func fileAt(t *testing.T, repository, path string) domain.FileAtCommit {
 	if err != nil {
 		t.Fatalf("parse commit: %v", err)
 	}
-	return domain.FileAtCommit{Repository: repository, Commit: commit, Path: path}
+	governed, err := domain.ParseGovernedRepository(repository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	file, err := domain.ParseFileAtCommit(governed, commit, path)
+	if err != nil {
+		t.Fatalf("parse file at commit: %v", err)
+	}
+	return file
+}
+
+func TestParseFileContentsRefusesAFileByteBoundThatIsNotPositive(t *testing.T) {
+	for _, bound := range []int{0, -1} {
+		_, err := github.ParseFileContents(wellFormedSettings(), bound)
+
+		if !errors.Is(err, github.ErrMalformedFileBound) {
+			t.Errorf("bound %d: error is %v, want %v", bound, err, github.ErrMalformedFileBound)
+		}
+	}
 }
 
 func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
@@ -81,7 +101,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
 
 	read, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+		context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 	if err != nil {
 		t.Fatalf("contents at: %v", err)
@@ -91,7 +111,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 	want := askedForContents{
 		method:        http.MethodGet,
-		escapedPath:   "/repos/acme/payments/contents/internal/auth/middleware.go",
+		escapedPath:   "/repos/acme/payments/contents/" + middlewarePath,
 		rawQuery:      "ref=" + contentsCommit,
 		authorization: "Bearer " + forgeToken,
 	}
@@ -100,42 +120,37 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 }
 
-func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t *testing.T) {
-	server := neverAsked(t)
-	hostile := []string{
-		"../secrets.go", "internal/../../secrets.go", "internal/..", "./main.go",
-		"internal/./main.go", "internal//main.go", "/etc/passwd", "internal/", "",
+const forgeBase64LineLength = 60
+
+func TestContentsAtReadsContentWrappedIntoLinesAsTheForgeSendsIt(t *testing.T) {
+	source := strings.Repeat(middlewareSource, 8)
+	server := answering(t, http.StatusOK, statedFileAnswer(len(source), wrappedAsTheForgeSends(source)))
+
+	read, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+	if err != nil {
+		t.Fatalf("contents at: %v", err)
 	}
-
-	for _, path := range hostile {
-		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", path))
-
-		if !errors.Is(err, domain.ErrPathOutsideRepository) {
-			t.Errorf("%q: error is %v, want %v", path, err, domain.ErrPathOutsideRepository)
-		}
+	if string(read) != source {
+		t.Errorf("read %q, want %q", read, source)
 	}
 }
 
-func TestContentsAtRefusesARepositoryThatIsNotAnOwnerAndNameWithoutAsking(t *testing.T) {
-	server := neverAsked(t)
-	hostile := []string{
-		"acme/payments/../secrets", "acme/pay?ref=main", "acme/pay#ments", "acme", "../acme/payments",
+func wrappedAsTheForgeSends(source string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(source))
+	var lines []string
+	for len(encoded) > forgeBase64LineLength {
+		lines = append(lines, encoded[:forgeBase64LineLength])
+		encoded = encoded[forgeBase64LineLength:]
 	}
-
-	for _, repository := range hostile {
-		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, repository, "main.go"))
-
-		if !errors.Is(err, domain.ErrMalformedRepository) {
-			t.Errorf("%q: error is %v, want %v", repository, err, domain.ErrMalformedRepository)
-		}
-	}
+	return strings.Join(append(lines, encoded), `\n`) + `\n`
 }
 
 func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
 
 	_, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+		context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 	if !errors.Is(err, domain.ErrNoSuchFile) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
@@ -160,19 +175,105 @@ func TestContentsAtNamesTheCommitOnceWhenTheForgeCannotBeReached(t *testing.T) {
 	}
 }
 
-func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
-	var asked askedForContents
-	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
-
-	_, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/a?ref=main#b%2e.go"))
-
-	if err != nil {
-		t.Fatalf("contents at: %v", err)
+func TestContentsAtRefusesAnAnswerThatIsNotAFile(t *testing.T) {
+	answers := map[string]string{
+		"directory": `[{"type": "file", "name": "middleware.go", "path": "internal/auth/middleware.go"}]`,
+		"symlink":   `{"type": "symlink", "target": "../../secrets.go", "size": 16}`,
+		"submodule": `{"type": "submodule", "submodule_git_url": "https://example.test/vendor.git"}`,
 	}
-	wantPath := "/repos/acme/payments/contents/internal/a%3Fref=main%23b%252e.go"
-	if asked.escapedPath != wantPath || asked.rawQuery != "ref="+contentsCommit {
-		t.Errorf("the adapter asked for path %q query %q, want path %q query %q",
-			asked.escapedPath, asked.rawQuery, wantPath, "ref="+contentsCommit)
+
+	for kind, answer := range answers {
+		server := answering(t, http.StatusOK, answer)
+
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", "internal/auth"))
+
+		if !errors.Is(err, github.ErrNotAFile) {
+			t.Errorf("%s: error is %v, want %v", kind, err, github.ErrNotAFile)
+		}
+	}
+}
+
+func TestContentsAtReportsOnlyAJSONArrayAsADirectoryListing(t *testing.T) {
+	server := answering(t, http.StatusOK, `{"type": "file", "encoding": "base64", "size": [1], "content": ""}`)
+
+	_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+	if err == nil {
+		t.Fatal("read an answer with an array-typed size without error")
+	}
+	if errors.Is(err, github.ErrNotAFile) {
+		t.Errorf("error %v calls a mistyped file answer a directory listing", err)
+	}
+}
+
+func TestContentsAtRefusesAFileTheForgeServesWithoutItsContent(t *testing.T) {
+	server := answering(t, http.StatusOK,
+		`{"type": "file", "encoding": "none", "size": 1000500, "content": ""}`)
+
+	read, err := contentsAt(t, server).ContentsAt(
+		context.Background(), fileAt(t, "acme/payments", "internal/generated.go"))
+
+	if !errors.Is(err, github.ErrContentsNotServed) {
+		t.Fatalf("read %d bytes with error %v, want %v", len(read), err, github.ErrContentsNotServed)
+	}
+}
+
+func TestContentsAtReadsAFileOfExactlyTheBoundAndRefusesOneStatedOverItBeforeDecoding(t *testing.T) {
+	limit := domain.DeclaredLimits().MaxSourceBytes
+	atLimit := answering(t, http.StatusOK, fileAnswer(strings.Repeat("a", limit)))
+	settings := settingsAt(atLimit)
+	settings.MaxResponseBytes = 2 * limit
+	overLimit := answering(t, http.StatusOK, statedFileAnswer(limit+1, "!"))
+	file := fileAt(t, "acme/payments", "internal/generated.go")
+
+	read, err := contentsWith(t, settings).ContentsAt(context.Background(), file)
+	if err != nil || len(read) != limit {
+		t.Fatalf("at the bound: read %d bytes with error %v, want %d bytes", len(read), err, limit)
+	}
+	_, err = contentsAt(t, overLimit).ContentsAt(context.Background(), file)
+	if !errors.Is(err, domain.ErrSourceTooLarge) {
+		t.Fatalf("one over the bound: error is %v, want %v", err, domain.ErrSourceTooLarge)
+	}
+}
+
+func TestContentsAtRefusesContentLongerOrShorterThanTheSizeTheForgeStates(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(middlewareSource))
+
+	for _, stated := range []int{len(middlewareSource) - 1, len(middlewareSource) + 1} {
+		server := answering(t, http.StatusOK, statedFileAnswer(stated, encoded))
+
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+		if !errors.Is(err, github.ErrContentsSizeMismatch) {
+			t.Errorf("stated %d: error is %v, want %v", stated, err, github.ErrContentsSizeMismatch)
+		}
+	}
+}
+
+func TestContentsAtNamesTheFileInEveryRefusalButNeverTheCredentialOrTheContent(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(middlewareSource))
+	unencoded := "package auth"
+	echoing := `{"message": "` + forgeToken + `", "content": "` + encoded + `"}`
+	refusals := map[string]*httptest.Server{
+		"server error":  answering(t, http.StatusInternalServerError, echoing),
+		"not found":     answering(t, http.StatusNotFound, echoing),
+		"not a file":    answering(t, http.StatusOK, `{"type": "symlink", "content": "`+encoded+`"}`),
+		"size mismatch": answering(t, http.StatusOK, statedFileAnswer(1, encoded)),
+		"not base64":    answering(t, http.StatusOK, statedFileAnswer(len(unencoded), unencoded)),
+	}
+
+	for name, server := range refusals {
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+		if err == nil {
+			t.Fatalf("%s: read without error", name)
+		}
+		if !strings.Contains(err.Error(), middlewarePath) {
+			t.Errorf("%s: error %q does not name the file", name, err)
+		}
+		mustRevealNoneOf(t, name, err.Error(), []string{forgeToken, middlewareSource, encoded, unencoded})
 	}
 }

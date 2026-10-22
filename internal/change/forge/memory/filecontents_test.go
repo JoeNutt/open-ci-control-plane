@@ -13,11 +13,7 @@ import (
 )
 
 func TestFileContentsAnswersTheContentsRecordedAtACommit(t *testing.T) {
-	file := domain.FileAtCommit{
-		Repository: "acme/payments",
-		Commit:     commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"),
-		Path:       "internal/auth/middleware.go",
-	}
+	file := middlewareAtHead(t)
 	recorded := []byte("package auth\n")
 	var contents domain.FileContents = memory.FileContents{
 		Files: map[domain.FileAtCommit][]byte{file: recorded},
@@ -34,17 +30,28 @@ func TestFileContentsAnswersTheContentsRecordedAtACommit(t *testing.T) {
 }
 
 func TestFileContentsRefusesAFileItHoldsNoContentsFor(t *testing.T) {
-	file := domain.FileAtCommit{
-		Repository: "acme/payments",
-		Commit:     commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"),
-		Path:       "internal/auth/middleware.go",
-	}
+	file := middlewareAtHead(t)
 
 	_, err := memory.FileContents{}.ContentsAt(context.Background(), file)
 
 	if !errors.Is(err, domain.ErrNoSuchFile) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
 	}
+}
+
+func middlewareAtHead(t *testing.T) domain.FileAtCommit {
+	t.Helper()
+
+	repository, err := domain.ParseGovernedRepository("acme/payments")
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	file, err := domain.ParseFileAtCommit(repository,
+		commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"), "internal/auth/middleware.go")
+	if err != nil {
+		t.Fatalf("parse file at commit: %v", err)
+	}
+	return file
 }
 
 func commitOf(t *testing.T, stated string) domain.CommitSHA {

@@ -28,3 +28,7 @@ func ParseRepositoryPath(path string) (RepositoryPath, error) {
 	}
 	return RepositoryPath{path: path}, nil
 }
+
+func (path RepositoryPath) String() string { return path.path }
+
+func (path RepositoryPath) Segments() []string { return strings.Split(path.path, pathSeparator) }

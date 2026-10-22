@@ -19,8 +19,7 @@ func (contents FileContents) ContentsAt(
 ) ([]byte, error) {
 	answer, recorded := contents.Files[file]
 	if !recorded {
-		return nil, fmt.Errorf("%w: %s in %s at %s",
-			domain.ErrNoSuchFile, file.Path, file.Repository, file.Commit)
+		return nil, fmt.Errorf("%w: %s", domain.ErrNoSuchFile, file)
 	}
 	return slices.Clone(answer), nil
 }
