@@ -230,3 +230,29 @@ func distinctInstallationIDs(count int) json.RawMessage {
 	}
 	return listOf(ids...)
 }
+
+func TestThePolicyRepositoryAndItsInstallationAreTheOnesTheConfigurationNames(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+
+	if configured.PolicyRepository().String() != statedPolicyRepository {
+		t.Errorf("the policy repository is %s, want %s", configured.PolicyRepository(), statedPolicyRepository)
+	}
+	if configured.PolicyInstallationID() != statedInstallationID {
+		t.Errorf("the policy installation is %d, want %d", configured.PolicyInstallationID(), statedInstallationID)
+	}
+}
+
+func TestAPolicyRepositoryOrInstallationThatIsMalformedIsRefusedNamingIt(t *testing.T) {
+	refused := map[string]json.RawMessage{
+		policyRepositoryKey:   quoted(t, "open-ci-policy"),
+		policyInstallationKey: number(0),
+	}
+	for key, value := range refused {
+		t.Run(key, func(t *testing.T) {
+			stated := completeItems(t)
+			stated[key] = value
+
+			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, key)
+		})
+	}
+}
