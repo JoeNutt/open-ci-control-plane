@@ -61,12 +61,7 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	endpoint, err := endpointOf()
-	if err != nil {
-		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
-		return exitRefused
-	}
-	app, err := appForgeOf(configured, endpoint)
+	evaluation, err := evaluatingOf(configured, endpointOf, log)
 	if err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -74,7 +69,7 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
 		slog.Any(installationsKey, configured.InstallationIDs()))
 	serving, stopServing := context.WithCancel(ctx)
-	engines, polled, err := startedPolicyEngines(serving, configured, app, log)
+	engines, polled, err := startedPolicyEngines(serving, configured, evaluation.app, log)
 	defer func() {
 		stopServing()
 		<-polled
@@ -84,23 +79,12 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 		return exitRefused
 	}
 	defer engines.stop(context.WithoutCancel(ctx))
-	gate, err := engines.gate()
+	evaluation.gate, err = engines.gate()
 	if err != nil {
 		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	rules, err := configuration.ClassificationRulesParsedBy(configured, rulesIn)
-	if err != nil {
-		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
-		return exitRefused
-	}
-	recorder, err := jsonlines.ParseDecisionRecorder(os.Stdout)
-	if err != nil {
-		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
-		return exitRefused
-	}
-	server, err := serverFor(configured, gatesFor(configured.InstallationIDs(),
-		evaluating{app: app, gate: gate, rules: rules, recorder: recorder, log: log}), log)
+	server, err := serverFor(configured, gatesFor(configured.InstallationIDs(), evaluation), log)
 	if err != nil {
 		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -136,6 +120,28 @@ func configurationPathIn(arguments []string) (string, error) {
 		return "", errNotOnePath
 	}
 	return arguments[0], nil
+}
+
+func evaluatingOf(
+	configured configuration.Configuration, endpointOf func() (forgeEndpoint, error), log *slog.Logger,
+) (evaluating, error) {
+	endpoint, err := endpointOf()
+	if err != nil {
+		return evaluating{}, err
+	}
+	app, err := appForgeOf(configured, endpoint)
+	if err != nil {
+		return evaluating{}, err
+	}
+	rules, err := configuration.ClassificationRulesParsedBy(configured, rulesIn)
+	if err != nil {
+		return evaluating{}, err
+	}
+	recorder, err := jsonlines.ParseDecisionRecorder(os.Stdout)
+	if err != nil {
+		return evaluating{}, err
+	}
+	return evaluating{app: app, rules: rules, recorder: recorder, log: log}, nil
 }
 
 func rulesIn(content []byte) (domain.ClassificationRules, error) {
