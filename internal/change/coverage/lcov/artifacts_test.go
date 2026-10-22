@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package lcov_test
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+func TestArtifactsReadAnLCOVBodyAsTheReportItDeclares(t *testing.T) {
+	body := record(effectPath, lineHit)
+
+	reported, err := lcov.Artifacts{}.ArtifactOf(int64(len(body)), strings.NewReader(body)).
+		ReportedFiles(domain.DeclaredCoverageLimits())
+
+	if err != nil || len(reported) != 1 || reported[0].Path() != repositoryPath(t, effectPath) {
+		t.Fatalf("reported %+v (%v), want one entry for %s", reported, err, effectPath)
+	}
+}
+
+func TestArtifactsRefuseABodyDeclaredOverTheCompressedBoundUnread(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := lcov.Artifacts{}.ArtifactOf(limits.MaxCompressedBytes+1, unreadBody{t}).ReportedFiles(limits)
+
+	if !errors.Is(err, domain.ErrCompressedArtifactTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrCompressedArtifactTooLarge)
+	}
+}

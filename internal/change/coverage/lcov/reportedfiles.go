@@ -26,7 +26,7 @@ const (
 	gzipMagic          = "\x1f\x8b"
 )
 
-var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
+var ErrMalformedArtifact = fmt.Errorf("%w as LCOV", domain.ErrMalformedCoverageReport)
 
 var (
 	errUnknownTag         = fmt.Errorf("%w: unknown line tag", ErrMalformedArtifact)

@@ -15,3 +15,7 @@ func ParseGovernedRepository(stated string) (GovernedRepository, error) {
 	}
 	return GovernedRepository{repositoryName: named}, nil
 }
+
+func ParseGovernedRepositorySegments(owner, name string) (GovernedRepository, error) {
+	return ParseGovernedRepository(owner + repositorySeparator + name)
+}
