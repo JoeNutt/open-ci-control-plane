@@ -10,8 +10,19 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const (
+	formatPart   = "format"
+	artifactPart = "artifact"
+)
+
 type CoverageArtifacts interface {
 	ArtifactOf(declaredBytes int64, body io.Reader) domain.CoverageReport
+}
+
+type missingPartError struct{ part string }
+
+func (missing missingPartError) Error() string {
+	return "the form has no " + missing.part + " part where one is due"
 }
 
 type uploadedForm struct {
@@ -29,8 +40,14 @@ func uploadedFormOf(asked *http.Request, artifacts CoverageArtifacts) (uploadedF
 }
 
 func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	format, _ := form.parts.NextPart()
+	format, err := form.parts.NextPart()
+	if err != nil || format.FormName() != formatPart {
+		return nil, missingPartError{part: formatPart}
+	}
 	_, _ = io.ReadAll(format)
-	artifact, _ := form.parts.NextPart()
+	artifact, err := form.parts.NextPart()
+	if err != nil || artifact.FormName() != artifactPart {
+		return nil, missingPartError{part: artifactPart}
+	}
 	return form.artifacts.ArtifactOf(form.declared, artifact).ReportedFiles(limits)
 }

@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -41,6 +42,33 @@ func TestAnUploadThatIsNotAMultipartFormIsRefused400NamingItsContentType(t *test
 
 	if refused == nil || refused.status() != http.StatusBadRequest || refused.(fieldProblem).Field != "Content-Type" {
 		t.Errorf("refused %#v, want a 400 naming Content-Type", refused)
+	}
+}
+
+func TestAFormMissingItsFormatOrArtifactPartIsRefusedNamingThePart(t *testing.T) {
+	for form, stated := range map[string]struct {
+		parts   []formPart
+		missing string
+	}{
+		"no part":             {nil, formatPart},
+		"the artifact first":  {[]formPart{{"artifact", uploadedArtifact}, {"format", "lcov"}}, formatPart},
+		"another part first":  {[]formPart{{"suite", "x"}, {"format", "lcov"}}, formatPart},
+		"no artifact":         {[]formPart{{"format", "lcov"}}, artifactPart},
+		"another part for it": {[]formPart{{"format", "lcov"}, {"coverage", uploadedArtifact}}, artifactPart},
+	} {
+		t.Run(form, func(t *testing.T) {
+			parsed, refused := uploadedFormOf(formUpload(t, stated.parts...), &recordingArtifacts{})
+			if refused != nil {
+				t.Fatalf("refused %#v", refused)
+			}
+
+			_, err := parsed.ReportedFiles(domain.DeclaredCoverageLimits())
+
+			var missing missingPartError
+			if !errors.As(err, &missing) || missing.part != stated.missing {
+				t.Errorf("error is %v, want the %s part missing", err, stated.missing)
+			}
+		})
 	}
 }
 
