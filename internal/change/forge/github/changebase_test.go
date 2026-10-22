@@ -4,8 +4,12 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const baseSHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
@@ -45,4 +49,38 @@ func TestBaseCommitOfReadsThePullRequestsBaseCommitAsTheInstallation(t *testing.
 	if asked != want {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
 	}
+}
+
+func TestBaseCommitOfRefusesABaseTheForgeDoesNotStateAsAFullCommitSHA(t *testing.T) {
+	answers := map[string]string{
+		"no base":    `{"number": 412}`,
+		"no sha":     `{"number": 412, "base": {"ref": "main"}}`,
+		"short sha":  `{"number": 412, "base": {"sha": "e3b0c44"}}`,
+		"upper case": `{"number": 412, "base": {"sha": "` + strings.ToUpper(baseSHA) + `"}}`,
+		"a ref":      `{"number": 412, "base": {"sha": "main"}}`,
+	}
+
+	for name, answer := range answers {
+		server := answering(t, http.StatusOK, answer)
+
+		_, err := sourceAt(t, server).BaseCommitOf(context.Background(), locatorOf(t, "acme/payments", 412))
+
+		if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+			t.Errorf("%s: error is %v, want %v", name, err, domain.ErrMalformedCommitSHA)
+		}
+	}
+}
+
+func TestBaseCommitOfReportsAPullRequestTheForgeDoesNotKnowWithoutTheCredential(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found `+forgeToken+`"}`)
+
+	_, err := sourceAt(t, server).BaseCommitOf(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
+	}
+	if !strings.Contains(err.Error(), "acme/payments#412") {
+		t.Errorf("error %q does not name the pull request", err)
+	}
+	mustRevealNoneOf(t, "base commit refusal", err.Error(), []string{forgeToken})
 }
