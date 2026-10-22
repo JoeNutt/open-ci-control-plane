@@ -22,6 +22,7 @@ type CoverageLimits struct {
 	MaxDecompressedBytes   int64
 	MaxFileEntries         int
 	MaxSuitesPerRepository int
+	MaxUploadsPerMinute    int
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
@@ -30,6 +31,7 @@ func DeclaredCoverageLimits() CoverageLimits {
 		MaxDecompressedBytes:   256 << 20,
 		MaxFileEntries:         200_000,
 		MaxSuitesPerRepository: 5_000,
+		MaxUploadsPerMinute:    60,
 	}
 }
 

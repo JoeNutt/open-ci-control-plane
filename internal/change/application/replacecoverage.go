@@ -16,6 +16,7 @@ type ReplaceCoverage struct {
 	Maps    domain.CoverageMaps
 	Paths   domain.RepositoryPaths
 	Callers domain.CallerRepositories
+	Rate    *UploadRate
 }
 
 type CoverageUpload struct {
@@ -33,6 +34,9 @@ type ReplacedCoverage struct {
 func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUpload) (ReplacedCoverage, error) {
 	if err := useCase.authorise(ctx, upload); err != nil {
 		return ReplacedCoverage{}, err
+	}
+	if err := useCase.Rate.Admit(upload.Repository); err != nil {
+		return ReplacedCoverage{}, fmt.Errorf("admit coverage for %s: %w", upload.Repository, err)
 	}
 	coverage, err := useCase.coverageIn(ctx, upload)
 	if err != nil {
