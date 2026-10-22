@@ -64,7 +64,11 @@ func structuralEngineServing(t *testing.T, policyData string) *opa.Engine {
 	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(family), bundleFiles))
 	t.Cleanup(server.Stop)
 
-	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: family, BundleService: server.URL()})
+	service, err := opa.ParseBundleService(server.URL())
+	if err != nil {
+		t.Fatalf("parse bundle service: %v", err)
+	}
+	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: family, BundleService: service})
 	if err != nil {
 		t.Fatalf("parse engine: %v", err)
 	}
