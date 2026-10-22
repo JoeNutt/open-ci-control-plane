@@ -88,3 +88,20 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
 	}
 }
+
+func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
+	var asked askedForContents
+	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
+
+	_, err := contentsAt(t, server).ContentsAt(
+		context.Background(), fileAt(t, "acme/payments", "internal/a?ref=main#b%2e.go"))
+
+	if err != nil {
+		t.Fatalf("contents at: %v", err)
+	}
+	wantPath := "/repos/acme/payments/contents/internal/a%3Fref=main%23b%252e.go"
+	if asked.escapedPath != wantPath || asked.rawQuery != "ref="+contentsCommit {
+		t.Errorf("the adapter asked for path %q query %q, want path %q query %q",
+			asked.escapedPath, asked.rawQuery, wantPath, "ref="+contentsCommit)
+	}
+}
