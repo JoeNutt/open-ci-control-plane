@@ -3,6 +3,8 @@
 package application_test
 
 import (
+	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -19,7 +21,7 @@ func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
-	plan, err := application.PlanTests{Maps: maps}.Execute(t.Context(), application.PlanRequest{
+	plan, err := application.PlanTests{Maps: maps}.Execute(t.Context(), domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: uploadingRepository, HeadSHA: recordedHeadSHA},
 			Diff: domain.Diff{Files: []domain.File{{Path: coveredFile, Action: domain.FileActionModified}}},
@@ -36,6 +38,27 @@ func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
 		t.Errorf("planned %v (full matrix %v, %q), want only the uploaded suite %s",
 			plan.Suites, plan.FullMatrix, plan.Trigger, uploadedSuite)
 	}
+}
+
+func TestAPlanIsRefusedWhenTheCoverageCannotBeRead(t *testing.T) {
+	_, err := application.PlanTests{Maps: unreadableCoverage{}}.Execute(t.Context(), domain.PlanSubject{
+		Document: domain.Document{PR: domain.PullRequest{Repository: uploadingRepository, HeadSHA: recordedHeadSHA}},
+		Binding:  uploadingRepositorysBinding(t),
+	})
+
+	if !errors.Is(err, errCoverageUnreadable) {
+		t.Errorf("error is %v, want %v", err, errCoverageUnreadable)
+	}
+}
+
+var errCoverageUnreadable = errors.New("the coverage store cannot be read")
+
+type unreadableCoverage struct {
+	domain.CoverageMaps
+}
+
+func (unreadableCoverage) RepositoryCoverageOf(context.Context, domain.GovernedRepository) (domain.RepositoryCoverage, error) {
+	return domain.RepositoryCoverage{}, errCoverageUnreadable
 }
 
 func uploadingRepositorysBinding(t *testing.T) domain.Binding {

@@ -13,23 +13,10 @@ type PlanTests struct {
 	Maps domain.CoverageMaps
 }
 
-type PlanRequest struct {
-	Document   domain.Document
-	Binding    domain.Binding
-	DecisionID domain.DecisionID
-	Revision   domain.BundleRevision
-}
-
-func (useCase PlanTests) Execute(ctx context.Context, request PlanRequest) (domain.TestPlan, error) {
-	coverage, err := useCase.Maps.RepositoryCoverageOf(ctx, request.Binding.Repository())
+func (useCase PlanTests) Execute(ctx context.Context, subject domain.PlanSubject) (domain.TestPlan, error) {
+	coverage, err := useCase.Maps.RepositoryCoverageOf(ctx, subject.Binding.Repository())
 	if err != nil {
-		return domain.TestPlan{}, fmt.Errorf("read the coverage of %s: %w", request.Binding.Repository(), err)
+		return domain.TestPlan{}, fmt.Errorf("read the coverage of %s: %w", subject.Binding.Repository(), err)
 	}
-	return domain.PlanFor(domain.PlanBasis{
-		Document:   request.Document,
-		Coverage:   coverage,
-		Binding:    request.Binding,
-		DecisionID: request.DecisionID,
-		Revision:   request.Revision,
-	})
+	return domain.PlanFor(subject, coverage)
 }
