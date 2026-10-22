@@ -5,7 +5,6 @@ package application_test
 import (
 	"testing"
 
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
@@ -28,9 +27,11 @@ func TestAnAddedForbiddenImportFailsListingTheFileTheImportAndBothGroups(t *test
 		importer = "internal/domain/order.go"
 		imported = "example.com/payments/internal/forge"
 	)
-	build := buildAddingImport(t, importer, "package domain\n", "package domain\n\nimport \""+imported+"\"\n")
+	change := changeAddingImport(t, gatedLocator(t), importEdit{
+		path: importer, base: "package domain\n", head: "package domain\n\nimport \"" + imported + "\"\n",
+	})
 
-	run := structuralCheckRunBuiltBy(t, build)
+	run := structuralCheckRunAfterGating(t, structuralEngineServing(t, paymentsCleanArchitecture), change)
 
 	if run.Conclusion != domain.ConclusionFailure {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
@@ -42,37 +43,43 @@ func TestAnAddedForbiddenImportFailsListingTheFileTheImportAndBothGroups(t *test
 }
 
 func TestAnAddedImportTheDirectionAllowsSucceeds(t *testing.T) {
-	build := buildAddingImport(t, "internal/forge/client.go",
-		"package forge\n", "package forge\n\nimport \"example.com/payments/internal/domain\"\n")
+	change := changeAddingImport(t, gatedLocator(t), importEdit{
+		path: "internal/forge/client.go",
+		base: "package forge\n", head: "package forge\n\nimport \"example.com/payments/internal/domain\"\n",
+	})
 
-	run := structuralCheckRunBuiltBy(t, build)
+	run := structuralCheckRunAfterGating(t, structuralEngineServing(t, paymentsCleanArchitecture), change)
 
 	if run.Conclusion != domain.ConclusionSuccess || len(run.Violations) != 0 {
 		t.Errorf("conclusion %q with %+v, want %q and none", run.Conclusion, run.Violations, domain.ConclusionSuccess)
 	}
 }
 
-func structuralCheckRunBuiltBy(t *testing.T, build application.BuildDocument) domain.CheckRun {
+func structuralCheckRunAfterGating(t *testing.T, engine domain.FamilyEngine, change gatedChange) domain.CheckRun {
 	t.Helper()
 
 	published := &memory.CheckRuns{}
-	gateChangeBuiltBy(t, build, structuralEngineServing(t, paymentsCleanArchitecture), published)
-	run, present := published.PublishedOn(
-		gatedLocator(t), commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]
+	gateChangeBuiltBy(t, change, engine, published)
+	run, present := published.PublishedOn(change.locator, commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]
 	if !present {
 		t.Fatalf("no structural check run was published")
 	}
 	return run
 }
 
-func buildAddingImport(t *testing.T, path, baseSource, headSource string) application.BuildDocument {
+type importEdit struct {
+	path string
+	base string
+	head string
+}
+
+func changeAddingImport(t *testing.T, locator domain.PullRequestLocator, edit importEdit) gatedChange {
 	t.Helper()
 
-	locator := gatedLocator(t)
 	build := buildOverRecorded(t, locator, domain.File{
-		Path: path, Action: domain.FileActionModified, Additions: 2, PatchBytes: 64,
+		Path: edit.path, Action: domain.FileActionModified, Additions: 2, PatchBytes: 64,
 	})
-	build.Contents = recordedAtBothEnds(t, locator, path, baseSource, headSource)
+	build.Contents = recordedAtBothEnds(t, locator, edit.path, edit.base, edit.head)
 	build.Extractor = golang.Extractor{}
-	return build
+	return gatedChange{locator: locator, build: build}
 }

@@ -129,15 +129,18 @@ func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.Ch
 func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *memory.CheckRuns) {
 	t.Helper()
 
-	gateChangeBuiltBy(t, buildOverAnAuthChange(t, gatedLocator(t)), engine, published)
+	locator := gatedLocator(t)
+	gateChangeBuiltBy(t, gatedChange{locator: locator, build: buildOverAnAuthChange(t, locator)}, engine, published)
 }
 
-func gateChangeBuiltBy(
-	t *testing.T, build application.BuildDocument, engine domain.FamilyEngine, published *memory.CheckRuns,
-) {
+type gatedChange struct {
+	locator domain.PullRequestLocator
+	build   application.BuildDocument
+}
+
+func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEngine, published *memory.CheckRuns) {
 	t.Helper()
 
-	locator := gatedLocator(t)
 	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
 		domain.PolicyFamilyStructural: engine,
 	})
@@ -145,13 +148,13 @@ func gateChangeBuiltBy(
 		t.Fatalf("parse gate: %v", err)
 	}
 	useCase := application.GateChange{
-		Build:     build,
+		Build:     change.build,
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  &recordedDecisions{},
 	}
 
-	if err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID)); err != nil {
+	if err := useCase.Execute(context.Background(), change.locator, decisionIDOf(t, gatedDecisionID)); err != nil {
 		t.Fatalf("gate change: %v", err)
 	}
 }
