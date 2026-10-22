@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,6 +19,8 @@ const (
 type CoverageArtifacts interface {
 	ArtifactOf(declaredBytes int64, body io.Reader) domain.CoverageReport
 }
+
+var errUnknownFormat = errors.New("unknown format")
 
 type missingPartError struct{ part string }
 
@@ -44,7 +47,10 @@ func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 	if err != nil {
 		return nil, err
 	}
-	_, _ = io.ReadAll(format)
+	stated, err := io.ReadAll(io.LimitReader(format, 5))
+	if err != nil || string(stated) != "lcov" {
+		return nil, errUnknownFormat
+	}
 	artifact, err := form.nextPartNamed(artifactPart)
 	if err != nil {
 		return nil, err

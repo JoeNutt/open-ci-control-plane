@@ -5,10 +5,12 @@ package httpapi
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -67,6 +69,24 @@ func TestAFormMissingItsFormatOrArtifactPartIsRefusedNamingThePart(t *testing.T)
 			var missing missingPartError
 			if !errors.As(err, &missing) || missing.part != stated.missing {
 				t.Errorf("error is %v, want the %s part missing", err, stated.missing)
+			}
+		})
+	}
+}
+
+func TestAFormStatingAnyFormatButLCOVIsRefusedWithoutItsArtifactRead(t *testing.T) {
+	for _, format := range []string{"cobertura", "depgraph", "LCOV", "lcov\n", "", "lcov" + strings.Repeat(" ", 1<<20)} {
+		t.Run(fmt.Sprintf("%.12q", format), func(t *testing.T) {
+			parser := &recordingArtifacts{}
+			parsed, refused := uploadedFormOf(formUpload(t, formPart{"format", format}, formPart{"artifact", uploadedArtifact}), parser)
+			if refused != nil {
+				t.Fatalf("refused %#v", refused)
+			}
+
+			_, err := parsed.ReportedFiles(domain.DeclaredCoverageLimits())
+
+			if !errors.Is(err, errUnknownFormat) || parser.artifact != "" {
+				t.Errorf("error is %v and the parser read %d bytes, want %v and nothing read", err, len(parser.artifact), errUnknownFormat)
 			}
 		})
 	}
