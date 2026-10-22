@@ -57,6 +57,10 @@ func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 			settings.Client = &http.Client{}
 			return settings
 		},
+		"a negative timeout on the client": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
+			settings.Client = &http.Client{Timeout: -time.Second}
+			return settings
+		},
 		"no clock": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
 			settings.Now = nil
 			return settings
