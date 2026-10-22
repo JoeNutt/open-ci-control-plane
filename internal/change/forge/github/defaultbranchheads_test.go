@@ -98,6 +98,20 @@ func TestDefaultBranchHeadOfReportsARepositoryTheForgeDoesNotHold(t *testing.T) 
 	}
 }
 
+func TestDefaultBranchHeadOfRefusesARepositoryNamingNoDefaultBranchWithoutAskingForIt(t *testing.T) {
+	var asked []askedRequest
+	server := recordingEach(t, &asked, map[string]string{policyRepositoryPath: `{"default_branch": ""}`})
+
+	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
+
+	if !errors.Is(err, github.ErrNoDefaultBranch) {
+		t.Fatalf("error is %v, want %v", err, github.ErrNoDefaultBranch)
+	}
+	if len(asked) != 1 {
+		t.Errorf("the adapter asked %+v, want only the repository", asked)
+	}
+}
+
 func headsAt(t *testing.T, server *httptest.Server) github.DefaultBranchHeads {
 	t.Helper()
 

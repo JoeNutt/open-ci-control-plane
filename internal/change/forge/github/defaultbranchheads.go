@@ -4,12 +4,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var ErrNoDefaultBranch = errors.New("the forge named no default branch for the repository")
 
 type DefaultBranchHeads struct {
 	forge connection
@@ -47,6 +50,9 @@ func (heads DefaultBranchHeads) defaultBranchOf(
 	described, err := exchanged[repositoryAnswer](ctx, heads.forge, policyRepositoryReading(repositoryEndpoint(repository)))
 	if err != nil {
 		return "", err
+	}
+	if described.DefaultBranch == "" {
+		return "", ErrNoDefaultBranch
 	}
 	return described.DefaultBranch, nil
 }
