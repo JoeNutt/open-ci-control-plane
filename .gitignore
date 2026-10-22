@@ -1,3 +1,4 @@
 .claude/state/
 .claude/worktrees/
 CLAUDE.local.md
+.env
