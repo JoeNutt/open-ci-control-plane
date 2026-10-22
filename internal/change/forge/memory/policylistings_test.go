@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -26,5 +27,18 @@ func TestPolicyListingsAnswersTheFilesRecordedAtACommit(t *testing.T) {
 	}
 	if !slices.Equal(answered, recorded) {
 		t.Fatalf("listed files are %+v, want %+v", answered, recorded)
+	}
+}
+
+func TestPolicyListingsRefusesACommitItHoldsNoListingFor(t *testing.T) {
+	at := domain.PolicyCommit{
+		Repository: policyRepositoryOf(t, recordedPolicyRepository),
+		Commit:     commitOf(t, "637d049f40a67db2936d7c97668b07c531b4dcc5"),
+	}
+
+	_, err := memory.PolicyListings{}.ListedFilesAt(context.Background(), at)
+
+	if !errors.Is(err, domain.ErrNoSuchCommit) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchCommit)
 	}
 }
