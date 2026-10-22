@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"slices"
 	"time"
 
@@ -59,7 +58,7 @@ type ActionsTokenSettings struct {
 }
 
 type ActionsTokens struct {
-	issuer   *url.URL
+	issuer   domain.HTTPSOrigin
 	audience domain.HTTPSOrigin
 	now      func() time.Time
 	keys     *issuerKeys
@@ -69,15 +68,11 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 	if err := incompletenessOf(settings); err != nil {
 		return nil, err
 	}
-	issuer, err := url.Parse(settings.Issuer.String())
-	if err != nil {
-		return nil, err
-	}
 	return &ActionsTokens{
-		issuer:   issuer,
+		issuer:   settings.Issuer,
 		audience: settings.Audience,
 		now:      settings.Now,
-		keys:     &issuerKeys{issuer: issuer, client: settings.Client, now: settings.Now},
+		keys:     &issuerKeys{issuer: settings.Issuer, client: settings.Client, now: settings.Now},
 	}, nil
 }
 
