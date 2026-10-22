@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const coverageRoute = "PUT /v1/repositories/{owner}/{repo}/coverage/{suite...}"
@@ -22,12 +23,16 @@ type coverageUploads struct {
 }
 
 func (receiving coverageUploads) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
+	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.DeclaredCoverageLimits().MaxCompressedBytes)
 	receiving.answering.write(asked.Context(), answer, receiving.answerTo(asked))
 }
 
 func (receiving coverageUploads) answerTo(asked *http.Request) answerBody {
 	target, refused := coverageTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(suiteSegment))
 	if refused != nil {
+		return refused
+	}
+	if refused := uploadLengthRefusalOf(asked.ContentLength); refused != nil {
 		return refused
 	}
 	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))

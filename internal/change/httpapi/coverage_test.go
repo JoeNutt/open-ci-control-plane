@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,31 @@ func TestAValidUploadIsAnswered201WithTheSuiteAndItsFileEntryCountAndIsServed(t 
 		t.Error("the accepted map is not served by CoverageMaps")
 	}
 }
+
+func TestAnUploadDeclaringMoreThanTheCompressedBoundIsAnswered413NamingItUnread(t *testing.T) {
+	uploading := newCoverageUploads(t)
+	unread := &unreadUpload{}
+	upload := coverageUpload(t, "lcov", uploadedLCOV)
+	upload.Body, upload.ContentLength = unread, domain.DeclaredCoverageLimits().MaxCompressedBytes+1
+
+	answered := uploading.answerTo(t, upload)
+
+	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), "67108864 compressed bytes") {
+		t.Errorf("answered %d %s, want %d naming the compressed bound", answered.Code, answered.Body.String(), http.StatusRequestEntityTooLarge)
+	}
+	if unread.isRead {
+		t.Error("the body of an upload declared over the bound was read")
+	}
+}
+
+type unreadUpload struct{ isRead bool }
+
+func (upload *unreadUpload) Read([]byte) (int, error) {
+	upload.isRead = true
+	return 0, errors.New("the upload was read")
+}
+
+func (*unreadUpload) Close() error { return nil }
 
 type coverageUploads struct {
 	store   *memory.CoverageMaps
