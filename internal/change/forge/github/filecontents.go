@@ -17,13 +17,13 @@ import (
 
 var _ domain.FileContents = FileContents{}
 
-var ErrNotAFile = errors.New("the forge answered for something that is not a file")
+var errNotAFile = errors.New("the forge answered for something that is not a file")
 
-var ErrContentsNotServed = errors.New("the forge answered without the file's content")
+var errContentsNotServed = errors.New("the forge answered without the file's content")
 
 var ErrMalformedFileBound = errors.New("the file byte bound is not positive")
 
-var ErrContentsSizeMismatch = errors.New("the forge served content of another size than it states")
+var errContentsSizeMismatch = errors.New("the forge served content of another size than it states")
 
 type FileContents struct {
 	forge        connection
@@ -64,7 +64,7 @@ const jsonArrayValue = "array"
 func refusalOfAListing(err error) error {
 	var mistyped *json.UnmarshalTypeError
 	if errors.As(err, &mistyped) && mistyped.Value == jsonArrayValue {
-		return fmt.Errorf("%w: a directory listing", ErrNotAFile)
+		return fmt.Errorf("%w: a directory listing", errNotAFile)
 	}
 	return err
 }
@@ -113,20 +113,20 @@ func (answer contentsAnswer) decoded(maxFileBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	if len(decoded) != answer.Size {
-		return nil, fmt.Errorf("%w: %d bytes served, %d stated", ErrContentsSizeMismatch, len(decoded), answer.Size)
+		return nil, fmt.Errorf("%w: %d bytes served, %d stated", errContentsSizeMismatch, len(decoded), answer.Size)
 	}
 	return decoded, nil
 }
 
 func (answer contentsAnswer) refusalBeforeDecoding(maxFileBytes int) error {
 	if answer.Type != contentsTypeFile {
-		return fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
+		return fmt.Errorf("%w: a %q", errNotAFile, answer.Type)
 	}
 	if answer.Size > maxFileBytes {
 		return fmt.Errorf("%w: %d bytes exceeds %d", domain.ErrSourceTooLarge, answer.Size, maxFileBytes)
 	}
 	if answer.Encoding != contentsEncodingBase64 {
-		return fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
+		return fmt.Errorf("%w: encoding %q", errContentsNotServed, answer.Encoding)
 	}
 	return nil
 }
