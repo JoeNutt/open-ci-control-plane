@@ -6,11 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const fileEntryType = "blob"
+
+var ErrNoSuchRepository = errors.New("the forge found no such repository")
 
 var ErrTruncatedTree = errors.New("the forge truncated the default-branch tree, so not every path is known")
 
@@ -29,7 +32,12 @@ func ParseRepositoryPaths(settings Settings) (RepositoryPaths, error) {
 func (paths RepositoryPaths) KnownPathsOf(
 	ctx context.Context, repository domain.GovernedRepository,
 ) (domain.KnownPaths, error) {
-	listed, err := jsonAt[tree](ctx, paths.forge, defaultBranchTreeEndpoint(repository))
+	listed, err := exchanged[tree](ctx, paths.forge, exchange{
+		method:    http.MethodGet,
+		endpoint:  defaultBranchTreeEndpoint(repository),
+		succeeded: http.StatusOK,
+		notFound:  ErrNoSuchRepository,
+	})
 	if err != nil {
 		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}

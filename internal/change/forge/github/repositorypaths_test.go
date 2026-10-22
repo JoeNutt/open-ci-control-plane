@@ -77,6 +77,16 @@ func TestKnownPathsOfRefusesATreeTheForgeTruncated(t *testing.T) {
 	}
 }
 
+func TestKnownPathsOfReportsARepositoryTheForgeCannotFindAsNoSuchRepository(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
+
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+
+	if !errors.Is(err, github.ErrNoSuchRepository) {
+		t.Fatalf("error is %v, want %v", err, github.ErrNoSuchRepository)
+	}
+}
+
 func repositoryPathOf(t *testing.T, stated string) domain.RepositoryPath {
 	t.Helper()
 	path, err := domain.ParseRepositoryPath(stated)
