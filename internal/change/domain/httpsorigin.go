@@ -33,6 +33,8 @@ func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 	return HTTPSOrigin{value: stated}, nil
 }
 
+func (origin HTTPSOrigin) String() string { return origin.value }
+
 func originFaultOf(address *url.URL) (string, bool) {
 	faults := []originFault{
 		{"is not https", address.Scheme != httpsScheme},

@@ -32,6 +32,19 @@ func TestParseHTTPSOriginRefusesAnythingButAnHTTPSOrigin(t *testing.T) {
 	}
 }
 
+func TestAnHTTPSOriginIsTheAddressStated(t *testing.T) {
+	const stated = "https://api.github.com"
+
+	origin, err := domain.ParseHTTPSOrigin(stated)
+	if err != nil {
+		t.Fatalf("parse %q: %v", stated, err)
+	}
+
+	if origin.String() != stated {
+		t.Errorf("the origin is %q, want %q", origin.String(), stated)
+	}
+}
+
 func TestTheRefusalOfAnOriginCarryingCredentialsDoesNotRepeatThem(t *testing.T) {
 	const password = "s3cret-in-the-url"
 
