@@ -23,7 +23,7 @@ func (useCase GateChange) Execute(
 	document, err := useCase.Build.Execute(ctx, locator)
 	var over domain.ChangeOverBound
 	if errors.As(err, &over) {
-		return errors.Join(err, useCase.publish(context.WithoutCancel(ctx), locator, over.Head, domain.CheckRunForBreach(over, id)))
+		return useCase.refuseOverBound(context.WithoutCancel(ctx), locator, over, id)
 	}
 	if err != nil {
 		return err
@@ -40,6 +40,12 @@ func (useCase GateChange) Execute(
 			useCase.publish(posting, locator, head, domain.CheckRunFor(decided, id)))
 	}
 	return errors.Join(failures...)
+}
+
+func (useCase GateChange) refuseOverBound(
+	ctx context.Context, locator domain.PullRequestLocator, over domain.ChangeOverBound, id domain.DecisionID,
+) error {
+	return errors.Join(over, useCase.publish(ctx, locator, over.Head, domain.CheckRunForBreach(over, id)))
 }
 
 func (useCase GateChange) record(

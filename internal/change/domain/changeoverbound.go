@@ -16,6 +16,8 @@ func (over ChangeOverBound) Error() string { return over.Breach.Error() }
 
 func (over ChangeOverBound) Unwrap() error { return over.Breach }
 
+var errUnnamedChangeBound = errors.New("change exceeds a change bound")
+
 var changeBoundBreaches = []error{
 	ErrTooManyChangedFiles, ErrFilePatchTooLarge, ErrChangePatchTooLarge, ErrPathTooLong, ErrPathTooDeep,
 }
@@ -27,7 +29,7 @@ const (
 
 func CheckRunForBreach(over ChangeOverBound, id DecisionID) CheckRun {
 	return CheckRun{
-		Name:       checkRunNamePrefix + string(PolicyFamilyStructural),
+		Name:       checkRunNameFor(PolicyFamilyStructural),
 		Conclusion: ConclusionFailure,
 		Title:      overBoundTitle,
 		Headline:   fmt.Sprintf(overBoundLayout, breachedBoundOf(over.Breach)),
@@ -41,5 +43,5 @@ func breachedBoundOf(breach error) error {
 			return bound
 		}
 	}
-	return breach
+	return errUnnamedChangeBound
 }
