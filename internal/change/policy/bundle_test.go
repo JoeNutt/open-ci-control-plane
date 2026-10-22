@@ -4,14 +4,18 @@ package policy_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/engine/opa"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
+
+const engineStartBound = 10 * time.Second
 
 func TestTheStructuralEngineDecidesWithTheRevisionTheReaderAccepted(t *testing.T) {
 	active := activePolicyLoggingTo(t, slog.DiscardHandler)
@@ -36,6 +40,27 @@ func TestTheStructuralEngineDecidesWithTheRevisionTheReaderAccepted(t *testing.T
 	}
 }
 
+func TestTheStructuralDecisionIsUndefinedWhenNoValidPolicyFileWasEverRead(t *testing.T) {
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
+	aliased := policyRepositoryAt(t, firstPolicyCommit, liveFilesWithBinding(t, liveBindingWithAlias(t)))
+	if err := readerOver(t, aliased, active).ReadRevision(context.Background()); !errors.Is(err, policy.ErrAliasOrAnchor) {
+		t.Fatalf("a cold start with an aliased binding gave %v, want ErrAliasOrAnchor", err)
+	}
+	engine := structuralEngineServedBy(t, policy.BundleHandler{Active: active})
+
+	decided, err := engine.Decide(context.Background(), domain.Document{
+		PR:   domain.PullRequest{Repository: liveRepository},
+		Diff: domain.Diff{ModuleGraphDelta: domain.ModuleGraphDelta{EdgesAdded: domain.Declared[domain.ModuleEdge]{}}},
+	})
+
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if decided.Outcome() != domain.OutcomeUndefined {
+		t.Errorf("a cold start decided %q effect %q, want undefined", decided.Outcome(), decided.Effect())
+	}
+}
+
 func structuralEngineServedBy(t *testing.T, bundles policy.BundleHandler) *opa.Engine {
 	t.Helper()
 
@@ -45,7 +70,9 @@ func structuralEngineServedBy(t *testing.T, bundles policy.BundleHandler) *opa.E
 	if err != nil {
 		t.Fatalf("parse bundle service: %v", err)
 	}
-	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: domain.PolicyFamilyStructural, BundleService: service})
+	starting, cancel := context.WithTimeout(context.Background(), engineStartBound)
+	t.Cleanup(cancel)
+	engine, err := opa.ParseEngine(starting, opa.Settings{Family: domain.PolicyFamilyStructural, BundleService: service})
 	if err != nil {
 		t.Fatalf("parse engine: %v", err)
 	}

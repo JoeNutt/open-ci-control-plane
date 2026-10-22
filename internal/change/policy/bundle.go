@@ -31,20 +31,44 @@ type BundleHandler struct {
 }
 
 func (handler BundleHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	accepted, err := handler.Active.Accepted()
-	if err != nil || request.URL.Path != opa.BundleResourceFor(domain.PolicyFamilyStructural) {
+	if request.URL.Path != opa.BundleResourceFor(domain.PolicyFamilyStructural) {
 		http.NotFound(writer, request)
 		return
 	}
-	archive, err := bundleOf(accepted)
+	archive, err := handler.servedBundle()
 	if err != nil {
-		handler.Active.log.Error(unservedBundleMessage, revisionLogKey, accepted.Revision().String(), reasonLogKey, err.Error())
+		handler.Active.log.Error(unservedBundleMessage, reasonLogKey, err.Error())
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	if _, err := writer.Write(archive); err != nil {
-		handler.Active.log.Error(unservedBundleMessage, revisionLogKey, accepted.Revision().String(), reasonLogKey, err.Error())
+		handler.Active.log.Error(unservedBundleMessage, reasonLogKey, err.Error())
 	}
+}
+
+const noPolicyRevision = "0000000000000000000000000000000000000000"
+
+func (handler BundleHandler) servedBundle() ([]byte, error) {
+	accepted, err := handler.Active.Accepted()
+	if errors.Is(err, ErrNoPolicyLoaded) {
+		return noPolicyBundle()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return bundleOf(accepted)
+}
+
+func noPolicyBundle() ([]byte, error) {
+	manifest, err := json.Marshal(bundleManifest{Revision: noPolicyRevision})
+	if err != nil {
+		return nil, fmt.Errorf("encode the bundle manifest: %w", err)
+	}
+	files := map[string][]byte{bundleManifestFile: manifest}
+	for name, module := range structural.Modules() {
+		files[name] = []byte(module)
+	}
+	return gzippedTarOf(files)
 }
 
 const unservedBundleMessage = "policy bundle not served"
