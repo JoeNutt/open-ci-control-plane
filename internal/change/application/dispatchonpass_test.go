@@ -7,15 +7,13 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
-	coverage "github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 func TestAPassingChangeIsPlannedAndDispatchedOnceAfterItsCheckRun(t *testing.T) {
 	locator := gatedLocator(t)
-	dispatched := &memory.PlanDispatches{}
-	published := &memory.CheckRuns{}
+	dispatched := &dispatchedPlans{}
+	published := &publishedCheckRuns{}
 	useCase := passingGateChange(t, published, dispatched)
 
 	if err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID)); err != nil {
@@ -35,7 +33,7 @@ func TestAPassingChangeIsPlannedAndDispatchedOnceAfterItsCheckRun(t *testing.T) 
 	}
 }
 
-func passingGateChange(t *testing.T, published *memory.CheckRuns, dispatched *memory.PlanDispatches) application.GateChange {
+func passingGateChange(t *testing.T, published *publishedCheckRuns, dispatched *dispatchedPlans) application.GateChange {
 	t.Helper()
 
 	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
@@ -50,7 +48,7 @@ func passingGateChange(t *testing.T, published *memory.CheckRuns, dispatched *me
 		Publisher:  published,
 		Recorder:   &recordedDecisions{},
 		Bindings:   bindingForEveryRepository{},
-		Planner:    application.PlanTests{Maps: coverage.NewCoverageMaps(domain.DeclaredCoverageLimits())},
+		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits())},
 		Dispatcher: dispatched,
 	}
 }

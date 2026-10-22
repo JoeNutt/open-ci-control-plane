@@ -10,7 +10,6 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 func TestAnOverBoundChangePostsOneFailureNamingTheBoundAndEvaluatesNothing(t *testing.T) {
@@ -26,7 +25,7 @@ func TestAnOverBoundChangePostsOneFailureNamingTheBoundAndEvaluatesNothing(t *te
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published, Recorder: &recordedDecisions{}}
 
 	err = useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
@@ -56,7 +55,7 @@ func TestAChangeDocumentOverItsByteBoundPostsOneFailureAndIsNeverEvaluated(t *te
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published, Recorder: &recordedDecisions{}}
 
 	err = useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))

@@ -14,13 +14,12 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 func TestGateChangePublishesOneCheckRunPerFamilyOnTheHeadCommit(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	gate, _ := recordingGate(t)
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
@@ -57,7 +56,7 @@ func TestGateChangePublishesACheckRunForEachConfiguredFamilyOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
@@ -83,7 +82,7 @@ func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
-		Publisher: &memory.CheckRuns{},
+		Publisher: &publishedCheckRuns{},
 		Recorder:  recorded,
 	}
 
@@ -104,7 +103,7 @@ func TestGateChangeRecordsEachFamilysDecisionUnderTheDecisionID(t *testing.T) {
 func TestARecorderFailureIsReturnedAndEveryCheckRunStillPublished(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	gate, _ := recordingGate(t)
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	refusal := errors.New("decision sink unreachable")
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
@@ -148,7 +147,7 @@ func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	useCase := application.GateChange{
 		Build:     build,
 		Gate:      gate,
-		Publisher: &memory.CheckRuns{},
+		Publisher: &publishedCheckRuns{},
 		Recorder:  &recordedDecisions{},
 	}
 
@@ -181,7 +180,7 @@ func TestAChangeThatCannotBeBuiltIsNeverDecided(t *testing.T) {
 		Additions: 1, PatchBytes: oversized,
 	})
 	gate, engines := recordingGate(t)
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	useCase := application.GateChange{
 		Build:     build,
 		Gate:      gate,
@@ -205,7 +204,7 @@ func TestAChangeThatCannotBeBuiltIsNeverDecided(t *testing.T) {
 func TestAFamilyWhoseCheckRunCannotBePostedDoesNotStopTheOthers(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	gate, _ := recordingGate(t)
-	recorded := &memory.CheckRuns{}
+	recorded := &publishedCheckRuns{}
 	refused := errors.New("the forge refused the post")
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
@@ -267,7 +266,7 @@ func TestADenyReachesItsFamilysCheckRunWithItsRuleOwnerLinkAndDecision(t *testin
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	id := decisionIDOf(t, gatedDecisionID)
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
@@ -312,9 +311,9 @@ func (engine answeringEngine) Decide(context.Context, domain.Document) (domain.D
 func TestAChangeWhoseHeadCommitIsMalformedIsNeverPublished(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	build := buildOverAnAuthChange(t, locator)
-	recorded := build.Source.(memory.ChangeSource).Changes[locator]
+	recorded := build.Source.(recordedChanges).Changes[locator]
 	recorded.PullRequest.HeadSHA = "../../user/repos"
-	build.Source.(memory.ChangeSource).Changes[locator] = recorded
+	build.Source.(recordedChanges).Changes[locator] = recorded
 	gate, _ := recordingGate(t)
 	published := &spyPublisher{}
 	useCase := application.GateChange{
@@ -355,7 +354,7 @@ func TestAVerdictReachedAtTheDeadlineIsStillPosted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	recorded := &memory.CheckRuns{}
+	recorded := &publishedCheckRuns{}
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
@@ -456,8 +455,8 @@ func buildOverRecorded(
 	t.Helper()
 
 	return application.BuildDocument{
-		Source: memory.ChangeSource{
-			Changes: map[domain.PullRequestLocator]memory.Change{
+		Source: recordedChanges{
+			Changes: map[domain.PullRequestLocator]recordedChange{
 				locator: {
 					PullRequest: domain.PullRequest{
 						Number: locator.Number(), Repository: locator.Repository(),
@@ -491,17 +490,17 @@ func recordedTips(t *testing.T) domain.BranchTips {
 	return tips
 }
 
-func recordedBases(t *testing.T) memory.ChangeBases {
+func recordedBases(t *testing.T) recordedMergeBases {
 	t.Helper()
 
-	return memory.ChangeBases{MergeBases: map[domain.BranchTips]domain.CommitSHA{
+	return recordedMergeBases{MergeBases: map[domain.BranchTips]domain.CommitSHA{
 		recordedTips(t): commitSHAOf(t, recordedBaseSHA),
 	}}
 }
 
 func recordedAtBothEnds(
 	t *testing.T, locator domain.PullRequestLocator, path, baseSource, headSource string,
-) memory.FileContents {
+) recordedFiles {
 	t.Helper()
 
 	contents := recordedAt(t, locator, recordedHeadSHA, path, headSource)
@@ -511,14 +510,14 @@ func recordedAtBothEnds(
 
 func recordedAt(
 	t *testing.T, locator domain.PullRequestLocator, commit, path, source string,
-) memory.FileContents {
+) recordedFiles {
 	t.Helper()
 
 	file, err := domain.ParseFileAtCommit(locator.GovernedRepository(), commitSHAOf(t, commit), path)
 	if err != nil {
 		t.Fatalf("parse file at commit: %v", err)
 	}
-	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{file: []byte(source)}}
+	return recordedFiles{Files: map[domain.FileAtCommit][]byte{file: []byte(source)}}
 }
 
 type recordingEngine struct {

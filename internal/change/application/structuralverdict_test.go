@@ -7,7 +7,6 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 const paymentsCleanArchitecture = `{
@@ -58,7 +57,7 @@ func TestAnAddedImportTheDirectionAllowsSucceeds(t *testing.T) {
 func structuralCheckRunAfterGating(t *testing.T, engine domain.FamilyEngine, change gatedChange) domain.CheckRun {
 	t.Helper()
 
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	gateChangeBuiltBy(t, change, engine, published)
 	run, present := published.PublishedOn(change.locator, commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]
 	if !present {

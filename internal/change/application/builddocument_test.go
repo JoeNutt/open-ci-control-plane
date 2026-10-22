@@ -12,7 +12,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 const sourceThatDoesNotParse = "package auth\n\nimport (\n\t\"context\" unterminated\n)\n"
@@ -27,11 +26,11 @@ func locatorOf(t *testing.T, repository string, number int) domain.PullRequestLo
 	return locator
 }
 
-func changeSourceOver(t *testing.T, locator domain.PullRequestLocator, files ...domain.File) memory.ChangeSource {
+func changeSourceOver(t *testing.T, locator domain.PullRequestLocator, files ...domain.File) recordedChanges {
 	t.Helper()
 
-	return memory.ChangeSource{
-		Changes: map[domain.PullRequestLocator]memory.Change{
+	return recordedChanges{
+		Changes: map[domain.PullRequestLocator]recordedChange{
 			locator: {
 				PullRequest: domain.PullRequest{
 					Number:     locator.Number(),
@@ -162,7 +161,7 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 			domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
 			domain.File{Path: "README.md", Action: domain.FileActionAdded},
 		),
-		Contents:  memory.FileContents{},
+		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -275,7 +274,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheReposito
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(t, locator, file),
 		Bases:     recordedBases(t),
-		Contents:  memory.FileContents{},
+		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -293,7 +292,7 @@ func TestBuildDocumentNamesTheCommitOfAFileItCannotReadOnce(t *testing.T) {
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(t, locator, file),
 		Bases:     recordedBases(t),
-		Contents:  memory.FileContents{},
+		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
