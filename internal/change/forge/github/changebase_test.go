@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
 const (
@@ -90,8 +89,8 @@ func TestMergeBaseOfReportsTipsTheForgeCannotCompareWithoutTheCredential(t *test
 	_, err := sourceAt(t, server).MergeBaseOf(
 		context.Background(), locatorOf(t, governedRepository, pullRequestNumber), tipsOf(t))
 
-	if !errors.Is(err, github.ErrTipsNotComparable) {
-		t.Fatalf("error is %v, want %v", err, github.ErrTipsNotComparable)
+	if !errors.Is(err, domain.ErrNoMergeBase) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoMergeBase)
 	}
 	if !strings.Contains(err.Error(), governedRepository) {
 		t.Errorf("error %q does not name the repository", err)

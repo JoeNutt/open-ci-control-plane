@@ -4,15 +4,12 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
-
-var errTipsNotComparable = errors.New("the forge cannot compare the base and head tips")
 
 func (source ChangeSource) MergeBaseOf(
 	ctx context.Context, locator domain.PullRequestLocator, tips domain.BranchTips,
@@ -33,7 +30,7 @@ func comparing(locator domain.PullRequestLocator, tips domain.BranchTips) exchan
 		method:    http.MethodGet,
 		endpoint:  compareEndpoint(locator, tips),
 		succeeded: http.StatusOK,
-		notFound:  errTipsNotComparable,
+		notFound:  domain.ErrNoMergeBase,
 	}
 }
 

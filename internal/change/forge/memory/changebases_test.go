@@ -44,7 +44,7 @@ func TestChangeBasesRefusesTipsItHoldsNoMergeBaseFor(t *testing.T) {
 	_, err := memory.ChangeBases{}.MergeBaseOf(
 		context.Background(), locatorOf(t, "acme/payments", 412), recordedTips(t))
 
-	if !errors.Is(err, domain.ErrNoSuchPullRequest) {
-		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchPullRequest)
+	if !errors.Is(err, domain.ErrNoMergeBase) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoMergeBase)
 	}
 }

@@ -34,5 +34,3 @@ var ErrNotAFile = errNotAFile
 var ErrContentsNotServed = errContentsNotServed
 
 var ErrContentsSizeMismatch = errContentsSizeMismatch
-
-var ErrTipsNotComparable = errTipsNotComparable

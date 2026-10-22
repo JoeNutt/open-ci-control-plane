@@ -19,7 +19,7 @@ func (bases ChangeBases) MergeBaseOf(
 	mergeBase, recorded := bases.MergeBases[tips]
 	if !recorded {
 		return domain.CommitSHA{}, fmt.Errorf("%w: %s has no merge base recorded for %s...%s",
-			domain.ErrNoSuchPullRequest, locator, tips.Base(), tips.Head())
+			domain.ErrNoMergeBase, locator, tips.Base(), tips.Head())
 	}
 	return mergeBase, nil
 }
