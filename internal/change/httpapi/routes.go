@@ -16,15 +16,18 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 	if missing := slices.IndexFunc(requiredParts, isMissingFrom(settings)); missing >= 0 {
 		return nil, fmt.Errorf("%w: %s", ErrIncompleteRoutes, requiredParts[missing].name)
 	}
+	allowed, err := parseInstallationGates(settings.Gates)
+	if err != nil {
+		return nil, err
+	}
 	answering := answers{log: settings.Log}
 	refusing := refusals{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted: admitted{
-			allowed:   allowlist(slices.Clone(settings.Installations)),
+			allowed:   allowed,
 			answering: answering,
 			refusing:  refusing,
 			evaluating: evaluation{
-				gate:     settings.Gate,
 				ids:      settings.DecisionIDs,
 				log:      settings.Log,
 				refusing: refusing,
@@ -63,7 +66,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 }
 
 type admitted struct {
-	allowed    allowlist
+	allowed    installationGates
 	answering  answers
 	refusing   refusals
 	evaluating evaluation
@@ -81,7 +84,8 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 			stage.refusing.logged(asked.Context(), received, malformedPayloadProblem()))
 		return
 	}
-	if !stage.allowed.admits(stated) {
+	entry, isAllowed := stage.allowed.admissionOf(stated)
+	if !isAllowed {
 		stage.refusing.record(asked.Context(), received, notAllowlistedReason)
 		answer.WriteHeader(http.StatusNotFound)
 		return
@@ -90,5 +94,5 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		answer.WriteHeader(http.StatusNoContent)
 		return
 	}
-	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, stated))
+	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, entry))
 }

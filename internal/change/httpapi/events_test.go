@@ -243,6 +243,25 @@ func TestAnEvaluatedPullRequestActionIsHandedToTheGateAndAccepted(t *testing.T) 
 	}
 }
 
+func TestADeliveryIsEvaluatedByTheGateOfItsOwnInstallationOnly(t *testing.T) {
+	const otherInstallation = allowlistedInstallation + 1
+	own, other := &recordingGate{}, &recordingGate{}
+	settings := listenerSettings(discardedLog(), own)
+	settings.Gates = map[int64]httpapi.ChangeGate{allowlistedInstallation: own, otherInstallation: other}
+	answered := httptest.NewRecorder()
+
+	parsedRoutes(t, settings).ServeHTTP(answered, signedDelivery("pull_request",
+		pullRequestPayloadFrom(fmt.Sprintf(`,"installation":{"id":%d}`, otherInstallation))))
+
+	if answered.Code != http.StatusAccepted {
+		t.Errorf("status is %d, want %d", answered.Code, http.StatusAccepted)
+	}
+	if len(other.evaluated) != 1 || len(own.evaluated) != 0 {
+		t.Errorf("installation %d's gate evaluated %v and installation %d's %v, want only the second once",
+			allowlistedInstallation, own.evaluated, otherInstallation, other.evaluated)
+	}
+}
+
 func TestTheAcceptanceNamesTheDeliveryAndTheDecisionTheGateWasGiven(t *testing.T) {
 	gate := &recordingGate{}
 	answered := httptest.NewRecorder()
@@ -396,12 +415,11 @@ func routedWith(t *testing.T, log *slog.Logger, gate *recordingGate) http.Handle
 
 func listenerSettings(log *slog.Logger, gate *recordingGate) httpapi.Settings {
 	return httpapi.Settings{
-		Log:           log,
-		Secret:        domain.WebhookSecret(webhookSecret),
-		Installations: []int64{allowlistedInstallation},
-		Gate:          gate,
-		DecisionIDs:   mintedDecisions{},
-		Clock:         time.Now,
+		Log:         log,
+		Secret:      domain.WebhookSecret(webhookSecret),
+		Gates:       map[int64]httpapi.ChangeGate{allowlistedInstallation: gate},
+		DecisionIDs: mintedDecisions{},
+		Clock:       time.Now,
 	}
 }
 

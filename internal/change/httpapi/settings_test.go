@@ -11,11 +11,16 @@ import (
 
 func TestParseRoutesRefusesSettingsMissingAPart(t *testing.T) {
 	incomplete := map[string]func(*httpapi.Settings){
-		"no log":                  func(settings *httpapi.Settings) { settings.Log = nil },
-		"no gate":                 func(settings *httpapi.Settings) { settings.Gate = nil },
-		"no decision ID source":   func(settings *httpapi.Settings) { settings.DecisionIDs = nil },
-		"no allowed installation": func(settings *httpapi.Settings) { settings.Installations = nil },
-		"no clock":                func(settings *httpapi.Settings) { settings.Clock = nil },
+		"no log":  func(settings *httpapi.Settings) { settings.Log = nil },
+		"no gate": func(settings *httpapi.Settings) { settings.Gates = nil },
+		"an installation with no gate": func(settings *httpapi.Settings) {
+			settings.Gates[allowlistedInstallation+1] = nil
+		},
+		"an installation whose gate is a typed nil": func(settings *httpapi.Settings) {
+			settings.Gates[allowlistedInstallation+1] = (*recordingGate)(nil)
+		},
+		"no decision ID source": func(settings *httpapi.Settings) { settings.DecisionIDs = nil },
+		"no clock":              func(settings *httpapi.Settings) { settings.Clock = nil },
 	}
 	for form, without := range incomplete {
 		t.Run(form, func(t *testing.T) {

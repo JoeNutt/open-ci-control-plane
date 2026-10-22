@@ -65,12 +65,11 @@ func configurationPathIn(arguments []string) (string, error) {
 
 func serverFor(configured configuration.Configuration, log *slog.Logger) (*http.Server, error) {
 	routes, err := httpapi.ParseRoutes(httpapi.Settings{
-		Log:           log,
-		Secret:        domain.WebhookSecret(configured.WebhookSecret().Reveal()),
-		Installations: configured.InstallationIDs(),
-		Gate:          unwiredEvaluation{},
-		DecisionIDs:   random.DecisionIDs{},
-		Clock:         time.Now,
+		Log:         log,
+		Secret:      domain.WebhookSecret(configured.WebhookSecret().Reveal()),
+		Gates:       unwiredGates(configured.InstallationIDs()),
+		DecisionIDs: random.DecisionIDs{},
+		Clock:       time.Now,
 	})
 	if err != nil {
 		return nil, err
