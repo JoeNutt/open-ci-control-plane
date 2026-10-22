@@ -32,6 +32,25 @@ func TestParseFileActionAcceptsEveryDeclaredAction(t *testing.T) {
 	}
 }
 
+func TestOnlyARemovedFileIsAbsentAtTheHeadCommit(t *testing.T) {
+	presentAtHead := map[domain.FileAction]bool{
+		domain.FileActionAdded:    true,
+		domain.FileActionModified: true,
+		domain.FileActionRemoved:  false,
+		domain.FileActionRenamed:  true,
+		domain.FileActionCopied:   true,
+		domain.FileActionChanged:  true,
+	}
+
+	for action, want := range presentAtHead {
+		t.Run(string(action), func(t *testing.T) {
+			if action.ExistsAtHead() != want {
+				t.Fatalf("%s exists at head is %v, want %v", action, action.ExistsAtHead(), want)
+			}
+		})
+	}
+}
+
 func TestParseFileActionRefusesAnUnmappedValue(t *testing.T) {
 	action, err := domain.ParseFileAction("exfiltrated")
 

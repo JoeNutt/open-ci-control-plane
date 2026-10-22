@@ -29,3 +29,7 @@ var ErrUnknownFileAction = errors.New("unknown file action")
 func ParseFileAction(name string) (FileAction, error) {
 	return parseDeclaration(name, declaredFileActions, ErrUnknownFileAction)
 }
+
+func (action FileAction) ExistsAtHead() bool {
+	return action != FileActionRemoved
+}
