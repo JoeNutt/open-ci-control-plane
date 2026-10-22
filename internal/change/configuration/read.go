@@ -18,14 +18,15 @@ const (
 )
 
 const (
-	listenAddressItem        item = "listenAddress"
-	appIDItem                item = "appId"
-	appKeyFileItem           item = "appKeyFile"
-	webhookSecretFileItem    item = "webhookSecretFile"
-	installationIDsItem      item = "installationIds"
-	familiesItem             item = "families"
-	policyRepositoryItem     item = "policyRepository"
-	policyInstallationIDItem item = "policyInstallationId"
+	listenAddressItem           item = "listenAddress"
+	appIDItem                   item = "appId"
+	appKeyFileItem              item = "appKeyFile"
+	webhookSecretFileItem       item = "webhookSecretFile"
+	installationIDsItem         item = "installationIds"
+	familiesItem                item = "families"
+	policyRepositoryItem        item = "policyRepository"
+	policyInstallationIDItem    item = "policyInstallationId"
+	classificationRulesFileItem item = "classificationRulesFile"
 )
 
 var items = []item{
@@ -37,6 +38,7 @@ var items = []item{
 	familiesItem,
 	policyRepositoryItem,
 	policyInstallationIDItem,
+	classificationRulesFileItem,
 }
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -50,6 +52,7 @@ type Configuration struct {
 	families             []domain.PolicyFamily
 	policyRepository     domain.PolicyRepository
 	policyInstallationID int64
+	classificationRules  []byte
 }
 
 func Read(path string) (Configuration, error) {
@@ -95,8 +98,9 @@ func (stated statedItems) configuration() (Configuration, error) {
 	families, familiesErr := familiesIn(stated)
 	policyRepository, policyRepositoryErr := policyRepositoryIn(stated)
 	policyInstallationID, policyInstallationIDErr := policyInstallationIDIn(stated)
+	classificationRules, classificationRulesErr := classificationRulesIn(stated)
 	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr,
-		policyRepositoryErr, policyInstallationIDErr)
+		policyRepositoryErr, policyInstallationIDErr, classificationRulesErr)
 	if refusals != nil {
 		return Configuration{}, refusals
 	}
@@ -109,5 +113,6 @@ func (stated statedItems) configuration() (Configuration, error) {
 		families:             families,
 		policyRepository:     policyRepository,
 		policyInstallationID: policyInstallationID,
+		classificationRules:  classificationRules,
 	}, nil
 }

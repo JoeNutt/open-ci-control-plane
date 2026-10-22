@@ -183,11 +183,12 @@ func firstAnswerFrom(t *testing.T, listenAddress, signedPayload string) int {
 }
 
 const (
-	listenAddressItem = "listenAddress"
-	webhookSecret     = "the App's webhook secret"
-	appKeyBody        = "c3RhdGVkIGtleQ"
-	appID             = 1204331
-	installationID    = 52311907
+	listenAddressItem   = "listenAddress"
+	webhookSecret       = "the App's webhook secret"
+	appKeyBody          = "c3RhdGVkIGtleQ"
+	appID               = 1204331
+	installationID      = 52311907
+	classificationRules = "test: [\"**/*_test.go\"]\n"
 )
 
 const unparseableAppKey = "-----BEGIN RSA PRIVATE KEY-----\n" + appKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
@@ -210,14 +211,15 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 	appKey := writtenFile(t, directory, "app-key.pem", rsaAppKeyPEM(t))
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
-		listenAddressItem:      quoted(t, unusedLoopbackAddress(t)),
-		"appId":                json.RawMessage(strconv.Itoa(appID)),
-		"appKeyFile":           quoted(t, appKey),
-		"webhookSecretFile":    quoted(t, secret),
-		"installationIds":      json.RawMessage("[" + strconv.Itoa(installationID) + "]"),
-		"families":             json.RawMessage(`["structural"]`),
-		"policyRepository":     quoted(t, "JoeNutt/open-ci-policy"),
-		"policyInstallationId": json.RawMessage(strconv.Itoa(installationID)),
+		listenAddressItem:         quoted(t, unusedLoopbackAddress(t)),
+		"appId":                   json.RawMessage(strconv.Itoa(appID)),
+		"appKeyFile":              quoted(t, appKey),
+		"webhookSecretFile":       quoted(t, secret),
+		"installationIds":         json.RawMessage("[" + strconv.Itoa(installationID) + "]"),
+		"families":                json.RawMessage(`["structural"]`),
+		"policyRepository":        quoted(t, "JoeNutt/open-ci-policy"),
+		"policyInstallationId":    json.RawMessage(strconv.Itoa(installationID)),
+		"classificationRulesFile": quoted(t, writtenFile(t, directory, "rules.yaml", classificationRules)),
 	}
 }
 

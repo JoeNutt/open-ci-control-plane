@@ -11,10 +11,5 @@ func appKeyIn(stated statedItems) (Secret, error) {
 }
 
 func AppKeyParsedBy[Key any](configured Configuration, parse func([]byte) (Key, error)) (Key, error) {
-	key, err := parse(configured.appKey.Reveal())
-	if err != nil {
-		var none Key
-		return none, appKeyFileItem.invalid(err)
-	}
-	return key, nil
+	return parsedFileItem(appKeyFileItem, configured.appKey.Reveal(), parse)
 }

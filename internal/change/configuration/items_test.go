@@ -270,3 +270,17 @@ func TestAnAppKeyItsParserRefusesIsRefusedNamingTheAppKeyFile(t *testing.T) {
 		t.Errorf("the refusal does not carry the parser's reason: %v", err)
 	}
 }
+
+func TestClassificationRulesTheirParserRefusesAreRefusedNamingTheRulesFile(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+	unparseable := errors.New("not a classification rule document")
+
+	_, err := configuration.ClassificationRulesParsedBy(configured, func([]byte) (string, error) { return "", unparseable })
+
+	if !errors.Is(err, configuration.ErrInvalidItem) || !strings.Contains(err.Error(), classificationRulesFileKey) {
+		t.Errorf("the refusal is not ErrInvalidItem naming %s: %v", classificationRulesFileKey, err)
+	}
+	if !errors.Is(err, unparseable) {
+		t.Errorf("the refusal does not carry the parser's reason: %v", err)
+	}
+}
