@@ -26,7 +26,7 @@ const policyTreeAnswer = `{"sha": "0653ac93140df61ae2a2e2bff3f067d5117ffdfa", "t
 ]}`
 
 func TestListedFilesAtListsEveryFileInTheTreeOfTheCommitAsTheInstallation(t *testing.T) {
-	var asked []askedRequest
+	var asked []recordedRequest
 	server := recordingEach(t, &asked, map[string]string{policyTreePath: policyTreeAnswer})
 
 	listed, err := listingsAt(t, server).ListedFilesAt(context.Background(), policyHeadCommit(t))
@@ -42,7 +42,7 @@ func TestListedFilesAtListsEveryFileInTheTreeOfTheCommitAsTheInstallation(t *tes
 	if !slices.Equal(listed, want) {
 		t.Errorf("listed %+v, want %+v", listed, want)
 	}
-	wantAsked := []askedRequest{{
+	wantAsked := []recordedRequest{{
 		method: http.MethodGet, escapedPath: policyTreePath, rawQuery: "recursive=1", authorization: "Bearer " + forgeToken,
 	}}
 	if !slices.Equal(asked, wantAsked) {
@@ -90,14 +90,4 @@ func policyHeadCommit(t *testing.T) domain.PolicyCommit {
 		t.Fatalf("parse policy commit: %v", err)
 	}
 	return at
-}
-
-func commitOf(t *testing.T, stated string) domain.CommitSHA {
-	t.Helper()
-
-	commit, err := domain.ParseCommitSHA(stated)
-	if err != nil {
-		t.Fatalf("parse commit %q: %v", stated, err)
-	}
-	return commit
 }
