@@ -23,7 +23,7 @@ type uploadedForm struct {
 func uploadedFormOf(asked *http.Request, artifacts CoverageArtifacts) (uploadedForm, refusal) {
 	parts, err := asked.MultipartReader()
 	if err != nil {
-		return uploadedForm{}, fieldProblem{Code: "not_multipart", Message: "x", Field: "Content-Type"}
+		return uploadedForm{}, notAFormProblem()
 	}
 	return uploadedForm{parts: parts, declared: asked.ContentLength, artifacts: artifacts}, nil
 }
