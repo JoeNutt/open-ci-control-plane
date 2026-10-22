@@ -2,36 +2,17 @@ package ci.structural_test
 
 import data.ci.structural
 
-policy := {
-	"catalog": {"clean-architecture": {
-		"rule": "direction",
-		"direction": "lower_order_may_not_import_higher",
-		"groups": [
-			{"name": "domain", "order": 0},
-			{"name": "application", "order": 1},
-			{"name": "adapter", "order": 2},
-		],
-	}},
-	"bindings": {control_plane: {"policies": [{
-		"use": "clean-architecture",
-		"import_roots": [{"prefix": module_root, "path": ""}],
-		"paths": {
-			"domain": ["internal/change/domain/**"],
-			"application": ["internal/change/application/**"],
-			"adapter": ["internal/change/forge/**"],
-		},
-	}]}},
-}
+policy := data.testdata.ci.policy
 
-control_plane := "JoeNutt/open-ci-control-plane"
+control_plane := repository if some repository, _ in policy.bindings
 
-module_root := $"github.com/{control_plane}"
+module_root := policy.bindings[control_plane].policies[0].import_roots[0].prefix
 
 control_plane_binding := $"/bindings/{replace(control_plane, "/", "~1")}"
 
 control_plane_policies := $"{control_plane_binding}/policies"
 
-domain_imports_forge := {"from": "internal/change/domain/gate.go", "to": $"{module_root}/internal/change/forge/github"}
+domain_imports_forge := data.testdata.edges.domain_imports_forge
 
 change_adding(edges) := change_in(control_plane, edges)
 
@@ -46,9 +27,8 @@ test_an_added_edge_into_a_higher_order_group_is_refused_naming_file_import_and_g
 
 	decided.effect == "block"
 	[violation] := decided.violations
-	violation.message == concat("", [
-		"internal/change/domain/gate.go imports ",
-		"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github: ",
+	violation.message == concat(": ", [
+		$"{domain_imports_forge.from} imports {domain_imports_forge.to}",
 		`group "domain" may not import group "adapter"`,
 	])
 }
