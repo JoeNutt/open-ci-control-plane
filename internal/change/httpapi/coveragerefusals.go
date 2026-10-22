@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"slices"
 
@@ -19,7 +20,8 @@ const (
 )
 
 type classifiedFailure struct {
-	answer refusal
+	answer answerBody
+	level  slog.Level
 }
 
 type causedRefusal struct {
@@ -35,9 +37,9 @@ var coverageRefusals = []causedRefusal{
 func coverageRefusalOf(failure error) classifiedFailure {
 	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
 	if matching < 0 {
-		return classifiedFailure{answer: foreignRepositoryProblem()}
+		return classifiedFailure{answer: serverProblem{Code: "coverage_failed", Message: "x"}, level: slog.LevelError}
 	}
-	return classifiedFailure{answer: coverageRefusals[matching].refusal()}
+	return classifiedFailure{answer: coverageRefusals[matching].refusal(), level: slog.LevelWarn}
 }
 
 type authorizationProblem struct {
