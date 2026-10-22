@@ -45,16 +45,6 @@ func (source ChangeSource) PullRequestAt(
 	return reported, nil
 }
 
-func (source ChangeSource) MergeBaseOf(
-	ctx context.Context, locator domain.PullRequestLocator, tips domain.BranchTips,
-) (domain.CommitSHA, error) {
-	mergeBase, err := source.mergeBaseOf(ctx, locator, tips.Base, tips.Head)
-	if err != nil {
-		return domain.CommitSHA{}, fmt.Errorf("the merge base of %s: %w", locator, err)
-	}
-	return mergeBase, nil
-}
-
 func (source ChangeSource) FilesChanged(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {

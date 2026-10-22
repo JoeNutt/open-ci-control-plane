@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	baseSHA      = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
-	headTipSHA   = "9f1c8d2e4b7a60718293a4b5c6d7e8f901234567"
-	mergeBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f9aabbccdd"
+	governedRepository = "acme/payments"
+	pullRequestNumber  = 412
+	baseSHA            = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+	headTipSHA         = "9f1c8d2e4b7a60718293a4b5c6d7e8f901234567"
+	mergeBaseSHA       = "0a1b2c3d4e5f60718293a4b5c6d7e8f9aabbccdd"
 )
 
 func tipsOf(t *testing.T) domain.BranchTips {
@@ -37,7 +39,7 @@ func TestMergeBaseOfAsksOnlyForTheComparisonOfTheTipsAlreadyRead(t *testing.T) {
 	server := recording(t, &asked, `{"merge_base_commit": {"sha": "`+mergeBaseSHA+`"}}`)
 
 	mergeBase, err := sourceAt(t, server).MergeBaseOf(
-		context.Background(), locatorOf(t, "acme/payments", 412), tipsOf(t))
+		context.Background(), locatorOf(t, governedRepository, pullRequestNumber), tipsOf(t))
 
 	if err != nil {
 		t.Fatalf("merge base of: %v", err)
@@ -47,7 +49,7 @@ func TestMergeBaseOfAsksOnlyForTheComparisonOfTheTipsAlreadyRead(t *testing.T) {
 	}
 	want := recordedRequest{
 		method:        http.MethodGet,
-		escapedPath:   "/repos/acme/payments/compare/" + baseSHA + "..." + headTipSHA,
+		escapedPath:   "/repos/" + governedRepository + "/compare/" + baseSHA + "..." + headTipSHA,
 		authorization: "Bearer " + forgeToken,
 	}
 	if asked != want {
