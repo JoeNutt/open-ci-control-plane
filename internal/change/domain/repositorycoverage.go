@@ -42,17 +42,26 @@ func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite CoverageSuite
 	return coverage, nil
 }
 
-func (repositoryCoverage RepositoryCoverage) suitesCoveringAny(files []File) ([]CoverageSuite, error) {
-	var covering []CoverageSuite
+type coverageSelection struct {
+	suites            []CoverageSuite
+	isEveryFileMapped bool
+	isAnyMapHeld      bool
+}
+
+func (repositoryCoverage RepositoryCoverage) selectionFor(files []File) (coverageSelection, error) {
+	selection := coverageSelection{isEveryFileMapped: true, isAnyMapHeld: len(repositoryCoverage.suites) > 0}
 	for _, file := range files {
 		path, err := ParseRepositoryPath(file.Path)
 		if err != nil {
-			return nil, err
+			return coverageSelection{}, err
 		}
-		covering = append(covering, repositoryCoverage.suitesCovering(path)...)
+		covering := repositoryCoverage.suitesCovering(path)
+		selection.isEveryFileMapped = selection.isEveryFileMapped && len(covering) > 0
+		selection.suites = append(selection.suites, covering...)
 	}
-	slices.SortFunc(covering, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
-	return slices.Compact(covering), nil
+	slices.SortFunc(selection.suites, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
+	selection.suites = slices.Compact(selection.suites)
+	return selection, nil
 }
 
 func (repositoryCoverage RepositoryCoverage) suitesCovering(path RepositoryPath) []CoverageSuite {
