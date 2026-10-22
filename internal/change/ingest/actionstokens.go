@@ -120,14 +120,14 @@ func hasNoTimeout(client *http.Client) bool {
 	return client == nil || client.Timeout <= 0
 }
 
-func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.IdentityToken) (domain.Repository, error) {
+func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.IdentityToken) (domain.GovernedRepository, error) {
 	keyID, err := keyIDOf(token)
 	if err != nil {
-		return domain.Repository{}, err
+		return domain.GovernedRepository{}, err
 	}
 	keys, err := tokens.keys.holding(ctx, keyID)
 	if err != nil {
-		return domain.Repository{}, err
+		return domain.GovernedRepository{}, err
 	}
 	verified, err := jwt.ParseString(token.Reveal(),
 		jwt.WithKeySet(keys),
@@ -137,7 +137,7 @@ func (tokens *ActionsTokens) RepositoryOf(ctx context.Context, token domain.Iden
 		jwt.WithRequiredClaim(jwt.NotBeforeKey),
 		jwt.WithClock(jwt.ClockFunc(tokens.now)))
 	if err != nil {
-		return domain.Repository{}, unverifiedReasonOf(err)
+		return domain.GovernedRepository{}, unverifiedReasonOf(err)
 	}
 	return repositoryClaimedBy(verified)
 }
@@ -167,14 +167,14 @@ func unverifiedReasonOf(failure error) error {
 	return unverifiedReasons[matching].reason
 }
 
-func repositoryClaimedBy(verified jwt.Token) (domain.Repository, error) {
+func repositoryClaimedBy(verified jwt.Token) (domain.GovernedRepository, error) {
 	var claimed string
 	if err := verified.Get(repositoryClaim, &claimed); err != nil {
-		return domain.Repository{}, errNoRepository
+		return domain.GovernedRepository{}, errNoRepository
 	}
-	repository, err := domain.ParseRepository(claimed)
+	repository, err := domain.ParseGovernedRepository(claimed)
 	if err != nil {
-		return domain.Repository{}, errNotARepository
+		return domain.GovernedRepository{}, errNotARepository
 	}
 	return repository, nil
 }

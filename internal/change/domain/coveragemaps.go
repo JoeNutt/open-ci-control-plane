@@ -5,6 +5,6 @@ package domain
 import "context"
 
 type CoverageMaps interface {
-	ReplaceSuiteCoverage(ctx context.Context, repository Repository, suite SuiteName, coverage SuiteCoverage) error
-	SuiteCoverageOf(ctx context.Context, repository Repository, suite SuiteName) (SuiteCoverage, error)
+	ReplaceSuiteCoverage(ctx context.Context, repository GovernedRepository, suite GoImportPath, coverage SuiteCoverage) error
+	SuiteCoverageOf(ctx context.Context, repository GovernedRepository, suite GoImportPath) (SuiteCoverage, error)
 }

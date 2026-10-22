@@ -5,5 +5,5 @@ package domain
 import "context"
 
 type RepositoryPaths interface {
-	KnownPathsOf(ctx context.Context, repository Repository) (KnownPaths, error)
+	KnownPathsOf(ctx context.Context, repository GovernedRepository) (KnownPaths, error)
 }

@@ -10,15 +10,15 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestParseSuiteNameAcceptsAGoImportPath(t *testing.T) {
+func TestParseGoImportPathC12AcceptsAGoImportPath(t *testing.T) {
 	accepted := map[string]string{
 		"a package of this module": "github.com/JoeNutt/open-ci-control-plane/internal/change/domain",
-		"a name at the bound":      strings.Repeat("a", domain.MaxSuiteNameBytes),
+		"a name at the bound":      strings.Repeat("a", domain.MaxGoImportPathBytes),
 	}
 
 	for form, name := range accepted {
 		t.Run(form, func(t *testing.T) {
-			suite, err := domain.ParseSuiteName(name)
+			suite, err := domain.ParseGoImportPath(name)
 
 			if err != nil {
 				t.Fatalf("parse %q: %v", name, err)
@@ -30,7 +30,7 @@ func TestParseSuiteNameAcceptsAGoImportPath(t *testing.T) {
 	}
 }
 
-func TestParseSuiteNameRefusesANameThatIsNotAnImportPath(t *testing.T) {
+func TestParseGoImportPathC12RefusesANameThatIsNotAnImportPath(t *testing.T) {
 	refused := map[string]string{
 		"empty":                "",
 		"a dot-dot segment":    "github.com/JoeNutt/../secrets",
@@ -49,21 +49,21 @@ func TestParseSuiteNameRefusesANameThatIsNotAnImportPath(t *testing.T) {
 
 	for form, name := range refused {
 		t.Run(form, func(t *testing.T) {
-			_, err := domain.ParseSuiteName(name)
+			_, err := domain.ParseGoImportPath(name)
 
-			if !errors.Is(err, domain.ErrMalformedSuiteName) {
-				t.Fatalf("want ErrMalformedSuiteName for %q, got %v", name, err)
+			if !errors.Is(err, domain.ErrMalformedGoImportPath) {
+				t.Fatalf("want ErrMalformedGoImportPath for %q, got %v", name, err)
 			}
 		})
 	}
 }
 
-func TestParseSuiteNameRefusesANameOverTheBound(t *testing.T) {
-	overlong := strings.Repeat("a", domain.MaxSuiteNameBytes+1)
+func TestParseGoImportPathC12RefusesANameOverTheBound(t *testing.T) {
+	overlong := strings.Repeat("a", domain.MaxGoImportPathBytes+1)
 
-	_, err := domain.ParseSuiteName(overlong)
+	_, err := domain.ParseGoImportPath(overlong)
 
-	if !errors.Is(err, domain.ErrMalformedSuiteName) {
-		t.Fatalf("want ErrMalformedSuiteName, got %v", err)
+	if !errors.Is(err, domain.ErrMalformedGoImportPath) {
+		t.Fatalf("want ErrMalformedGoImportPath, got %v", err)
 	}
 }
