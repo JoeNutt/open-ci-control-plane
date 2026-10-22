@@ -48,6 +48,20 @@ func TestParsePolicyListingHoldsEveryListedFileInOrder(t *testing.T) {
 	}
 }
 
+func TestParsePolicyListingHandsOutEachListedPathParsed(t *testing.T) {
+	listed := listedPolicyFiles(2)
+
+	listing, err := domain.ParsePolicyListing(listed)
+	if err != nil {
+		t.Fatalf("parse policy listing: %v", err)
+	}
+
+	paths := listing.Paths()
+	if len(paths) != len(listed) || paths[0].String() != listed[0].Path || paths[1].String() != listed[1].Path {
+		t.Errorf("the listing's paths are %v, want those of %+v", paths, listed)
+	}
+}
+
 func TestParsePolicyListingRefusesAFileListedWithANegativeSize(t *testing.T) {
 	listed := listedPolicyFiles(1)
 	listed[0].Bytes = -1

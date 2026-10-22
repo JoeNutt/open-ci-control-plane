@@ -207,7 +207,7 @@ func policyFilesBeyondTheBound(t *testing.T) []domain.PolicyFile {
 
 	files := liveFiles(t)
 	for index := len(files); index <= domain.MaxPolicyFiles; index++ {
-		files = append(files, domain.PolicyFile{Path: fmt.Sprintf("bindings/owner/repository%d.yaml", index), Content: files[1].Content})
+		files = append(files, domain.PolicyFile{Path: fmt.Sprintf(extraBindingPathFormat, index), Content: files[1].Content})
 	}
 	return files
 }
