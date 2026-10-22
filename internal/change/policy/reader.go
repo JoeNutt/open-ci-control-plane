@@ -4,7 +4,7 @@ package policy
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -26,39 +26,61 @@ func ParseReader(repository domain.PolicyRepository, ports ReaderPorts, active *
 }
 
 func (reader *Reader) ReadRevision(ctx context.Context) error {
+	head, err := reader.headCommit(ctx)
+	if err != nil {
+		return fmt.Errorf("read the head of %s: %w", reader.repository, err)
+	}
+	listing, err := reader.policyListingAt(ctx, head)
+	if err != nil {
+		return fmt.Errorf("list the policy files of %s at %s: %w", reader.repository, head.Commit(), err)
+	}
+	files, err := reader.policyFilesAt(ctx, head, listing)
+	if err != nil {
+		return fmt.Errorf("read the policy files of %s at %s: %w", reader.repository, head.Commit(), err)
+	}
+	return reader.active.Offer(head.Commit(), files)
+}
+
+func (reader *Reader) headCommit(ctx context.Context) (domain.PolicyCommit, error) {
 	head, err := reader.ports.Heads.DefaultBranchHeadOf(ctx, reader.repository)
 	if err != nil {
-		return err
+		return domain.PolicyCommit{}, err
 	}
-	at, err := domain.ParsePolicyCommit(reader.repository, head)
-	if err != nil {
-		return err
-	}
+	return domain.ParsePolicyCommit(reader.repository, head)
+}
+
+func (reader *Reader) policyListingAt(ctx context.Context, at domain.PolicyCommit) (domain.PolicyListing, error) {
 	listed, err := reader.ports.Listings.ListedFilesAt(ctx, at)
 	if err != nil {
-		return err
+		return domain.PolicyListing{}, err
 	}
-	var placed []domain.ListedFile
+	return domain.ParsePolicyListing(placedFilesIn(listed))
+}
+
+func placedFilesIn(listed []domain.ListedFile) []domain.ListedFile {
+	placed := make([]domain.ListedFile, 0, len(listed))
 	for _, file := range listed {
-		if strings.HasPrefix(file.Path, catalogDirectory) || strings.HasPrefix(file.Path, bindingsDirectory) {
+		if isPlacedPolicyFile(file.Path) {
 			placed = append(placed, file)
 		}
 	}
-	listing, err := domain.ParsePolicyListing(placed)
-	if err != nil {
-		return err
-	}
-	var files []domain.PolicyFile
-	for _, file := range listing.Files() {
-		path, err := domain.ParseRepositoryPath(file.Path)
+	return placed
+}
+
+func (reader *Reader) policyFilesAt(
+	ctx context.Context, at domain.PolicyCommit, listing domain.PolicyListing,
+) ([]domain.PolicyFile, error) {
+	files := make([]domain.PolicyFile, 0, len(listing.Files()))
+	for _, listed := range listing.Files() {
+		path, err := domain.ParseRepositoryPath(listed.Path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		content, err := reader.ports.Contents.ContentsAt(ctx, at, path)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		files = append(files, domain.PolicyFile{Path: file.Path, Content: content})
+		files = append(files, domain.PolicyFile{Path: listed.Path, Content: content})
 	}
-	return reader.active.Offer(head, files)
+	return files, nil
 }

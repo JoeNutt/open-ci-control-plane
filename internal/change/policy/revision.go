@@ -52,9 +52,7 @@ func ParseRevision(files []domain.PolicyFile) (domain.PolicyModel, error) {
 }
 
 func (parsed *parsedFiles) add(file domain.PolicyFile) error {
-	placed := slices.IndexFunc(placementsOfPolicyFiles, func(candidate placement) bool {
-		return strings.HasPrefix(file.Path, candidate.directory)
-	})
+	placed := placementIndexOf(file.Path)
 	if placed < 0 {
 		return ErrUnplacedPolicyFile
 	}
@@ -77,4 +75,12 @@ func (parsed *parsedFiles) addBinding(content []byte) error {
 	}
 	parsed.bindings = append(parsed.bindings, binding)
 	return nil
+}
+
+func isPlacedPolicyFile(path string) bool { return placementIndexOf(path) >= 0 }
+
+func placementIndexOf(path string) int {
+	return slices.IndexFunc(placementsOfPolicyFiles, func(candidate placement) bool {
+		return strings.HasPrefix(path, candidate.directory)
+	})
 }
