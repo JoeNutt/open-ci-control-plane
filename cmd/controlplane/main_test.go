@@ -49,7 +49,7 @@ func TestAConfigurationMissingOrInvalidInARequiredItemExitsNonZeroNamingItAndSer
 			if !strings.Contains(logged.String(), configured.item) {
 				t.Errorf("the refusal does not name %s: %q", configured.item, logged.String())
 			}
-			assertNothingServes(t)
+			assertNothingServesOn(t, addressIn(t, stated))
 		})
 	}
 }
@@ -129,15 +129,16 @@ func servedOnce(t *testing.T, signedPayload string) (int, int, *bytes.Buffer) {
 	serving, stop := context.WithCancel(context.Background())
 	var logged bytes.Buffer
 	exited := make(chan int)
+	stated := completeConfiguration(t)
 	go func() {
-		exited <- run(serving, []string{configurationFile(t, completeConfiguration(t))}, &logged)
+		exited <- run(serving, []string{configurationFile(t, stated)}, &logged)
 	}()
-	answered := firstAnswerFromTheListener(t, signedPayload)
+	answered := firstAnswerFrom(t, addressIn(t, stated), signedPayload)
 	stop()
 	return answered, <-exited, &logged
 }
 
-func firstAnswerFromTheListener(t *testing.T, signedPayload string) int {
+func firstAnswerFrom(t *testing.T, listenAddress, signedPayload string) int {
 	t.Helper()
 	for attempt := 0; attempt < 200; attempt++ {
 		delivery, err := http.NewRequest(http.MethodPost, "http://"+listenAddress+"/v1/forge/github/events",
@@ -164,12 +165,12 @@ func firstAnswerFromTheListener(t *testing.T, signedPayload string) int {
 }
 
 const (
-	listenAddress = "127.0.0.1:48121"
-	webhookSecret = "the App's webhook secret"
-	appKeyBody    = "c3RhdGVkIGtleQ"
+	listenAddressItem = "listenAddress"
+	webhookSecret     = "the App's webhook secret"
+	appKeyBody        = "c3RhdGVkIGtleQ"
 )
 
-func assertNothingServes(t *testing.T) {
+func assertNothingServesOn(t *testing.T, listenAddress string) {
 	t.Helper()
 	listening, err := net.Dial("tcp", listenAddress)
 	if err != nil {
@@ -188,7 +189,7 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"-----BEGIN RSA PRIVATE KEY-----\n"+appKeyBody+"\n-----END RSA PRIVATE KEY-----\n")
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
-		"listenAddress":     quoted(t, listenAddress),
+		listenAddressItem:   quoted(t, unusedLoopbackAddress(t)),
 		"appId":             json.RawMessage(`1204331`),
 		"appKeyFile":        quoted(t, appKey),
 		"webhookSecretFile": quoted(t, secret),
@@ -228,4 +229,26 @@ func quoted(t *testing.T, text string) json.RawMessage {
 		t.Fatal(err)
 	}
 	return encoded
+}
+
+func unusedLoopbackAddress(t *testing.T) string {
+	t.Helper()
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("find an unused loopback port: %v", err)
+	}
+	address := probe.Addr().String()
+	if err := probe.Close(); err != nil {
+		t.Fatalf("release the unused loopback port: %v", err)
+	}
+	return address
+}
+
+func addressIn(t *testing.T, stated map[string]json.RawMessage) string {
+	t.Helper()
+	var address string
+	if err := json.Unmarshal(stated[listenAddressItem], &address); err != nil {
+		t.Fatalf("read the stated listen address: %v", err)
+	}
+	return address
 }
