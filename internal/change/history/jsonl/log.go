@@ -36,35 +36,38 @@ func (history *Log) Append(body json.RawMessage) error {
 
 	line, err := json.Marshal(Entry{At: history.now(), Body: body})
 	if err != nil {
-		return err
+		return fmt.Errorf("encode a history entry: %w", err)
 	}
 	file, err := os.OpenFile(history.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return err
+		return fmt.Errorf("open the history: %w", err)
 	}
-	held, err := file.Stat()
-	if err != nil {
-		return errors.Join(err, file.Close())
-	}
-	if held.Size()+int64(len(line))+1 > history.limits.MaxBytes {
-		return errors.Join(domain.ErrHistoryFull, file.Close())
-	}
-	if _, err := file.Write(append(line, '\n')); err != nil {
-		return errors.Join(err, file.Close())
-	}
-	return errors.Join(file.Sync(), file.Close())
+	return errors.Join(history.writeWithinBound(file, append(line, '\n')), file.Close())
 }
 
-func (history *Log) Entries() ([]Entry, error) {
+func (history *Log) writeWithinBound(file *os.File, record []byte) error {
+	held, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("measure the history: %w", err)
+	}
+	if held.Size()+int64(len(record)) > history.limits.MaxBytes {
+		return domain.ErrHistoryFull
+	}
+	if _, err := file.Write(record); err != nil {
+		return fmt.Errorf("write the history: %w", err)
+	}
+	return file.Sync()
+}
+
+func (history *Log) Entries() (entries []Entry, err error) {
 	history.guard.Lock()
 	defer history.guard.Unlock()
 
 	file, err := os.Open(history.path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open the history: %w", err)
 	}
-	defer file.Close()
-	var entries []Entry
+	defer func() { err = errors.Join(err, file.Close()) }()
 	lines := bufio.NewScanner(file)
 	for lines.Scan() {
 		var entry Entry
