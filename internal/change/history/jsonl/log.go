@@ -59,34 +59,46 @@ func (history *Log) rewrite(entries []Entry) error {
 	if err != nil {
 		return fmt.Errorf("stage the pruned history: %w", err)
 	}
-	for _, entry := range entries {
-		line, err := json.Marshal(entry)
-		if err != nil {
-			return errors.Join(fmt.Errorf("encode a history entry: %w", err), staged.Close(), os.Remove(staged.Name()))
-		}
-		if _, err := staged.Write(append(line, '\n')); err != nil {
-			return errors.Join(fmt.Errorf("write the pruned history: %w", err), staged.Close(), os.Remove(staged.Name()))
-		}
-	}
-	if err := errors.Join(staged.Sync(), staged.Close()); err != nil {
-		return errors.Join(err, os.Remove(staged.Name()))
+	if err := writeAll(staged, entries); err != nil {
+		return errors.Join(err, staged.Close(), os.Remove(staged.Name()))
 	}
 	return os.Rename(staged.Name(), history.path)
+}
+
+func writeAll(staged *os.File, entries []Entry) error {
+	for _, entry := range entries {
+		record, err := recordOf(entry)
+		if err != nil {
+			return err
+		}
+		if _, err := staged.Write(record); err != nil {
+			return fmt.Errorf("write the pruned history: %w", err)
+		}
+	}
+	return errors.Join(staged.Sync(), staged.Close())
+}
+
+func recordOf(entry Entry) ([]byte, error) {
+	line, err := json.Marshal(entry)
+	if err != nil {
+		return nil, fmt.Errorf("encode a history entry: %w", err)
+	}
+	return append(line, '\n'), nil
 }
 
 func (history *Log) Append(body json.RawMessage) error {
 	history.guard.Lock()
 	defer history.guard.Unlock()
 
-	line, err := json.Marshal(Entry{At: history.now(), Body: body})
+	record, err := recordOf(Entry{At: history.now(), Body: body})
 	if err != nil {
-		return fmt.Errorf("encode a history entry: %w", err)
+		return err
 	}
 	file, err := os.OpenFile(history.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("open the history: %w", err)
 	}
-	return errors.Join(history.writeWithinBound(file, append(line, '\n')), file.Close())
+	return errors.Join(history.writeWithinBound(file, record), file.Close())
 }
 
 func (history *Log) writeWithinBound(file *os.File, record []byte) error {
