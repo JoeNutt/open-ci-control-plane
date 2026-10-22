@@ -18,6 +18,7 @@ const (
 	PlanTriggerMigration    PlanTrigger = "migration"
 	PlanTriggerCIConfig     PlanTrigger = "ci_config"
 	PlanTriggerPlanTooLarge PlanTrigger = "plan_too_large"
+	PlanTriggerPlanFailed   PlanTrigger = "plan_failed"
 )
 
 const MaxPlanSuites = 512

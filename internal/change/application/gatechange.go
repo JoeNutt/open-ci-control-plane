@@ -56,12 +56,15 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 func (useCase GateChange) planAndDispatch(
 	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
 ) error {
-	plan, err := useCase.planOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
-	if err != nil {
-		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, err)
+	plan, planErr := useCase.planOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
+	if planErr != nil && !plan.FullMatrix {
+		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
 	}
 	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
-		return fmt.Errorf("dispatch the plan for %s: %w", document.PR.Repository, err)
+		return errors.Join(planErr, fmt.Errorf("dispatch the plan for %s: %w", document.PR.Repository, err))
+	}
+	if planErr != nil {
+		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
 	}
 	return nil
 }
@@ -75,7 +78,19 @@ func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject
 	if err != nil {
 		return domain.TestPlan{}, err
 	}
-	return useCase.Planner.Execute(ctx, subject)
+	plan, err := useCase.Planner.Execute(ctx, subject)
+	if err != nil {
+		head, headErr := domain.ParseCommitSHA(subject.Document.PR.HeadSHA)
+		if headErr != nil {
+			return domain.TestPlan{}, errors.Join(err, headErr)
+		}
+		return domain.TestPlan{
+			DecisionID: subject.DecisionID, Repository: subject.Binding.Repository(), Head: head,
+			Workflow: subject.Binding.Workflow(), AlwaysRun: subject.Binding.AlwaysRun(),
+			FullMatrix: true, Trigger: domain.PlanTriggerPlanFailed, BundleRevision: subject.Revision,
+		}, err
+	}
+	return plan, nil
 }
 
 func (useCase GateChange) refuseOverBound(
