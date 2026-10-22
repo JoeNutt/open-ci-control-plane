@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
@@ -55,6 +56,7 @@ func refuseRedirect(*http.Request, []*http.Request) error { return http.ErrUseLa
 type installationForge struct {
 	source    github.ChangeSource
 	checkRuns github.CheckRuns
+	contents  github.FileContents
 }
 
 func (app appForge) installationForgeFor(installation int64) (installationForge, error) {
@@ -64,10 +66,11 @@ func (app appForge) installationForgeFor(installation int64) (installationForge,
 	}
 	source, sourceErr := github.ParseChangeSource(settings)
 	checkRuns, checkRunsErr := github.ParseCheckRuns(settings)
-	if err := errors.Join(sourceErr, checkRunsErr); err != nil {
+	contents, contentsErr := github.ParseFileContents(settings, domain.DeclaredLimits().MaxSourceBytes)
+	if err := errors.Join(sourceErr, checkRunsErr, contentsErr); err != nil {
 		return installationForge{}, refusedInstallation(installation, err)
 	}
-	return installationForge{source: source, checkRuns: checkRuns}, nil
+	return installationForge{source: source, checkRuns: checkRuns, contents: contents}, nil
 }
 
 func (app appForge) settingsFor(installation int64) (github.Settings, error) {

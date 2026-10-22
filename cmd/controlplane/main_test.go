@@ -128,20 +128,6 @@ func TestNoStartUpOrServingLogCarriesTheWebhookSecretOrTheAppKey(t *testing.T) {
 
 var _ httpapi.ChangeGate = application.GateChange{}
 
-func TestAPullRequestTheBinaryCannotYetEvaluateIsNeverAccepted(t *testing.T) {
-	opened := `{"action":"opened","number":7,"repository":{"full_name":"JoeNutt/open-ci-control-plane"},` +
-		`"installation":{"id":` + strconv.Itoa(installationID) + `}}`
-
-	answered, _, logged := servedOnce(t, opened)
-
-	if answered != http.StatusInternalServerError {
-		t.Errorf("an opened pull request was answered %d, want %d", answered, http.StatusInternalServerError)
-	}
-	if !strings.Contains(logged.String(), errEvaluationUnwired.Error()) {
-		t.Errorf("the failure does not say what is not wired: %q", logged.String())
-	}
-}
-
 func servedOnce(t *testing.T, signedPayload string) (int, int, *bytes.Buffer) {
 	t.Helper()
 	serving, stop := context.WithCancel(context.Background())
