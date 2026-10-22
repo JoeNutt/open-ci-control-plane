@@ -81,6 +81,24 @@ func TestEachReasonSelectionCannotVouchForPlansTheFullMatrixNamingIt(t *testing.
 	}
 }
 
+func TestAPlanCarriesItsDecisionRepositoryHeadRevisionAndTheBindingsWorkflow(t *testing.T) {
+	plan := planOf(t, plannedChange{
+		files: []domain.File{modified(".github/workflows/open-ci-tests.yml"), added(".openci.yaml")},
+	})
+
+	binding := planBinding(t)
+	if plan.DecisionID != decisionIDForPlan(t) || plan.Repository != binding.Repository() {
+		t.Errorf("decision %q in %q, want %q in %q", plan.DecisionID, plan.Repository, decisionIDForPlan(t), binding.Repository())
+	}
+	if plan.Head.String() != planHeadSHA || plan.BundleRevision != revisionForTest(t) {
+		t.Errorf("head %q at revision %q, want %q at %q", plan.Head, plan.BundleRevision, planHeadSHA, revisionForTest(t))
+	}
+	if plan.Workflow != binding.Workflow() || !slices.Equal(plan.AlwaysRun, binding.AlwaysRun()) {
+		t.Errorf("workflow %q running %v, want the binding's %q running %v",
+			plan.Workflow, plan.AlwaysRun, binding.Workflow(), binding.AlwaysRun())
+	}
+}
+
 type plannedChange struct {
 	files    []domain.File
 	coverage domain.RepositoryCoverage
