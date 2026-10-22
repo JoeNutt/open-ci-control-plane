@@ -27,17 +27,24 @@ func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 	if err != nil {
 		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, err)
 	}
-	faults := []originFault{
-		{"is not https", parsed.Scheme != httpsScheme},
-		{"names no host", parsed.Host == ""},
-		{"carries a path", parsed.Path != "" || parsed.RawPath != "" || parsed.Opaque != ""},
-		{"carries a query", parsed.RawQuery != "" || parsed.ForceQuery},
-		{"carries a fragment", parsed.Fragment != ""},
-		{"carries credentials", parsed.User != nil},
-	}
-	held := slices.IndexFunc(faults, func(fault originFault) bool { return fault.holds })
-	if held >= 0 {
-		return HTTPSOrigin{}, fmt.Errorf("%w: %q %s", ErrMalformedHTTPSOrigin, stated, faults[held].reason)
+	if fault, isFaulty := originFaultOf(parsed); isFaulty {
+		return HTTPSOrigin{}, fmt.Errorf("%w: %q %s", ErrMalformedHTTPSOrigin, stated, fault)
 	}
 	return HTTPSOrigin{value: stated}, nil
+}
+
+func originFaultOf(address *url.URL) (string, bool) {
+	faults := []originFault{
+		{"is not https", address.Scheme != httpsScheme},
+		{"names no host", address.Host == ""},
+		{"carries a path", address.Path != "" || address.RawPath != "" || address.Opaque != ""},
+		{"carries a query", address.RawQuery != "" || address.ForceQuery},
+		{"carries a fragment", address.Fragment != ""},
+		{"carries credentials", address.User != nil},
+	}
+	held := slices.IndexFunc(faults, func(fault originFault) bool { return fault.holds })
+	if held < 0 {
+		return "", false
+	}
+	return faults[held].reason, true
 }
