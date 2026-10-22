@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
 const evaluationBound = 6 * time.Minute
@@ -21,6 +23,8 @@ type evaluating struct {
 	gate     domain.Gate
 	rules    domain.ClassificationRules
 	recorder domain.DecisionRecorder
+	active   *policy.ActivePolicy
+	maps     *memory.CoverageMaps
 	log      *slog.Logger
 }
 
@@ -67,8 +71,11 @@ func (evaluation installationEvaluation) evaluated(
 			Limits:    domain.DeclaredLimits(),
 			Rules:     evaluation.evaluating.rules,
 		},
-		Gate:      evaluation.evaluating.gate,
-		Publisher: forge.checkRuns,
-		Recorder:  evaluation.evaluating.recorder,
+		Gate:       evaluation.evaluating.gate,
+		Publisher:  forge.checkRuns,
+		Recorder:   evaluation.evaluating.recorder,
+		Bindings:   evaluation.evaluating.active,
+		Planner:    application.PlanTests{Maps: evaluation.evaluating.maps},
+		Dispatcher: forge.dispatches,
 	}.Execute(ctx, locator, id)
 }

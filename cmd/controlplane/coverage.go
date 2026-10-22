@@ -10,7 +10,6 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
@@ -22,8 +21,9 @@ const (
 )
 
 func coverageReplacementFor(
-	configured configuration.Configuration, app appForge, endpoint forgeEndpoint,
+	configured configuration.Configuration, evaluation evaluating,
 ) (application.ReplaceCoverage, error) {
+	app, endpoint := evaluation.app, evaluation.endpoint
 	issuer, err := domain.ParseHTTPSOrigin(actionsTokenIssuer)
 	if err != nil {
 		return application.ReplaceCoverage{}, err
@@ -44,7 +44,7 @@ func coverageReplacementFor(
 		return application.ReplaceCoverage{}, err
 	}
 	return application.ReplaceCoverage{
-		Maps: memory.NewCoverageMaps(limits), Paths: paths, Callers: callers, Rate: rate,
+		Maps: evaluation.maps, Paths: paths, Callers: callers, Rate: rate,
 	}, nil
 }
 

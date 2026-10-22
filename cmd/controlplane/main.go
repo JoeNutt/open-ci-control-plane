@@ -15,9 +15,11 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/jsonlines"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/random"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 )
@@ -70,7 +72,7 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
 		slog.Any(installationsKey, configured.InstallationIDs()))
 	serving, stopServing := context.WithCancel(ctx)
-	engines, polled, err := startedPolicyEngines(serving, configured, evaluation.app, log)
+	engines, polled, err := startedPolicyEngines(serving, configured, evaluation)
 	defer func() {
 		stopServing()
 		<-polled
@@ -85,7 +87,7 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	coverage, err := coverageReplacementFor(configured, evaluation.app, evaluation.endpoint)
+	coverage, err := coverageReplacementFor(configured, evaluation)
 	if err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -99,9 +101,10 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 }
 
 func startedPolicyEngines(
-	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
+	ctx context.Context, configured configuration.Configuration, evaluation evaluating,
 ) (startedEngines, <-chan struct{}, error) {
-	service, polled, err := servedPolicy(ctx, configured, app, log)
+	log := evaluation.log
+	service, polled, err := servedPolicy(ctx, configured, evaluation)
 	if err != nil {
 		return nil, closedSignal(), err
 	}
@@ -147,7 +150,14 @@ func evaluatingOf(
 	if err != nil {
 		return evaluating{}, err
 	}
-	return evaluating{app: app, endpoint: endpoint, rules: rules, recorder: recorder, log: log}, nil
+	active, err := policy.ParseActivePolicy(log)
+	if err != nil {
+		return evaluating{}, err
+	}
+	return evaluating{
+		app: app, endpoint: endpoint, rules: rules, recorder: recorder, active: active,
+		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), log: log,
+	}, nil
 }
 
 func rulesIn(content []byte) (domain.ClassificationRules, error) {
