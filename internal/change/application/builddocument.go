@@ -31,8 +31,7 @@ func (useCase BuildDocument) Execute(
 	}
 	bounded, err := domain.ParseBoundedFiles(files, useCase.Limits)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound %s: %w", locator,
-			domain.ChangeOverBound{Head: reported.Tips.Head(), Breach: err})
+		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, overBoundAt(reported.Tips, err))
 	}
 	stated := statedChange{locator: locator, tips: reported.Tips}
 	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
@@ -44,12 +43,25 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
 	}
 	change := domain.Change{Files: bounded, Structure: facts}
-	document, err := domain.ParseBoundedDocument(domain.ParseDocument(reported.PullRequest, change, useCase.Rules), useCase.Limits)
+	document, err := useCase.boundedDocumentOf(reported, change)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound the document of %s: %w", locator,
-			domain.ChangeOverBound{Head: reported.Tips.Head(), Breach: err})
+		return domain.Document{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
 	return document, nil
+}
+
+func (useCase BuildDocument) boundedDocumentOf(
+	reported domain.ReportedPullRequest, change domain.Change,
+) (domain.Document, error) {
+	document, err := domain.ParseBoundedDocument(domain.ParseDocument(reported.PullRequest, change, useCase.Rules), useCase.Limits)
+	if err != nil {
+		return domain.Document{}, overBoundAt(reported.Tips, err)
+	}
+	return document, nil
+}
+
+func overBoundAt(tips domain.BranchTips, breach error) domain.ChangeOverBound {
+	return domain.ChangeOverBound{Head: tips.Head(), Breach: breach}
 }
 
 type statedChange struct {
