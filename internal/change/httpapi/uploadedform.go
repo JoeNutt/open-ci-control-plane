@@ -12,15 +12,17 @@ import (
 )
 
 const (
-	formatPart   = "format"
-	artifactPart = "artifact"
+	formatPart         = "format"
+	artifactPart       = "artifact"
+	lcovFormat         = "lcov"
+	maxFormatReadBytes = int64(len(lcovFormat)) + 1
 )
 
 type CoverageArtifacts interface {
 	ArtifactOf(declaredBytes int64, body io.Reader) domain.CoverageReport
 }
 
-var errUnknownFormat = errors.New("unknown format")
+var errUnknownFormat = errors.New("the form states a format other than lcov")
 
 type missingPartError struct{ part string }
 
@@ -43,19 +45,30 @@ func uploadedFormOf(asked *http.Request, artifacts CoverageArtifacts) (uploadedF
 }
 
 func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	format, err := form.nextPartNamed(formatPart)
-	if err != nil {
-		return nil, err
-	}
-	stated, err := io.ReadAll(io.LimitReader(format, 5))
-	if err != nil || string(stated) != "lcov" {
-		return nil, errUnknownFormat
-	}
-	artifact, err := form.nextPartNamed(artifactPart)
+	artifact, err := form.lcovArtifact()
 	if err != nil {
 		return nil, err
 	}
 	return form.artifacts.ArtifactOf(form.declared, artifact).ReportedFiles(limits)
+}
+
+func (form uploadedForm) lcovArtifact() (*multipart.Part, error) {
+	format, err := form.nextPartNamed(formatPart)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkLCOVFormat(format); err != nil {
+		return nil, err
+	}
+	return form.nextPartNamed(artifactPart)
+}
+
+func checkLCOVFormat(format io.Reader) error {
+	stated, err := io.ReadAll(io.LimitReader(format, maxFormatReadBytes))
+	if err != nil || string(stated) != lcovFormat {
+		return errUnknownFormat
+	}
+	return nil
 }
 
 func (form uploadedForm) nextPartNamed(name string) (*multipart.Part, error) {
