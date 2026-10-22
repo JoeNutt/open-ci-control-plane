@@ -7,18 +7,30 @@ import (
 	"time"
 )
 
+const PollInterval = 60 * time.Second
+
+const (
+	failedPollMessage = "policy poll failed"
+	repositoryLogKey  = "repository"
+)
+
 func (reader *Reader) PollAtEachTick(ctx context.Context, ticks <-chan time.Time) {
 	for {
-		if err := reader.ReadRevision(ctx); err != nil {
-			reader.active.log.Error("policy poll failed", "reason", err.Error())
-		}
+		reader.readRevisionLoggingFailure(ctx)
 		select {
 		case <-ctx.Done():
 			return
-		case _, open := <-ticks:
-			if !open {
+		case _, isOpen := <-ticks:
+			if !isOpen {
 				return
 			}
 		}
+	}
+}
+
+func (reader *Reader) readRevisionLoggingFailure(ctx context.Context) {
+	if err := reader.ReadRevision(ctx); err != nil {
+		reader.active.log.Error(failedPollMessage,
+			repositoryLogKey, reader.repository.String(), reasonLogKey, err.Error())
 	}
 }
