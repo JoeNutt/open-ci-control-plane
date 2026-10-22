@@ -63,10 +63,12 @@ func delivered(ctx context.Context, forge connection, over exchange) error {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	// The write has already succeeded; the body is drained, bounded, only so the client
-	// can reuse the connection: https://pkg.go.dev/net/http#Client.Do
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, int64(forge.settings.MaxResponseBytes)))
+	drainForConnectionReuse(response.Body, forge.settings.MaxResponseBytes)
 	return nil
+}
+
+func drainForConnectionReuse(body io.Reader, maxBytes int) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, int64(maxBytes)))
 }
 
 func answered(ctx context.Context, forge connection, over exchange) (*http.Response, error) {
@@ -97,7 +99,7 @@ func requestFor(
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", over.endpoint, err)
 	}
-	credential, err := forge.authority.authorization(ctx)
+	credential, err := forge.authorizer.authorization(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("authorize %s %s: %w", over.method, over.endpoint, err)
 	}

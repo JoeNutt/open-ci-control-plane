@@ -44,7 +44,7 @@ func TestFormattingAHolderNestedInAnUnexportedFieldDoesNotRevealItsCredential(t 
 	settings := wellFormedSettings()
 	nested := map[string]any{
 		"settings":   struct{ s github.Settings }{settings},
-		"credential": struct{ c github.Credential }{settings.Token},
+		"credential": struct{ c github.Credential }{forgeCredential},
 		"check runs": struct{ r github.CheckRuns }{checkRunsWith(t, settings)},
 		"source":     struct{ s github.ChangeSource }{sourceWith(t, settings)},
 	}

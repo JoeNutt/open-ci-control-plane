@@ -47,6 +47,8 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 	return &InstallationTokens{asApp: asApp, installation: installed, clock: installation.Clock}, nil
 }
 
+func (tokens *InstallationTokens) isPresent() bool { return tokens != nil }
+
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
 	tokens.mutex.Lock()
 	defer tokens.mutex.Unlock()

@@ -3,7 +3,7 @@
 package github
 
 func ParseChangeSource(settings Settings) (ChangeSource, error) {
-	forge, err := parseTokenConnection(settings)
+	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
 		return ChangeSource{}, err
 	}

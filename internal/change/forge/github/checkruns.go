@@ -17,7 +17,7 @@ type CheckRuns struct {
 }
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
-	forge, err := parseTokenConnection(settings)
+	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
 		return CheckRuns{}, err
 	}
