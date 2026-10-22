@@ -70,7 +70,7 @@
             opa_have=$(opa version | awk '/^Version:/ {print $2}')
             if [ "$opa_have" != "${documentedOpaVersion}" ]; then
               echo ""
-              echo "  note: opa CLI is $opa_have; knowledge-base/technology/ documents ${documentedOpaVersion}."
+              echo "  note: opa CLI is $opa_have; docs/knowledge-base/technology/ documents ${documentedOpaVersion}."
               echo "        Version-dependent findings there may not hold. The embedded engine"
               echo "        version comes from go.mod and is unaffected."
             fi

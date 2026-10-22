@@ -22,8 +22,8 @@ detail here** — put it where it belongs and route to it.
 | Always-true project facts, this table | `CLAUDE.md` | every session |
 | Rules for one area of the tree | `.claude/rules/*.md` with `paths:` frontmatter | only when a matching file is touched |
 | Enforcement that must not be skippable | `.claude/hooks/` wired in `.claude/settings.json` | at the lifecycle event, regardless of what I decide |
-| The specification | `docs/` | on demand, by reading it |
-| Reference material | `knowledge-base/` — see its `README.md` and `FORMAT.md` | on demand, by reading it |
+| The specification | the artifacts linked below | on demand, by reading it |
+| Reference material | `docs/knowledge-base/` — see its `README.md` and `FORMAT.md` | on demand, by reading it |
 | Engineering standards | `~/.claude/skills/` | per the routing table in the global `CLAUDE.md` |
 
 Paths above are in backticks deliberately. An unbackticked `@path` is an **import**, expanded
@@ -32,7 +32,7 @@ into context at launch — the opposite of routing. Keep imports out of this fil
 ## Work order
 
 **At the start of every session, reconcile the board first** — every card in the column its
-state earns, blocked cards with their reason — as `knowledge-base/process/board-reconciliation.md`
+state earns, blocked cards with their reason — as `docs/knowledge-base/process/board-reconciliation.md`
 describes. Then take the **Ready card with the lowest `Sequence`** on the board
 (https://github.com/users/JoeNutt/projects/2) and work only that card. The sequence is the
 dependency order: card N needs only cards before it. Cards without a `Sequence` are not work
@@ -48,19 +48,18 @@ full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
 | Which card to pick up, or what blocks it | The current release's §18 build order, the board's `Sequence`, and the one-card rule in `.claude/rules/tdd-cycle.md` |
 | An HTTP contract | §13, and `D-21` before adding any endpoint |
 | The policy input document | §13 `C-2`. It is a published cross-release contract — additive only |
-| Anything touching Rego or OPA | `knowledge-base/technology/rego-overview.md`, then `technology/opa-overview.md` |
-| Where code belongs, or crossing a layer | `knowledge-base/architecture/README.md`, then the one entry |
-| Writing or changing any testable code | `knowledge-base/engineering/tdd-red-green-refactor.md`. Refactor is a step, not an afterthought |
-| Any code at all — naming, routines, comments, duplication | `knowledge-base/engineering/README.md`, then the one entry |
-| Untrusted input, authorisation, secrets, a query or a command | `knowledge-base/security/README.md`, then the one entry |
-| Checking a finished design for security | `knowledge-base/security/owasp-top-10/README.md`, all ten |
-| Applying a design pattern | `knowledge-base/design-patterns/README.md`, then the one entry |
-| Adding a knowledge base entry | `knowledge-base/FORMAT.md`. Five sections, Go examples only, wrong-code mandatory |
+| Anything touching Rego or OPA | `docs/knowledge-base/technology/rego-overview.md`, then `technology/opa-overview.md` |
+| Where code belongs, or crossing a layer | `docs/knowledge-base/architecture/README.md`, then the one entry |
+| Writing or changing any testable code | `docs/knowledge-base/engineering/tdd-red-green-refactor.md`. Refactor is a step, not an afterthought |
+| Any code at all — naming, routines, comments, duplication | `docs/knowledge-base/engineering/README.md`, then the one entry |
+| Untrusted input, authorisation, secrets, a query or a command | `docs/knowledge-base/security/README.md`, then the one entry |
+| Checking a finished design for security | `docs/knowledge-base/security/owasp-top-10/README.md`, all ten |
+| Applying a design pattern | `docs/knowledge-base/design-patterns/README.md`, then the one entry |
+| Adding a knowledge base entry | `docs/knowledge-base/FORMAT.md`. Five sections, Go examples only, wrong-code mandatory |
 | A bound, limit or timeout | §8. Bounds are numbered requirements, not implementation detail |
 | Test selection | §9's always-run set and confidence triggers before changing what gets skipped |
 
-Specification: https://claude.ai/code/artifact/db03f5d3-b4e0-4fb0-8254-375c6cf0d08d —
-not yet exported to `docs/`.
+Baseline specification, frozen: https://claude.ai/code/artifact/db03f5d3-b4e0-4fb0-8254-375c6cf0d08d.
 
 **Current release: v0.0.1**, specified at https://claude.ai/artifact/CjiuxFHroNTwjRNhpnpQ7U.
 It narrows the baseline, and its §20 decisions override it where they say so. Its §18 is

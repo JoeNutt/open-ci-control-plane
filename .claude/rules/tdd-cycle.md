@@ -60,11 +60,11 @@ Work the five questions. Each is a real question to reason about, not a box:
 
 | Question | Read |
 |---|---|
-| **Can a design pattern express this better than what I wrote?** | `knowledge-base/design-patterns/README.md`, then the one entry |
-| **Are the architectural boundaries right?** Dependency direction inward, ports owned by the consumer, no vendor type across a boundary, no layer-skipping | `knowledge-base/architecture/README.md` |
-| **Is this clean code?** Naming, one job per routine, parameter count, nesting depth, comments, duplication, a conditional chain that is really a table | `knowledge-base/engineering/README.md` |
-| **Is hexagonal design applied properly, or just invoked?** A port is an interface the *inside* declares; an adapter translates and carries no business rule | `knowledge-base/architecture/ports-and-adapters.md` |
-| **Does this defend against the OWASP Top 10?** Untrusted input, authorisation on the object, injection, secrets, error paths that fail open | `knowledge-base/security/owasp-top-10/README.md` |
+| **Can a design pattern express this better than what I wrote?** | `docs/knowledge-base/design-patterns/README.md`, then the one entry |
+| **Are the architectural boundaries right?** Dependency direction inward, ports owned by the consumer, no vendor type across a boundary, no layer-skipping | `docs/knowledge-base/architecture/README.md` |
+| **Is this clean code?** Naming, one job per routine, parameter count, nesting depth, comments, duplication, a conditional chain that is really a table | `docs/knowledge-base/engineering/README.md` |
+| **Is hexagonal design applied properly, or just invoked?** A port is an interface the *inside* declares; an adapter translates and carries no business rule | `docs/knowledge-base/architecture/ports-and-adapters.md` |
+| **Does this defend against the OWASP Top 10?** Untrusted input, authorisation on the object, injection, secrets, error paths that fail open | `docs/knowledge-base/security/owasp-top-10/README.md` |
 
 Run the questions **before** forming an opinion about the code. Your familiarity with
 something you wrote sixty seconds ago is not evidence of its quality.
@@ -168,4 +168,4 @@ a file, it did not happen.
   never stripped. Nothing else.
 - **Commit and the tests must be green.** A `.githooks/pre-commit` hook refuses a red suite,
   unformatted files and `go vet` failures. It binds everyone, not only agents.
-  Self-justification is a defect, not a courtesy: `knowledge-base/engineering/comments.md`.
+  Self-justification is a defect, not a courtesy: `docs/knowledge-base/engineering/comments.md`.
