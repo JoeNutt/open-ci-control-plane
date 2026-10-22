@@ -2,7 +2,11 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+
+	_ "github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
+)
 
 type Effect string
 
