@@ -18,6 +18,7 @@ const (
 	PlanTriggerMigration    PlanTrigger = "migration"
 	PlanTriggerCIConfig     PlanTrigger = "ci_config"
 	PlanTriggerPlanTooLarge PlanTrigger = "plan_too_large"
+	PlanTriggerPlanFailed   PlanTrigger = "plan_failed"
 )
 
 const MaxPlanSuites = 512
@@ -100,17 +101,29 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
+	return subject.planned(head, trigger, plannedSuitesOf(trigger, selection)), nil
+}
+
+func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
+	head, err := ParseCommitSHA(subject.Document.PR.HeadSHA)
+	if err != nil {
+		return TestPlan{}, fmt.Errorf("plan the full matrix: %w", err)
+	}
+	return subject.planned(head, PlanTriggerPlanFailed, nil), nil
+}
+
+func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites []CoverageSuite) TestPlan {
 	return TestPlan{
 		DecisionID:     subject.DecisionID,
 		Repository:     subject.Binding.Repository(),
 		Head:           head,
 		Workflow:       subject.Binding.Workflow(),
-		Suites:         plannedSuitesOf(trigger, selection),
+		Suites:         suites,
 		AlwaysRun:      subject.Binding.AlwaysRun(),
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
 		BundleRevision: subject.Revision,
-	}, nil
+	}
 }
 
 func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []CoverageSuite {
