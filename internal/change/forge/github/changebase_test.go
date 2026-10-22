@@ -4,10 +4,13 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
 const (
@@ -55,4 +58,39 @@ func TestMergeBaseOfAsksOnlyForTheComparisonOfTheTipsAlreadyRead(t *testing.T) {
 	if asked != want {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
 	}
+}
+
+func TestMergeBaseOfRefusesAComparisonWithoutAFullMergeBase(t *testing.T) {
+	answers := map[string]string{
+		"no merge base": `{"status": "diverged"}`,
+		"no sha":        `{"merge_base_commit": {}}`,
+		"short sha":     `{"merge_base_commit": {"sha": "0a1b2c3"}}`,
+		"upper case":    `{"merge_base_commit": {"sha": "` + strings.ToUpper(mergeBaseSHA) + `"}}`,
+	}
+
+	for name, answer := range answers {
+		server := answering(t, http.StatusOK, answer)
+
+		_, err := sourceAt(t, server).MergeBaseOf(
+			context.Background(), locatorOf(t, governedRepository, pullRequestNumber), tipsOf(t))
+
+		if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+			t.Errorf("%s: error is %v, want %v", name, err, domain.ErrMalformedCommitSHA)
+		}
+	}
+}
+
+func TestMergeBaseOfReportsTipsTheForgeCannotCompareWithoutTheCredential(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found `+forgeToken+`"}`)
+
+	_, err := sourceAt(t, server).MergeBaseOf(
+		context.Background(), locatorOf(t, governedRepository, pullRequestNumber), tipsOf(t))
+
+	if !errors.Is(err, github.ErrTipsNotComparable) {
+		t.Fatalf("error is %v, want %v", err, github.ErrTipsNotComparable)
+	}
+	if !strings.Contains(err.Error(), governedRepository) {
+		t.Errorf("error %q does not name the repository", err)
+	}
+	mustRevealNoneOf(t, "merge base refusal", err.Error(), []string{forgeToken})
 }

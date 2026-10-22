@@ -272,7 +272,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheReposito
 	file := domain.File{Path: "internal/auth/a?ref=main.go", Action: domain.FileActionAdded}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  memory.FileContents{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -285,12 +285,34 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheReposito
 	}
 }
 
+func TestBuildDocumentRefusesABaseTipThatIsNotAFullCommitSHAWithoutComparing(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
+	source := changeSourceOver(locator, file)
+	recorded := source.Changes[locator]
+	recorded.PullRequest.BaseSHA = "main"
+	source.Changes[locator] = recorded
+	useCase := application.BuildDocument{
+		Source:    source,
+		Bases:     memory.ChangeBases{},
+		Contents:  memory.FileContents{},
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrMalformedCommitSHA)
+	}
+}
+
 func TestBuildDocumentNamesTheCommitOfAFileItCannotReadOnce(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  memory.FileContents{},
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
