@@ -7,3 +7,5 @@ import "time"
 const OutboundAttemptLimit = 5
 
 const OutboundRetryWindow = 5 * time.Minute
+
+const OutboundCallTimeout = 10 * time.Second

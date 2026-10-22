@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -160,6 +161,25 @@ func TestDispatchPlanRetriesADispatchTheForgeAnswersWithAServerErrorThenGivesUp(
 	}
 	if busy.answered != domain.OutboundAttemptLimit || len(waited.durations) != domain.OutboundAttemptLimit-1 {
 		t.Errorf("asked %d times after %d waits, want %d asks", busy.answered, len(waited.durations), domain.OutboundAttemptLimit)
+	}
+}
+
+func TestEveryForgeConnectionAdmitsTheCallTimeoutAndRefusesOneNanosecondOver(t *testing.T) {
+	for _, bound := range []struct {
+		timeout    time.Duration
+		isRefusing bool
+	}{
+		{domain.OutboundCallTimeout, false},
+		{domain.OutboundCallTimeout + time.Nanosecond, true},
+	} {
+		settings := wellFormedSettings()
+		settings.Client = &http.Client{Timeout: bound.timeout}
+
+		_, err := github.ParsePlanDispatches(settings)
+
+		if errors.Is(err, github.ErrUnboundedClient) != bound.isRefusing {
+			t.Errorf("timeout %v: error is %v, want refused %v", bound.timeout, err, bound.isRefusing)
+		}
 	}
 }
 
