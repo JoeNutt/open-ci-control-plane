@@ -10,6 +10,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type Entry struct {
@@ -18,13 +20,14 @@ type Entry struct {
 }
 
 type Log struct {
-	guard sync.Mutex
-	path  string
-	now   func() time.Time
+	guard  sync.Mutex
+	path   string
+	limits domain.HistoryLimits
+	now    func() time.Time
 }
 
-func OpenLog(path string, now func() time.Time) (*Log, error) {
-	return &Log{path: path, now: now}, nil
+func OpenLog(path string, limits domain.HistoryLimits, now func() time.Time) (*Log, error) {
+	return &Log{path: path, limits: limits, now: now}, nil
 }
 
 func (history *Log) Append(body json.RawMessage) error {
@@ -38,6 +41,13 @@ func (history *Log) Append(body json.RawMessage) error {
 	file, err := os.OpenFile(history.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
+	}
+	held, err := file.Stat()
+	if err != nil {
+		return errors.Join(err, file.Close())
+	}
+	if held.Size()+int64(len(line))+1 > history.limits.MaxBytes {
+		return errors.Join(domain.ErrHistoryFull, file.Close())
 	}
 	if _, err := file.Write(append(line, '\n')); err != nil {
 		return errors.Join(err, file.Close())
