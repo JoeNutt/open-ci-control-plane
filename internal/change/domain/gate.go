@@ -28,13 +28,12 @@ type FamilyDecision struct {
 }
 
 func (decided FamilyDecision) FailurePosture() FailurePosture {
-	if decided.Family.FailurePosture() == FailurePostureClosed {
-		return FailurePostureClosed
+	familyPosture := decided.Family.FailurePosture()
+	declared := decided.Decision.FailurePosture()
+	if familyPosture == FailurePostureClosed || declared == "" {
+		return familyPosture
 	}
-	if declared := decided.Decision.FailurePosture(); declared != "" {
-		return declared
-	}
-	return decided.Family.FailurePosture()
+	return declared
 }
 
 type Gate struct {

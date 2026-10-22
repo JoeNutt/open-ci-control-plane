@@ -10,9 +10,8 @@ import (
 type FailurePosture string
 
 const (
-	FailurePostureClosed            FailurePosture = "closed"
-	FailurePostureOpen              FailurePosture = "open"
-	FailurePostureDeclaredPerPolicy FailurePosture = "declared_per_policy"
+	FailurePostureClosed FailurePosture = "closed"
+	FailurePostureOpen   FailurePosture = "open"
 )
 
 type PolicyFamily string
