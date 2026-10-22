@@ -152,7 +152,7 @@ func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEng
 		Publisher:  published,
 		Recorder:   &recordedDecisions{},
 		Bindings:   bindingForEveryRepository{},
-		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits())},
+		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: readableHistory{}},
 		Dispatcher: &dispatchedPlans{},
 	}
 

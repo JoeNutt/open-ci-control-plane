@@ -14,7 +14,7 @@ import (
 func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *testing.T) {
 	dispatched := &dispatchedPlans{}
 	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
-	useCase.Planner = application.PlanTests{Maps: unreadableCoverage{}}
+	useCase.Planner = application.PlanTests{Maps: unreadableCoverage{}, History: readableHistory{}}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
 
@@ -51,5 +51,25 @@ func TestAPassingChangeWhoseBindingCannotBeReadDispatchesNothingAndSaysWhy(t *te
 	}
 	if plans := dispatched.Dispatched(); len(plans) != 0 {
 		t.Errorf("dispatched %d plans with no workflow to dispatch to", len(plans))
+	}
+}
+
+type refusingHistory struct{}
+
+func (refusingHistory) VerifyReadable(context.Context) error { return domain.ErrHistoryFull }
+
+func TestAHistoryStoreRefusalPlansTheFullMatrixNeverSelection(t *testing.T) {
+	dispatched := &dispatchedPlans{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
+	useCase.Planner.History = refusingHistory{}
+
+	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, domain.ErrHistoryFull) {
+		t.Errorf("the store's refusal was not returned for the log: %v", err)
+	}
+	plans := dispatched.Dispatched()
+	if len(plans) != 1 || !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed {
+		t.Errorf("a refusing history store dispatched %+v, want the full matrix with %q", plans, domain.PlanTriggerPlanFailed)
 	}
 }
