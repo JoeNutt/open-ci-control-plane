@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 
@@ -20,11 +21,10 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 	refusing := refusals{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted: admitted{
-			allowed:   allowlist(slices.Clone(settings.Installations)),
+			allowed:   installationGates(maps.Clone(settings.Gates)),
 			answering: answering,
 			refusing:  refusing,
 			evaluating: evaluation{
-				gate:     settings.Gate,
 				ids:      settings.DecisionIDs,
 				log:      settings.Log,
 				refusing: refusing,
@@ -63,7 +63,7 @@ func (receiving events) ServeHTTP(answer http.ResponseWriter, asked *http.Reques
 }
 
 type admitted struct {
-	allowed    allowlist
+	allowed    installationGates
 	answering  answers
 	refusing   refusals
 	evaluating evaluation
@@ -81,7 +81,8 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 			stage.refusing.logged(asked.Context(), received, malformedPayloadProblem()))
 		return
 	}
-	if !stage.allowed.admits(stated) {
+	gate, isAllowed := stage.allowed.gateFor(stated)
+	if !isAllowed {
 		stage.refusing.record(asked.Context(), received, notAllowlistedReason)
 		answer.WriteHeader(http.StatusNotFound)
 		return
@@ -90,5 +91,5 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		answer.WriteHeader(http.StatusNoContent)
 		return
 	}
-	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, stated))
+	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, stated, gate))
 }

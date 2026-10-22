@@ -2,11 +2,13 @@
 
 package httpapi
 
-import "slices"
+type installationGates map[int64]ChangeGate
 
-type allowlist []int64
-
-func (allowed allowlist) admits(stated payload) bool {
+func (gates installationGates) gateFor(stated payload) (ChangeGate, bool) {
 	installationID, isStated := stated.installationID()
-	return isStated && slices.Contains(allowed, installationID)
+	if !isStated {
+		return nil, false
+	}
+	gate, isAllowed := gates[installationID]
+	return gate, isAllowed
 }

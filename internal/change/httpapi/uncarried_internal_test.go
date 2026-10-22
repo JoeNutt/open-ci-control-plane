@@ -30,7 +30,7 @@ func TestARefusalWithoutItsParsedDeliveryIsLoggedAsAnError(t *testing.T) {
 func TestTheAdmittedStageWithoutItsParsedDeliveryAnswersAFailure(t *testing.T) {
 	var logged bytes.Buffer
 	stage := admitted{
-		allowed:    allowlist{41},
+		allowed:    installationGates{41: nil},
 		answering:  answers{log: slog.New(slog.DiscardHandler)},
 		evaluating: evaluation{log: slog.New(slog.NewJSONHandler(&logged, nil))},
 	}

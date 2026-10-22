@@ -10,14 +10,15 @@ import (
 )
 
 type evaluation struct {
-	gate     ChangeGate
 	ids      domain.DecisionIDSource
 	log      *slog.Logger
 	refusing refusals
 	accepted *acceptedDeliveries
 }
 
-func (evaluating evaluation) answerFor(ctx context.Context, received delivery, stated payload) answerBody {
+func (evaluating evaluation) answerFor(
+	ctx context.Context, received delivery, stated payload, gate ChangeGate,
+) answerBody {
 	if original, isReplay := evaluating.accepted.originalOf(received); isReplay {
 		return original
 	}
@@ -29,7 +30,7 @@ func (evaluating evaluation) answerFor(ctx context.Context, received delivery, s
 	if err != nil {
 		return evaluating.failedAnswer(ctx, err, slog.String(deliveryIDKey, received.id))
 	}
-	if err := evaluating.gate.Execute(ctx, locator, id); err != nil {
+	if err := gate.Execute(ctx, locator, id); err != nil {
 		return evaluating.failedAnswer(ctx, err,
 			slog.String(deliveryIDKey, received.id), slog.String(decisionIDKey, id.String()))
 	}
