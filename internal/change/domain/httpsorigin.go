@@ -14,7 +14,7 @@ const httpsScheme = "https"
 var ErrMalformedHTTPSOrigin = errors.New("the URL is not an https origin")
 
 type HTTPSOrigin struct {
-	origin *url.URL
+	origin string
 }
 
 type originFault struct {
@@ -39,7 +39,7 @@ func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 	if held >= 0 {
 		return HTTPSOrigin{}, fmt.Errorf("%w: %s", ErrMalformedHTTPSOrigin, faults[held].reason)
 	}
-	return HTTPSOrigin{origin: parsed}, nil
+	return HTTPSOrigin{origin: parsed.String()}, nil
 }
 
-func (origin HTTPSOrigin) String() string { return origin.origin.String() }
+func (origin HTTPSOrigin) String() string { return origin.origin }
