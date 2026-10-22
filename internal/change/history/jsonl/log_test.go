@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,5 +58,23 @@ func TestAnAppendThatWouldExceedTheBoundIsRefusedAndWritesNothing(t *testing.T) 
 	}
 	if entries, _ := history.Entries(); len(entries) != 1 {
 		t.Errorf("the log holds %d entries after a refused append, want 1", len(entries))
+	}
+}
+
+func TestAnEntryLargerThanTheScannersDefaultLineReadsBack(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	large := json.RawMessage(`"` + strings.Repeat("x", 100<<10) + `"`)
+	history, err := jsonl.OpenLog(path, domain.DeclaredHistoryLimits(), func() time.Time { return recordedAt })
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := history.Append(large); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	entries, err := history.Entries()
+
+	if err != nil || len(entries) != 1 || len(entries[0].Body) != len(large) {
+		t.Errorf("reading a %d-byte entry back gave %d entries and %v", len(large), len(entries), err)
 	}
 }

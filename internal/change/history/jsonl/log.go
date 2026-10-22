@@ -69,6 +69,7 @@ func (history *Log) Entries() (entries []Entry, err error) {
 	}
 	defer func() { err = errors.Join(err, file.Close()) }()
 	lines := bufio.NewScanner(file)
+	lines.Buffer(nil, int(history.limits.MaxBytes))
 	for lines.Scan() {
 		var entry Entry
 		if err := json.Unmarshal(lines.Bytes(), &entry); err != nil {
