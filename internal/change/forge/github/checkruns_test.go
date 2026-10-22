@@ -254,6 +254,28 @@ func TestPublishCheckRunPostsEveryFieldOfAViolationAndTheDecision(t *testing.T) 
 	}
 }
 
+const policyRevisionText = "c0ffee0000000000000000000000000000c0ffee"
+
+func TestPublishCheckRunPostsThePolicyRevisionInTheSummary(t *testing.T) {
+	held := newCheckRunForge(t)
+	revised := securityRun()
+	revision, err := domain.ParseBundleRevision(policyRevisionText)
+	if err != nil {
+		t.Fatalf("parse revision: %v", err)
+	}
+	revised.Revision = revision
+
+	err = checkRunsAt(t, held.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, revised)
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	if summary := held.onlyRun().Output.Summary; !strings.Contains(summary, policyRevisionText) {
+		t.Errorf("the posted summary does not carry the policy revision %q: %q", policyRevisionText, summary)
+	}
+}
+
 func heldAs(id int64, run domain.CheckRun) wireCheckRun {
 	return wireCheckRun{
 		App:        wireApp{ID: forgeAppID},

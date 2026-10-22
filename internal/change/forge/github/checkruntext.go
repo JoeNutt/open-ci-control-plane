@@ -20,6 +20,7 @@ var (
 
 const (
 	checkRunTextSummaryLayout    = "%s\n\nDecision `%s`"
+	checkRunTextRevisionLayout   = "\n\nPolicy revision `%s`"
 	checkRunTextTruncationLayout = "and %d more — %d %s in total. This list is truncated.\n"
 	checkRunTextNoneListedLayout = "No violation could be listed here — %d %s in total. This list is truncated.\n"
 	checkRunTextViolationLayout  = "**Rule** %s — %s\n\nMessage: %s\n\n- Owning team: %s\n- Documentation: %s\n\n"
@@ -38,13 +39,20 @@ func checkRunTextFor(run domain.CheckRun, capacity int) (checkRunTextOutput, err
 	blocks := checkRunTextBlocksThatFit(run, capacity)
 	output := checkRunTextOutput{
 		title:   run.Title,
-		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID),
+		summary: fmt.Sprintf(checkRunTextSummaryLayout, run.Headline, run.DecisionID) + checkRunTextRevisionOf(run.Revision),
 		text:    strings.Join(blocks, "") + checkRunTextTruncationOf(run.ViolationCount-len(blocks), run.ViolationCount),
 	}
 	if checkRunTextCharactersIn(output.summary) > capacity || checkRunTextCharactersIn(output.text) > capacity {
 		return checkRunTextOutput{}, errCheckRunTextOverCapacity
 	}
 	return output, nil
+}
+
+func checkRunTextRevisionOf(revision domain.BundleRevision) string {
+	if !revision.IsKnown() {
+		return ""
+	}
+	return fmt.Sprintf(checkRunTextRevisionLayout, revision)
 }
 
 func checkRunTextRefusalOf(run domain.CheckRun) error {
