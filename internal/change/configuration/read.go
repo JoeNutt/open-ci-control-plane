@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"net/url"
 	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -48,7 +47,7 @@ type Configuration struct {
 	webhookSecret   Secret
 	installationIDs []int64
 	families        []domain.PolicyFamily
-	forgeBaseURL    url.URL
+	forgeBaseURL    domain.HTTPSOrigin
 }
 
 func Read(path string) (Configuration, error) {
@@ -79,7 +78,7 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
 
-func (configured Configuration) ForgeBaseURL() url.URL { return configured.forgeBaseURL }
+func (configured Configuration) ForgeBaseURL() domain.HTTPSOrigin { return configured.forgeBaseURL }
 
 func (stated statedItems) configuration() (Configuration, error) {
 	address, addressErr := listenAddressIn(stated)

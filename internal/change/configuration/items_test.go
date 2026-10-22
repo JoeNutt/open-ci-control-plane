@@ -239,22 +239,14 @@ func TestTheForgeBaseURLIsTheOneTheConfigurationStates(t *testing.T) {
 	}
 }
 
-func TestAForgeBaseURLThatIsNotAnHTTPSOriginIsRefusedNamingIt(t *testing.T) {
-	for form, address := range map[string]string{
-		"plain http":        "http://api.github.com",
-		"no scheme":         "api.github.com",
-		"no host":           "https://",
-		"a trailing slash":  "https://api.github.com/",
-		"a query":           "https://api.github.com?per_page=1",
-		"a fragment":        "https://api.github.com#top",
-		"credentials in it": "https://user:pass@api.github.com",
-		"not a URL":         "https://api.github.com:port",
-	} {
-		t.Run(form, func(t *testing.T) {
-			stated := completeItems(t)
-			stated[forgeBaseURLKey] = quoted(t, address)
+func TestAForgeBaseURLTheDomainRefusesIsRefusedNamingIt(t *testing.T) {
+	stated := completeItems(t)
+	stated[forgeBaseURLKey] = quoted(t, "http://api.github.com")
 
-			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, forgeBaseURLKey)
-		})
+	err := refusalOf(t, stated)
+
+	assertOnlyRefusal(t, err, configuration.ErrInvalidItem, forgeBaseURLKey)
+	if !errors.Is(err, domain.ErrMalformedHTTPSOrigin) {
+		t.Errorf("the refusal does not carry the domain's reason: %v", err)
 	}
 }
