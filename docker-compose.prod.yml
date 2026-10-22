@@ -1,0 +1,28 @@
+services:
+  open-ci:
+    image: ghcr.io/joenutt/open-ci-control-plane:${IMAGE_TAG:-latest}
+    container_name: open-ci
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    command: ["/run/open-ci/config.json"]
+    volumes:
+      - ./config.json:/run/open-ci/config.json:ro
+      - ./rules.yaml:/run/open-ci/rules.yaml:ro
+      - ./secrets:/run/open-ci/secrets:ro
+    networks:
+      proxy:
+        ipv4_address: 172.18.0.50
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-ci.rule=Host(`ci.joenutt.com`)"
+      - "traefik.http.routers.open-ci.entrypoints=https"
+      - "traefik.http.routers.open-ci.tls=true"
+      - "traefik.http.services.open-ci.loadbalancer.server.port=8080"
+
+networks:
+  proxy:
+    external: true
