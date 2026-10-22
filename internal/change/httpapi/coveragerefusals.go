@@ -17,6 +17,8 @@ const (
 	foreignRepositoryMessage = "the token was issued to another repository than the path names"
 	unknownPathCode          = "unknown_path"
 	unknownPathMessage       = "the artifact names a path that is absolute or that the repository does not hold"
+	failedCoverageCode       = "coverage_failed"
+	failedCoverageMessage    = "the coverage could not be replaced"
 )
 
 type classifiedFailure struct {
@@ -37,7 +39,7 @@ var coverageRefusals = []causedRefusal{
 func coverageRefusalOf(failure error) classifiedFailure {
 	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
 	if matching < 0 {
-		return classifiedFailure{answer: serverProblem{Code: "coverage_failed", Message: "x"}, level: slog.LevelError}
+		return classifiedFailure{answer: failedCoverageProblem(), level: slog.LevelError}
 	}
 	return classifiedFailure{answer: coverageRefusals[matching].refusal(), level: slog.LevelWarn}
 }
@@ -66,4 +68,8 @@ func (problem pathProblem) reason() string { return problem.Code }
 
 func unknownPathProblem() refusal {
 	return pathProblem{Code: unknownPathCode, Message: unknownPathMessage}
+}
+
+func failedCoverageProblem() serverProblem {
+	return serverProblem{Code: failedCoverageCode, Message: failedCoverageMessage}
 }
