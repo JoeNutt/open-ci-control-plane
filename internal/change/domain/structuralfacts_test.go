@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -70,10 +71,9 @@ func TestParseStructuralFactsPublishesEveryEdgeOfAChangeAtTheDeltaLimit(t *testi
 
 func TestParseStructuralFactsRefusesFactsOneByteOverTheSerialisedLimit(t *testing.T) {
 	limits := domain.DeclaredLimits()
-	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, fileImportingPadded(t, 0))
+	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, filesImportingPadded(t, 0))
 
-	_, err := domain.ParseStructuralFacts(
-		[]domain.ImportedFile{fileImportingPadded(t, padding+1)}, limits)
+	_, err := domain.ParseStructuralFacts(filesImportingPadded(t, padding+1), limits)
 
 	if !errors.Is(err, domain.ErrStructuralFactsTooLarge) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrStructuralFactsTooLarge)
@@ -82,34 +82,48 @@ func TestParseStructuralFactsRefusesFactsOneByteOverTheSerialisedLimit(t *testin
 
 func TestParseStructuralFactsAdmitsFactsAtTheSerialisedLimitWhole(t *testing.T) {
 	limits := domain.DeclaredLimits()
-	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, fileImportingPadded(t, 0))
-	atTheLimit := fileImportingPadded(t, padding)
+	padding := limits.MaxStructuralBytes - serialisedSizeOf(t, filesImportingPadded(t, 0))
 
-	_, err := domain.ParseStructuralFacts([]domain.ImportedFile{atTheLimit}, limits)
+	_, err := domain.ParseStructuralFacts(filesImportingPadded(t, padding), limits)
 
 	if err != nil {
 		t.Fatalf("parse facts serialising to %d bytes: %v", limits.MaxStructuralBytes, err)
 	}
 }
 
-func fileImportingPadded(t *testing.T, padding int) domain.ImportedFile {
+const (
+	paddedImportCount  = 10000
+	paddedImportPrefix = "example.com/"
+	paddingByte        = "x"
+)
+
+func filesImportingPadded(t *testing.T, padding int) []domain.ImportedFile {
 	t.Helper()
 
-	kept := fileImportsOf(t, "example.com/"+strings.Repeat("x", padding))
-	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
-	return domain.ImportedFile{File: file, Base: kept, Head: kept}
+	written := make([]string, 0, paddedImportCount)
+	for index := range paddedImportCount {
+		suffix := fmt.Sprintf("p%d", index)
+		room := domain.MaxGoImportPathBytes - len(paddedImportPrefix) - len(suffix)
+		taken := min(room, padding)
+		padding -= taken
+		written = append(written, paddedImportPrefix+strings.Repeat(paddingByte, taken)+suffix)
+	}
+	if padding > 0 {
+		t.Fatalf("%d bytes of padding do not fit in %d imports", padding, paddedImportCount)
+	}
+	return filesKeepingImports(t, written)
 }
 
-func serialisedSizeOf(t *testing.T, imported domain.ImportedFile) int {
+func serialisedSizeOf(t *testing.T, imported []domain.ImportedFile) int {
 	t.Helper()
 
 	unbounded := domain.DeclaredLimits()
 	unbounded.MaxStructuralBytes = math.MaxInt
-	facts, err := domain.ParseStructuralFacts([]domain.ImportedFile{imported}, unbounded)
+	facts, err := domain.ParseStructuralFacts(imported, unbounded)
 	if err != nil {
-		t.Fatalf("parse the structural facts of %s: %v", imported.File.Path, err)
+		t.Fatalf("parse the structural facts of %d files: %v", len(imported), err)
 	}
-	change := domain.Change{Files: withinBounds(t, imported.File), Structure: facts}
+	change := domain.Change{Files: withinBounds(t, changedFilesOf(imported)...), Structure: facts}
 	diff := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff
 	return serialisedLengthOf(t, diff.Imports) + serialisedLengthOf(t, diff.ModuleGraphDelta)
 }
@@ -147,9 +161,15 @@ func changedFilesOf(imported []domain.ImportedFile) []domain.File {
 func filesKeeping(t *testing.T, total int) []domain.ImportedFile {
 	t.Helper()
 
+	return filesKeepingImports(t, numberedImports(total))
+}
+
+func filesKeepingImports(t *testing.T, written []string) []domain.ImportedFile {
+	t.Helper()
+
 	var imported []domain.ImportedFile
-	for index, declared := range importPathsInFilesOf(total) {
-		file := domain.File{Path: generatedPath(index), Action: domain.FileActionModified}
+	for declared := range slices.Chunk(written, domain.DeclaredLimits().MaxImportsPerFile) {
+		file := domain.File{Path: generatedPath(len(imported)), Action: domain.FileActionModified}
 		kept := fileImportsOf(t, declared...)
 		imported = append(imported, domain.ImportedFile{File: file, Base: kept, Head: kept})
 	}
@@ -160,24 +180,19 @@ func filesAdding(t *testing.T, total int) []domain.ImportedFile {
 	t.Helper()
 
 	var imported []domain.ImportedFile
-	for index, declared := range importPathsInFilesOf(total) {
-		file := domain.File{Path: generatedPath(index), Action: domain.FileActionAdded}
+	for declared := range slices.Chunk(numberedImports(total), domain.DeclaredLimits().MaxImportsPerFile) {
+		file := domain.File{Path: generatedPath(len(imported)), Action: domain.FileActionAdded}
 		imported = append(imported, domain.ImportedFile{File: file, Head: fileImportsOf(t, declared...)})
 	}
 	return imported
 }
 
-func importPathsInFilesOf(total int) [][]string {
-	perFile := domain.DeclaredLimits().MaxImportsPerFile
-	var files [][]string
-	for first := 0; first < total; first += perFile {
-		declared := make([]string, 0, perFile)
-		for index := first; index < min(first+perFile, total); index++ {
-			declared = append(declared, fmt.Sprintf("example.com/module/package%d", index))
-		}
-		files = append(files, declared)
+func numberedImports(total int) []string {
+	written := make([]string, 0, total)
+	for index := range total {
+		written = append(written, fmt.Sprintf("example.com/module/package%d", index))
 	}
-	return files
+	return written
 }
 
 func generatedPath(index int) string {

@@ -19,7 +19,7 @@ func (imported ImportedFile) headImport() Import {
 	return Import{
 		Path:  imported.File.Path,
 		State: ImportStateResolved,
-		Refs:  imported.Head.ImportPaths(),
+		Refs:  asWritten(imported.Head.ImportPaths()),
 	}
 }
 
@@ -31,10 +31,18 @@ func (imported ImportedFile) edgesRemoved() []ModuleEdge {
 	return imported.edgesTo(imported.Base.importsAbsentFrom(imported.Head))
 }
 
-func (imported ImportedFile) edgesTo(targets []string) []ModuleEdge {
+func (imported ImportedFile) edgesTo(targets []GoImportPath) []ModuleEdge {
 	edges := make([]ModuleEdge, 0, len(targets))
 	for _, target := range targets {
-		edges = append(edges, ModuleEdge{From: imported.File.Path, To: target})
+		edges = append(edges, ModuleEdge{From: imported.File.Path, To: target.String()})
 	}
 	return edges
+}
+
+func asWritten(imports []GoImportPath) Declared[string] {
+	written := make(Declared[string], 0, len(imports))
+	for _, imported := range imports {
+		written = append(written, imported.String())
+	}
+	return written
 }

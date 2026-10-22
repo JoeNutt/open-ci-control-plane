@@ -25,7 +25,7 @@ func TestImportsInReadsEveryImportAsWritten(t *testing.T) {
 		"embed",
 		"github.com/JoeNutt/open-ci-control-plane/internal/change/domain",
 	}
-	if !slices.Equal(imports, want) {
+	if !slices.Equal(writtenFormsOf(imports), want) {
 		t.Fatalf("imports are %q, want %q", imports, want)
 	}
 }
@@ -42,7 +42,7 @@ func TestImportsInReadsASourceExactlyAtTheSourceByteBound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("imports in a %d-byte source: %v", len(source), err)
 	}
-	if !slices.Equal(imports, []string{"context"}) {
+	if !slices.Equal(writtenFormsOf(imports), []string{"context"}) {
 		t.Fatalf("imports are %q, want [\"context\"]", imports)
 	}
 }
@@ -59,6 +59,28 @@ func TestImportsInRefusesASourceThatDoesNotParseWithoutQuotingIt(t *testing.T) {
 	if strings.Contains(err.Error(), quotedFromTheSource) {
 		t.Fatalf("the error quotes the source: %v", err)
 	}
+}
+
+func TestImportsInRefusesAnImportThatIsNotAGoImportPathWithoutQuotingIt(t *testing.T) {
+	const quotedFromTheSource = "hunter2 ApiKey"
+	source := []byte("package fixture\n\nimport \"" + quotedFromTheSource + "\"\n")
+
+	_, err := golang.Extractor{}.ImportsIn(boundedFrom(t, source))
+
+	if !errors.Is(err, golang.ErrUnparsableSource) {
+		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
+	}
+	if strings.Contains(err.Error(), quotedFromTheSource) {
+		t.Fatalf("the error quotes the source: %v", err)
+	}
+}
+
+func writtenFormsOf(imports []domain.GoImportPath) []string {
+	written := make([]string, 0, len(imports))
+	for _, imported := range imports {
+		written = append(written, imported.String())
+	}
+	return written
 }
 
 func boundedFrom(t *testing.T, source []byte) domain.BoundedSource {

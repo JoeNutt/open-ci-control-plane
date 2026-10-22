@@ -4,5 +4,5 @@ package domain
 
 type ImportExtractor interface {
 	Claims(path string) bool
-	ImportsIn(source BoundedSource) ([]string, error)
+	ImportsIn(source BoundedSource) ([]GoImportPath, error)
 }
