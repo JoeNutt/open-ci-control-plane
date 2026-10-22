@@ -2,7 +2,10 @@
 
 package github
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type Credential struct {
 	token *string
@@ -20,6 +23,6 @@ func (credential Credential) authorization(context.Context) (Credential, error) 
 	return credential, nil
 }
 
-func (credential Credential) String() string { return "[redacted]" }
+func (Credential) Format(state fmt.State, _ rune) { writeRedactionMarker(state) }
 
-func (credential Credential) GoString() string { return `"[redacted]"` }
+func (Credential) MarshalJSON() ([]byte, error) { return redactionMarkerJSON() }
