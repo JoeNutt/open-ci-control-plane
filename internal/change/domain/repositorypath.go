@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const repositoryRoot = "."
+const rootElement = "."
 
 var ErrPathOutsideRepository = errors.New("path is not inside the repository")
 
@@ -26,8 +26,12 @@ func ParseRepositoryPath(path string) (RepositoryPath, error) {
 	if strings.HasPrefix(path, pathSeparator) {
 		return RepositoryPath{}, errAbsolutePath
 	}
-	if !fs.ValidPath(path) || path == repositoryRoot {
+	if !isCanonicalSlashPath(path) {
 		return RepositoryPath{}, errNonCanonicalPath
 	}
 	return RepositoryPath{path: path}, nil
+}
+
+func isCanonicalSlashPath(path string) bool {
+	return fs.ValidPath(path) && path != rootElement
 }
