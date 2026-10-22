@@ -42,17 +42,9 @@ func (source ChangeSource) PullRequestAt(
 	if err != nil {
 		return domain.ReportedPullRequest{}, fmt.Errorf("read the reviews of %s: %w", locator, err)
 	}
-	base, err := domain.ParseCommitSHA(stated.Base.SHA)
+	tips, err := tipsOf(stated)
 	if err != nil {
-		return domain.ReportedPullRequest{}, err
-	}
-	head, err := domain.ParseCommitSHA(stated.Head.SHA)
-	if err != nil {
-		return domain.ReportedPullRequest{}, err
-	}
-	tips, err := domain.ParseBranchTips(base, head)
-	if err != nil {
-		return domain.ReportedPullRequest{}, err
+		return domain.ReportedPullRequest{}, fmt.Errorf("the branch tips of %s: %w", locator, err)
 	}
 	return domain.ReportedPullRequest{PullRequest: reported, Tips: tips}, nil
 }

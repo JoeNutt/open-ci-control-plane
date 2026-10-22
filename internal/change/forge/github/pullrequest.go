@@ -83,3 +83,15 @@ var isBotByUserType = map[string]bool{
 	"Bot":          true,
 	"Organization": false,
 }
+
+func tipsOf(stated pullRequest) (domain.BranchTips, error) {
+	base, err := domain.ParseCommitSHA(stated.Base.SHA)
+	if err != nil {
+		return domain.BranchTips{}, fmt.Errorf("base: %w", err)
+	}
+	head, err := domain.ParseCommitSHA(stated.Head.SHA)
+	if err != nil {
+		return domain.BranchTips{}, fmt.Errorf("head: %w", err)
+	}
+	return domain.ParseBranchTips(base, head)
+}
