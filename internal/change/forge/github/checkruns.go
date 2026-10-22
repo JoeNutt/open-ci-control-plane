@@ -4,7 +4,6 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -18,10 +17,6 @@ type CheckRuns struct {
 	owner appID
 	pause func(ctx context.Context, wait time.Duration) error
 }
-
-const FirstRetryPause = time.Second
-
-var ErrRetriesExhausted = errors.New("the forge stayed unavailable through every retry")
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	forge, err := parseCredentialsConnection(settings)
@@ -50,52 +45,10 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	err = runs.publishWithinAttempts(ctx, pending)
-	if errors.Is(err, ErrForgeUnavailable) {
-		err = fmt.Errorf("%w: %w", ErrRetriesExhausted, err)
-	}
-	if err != nil {
+	if err := runs.publishWithinAttempts(ctx, pending); err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
 	return nil
-}
-
-func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publication) error {
-	bounded, cancel := context.WithTimeout(ctx, domain.OutboundRetryWindow)
-	defer cancel()
-	err := runs.publish(bounded, pending)
-	wait := FirstRetryPause
-	for attempt := 1; attempt < domain.OutboundAttemptLimit && errors.Is(err, ErrForgeUnavailable); attempt++ {
-		pause := max(wait, askedPauseOf(err))
-		if deadline, _ := bounded.Deadline(); time.Until(deadline) < pause {
-			return err
-		}
-		if pauseErr := runs.pause(bounded, pause); pauseErr != nil {
-			return errors.Join(err, pauseErr)
-		}
-		wait *= 2
-		err = runs.publish(bounded, pending)
-	}
-	return err
-}
-
-func askedPauseOf(err error) time.Duration {
-	var answer unavailableAnswer
-	if !errors.As(err, &answer) {
-		return 0
-	}
-	return answer.retryAfter
-}
-
-func waitFor(ctx context.Context, wait time.Duration) error {
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {

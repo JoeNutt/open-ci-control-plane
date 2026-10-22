@@ -195,7 +195,6 @@ type refusingForge struct {
 	server   *httptest.Server
 	mutex    sync.Mutex
 	pending  []refusal
-	refused  int
 	answered int
 }
 
@@ -226,6 +225,5 @@ func (busy *refusingForge) nextRefusal() (refusal, bool) {
 	}
 	next := busy.pending[0]
 	busy.pending = busy.pending[1:]
-	busy.refused++
 	return next, true
 }
