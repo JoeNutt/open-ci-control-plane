@@ -132,16 +132,18 @@ There is no `main` package and no binary yet. Nothing runs except the suite.
 Everything lives under `internal/change/`, arranged as ports and adapters:
 
 - `domain/` owns the types and the ports (`ChangeSource`, `CheckRunPublisher`,
-  `DecisionIDSource`, `FamilyEngine`). Its constructors are `Parse*`, which return domain values.
-  `architecture_test.go` fails the suite if a domain package imports anything except the
-  standard library and other `domain` packages.
+  `DecisionRecorder`, `DecisionIDSource`, `FamilyEngine`). Its constructors are `Parse*`, which
+  return domain values. `architecture_test.go` fails the suite if a domain package imports
+  anything except the standard library and other `domain` packages.
 - `application/` holds two use cases. `BuildDocument` assembles the policy input document
   from what `ChangeSource` reports. `GateChange` builds it, evaluates it per policy family,
-  and publishes one check run per decision.
+  and for each decision both records it and publishes one check run. It does this under
+  `context.WithoutCancel`, and it joins the failures, so one family's failure never stops
+  another family's record or check run from being written.
 - The adapters are `forge/github`, `forge/memory` (a recorded fake for tests),
-  `engine/opa` (one embedded OPA instance per policy family), `ingest` (webhook signature
-  check), `rules` (classification rules read from outside the governed repository) and
-  `random` (decision IDs).
+  `engine/opa` (one embedded OPA instance per policy family), `jsonlines` (decision records
+  written as JSON lines), `ingest` (webhook signature check), `rules` (classification rules
+  read from outside the governed repository) and `random` (decision IDs).
 
 Every `.go` file starts with `// SPDX-License-Identifier: GPL-3.0-or-later`.
 
