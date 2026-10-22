@@ -39,16 +39,11 @@ func (contents FileContents) ContentsAt(
 }
 
 func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
-	endpoint, err := contentsEndpoint(file)
+	reading, err := contentsReading(file)
 	if err != nil {
 		return nil, err
 	}
-	answer, err := exchanged[contentsAnswer](ctx, contents.forge, exchange{
-		method:    http.MethodGet,
-		endpoint:  endpoint,
-		succeeded: http.StatusOK,
-		notFound:  domain.ErrNoSuchFile,
-	})
+	answer, err := exchanged[contentsAnswer](ctx, contents.forge, reading)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +52,19 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	return decoded, nil
+}
+
+func contentsReading(file domain.FileAtCommit) (exchange, error) {
+	endpoint, err := contentsEndpoint(file)
+	if err != nil {
+		return exchange{}, err
+	}
+	return exchange{
+		method:    http.MethodGet,
+		endpoint:  endpoint,
+		succeeded: http.StatusOK,
+		notFound:  domain.ErrNoSuchFile,
+	}, nil
 }
 
 func contentsEndpoint(file domain.FileAtCommit) (string, error) {
