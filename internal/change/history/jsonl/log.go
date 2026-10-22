@@ -4,6 +4,7 @@ package jsonl
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,9 +43,6 @@ func OpenLog(path string, limits domain.HistoryLimits, now func() time.Time) (*L
 
 func (history *Log) pruneExpired() error {
 	entries, isTorn, err := history.readEntries()
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -126,8 +124,19 @@ func (history *Log) Entries() ([]Entry, error) {
 	return entries, err
 }
 
+func (history *Log) VerifyReadable(context.Context) error {
+	history.guard.Lock()
+	defer history.guard.Unlock()
+
+	_, _, err := history.readEntries()
+	return err
+}
+
 func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
 	held, err := history.boundedContents()
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}

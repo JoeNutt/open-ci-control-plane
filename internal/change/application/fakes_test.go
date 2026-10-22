@@ -167,3 +167,7 @@ func (store *coverageStore) RepositoryCoverageOf(
 
 	return store.held[repository], nil
 }
+
+type readableHistory struct{}
+
+func (readableHistory) VerifyReadable(context.Context) error { return nil }

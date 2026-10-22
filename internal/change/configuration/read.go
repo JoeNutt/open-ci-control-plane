@@ -27,6 +27,7 @@ const (
 	policyRepositoryItem        item = "policyRepository"
 	policyInstallationIDItem    item = "policyInstallationId"
 	classificationRulesFileItem item = "classificationRulesFile"
+	historyFileItem             item = "historyFile"
 	instanceURLItem             item = "instanceUrl"
 )
 
@@ -40,6 +41,7 @@ var items = []item{
 	policyRepositoryItem,
 	policyInstallationIDItem,
 	classificationRulesFileItem,
+	historyFileItem,
 	instanceURLItem,
 }
 
@@ -55,6 +57,7 @@ type Configuration struct {
 	policyRepository     domain.PolicyRepository
 	policyInstallationID int64
 	classificationRules  []byte
+	historyFile          string
 	instanceURL          domain.HTTPSOrigin
 }
 
@@ -94,6 +97,8 @@ func (configured Configuration) PolicyInstallationID() int64 { return configured
 
 func (configured Configuration) InstanceURL() domain.HTTPSOrigin { return configured.instanceURL }
 
+func (configured Configuration) HistoryFile() string { return configured.historyFile }
+
 func (stated statedItems) configuration() (Configuration, error) {
 	address, addressErr := listenAddressIn(stated)
 	appID, appIDErr := appIDIn(stated)
@@ -105,8 +110,9 @@ func (stated statedItems) configuration() (Configuration, error) {
 	policyInstallationID, policyInstallationIDErr := policyInstallationIDIn(stated)
 	classificationRules, classificationRulesErr := classificationRulesIn(stated)
 	instanceURL, instanceURLErr := instanceURLIn(stated)
+	historyFile, historyFileErr := historyFileIn(stated)
 	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr,
-		policyRepositoryErr, policyInstallationIDErr, classificationRulesErr, instanceURLErr)
+		policyRepositoryErr, policyInstallationIDErr, classificationRulesErr, instanceURLErr, historyFileErr)
 	if refusals != nil {
 		return Configuration{}, refusals
 	}
@@ -121,5 +127,6 @@ func (stated statedItems) configuration() (Configuration, error) {
 		policyInstallationID: policyInstallationID,
 		classificationRules:  classificationRules,
 		instanceURL:          instanceURL,
+		historyFile:          historyFile,
 	}, nil
 }

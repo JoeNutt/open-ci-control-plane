@@ -48,7 +48,7 @@ func passingGateChange(t *testing.T, published *publishedCheckRuns, dispatched *
 		Publisher:  published,
 		Recorder:   &recordedDecisions{},
 		Bindings:   bindingForEveryRepository{},
-		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits())},
+		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: readableHistory{}},
 		Dispatcher: dispatched,
 	}
 }

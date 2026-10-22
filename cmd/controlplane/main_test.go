@@ -30,6 +30,7 @@ func TestAConfigurationMissingOrInvalidInARequiredItemExitsNonZeroNamingItAndSer
 		"no App key":        {"appKeyFile", without("appKeyFile")},
 		"no webhook secret": {"webhookSecretFile", without("webhookSecretFile")},
 		"no allowlist":      {"installationIds", without("installationIds")},
+		"no history file":   {"historyFile", without("historyFile")},
 		"an App key that is not an RSA key": {"appKeyFile", func(t *testing.T, stated map[string]json.RawMessage) {
 			stated["appKeyFile"] = quoted(t, writtenFile(t, t.TempDir(), "app-key.pem", unparseableAppKey))
 		}},
@@ -207,6 +208,7 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"instanceUrl":             quoted(t, "https://control-plane.example"),
 		"policyInstallationId":    json.RawMessage(strconv.Itoa(installationID)),
 		"classificationRulesFile": quoted(t, writtenFile(t, directory, "rules.yaml", classificationRules)),
+		"historyFile":             quoted(t, filepath.Join(directory, "history.jsonl")),
 	}
 }
 

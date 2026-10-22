@@ -20,7 +20,7 @@ func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
-	plan, err := application.PlanTests{Maps: maps}.Execute(t.Context(), domain.PlanSubject{
+	plan, err := application.PlanTests{Maps: maps, History: readableHistory{}}.Execute(t.Context(), domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: uploadingRepository, HeadSHA: recordedHeadSHA},
 			Diff: domain.Diff{Files: []domain.File{{Path: coveredFile, Action: domain.FileActionModified}}},
@@ -40,7 +40,7 @@ func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
 }
 
 func TestAPlanIsRefusedWhenTheCoverageCannotBeRead(t *testing.T) {
-	_, err := application.PlanTests{Maps: unreadableCoverage{}}.Execute(t.Context(), domain.PlanSubject{
+	_, err := application.PlanTests{Maps: unreadableCoverage{}, History: readableHistory{}}.Execute(t.Context(), domain.PlanSubject{
 		Document: domain.Document{PR: domain.PullRequest{Repository: uploadingRepository, HeadSHA: recordedHeadSHA}},
 		Binding:  uploadingRepositorysBinding(t),
 	})

@@ -13,6 +13,7 @@ services:
       - ./config.json:/run/open-ci/config.json:ro
       - ./rules.yaml:/run/open-ci/rules.yaml:ro
       - ./secrets:/run/open-ci/secrets:ro
+      - ./history:/run/open-ci/history
     networks:
       proxy:
         ipv4_address: 172.18.0.50

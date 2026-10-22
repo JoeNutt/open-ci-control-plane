@@ -310,3 +310,22 @@ func TestClassificationRulesTheirParserRefusesAreRefusedNamingTheRulesFile(t *te
 		t.Errorf("the refusal does not carry the parser's reason: %v", err)
 	}
 }
+
+func TestTheHistoryFileIsTheAbsolutePathTheConfigurationStates(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+
+	if configured.HistoryFile() != statedHistoryFile {
+		t.Errorf("the history file is %q, want %q", configured.HistoryFile(), statedHistoryFile)
+	}
+}
+
+func TestAHistoryFileThatIsNotAnAbsolutePathIsRefusedNamingIt(t *testing.T) {
+	for _, path := range []string{"history.jsonl", "./history.jsonl", "", "../history.jsonl"} {
+		t.Run(path, func(t *testing.T) {
+			stated := completeItems(t)
+			stated[historyFileKey] = quoted(t, path)
+
+			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, historyFileKey)
+		})
+	}
+}
