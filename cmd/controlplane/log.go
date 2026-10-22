@@ -13,6 +13,8 @@ const (
 	enginesStarted       = "engines started"
 	policyRead           = "policy repository polled"
 	failedBundleListener = "policy bundle listener failed"
+	failedEvaluation     = "evaluation failed"
+	decisionIDKey        = "decisionId"
 	reasonKey            = "reason"
 	policyRepositoryKey  = "policyRepository"
 	familiesKey          = "families"

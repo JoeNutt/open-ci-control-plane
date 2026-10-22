@@ -61,11 +61,14 @@ type recordingForge struct {
 	listedForApp []string
 	filesMovedTo string
 	grantFailure int
+	published    chan struct{}
 }
 
 func (recording *recordingForge) routes() http.Handler {
 	routes := http.NewServeMux()
 	routes.HandleFunc("POST /app/installations/{installation}/access_tokens", recording.grant)
+	routes.HandleFunc("GET /repos/{owner}/{name}/pulls/{number}", recording.pullRequest)
+	routes.HandleFunc("GET /repos/{owner}/{name}/pulls/{number}/reviews", recording.reviews)
 	routes.HandleFunc("GET /repos/{owner}/{name}/pulls/{number}/files", recording.files)
 	routes.HandleFunc("GET /repos/{owner}/{name}/commits/{sha}/check-runs", recording.checkRunListing)
 	routes.HandleFunc("POST /repos/{owner}/{name}/check-runs", recording.checkRunCreation)
@@ -82,6 +85,23 @@ func (recording *recordingForge) checkRunCreation(answer http.ResponseWriter, as
 	recording.record(&recording.presented, asked.Header.Get("Authorization"))
 	answer.WriteHeader(http.StatusCreated)
 	recording.write(answer, `{"id":1}`)
+	if recording.published != nil {
+		select {
+		case recording.published <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (recording *recordingForge) pullRequest(answer http.ResponseWriter, asked *http.Request) {
+	recording.write(answer, `{"number":`+asked.PathValue("number")+`,"draft":false,`+
+		`"base":{"ref":"main","sha":"0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"},`+
+		`"head":{"sha":"b0b0000000000000000000000000000000000b0b"},`+
+		`"user":{"login":"contributor","type":"User"},"author_association":"CONTRIBUTOR","labels":[]}`)
+}
+
+func (recording *recordingForge) reviews(answer http.ResponseWriter, _ *http.Request) {
+	recording.write(answer, `[]`)
 }
 
 func (recording *recordingForge) grant(answer http.ResponseWriter, asked *http.Request) {

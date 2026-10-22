@@ -24,26 +24,28 @@ const (
 
 func servedPolicy(
 	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
-) (opa.BundleService, error) {
+) (opa.BundleService, <-chan struct{}, error) {
 	active, err := policy.ParseActivePolicy(log)
 	if err != nil {
-		return opa.BundleService{}, err
+		return opa.BundleService{}, nil, err
 	}
 	reader, err := policyReaderFor(configured, app, active)
 	if err != nil {
-		return opa.BundleService{}, err
+		return opa.BundleService{}, nil, err
 	}
 	service, err := servedBundles(ctx, policy.BundleHandler{Active: active}, log)
 	if err != nil {
-		return opa.BundleService{}, err
+		return opa.BundleService{}, nil, err
 	}
 	ticker := time.NewTicker(policy.PollInterval)
+	polled := make(chan struct{})
 	go func() {
+		defer close(polled)
 		defer ticker.Stop()
 		reader.PollAtEachTick(ctx, ticker.C)
 	}()
 	log.Info(policyRead, slog.String(policyRepositoryKey, configured.PolicyRepository().String()))
-	return service, nil
+	return service, polled, nil
 }
 
 func policyReaderFor(

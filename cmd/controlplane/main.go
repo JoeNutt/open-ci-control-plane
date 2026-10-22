@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"errors"
@@ -15,7 +16,9 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/jsonlines"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/random"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 )
 
 const (
@@ -27,6 +30,7 @@ const (
 const (
 	readHeaderBound  = 10 * time.Second
 	shutdownBound    = 10 * time.Second
+	readBound        = 30 * time.Second
 	engineStartBound = 30 * time.Second
 )
 
@@ -37,6 +41,15 @@ func main() {
 }
 
 func run(ctx context.Context, arguments []string, logs io.Writer) int {
+	return runAgainst(ctx, arguments, logs, githubForge)
+}
+
+func githubForge() (forgeEndpoint, error) {
+	trusted, err := x509.SystemCertPool()
+	return forgeEndpoint{baseURL: forgeBaseURL, trusted: trusted}, err
+}
+
+func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpointOf func() (forgeEndpoint, error)) int {
 	log := slog.New(slog.NewJSONHandler(logs, nil))
 	path, err := configurationPathIn(arguments)
 	if err != nil {
@@ -48,25 +61,46 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	trusted, err := x509.SystemCertPool()
+	endpoint, err := endpointOf()
 	if err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	app, err := appForgeOf(configured, forgeEndpoint{baseURL: forgeBaseURL, trusted: trusted})
+	app, err := appForgeOf(configured, endpoint)
 	if err != nil {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
 	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
 		slog.Any(installationsKey, configured.InstallationIDs()))
-	engines, err := startedPolicyEngines(ctx, configured, app, log)
+	serving, stopServing := context.WithCancel(ctx)
+	engines, polled, err := startedPolicyEngines(serving, configured, app, log)
+	defer func() {
+		stopServing()
+		<-polled
+	}()
 	if err != nil {
 		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
 	defer engines.stop(context.WithoutCancel(ctx))
-	server, err := serverFor(configured, log)
+	gate, err := engines.gate()
+	if err != nil {
+		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	rules, err := configuration.ClassificationRulesParsedBy(configured, rulesIn)
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	recorder, err := jsonlines.ParseDecisionRecorder(os.Stdout)
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	server, err := serverFor(configured, gatesFor(configured.InstallationIDs(),
+		evaluating{app: app, gate: gate, rules: rules, recorder: recorder, log: log}), log)
 	if err != nil {
 		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -76,19 +110,25 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 
 func startedPolicyEngines(
 	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
-) (startedEngines, error) {
-	service, err := servedPolicy(ctx, configured, app, log)
+) (startedEngines, <-chan struct{}, error) {
+	service, polled, err := servedPolicy(ctx, configured, app, log)
 	if err != nil {
-		return nil, err
+		return nil, closedSignal(), err
 	}
 	starting, cancel := context.WithTimeout(ctx, engineStartBound)
 	defer cancel()
 	engines, err := startedEnginesFor(starting, configured.Families(), bundledEngineStarter(service))
 	if err != nil {
-		return nil, err
+		return nil, polled, err
 	}
 	log.Info(enginesStarted, slog.Any(familiesKey, configured.Families()))
-	return engines, nil
+	return engines, polled, nil
+}
+
+func closedSignal() <-chan struct{} {
+	closed := make(chan struct{})
+	close(closed)
+	return closed
 }
 
 func configurationPathIn(arguments []string) (string, error) {
@@ -98,11 +138,17 @@ func configurationPathIn(arguments []string) (string, error) {
 	return arguments[0], nil
 }
 
-func serverFor(configured configuration.Configuration, log *slog.Logger) (*http.Server, error) {
+func rulesIn(content []byte) (domain.ClassificationRules, error) {
+	return rules.ReadFrom(bytes.NewReader(content))
+}
+
+func serverFor(
+	configured configuration.Configuration, gates map[int64]httpapi.ChangeGate, log *slog.Logger,
+) (*http.Server, error) {
 	routes, err := httpapi.ParseRoutes(httpapi.Settings{
 		Log:         log,
 		Secret:      domain.WebhookSecret(configured.WebhookSecret().Reveal()),
-		Gates:       unwiredGates(configured.InstallationIDs()),
+		Gates:       gates,
 		DecisionIDs: random.DecisionIDs{},
 		Clock:       time.Now,
 	})
@@ -113,6 +159,7 @@ func serverFor(configured configuration.Configuration, log *slog.Logger) (*http.
 		Addr:              configured.ListenAddress().String(),
 		Handler:           routes,
 		ReadHeaderTimeout: readHeaderBound,
+		ReadTimeout:       readBound,
 	}, nil
 }
 
