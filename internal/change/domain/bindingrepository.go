@@ -24,6 +24,10 @@ func ParseGovernedRepository(stated string) (GovernedRepository, error) {
 	return GovernedRepository{owner: owner, name: name}, nil
 }
 
+func ParseGovernedRepositorySegments(owner, name string) (GovernedRepository, error) {
+	return ParseGovernedRepository(owner + repositorySeparator + name)
+}
+
 func (repository GovernedRepository) String() string {
 	return repository.owner + repositorySeparator + repository.name
 }

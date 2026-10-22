@@ -23,6 +23,25 @@ func TestParseGovernedRepositoryAcceptsAGitHubRepository(t *testing.T) {
 	}
 }
 
+func TestParseGovernedRepositorySegmentsReadsAsTheOwnerAndNameItWasGiven(t *testing.T) {
+	repository, err := domain.ParseGovernedRepositorySegments("JoeNutt", "open-ci-control-plane")
+
+	if err != nil {
+		t.Fatalf("parse segments: %v", err)
+	}
+	if repository.Owner() != "JoeNutt" || repository.Name() != "open-ci-control-plane" {
+		t.Fatalf("read %s/%s, want JoeNutt/open-ci-control-plane", repository.Owner(), repository.Name())
+	}
+}
+
+func TestParseGovernedRepositorySegmentsRefusesASeparatorInsideEitherSegment(t *testing.T) {
+	for _, segments := range [][2]string{{"JoeNutt/open-ci", "control-plane"}, {"JoeNutt", "open-ci/control-plane"}} {
+		if _, err := domain.ParseGovernedRepositorySegments(segments[0], segments[1]); !errors.Is(err, domain.ErrMalformedRepository) {
+			t.Errorf("segments %q: error is %v, want %v", segments, err, domain.ErrMalformedRepository)
+		}
+	}
+}
+
 func TestParseGovernedRepositoryRefusesAnythingButGitHubNameCharacters(t *testing.T) {
 	refused := map[string]string{
 		"no separator":      "open-ci-control-plane",
