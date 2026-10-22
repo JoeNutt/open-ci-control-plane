@@ -14,24 +14,9 @@ import (
 
 const baseSHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
 
-type askedForPullRequest struct {
-	method        string
-	escapedPath   string
-	rawQuery      string
-	authorization string
-}
-
 func TestBaseCommitOfReadsThePullRequestsBaseCommitAsTheInstallation(t *testing.T) {
-	var asked askedForPullRequest
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		asked = askedForPullRequest{
-			method:        request.Method,
-			escapedPath:   request.URL.EscapedPath(),
-			rawQuery:      request.URL.RawQuery,
-			authorization: request.Header.Get("Authorization"),
-		}
-		write(t, writer, `{"number": 412, "base": {"ref": "main", "sha": "`+baseSHA+`"}}`)
-	})
+	var asked recordedRequest
+	server := recording(t, &asked, `{"number": 412, "base": {"ref": "main", "sha": "`+baseSHA+`"}}`)
 
 	base, err := sourceAt(t, server).BaseCommitOf(context.Background(), locatorOf(t, "acme/payments", 412))
 
@@ -41,7 +26,7 @@ func TestBaseCommitOfReadsThePullRequestsBaseCommitAsTheInstallation(t *testing.
 	if base.String() != baseSHA {
 		t.Errorf("base commit is %q, want %q", base, baseSHA)
 	}
-	want := askedForPullRequest{
+	want := recordedRequest{
 		method:        http.MethodGet,
 		escapedPath:   "/repos/acme/payments/pulls/412",
 		authorization: "Bearer " + forgeToken,

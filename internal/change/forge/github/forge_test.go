@@ -62,6 +62,27 @@ func servingEach(t *testing.T, bodies map[string]string) *httptest.Server {
 	})
 }
 
+type recordedRequest struct {
+	method        string
+	escapedPath   string
+	rawQuery      string
+	authorization string
+}
+
+func recording(t *testing.T, asked *recordedRequest, body string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		*asked = recordedRequest{
+			method:        request.Method,
+			escapedPath:   request.URL.EscapedPath(),
+			rawQuery:      request.URL.RawQuery,
+			authorization: request.Header.Get("Authorization"),
+		}
+		write(t, writer, body)
+	})
+}
+
 func answering(t *testing.T, status int, body string) *httptest.Server {
 	t.Helper()
 
