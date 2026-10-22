@@ -4,8 +4,6 @@ package policy_test
 
 import (
 	"errors"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -86,19 +84,5 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 func liveCatalogWith(t *testing.T, written, replacement string) string {
 	t.Helper()
 
-	live := string(fixture(t, liveCatalogPath))
-	if !strings.Contains(live, written) {
-		t.Fatalf("the live catalog does not contain %q, so the replacement tests nothing", written)
-	}
-	return strings.Replace(live, written, replacement, 1)
-}
-
-func fixture(t *testing.T, path string) []byte {
-	t.Helper()
-
-	written, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
-	return written
+	return fixtureWith(t, liveCatalogPath, written, replacement)
 }
