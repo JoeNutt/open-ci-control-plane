@@ -24,6 +24,7 @@ type Reader struct {
 	repository domain.PolicyRepository
 	ports      ReaderPorts
 	active     *ActivePolicy
+	lastRead   domain.CommitSHA
 }
 
 var ErrIncompleteReader = errors.New("policy reader is missing a part it cannot read without")
@@ -40,6 +41,9 @@ func (reader *Reader) ReadRevision(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read the head of %s: %w", reader.repository, err)
 	}
+	if head.Commit() == reader.lastRead {
+		return nil
+	}
 	listing, err := reader.policyListingAt(ctx, head)
 	if err != nil {
 		return fmt.Errorf("list the policy files of %s at %s: %w", reader.repository, head.Commit(), err)
@@ -48,6 +52,7 @@ func (reader *Reader) ReadRevision(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read the policy files of %s at %s: %w", reader.repository, head.Commit(), err)
 	}
+	reader.lastRead = head.Commit()
 	return reader.active.Offer(head.Commit(), files)
 }
 

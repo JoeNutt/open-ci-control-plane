@@ -27,6 +27,37 @@ func TestReadRevisionAcceptsThePolicyFilesAtTheDefaultBranchHeadAsThatRevision(t
 	}
 }
 
+func TestReadRevisionDoesNotListAgainAHeadItHasAlreadyRead(t *testing.T) {
+	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	listingsAsked := 0
+	ports := portsOver(recorded)
+	ports.Listings = countedListings{listings: recorded.listings, asked: &listingsAsked}
+	reader, err := policy.ParseReader(readRepository(t), ports, activePolicyLoggingTo(t, slog.DiscardHandler))
+	if err != nil {
+		t.Fatalf("parse reader: %v", err)
+	}
+
+	for range 2 {
+		if err := reader.ReadRevision(context.Background()); err != nil {
+			t.Fatalf("read revision: %v", err)
+		}
+	}
+
+	if listingsAsked != 1 {
+		t.Errorf("the reader listed the unchanged head %d times, want once", listingsAsked)
+	}
+}
+
+type countedListings struct {
+	listings domain.PolicyListings
+	asked    *int
+}
+
+func (counted countedListings) ListedFilesAt(ctx context.Context, at domain.PolicyCommit) ([]domain.ListedFile, error) {
+	*counted.asked++
+	return counted.listings.ListedFilesAt(ctx, at)
+}
+
 func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
 	missing := map[string]func(*readerParts){
 		"no repository":    func(parts *readerParts) { parts.repository = domain.PolicyRepository{} },
