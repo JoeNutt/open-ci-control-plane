@@ -29,7 +29,7 @@ jobs:
           full_matrix="$(jq -er '.fullMatrix | if type == "boolean" then tostring else error("fullMatrix is not a boolean") end' <<<"$PLAN")"
           packages="$(jq -er '(.suites + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
           for package in $packages; do
-            [[ "$package" =~ ^[A-Za-z0-9._~+/-]+$ ]] || { echo "a suite is not a Go import path" >&2; exit 1; }
+            [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ ]] || { echo "a suite is not a Go import path" >&2; exit 1; }
           done
           {
             echo "head_sha=$head_sha"
