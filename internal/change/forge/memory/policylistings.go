@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,5 +16,5 @@ type PolicyListings struct {
 func (listings PolicyListings) ListedFilesAt(
 	_ context.Context, at domain.PolicyCommit,
 ) ([]domain.ListedFile, error) {
-	return listings.Listings[at], nil
+	return slices.Clone(listings.Listings[at]), nil
 }
