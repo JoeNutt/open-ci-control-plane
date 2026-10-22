@@ -44,11 +44,13 @@ func TestParseBoundedPolicyFilesRefusesAPathOutsideTheRepository(t *testing.T) {
 	}
 }
 
+const boundPolicyFilePathFormat = "bindings/owner/repository%d.yaml"
+
 func policyFiles(count int) []domain.PolicyFile {
 	files := make([]domain.PolicyFile, 0, count)
 	for index := range count {
 		files = append(files, domain.PolicyFile{
-			Path:    fmt.Sprintf("bindings/owner/repository%d.yaml", index),
+			Path:    fmt.Sprintf(boundPolicyFilePathFormat, index),
 			Content: []byte("schema_version: 1\n"),
 		})
 	}
