@@ -11,7 +11,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const fileEntryType = "blob"
+const blobEntryType = "blob"
 
 var ErrNoSuchRepository = errors.New("the forge found no such repository")
 
@@ -39,11 +39,11 @@ func (paths RepositoryPaths) KnownPathsOf(
 	if listed.Truncated {
 		return domain.KnownPaths{}, fmt.Errorf("%w: %s", ErrTruncatedTree, repository)
 	}
-	files, err := listed.repositoryPaths()
+	known, err := domain.ParseKnownPaths(listed.blobPaths())
 	if err != nil {
 		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}
-	return domain.NewKnownPaths(files), nil
+	return known, nil
 }
 
 func defaultBranchTreeReading(repository domain.GovernedRepository) exchange {
@@ -65,17 +65,12 @@ type treeEntry struct {
 	Type string `json:"type"`
 }
 
-func (listed tree) repositoryPaths() ([]domain.RepositoryPath, error) {
-	var files []domain.RepositoryPath
+func (listed tree) blobPaths() []string {
+	var blobs []string
 	for _, entry := range listed.Entries {
-		if entry.Type != fileEntryType {
-			continue
+		if entry.Type == blobEntryType {
+			blobs = append(blobs, entry.Path)
 		}
-		path, err := domain.ParseRepositoryPath(entry.Path)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, path)
 	}
-	return files, nil
+	return blobs
 }

@@ -13,6 +13,13 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
+var _ domain.RepositoryPaths = github.RepositoryPaths{}
+
+const (
+	treeRepository = "acme/payments"
+	treePath       = "/repos/" + treeRepository + "/git/trees/HEAD"
+)
+
 func TestKnownPathsOfAsksForTheDefaultBranchTreeAsTheInstallation(t *testing.T) {
 	var asked *http.Request
 	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
@@ -31,13 +38,6 @@ func TestKnownPathsOfAsksForTheDefaultBranchTreeAsTheInstallation(t *testing.T) 
 			asked.Method, asked.URL.Path, asked.URL.RawQuery, asked.Header.Get("Authorization"), treePath)
 	}
 }
-
-var _ domain.RepositoryPaths = github.RepositoryPaths{}
-
-const (
-	treeRepository = "acme/payments"
-	treePath       = "/repos/" + treeRepository + "/git/trees/HEAD"
-)
 
 func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
 	server := serving(t, treePath, `{"truncated": false, "tree": [
