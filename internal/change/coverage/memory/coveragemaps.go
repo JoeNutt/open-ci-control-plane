@@ -42,3 +42,12 @@ func (store *CoverageMaps) SuiteCoverageOf(
 
 	return store.held[repository].SuiteCoverageOf(suite)
 }
+
+func (store *CoverageMaps) RepositoryCoverageOf(
+	_ context.Context, repository domain.GovernedRepository,
+) (domain.RepositoryCoverage, error) {
+	store.guard.RLock()
+	defer store.guard.RUnlock()
+
+	return store.held[repository], nil
+}
