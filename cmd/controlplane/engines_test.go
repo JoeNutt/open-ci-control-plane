@@ -4,8 +4,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +26,24 @@ func structuralBundleService(t *testing.T) string {
 	}))
 	t.Cleanup(server.Stop)
 	return server.URL()
+}
+
+func TestAFamilyWhoseBundleNeverArrivesRefusesStartUpByTheDeadlineNamingIt(t *testing.T) {
+	deadline := 500 * time.Millisecond
+	starting, cancel := context.WithTimeout(context.Background(), deadline)
+	defer cancel()
+	began := time.Now()
+
+	_, err := startedEnginesFor(starting,
+		[]domain.PolicyFamily{domain.PolicyFamilyStructural, domain.PolicyFamilySecurity},
+		structuralBundleService(t))
+
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), string(domain.PolicyFamilySecurity)) {
+		t.Errorf("the refusal is not the start-up deadline naming the security family: %v", err)
+	}
+	if waited := time.Since(began); waited > 4*deadline {
+		t.Errorf("start-up waited %s, past its %s deadline", waited, deadline)
+	}
 }
 
 func TestEnginesStartOnlyForTheConfiguredFamilies(t *testing.T) {
