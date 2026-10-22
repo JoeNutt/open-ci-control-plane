@@ -238,3 +238,23 @@ func TestTheForgeBaseURLIsTheOneTheConfigurationStates(t *testing.T) {
 		t.Errorf("the forge base URL is %s, want %s", stated.String(), statedForgeBaseURL)
 	}
 }
+
+func TestAForgeBaseURLThatIsNotAnHTTPSOriginIsRefusedNamingIt(t *testing.T) {
+	for form, address := range map[string]string{
+		"plain http":        "http://api.github.com",
+		"no scheme":         "api.github.com",
+		"no host":           "https://",
+		"a trailing slash":  "https://api.github.com/",
+		"a query":           "https://api.github.com?per_page=1",
+		"a fragment":        "https://api.github.com#top",
+		"credentials in it": "https://user:pass@api.github.com",
+		"not a URL":         "https://api.github.com:port",
+	} {
+		t.Run(form, func(t *testing.T) {
+			stated := completeItems(t)
+			stated[forgeBaseURLKey] = quoted(t, address)
+
+			assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, forgeBaseURLKey)
+		})
+	}
+}
