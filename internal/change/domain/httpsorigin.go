@@ -24,9 +24,8 @@ type originFault struct {
 
 func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 	parsed, err := url.Parse(stated)
-	var unparsable *url.Error
-	if errors.As(err, &unparsable) {
-		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, unparsable.Err)
+	if err != nil {
+		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, reasonWithoutAddress(err))
 	}
 	if fault, isFaulty := originFaultOf(parsed); isFaulty {
 		return HTTPSOrigin{}, fmt.Errorf("%w: it %s", ErrMalformedHTTPSOrigin, fault)
@@ -48,4 +47,12 @@ func originFaultOf(address *url.URL) (string, bool) {
 		return "", false
 	}
 	return faults[held].reason, true
+}
+
+func reasonWithoutAddress(unparsable error) error {
+	var stated *url.Error
+	if errors.As(unparsable, &stated) {
+		return stated.Err
+	}
+	return unparsable
 }
