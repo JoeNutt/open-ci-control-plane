@@ -21,6 +21,22 @@ func TestAnUploadFromAnotherRepositoryIsAnswered403(t *testing.T) {
 	}
 }
 
+func TestAnUnverifiedTokenIsAnswered401AsARefusal(t *testing.T) {
+	refused := coverageRefusalOf(fmt.Errorf("verify: %w", domain.ErrUnverifiedIdentityToken))
+
+	if refused.answer.status() != http.StatusUnauthorized || refused.level != slog.LevelWarn {
+		t.Errorf("answered %#v at %s, want %d at %s", refused.answer, refused.level, http.StatusUnauthorized, slog.LevelWarn)
+	}
+}
+
+func TestATokenWhoseIssuerCannotBeReadIsAnswered401AndLoggedAsOurOutage(t *testing.T) {
+	refused := coverageRefusalOf(fmt.Errorf("verify: %w", domain.ErrIdentityIssuerUnavailable))
+
+	if refused.answer.status() != http.StatusUnauthorized || refused.level != slog.LevelError {
+		t.Errorf("answered %#v at %s, want %d at %s", refused.answer, refused.level, http.StatusUnauthorized, slog.LevelError)
+	}
+}
+
 func TestAFailureC12DoesNotClassifyIsAnswered500AndLoggedAsAnError(t *testing.T) {
 	refused := coverageRefusalOf(errors.New("the store is full"))
 
