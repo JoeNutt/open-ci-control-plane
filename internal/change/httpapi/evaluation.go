@@ -16,13 +16,11 @@ type evaluation struct {
 	accepted *acceptedDeliveries
 }
 
-func (evaluating evaluation) answerFor(
-	ctx context.Context, received delivery, stated payload, gate ChangeGate,
-) answerBody {
+func (evaluating evaluation) answerFor(ctx context.Context, received delivery, admitted admission) answerBody {
 	if original, isReplay := evaluating.accepted.originalOf(received); isReplay {
 		return original
 	}
-	locator, err := stated.pullRequest()
+	locator, err := admitted.stated.pullRequest()
 	if err != nil {
 		return evaluating.refusing.logged(ctx, received, unparseablePullRequestProblem())
 	}
@@ -30,7 +28,7 @@ func (evaluating evaluation) answerFor(
 	if err != nil {
 		return evaluating.failedAnswer(ctx, err, slog.String(deliveryIDKey, received.id))
 	}
-	if err := gate.Execute(ctx, locator, id); err != nil {
+	if err := admitted.gate.Execute(ctx, locator, id); err != nil {
 		return evaluating.failedAnswer(ctx, err,
 			slog.String(deliveryIDKey, received.id), slog.String(decisionIDKey, id.String()))
 	}

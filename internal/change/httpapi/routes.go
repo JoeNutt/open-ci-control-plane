@@ -81,7 +81,7 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 			stage.refusing.logged(asked.Context(), received, malformedPayloadProblem()))
 		return
 	}
-	gate, isAllowed := stage.allowed.gateFor(stated)
+	admitted, isAllowed := stage.allowed.admissionOf(stated)
 	if !isAllowed {
 		stage.refusing.record(asked.Context(), received, notAllowlistedReason)
 		answer.WriteHeader(http.StatusNotFound)
@@ -91,5 +91,5 @@ func (stage admitted) ServeHTTP(answer http.ResponseWriter, asked *http.Request)
 		answer.WriteHeader(http.StatusNoContent)
 		return
 	}
-	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, stated, gate))
+	stage.answering.write(asked.Context(), answer, stage.evaluating.answerFor(asked.Context(), received, admitted))
 }
