@@ -59,9 +59,18 @@ group_containing(bound, file) := group if {
 }
 
 package_path(bound, imported) := trim_prefix($"{root.path}{trim_prefix(imported, root.prefix)}", "/") if {
-	some root in bound.import_roots
-	startswith(imported, root.prefix)
+	root := root_of(bound, imported)
 }
+
+root_of(bound, imported) := root if {
+	roots := [candidate | some candidate in bound.import_roots; is_under(imported, candidate.prefix)]
+	some root in roots
+	count(root.prefix) == max({count(candidate.prefix) | some candidate in roots})
+}
+
+is_under(imported, prefix) if imported == prefix
+
+is_under(imported, prefix) if startswith(imported, $"{prefix}/")
 
 go_file_in(directory) := $"{directory}/package.go"
 

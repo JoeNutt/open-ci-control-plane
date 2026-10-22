@@ -85,6 +85,60 @@ test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
 	decided.violations == []
 }
 
+policy_also_rooting(root) := json.patch(policy, [{
+	"op": "add",
+	"path": "/bindings/JoeNutt~1open-ci-control-plane/policies/0/import_roots/-",
+	"value": root,
+}])
+
+test_the_longest_matching_import_root_places_the_import if {
+	forge_vendored_elsewhere := policy_also_rooting({
+		"prefix": $"{module_root}/internal/change/forge",
+		"path": "third_party/forge",
+	})
+
+	decided := structural.decision with input as change_adding([domain_imports_forge])
+		with data.ci.policy as forge_vendored_elsewhere
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
+test_an_import_root_matches_whole_path_segments_only if {
+	vendored_into_forge := policy_also_rooting({
+		"prefix": "example.com/vendored",
+		"path": "internal/change/forge/vendored",
+	})
+	domain_imports_lookalike := {"from": domain_imports_forge.from, "to": "example.com/vendoredextra/thing"}
+
+	decided := structural.decision with input as change_adding([domain_imports_lookalike])
+		with data.ci.policy as vendored_into_forge
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
+test_an_import_under_no_declared_root_is_outside_every_group if {
+	domain_imports_unrooted := {"from": domain_imports_forge.from, "to": "internal/change/forge/github"}
+
+	decided := structural.decision with input as change_adding([domain_imports_unrooted]) with data.ci.policy as policy
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
+test_a_package_in_no_group_at_either_end_is_never_refused[note] if {
+	some note, edge in {
+		"importer in no group": {"from": "cmd/tool/main.go", "to": domain_imports_forge.to},
+		"imported in no group": {"from": domain_imports_forge.from, "to": $"{module_root}/internal/change/unplaced"},
+	}
+
+	decided := structural.decision with input as change_adding([edge]) with data.ci.policy as policy
+
+	decided.effect == "allow"
+	decided.violations == []
+}
+
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
 	unknown_direction := json.patch(policy, [{
 		"op": "replace",
