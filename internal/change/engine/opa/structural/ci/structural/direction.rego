@@ -11,6 +11,26 @@ decision := {
 	is_every_bound_policy_judgeable
 }
 
+decision := {
+	"input_wellformed": input_wellformed,
+	"schema_version_accepted": 1,
+	"effect": "block",
+	"violations": sort([refusal | some refusal in binding_refusals]),
+	"reviewers": [],
+	"fail_closed": true,
+} if {
+	count(binding_refusals) > 0
+}
+
+binding_refusals contains {
+	"rule_id": "binding",
+	"message": $"repository {input.pr.repository} has no binding",
+	"severity": "deny",
+} if {
+	is_object(data.ci.policy.bindings)
+	not data.ci.policy.bindings[input.pr.repository]
+}
+
 bound_policies := data.ci.policy.bindings[input.pr.repository].policies
 
 is_every_bound_policy_judgeable if {
