@@ -113,14 +113,17 @@ type contentsAnswer struct {
 	Content  string `json:"content"`
 }
 
-const contentsTypeFile = "file"
+const (
+	contentsTypeFile       = "file"
+	contentsEncodingBase64 = "base64"
+)
 
 func (answer contentsAnswer) decoded() ([]byte, error) {
 	if answer.Type != contentsTypeFile {
 		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
 	}
-	if answer.Encoding != "base64" {
-		return nil, ErrContentsNotServed
+	if answer.Encoding != contentsEncodingBase64 {
+		return nil, fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
 	if err != nil {
