@@ -243,6 +243,32 @@ func TestContentsAtRefusesContentLongerOrShorterThanTheSizeTheForgeStates(t *tes
 	}
 }
 
+func TestContentsAtNamesTheFileInEveryRefusalButNeverTheCredentialOrTheContent(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(middlewareSource))
+	unencoded := "package auth"
+	echoing := `{"message": "` + forgeToken + `", "content": "` + encoded + `"}`
+	refusals := map[string]*httptest.Server{
+		"server error":  answering(t, http.StatusInternalServerError, echoing),
+		"not found":     answering(t, http.StatusNotFound, echoing),
+		"not a file":    answering(t, http.StatusOK, `{"type": "symlink", "content": "`+encoded+`"}`),
+		"size mismatch": answering(t, http.StatusOK, statedFileAnswer(1, encoded)),
+		"not base64":    answering(t, http.StatusOK, statedFileAnswer(len(unencoded), unencoded)),
+	}
+
+	for name, server := range refusals {
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+
+		if err == nil {
+			t.Fatalf("%s: read without error", name)
+		}
+		if !strings.Contains(err.Error(), "internal/auth/middleware.go") {
+			t.Errorf("%s: error %q does not name the file", name, err)
+		}
+		mustRevealNoneOf(t, name, err.Error(), []string{forgeToken, middlewareSource, encoded, unencoded})
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
