@@ -9,9 +9,7 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
-	coverage "github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 const noPolicyLoaded = "no policy loaded"
@@ -68,7 +66,7 @@ func TestTheStructuralCheckRunCarriesThePolicyRevisionAndTheDecisionID(t *testin
 
 func TestARepostOnTheSameHeadUpdatesTheOneStructuralCheckRun(t *testing.T) {
 	locator := gatedLocator(t)
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	for _, engine := range []domain.FamilyEngine{
 		faultingEngine{fault: errors.New("conflicting rule outputs")},
 		answeringEngine{decided: domain.UndecidedDecision(revisionForTest(t))},
@@ -114,7 +112,7 @@ func gatedLocator(t *testing.T) domain.PullRequestLocator {
 func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.CheckRun {
 	t.Helper()
 
-	published := &memory.CheckRuns{}
+	published := &publishedCheckRuns{}
 	gateStructuralChange(t, engine, published)
 	runs := published.PublishedOn(gatedLocator(t), commitSHAOf(t, recordedHeadSHA))
 	if len(runs) != 1 {
@@ -127,7 +125,7 @@ func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.Ch
 	return run
 }
 
-func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *memory.CheckRuns) {
+func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *publishedCheckRuns) {
 	t.Helper()
 
 	locator := gatedLocator(t)
@@ -139,7 +137,7 @@ type gatedChange struct {
 	build   application.BuildDocument
 }
 
-func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEngine, published *memory.CheckRuns) {
+func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEngine, published *publishedCheckRuns) {
 	t.Helper()
 
 	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
@@ -154,8 +152,8 @@ func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEng
 		Publisher:  published,
 		Recorder:   &recordedDecisions{},
 		Bindings:   bindingForEveryRepository{},
-		Planner:    application.PlanTests{Maps: coverage.NewCoverageMaps(domain.DeclaredCoverageLimits())},
-		Dispatcher: &memory.PlanDispatches{},
+		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits())},
+		Dispatcher: &dispatchedPlans{},
 	}
 
 	if err := useCase.Execute(context.Background(), change.locator, decisionIDOf(t, gatedDecisionID)); err != nil {

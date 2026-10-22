@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
@@ -229,9 +228,9 @@ func completeReaderParts(t *testing.T) readerParts {
 }
 
 type recordedPolicyRepository struct {
-	heads    memory.DefaultBranchHeads
-	listings memory.PolicyListings
-	contents memory.PolicyContents
+	heads    recordedHeads
+	listings recordedListings
+	contents recordedPolicyFiles
 }
 
 func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) recordedPolicyRepository {
@@ -240,15 +239,15 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 	repository := readRepository(t)
 	at := policyHeadAt(t, head)
 	listed := []domain.ListedFile{{Path: "README.md", Bytes: len("# policy\n")}}
-	recorded := map[memory.PolicyFileAt][]byte{}
+	recorded := map[policyFileAt][]byte{}
 	for _, file := range files {
 		listed = append(listed, domain.ListedFile{Path: file.Path, Bytes: len(file.Content)})
-		recorded[memory.PolicyFileAt{At: at, Path: repositoryPathOf(t, file.Path)}] = file.Content
+		recorded[policyFileAt{At: at, Path: repositoryPathOf(t, file.Path)}] = file.Content
 	}
 	return recordedPolicyRepository{
-		heads:    memory.DefaultBranchHeads{Heads: map[domain.PolicyRepository]domain.CommitSHA{repository: at.Commit()}},
-		listings: memory.PolicyListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: listed}},
-		contents: memory.PolicyContents{Files: recorded},
+		heads:    recordedHeads{Heads: map[domain.PolicyRepository]domain.CommitSHA{repository: at.Commit()}},
+		listings: recordedListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: listed}},
+		contents: recordedPolicyFiles{Files: recorded},
 	}
 }
 
@@ -259,7 +258,7 @@ func recordCommit(t *testing.T, recorded recordedPolicyRepository, head string, 
 	listed := make([]domain.ListedFile, 0, len(files))
 	for _, file := range files {
 		listed = append(listed, domain.ListedFile{Path: file.Path, Bytes: len(file.Content)})
-		recorded.contents.Files[memory.PolicyFileAt{At: at, Path: repositoryPathOf(t, file.Path)}] = file.Content
+		recorded.contents.Files[policyFileAt{At: at, Path: repositoryPathOf(t, file.Path)}] = file.Content
 	}
 	recorded.listings.Listings[at] = listed
 }

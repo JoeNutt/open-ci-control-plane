@@ -9,12 +9,11 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
-	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
+	maps := newCoverageStore(domain.DeclaredCoverageLimits())
 	path := parsedPath(t)
 	upload := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{parsedRepository(t)})
 	if _, err := upload.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 const uncataloguedPolicyData = `{"catalog": {}, "bindings": {"acme/payments": {"policies": [{
@@ -45,8 +44,8 @@ func TestAChangeThatDoesNotPassIsNeverDispatched(t *testing.T) {
 	for form, arrange := range cases {
 		t.Run(form, func(t *testing.T) {
 			engine, build := arrange(t)
-			dispatched := &memory.PlanDispatches{}
-			useCase := passingGateChange(t, &memory.CheckRuns{}, dispatched)
+			dispatched := &dispatchedPlans{}
+			useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
 			useCase.Gate = gateOver(t, engine)
 			useCase.Build = build
 
@@ -60,8 +59,8 @@ func TestAChangeThatDoesNotPassIsNeverDispatched(t *testing.T) {
 }
 
 func TestADispatchFailureLeavesThePostedVerdictAndIsReported(t *testing.T) {
-	published := &memory.CheckRuns{}
-	useCase := passingGateChange(t, published, &memory.PlanDispatches{})
+	published := &publishedCheckRuns{}
+	useCase := passingGateChange(t, published, &dispatchedPlans{})
 	useCase.Dispatcher = refusingDispatcher{}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
