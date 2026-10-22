@@ -16,9 +16,9 @@ import (
 
 const undecidingStructuralPolicy = "package ci.structural\n"
 
-func bundleServiceFor(t *testing.T, family domain.PolicyFamily) string {
+func structuralBundleService(t *testing.T) string {
 	t.Helper()
-	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(family), map[string]string{
+	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(domain.PolicyFamilyStructural), map[string]string{
 		"policy.rego": undecidingStructuralPolicy,
 		".manifest":   `{"revision": "b0b0000000000000000000000000000000000b0b"}`,
 	}))
@@ -31,7 +31,7 @@ func TestEnginesStartOnlyForTheConfiguredFamilies(t *testing.T) {
 	defer cancel()
 
 	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
-		bundleServiceFor(t, domain.PolicyFamilyStructural))
+		structuralBundleService(t))
 	if err != nil {
 		t.Fatalf("start the engines: %v", err)
 	}
