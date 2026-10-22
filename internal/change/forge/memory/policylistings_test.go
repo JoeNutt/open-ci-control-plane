@@ -40,8 +40,9 @@ func TestPolicyListingsRefusesACommitItHoldsNoListingFor(t *testing.T) {
 func recordedPolicyCommit(t *testing.T) domain.PolicyCommit {
 	t.Helper()
 
-	return domain.PolicyCommit{
-		Repository: policyRepositoryOf(t, recordedPolicyRepository),
-		Commit:     commitOf(t, recordedPolicyHead),
+	at, err := domain.ParsePolicyCommit(policyRepositoryOf(t, recordedPolicyRepository), commitOf(t, recordedPolicyHead))
+	if err != nil {
+		t.Fatalf("parse policy commit: %v", err)
 	}
+	return at
 }
