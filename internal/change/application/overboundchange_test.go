@@ -47,6 +47,32 @@ func TestAnOverBoundChangePostsOneFailureNamingTheBoundAndEvaluatesNothing(t *te
 	}
 }
 
+func TestAChangeDocumentOverItsByteBoundPostsOneFailureAndIsNeverEvaluated(t *testing.T) {
+	locator := gatedLocator(t)
+	build := buildOverAnAuthChange(t, locator)
+	build.Limits.MaxDocumentBytes = 1
+	engine := &recordingEngine{revision: revisionForTest(t)}
+	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{domain.PolicyFamilyStructural: engine})
+	if err != nil {
+		t.Fatalf("parse gate: %v", err)
+	}
+	published := &memory.CheckRuns{}
+	useCase := application.GateChange{Build: build, Gate: gate, Publisher: published, Recorder: &recordedDecisions{}}
+
+	err = useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, domain.ErrDocumentTooLarge) {
+		t.Errorf("error is %v, want %v", err, domain.ErrDocumentTooLarge)
+	}
+	run := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]
+	if run.Conclusion != domain.ConclusionFailure || !strings.Contains(run.Headline, "document byte bound") {
+		t.Errorf("the run concludes %q reading %q, want failure naming the document byte bound", run.Conclusion, run.Headline)
+	}
+	if len(engine.received) != 0 {
+		t.Errorf("the engine was asked about an over-bound document %d times", len(engine.received))
+	}
+}
+
 type countingContents struct {
 	asked int
 }

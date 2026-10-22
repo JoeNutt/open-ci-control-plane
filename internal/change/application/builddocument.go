@@ -44,7 +44,12 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
 	}
 	change := domain.Change{Files: bounded, Structure: facts}
-	return domain.ParseDocument(reported.PullRequest, change, useCase.Rules), nil
+	document, err := domain.ParseBoundedDocument(domain.ParseDocument(reported.PullRequest, change, useCase.Rules), useCase.Limits)
+	if err != nil {
+		return domain.Document{}, fmt.Errorf("bound the document of %s: %w", locator,
+			domain.ChangeOverBound{Head: reported.Tips.Head(), Breach: err})
+	}
+	return document, nil
 }
 
 type statedChange struct {
