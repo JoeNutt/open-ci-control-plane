@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+const httpsScheme = "https"
+
+var (
+	errNotHTTPS      = errors.New("the address is not https")
+	errNoHost        = errors.New("the address names no host")
+	errTrailingSlash = errors.New("the address ends in a slash")
+	errQuery         = errors.New("the address carries a query")
+	errFragment      = errors.New("the address carries a fragment")
+	errCredentials   = errors.New("the address carries credentials")
+)
+
 func forgeBaseURLIn(stated statedItems) (url.URL, error) {
 	text, err := valueOf[string](stated, forgeBaseURLItem)
 	if err != nil {
@@ -18,25 +29,29 @@ func forgeBaseURLIn(stated statedItems) (url.URL, error) {
 	if err != nil {
 		return url.URL{}, forgeBaseURLItem.invalid(err)
 	}
-	faults := []struct {
-		reason string
-		holds  bool
-	}{
-		{"is not https", parsed.Scheme != "https"},
-		{"names no host", parsed.Host == ""},
-		{"ends in a slash", strings.HasSuffix(parsed.Path, "/")},
-		{"carries a query", parsed.RawQuery != "" || parsed.ForceQuery},
-		{"carries a fragment", parsed.Fragment != ""},
-		{"carries credentials", parsed.User != nil},
-	}
-	held := slices.IndexFunc(faults, func(fault struct {
-		reason string
-		holds  bool
-	}) bool {
-		return fault.holds
-	})
-	if held >= 0 {
-		return url.URL{}, forgeBaseURLItem.invalid(errors.New(faults[held].reason))
+	if fault := originFaultOf(parsed); fault != nil {
+		return url.URL{}, forgeBaseURLItem.invalid(fault)
 	}
 	return *parsed, nil
+}
+
+type addressFault struct {
+	reason error
+	holds  bool
+}
+
+func originFaultOf(address *url.URL) error {
+	faults := []addressFault{
+		{errNotHTTPS, address.Scheme != httpsScheme},
+		{errNoHost, address.Host == ""},
+		{errTrailingSlash, strings.HasSuffix(address.Path, "/")},
+		{errQuery, address.RawQuery != "" || address.ForceQuery},
+		{errFragment, address.Fragment != ""},
+		{errCredentials, address.User != nil},
+	}
+	held := slices.IndexFunc(faults, func(fault addressFault) bool { return fault.holds })
+	if held < 0 {
+		return nil
+	}
+	return faults[held].reason
 }
