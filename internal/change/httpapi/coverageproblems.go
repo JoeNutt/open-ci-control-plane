@@ -14,12 +14,18 @@ const (
 	undeclaredUploadLengthMessage = "the upload declares no length"
 	oversizedUploadCode           = "upload_too_large"
 	oversizedUploadMessage        = "the upload declares a length above the compressed artifact bound"
+	notAFormCode                  = "not_a_form"
+	notAFormMessage               = "the upload is not multipart/form-data"
 )
 
 var compressedArtifactLimit = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
 
 func malformedPathProblem(segment string) refusal {
 	return fieldProblem{Code: malformedPathCode, Message: malformedPathMessage, Field: segment}
+}
+
+func notAFormProblem() refusal {
+	return fieldProblem{Code: notAFormCode, Message: notAFormMessage, Field: contentTypeHeader}
 }
 
 func undeclaredUploadLengthProblem() refusal {
