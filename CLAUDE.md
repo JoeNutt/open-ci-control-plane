@@ -44,7 +44,7 @@ full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
 | Changing | Read first |
 |---|---|
 | A component, boundary or dependency | the specification, §12 design and §20 decision record |
-| Anything the specification decides | `docs/adr/README.md` first. The spec is a frozen baseline; each ADR names the section it overrides |
+| Anything the specification decides | The current release's §20 decision record. The baseline spec is frozen; a release's §20 says where it overrides it |
 | Which card to pick up, or what blocks it | `docs/delivery-phases.md`, and the one-card rule in `.claude/rules/tdd-cycle.md` |
 | An HTTP contract | §13, and `D-21` before adding any endpoint |
 | The policy input document | §13 `C-2`. It is a published cross-release contract — additive only |
