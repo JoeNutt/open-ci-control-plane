@@ -38,5 +38,8 @@ func (gates installationGates) admissionOf(stated payload) (admission, bool) {
 		return admission{}, false
 	}
 	gate, isAllowed := gates[installationID]
-	return admission{stated: stated, gate: gate}, isAllowed
+	if !isAllowed {
+		return admission{}, false
+	}
+	return admission{stated: stated, gate: gate}, true
 }
