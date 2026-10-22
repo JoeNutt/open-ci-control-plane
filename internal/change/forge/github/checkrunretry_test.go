@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -160,6 +161,20 @@ func TestPublishCheckRunGivesUpRatherThanWaitPastTheRetryWindow(t *testing.T) {
 	}
 	if len(waited.durations) != 0 || busy.answered != 1 {
 		t.Errorf("waited %v and asked %d times, want no wait and one ask", waited.durations, busy.answered)
+	}
+}
+
+func TestPublishCheckRunReportsExhaustedRetriesWithoutTheCredential(t *testing.T) {
+	echoing := failingOn(t, failedStep{http.MethodGet, http.StatusServiceUnavailable, noRunsListed})
+
+	err := checkRunsWaitingOn(t, echoing, &pauses{}).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if !errors.Is(err, github.ErrRetriesExhausted) {
+		t.Fatalf("error is %v, want %v", err, github.ErrRetriesExhausted)
+	}
+	if strings.Contains(err.Error(), forgeToken) {
+		t.Errorf("error %q reveals the credential", err)
 	}
 }
 
