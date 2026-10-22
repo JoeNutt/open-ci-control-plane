@@ -15,7 +15,7 @@ import (
 func TestPolicyContentsAnswersTheContentsRecordedForAFileAtAPolicyCommit(t *testing.T) {
 	file := memory.PolicyFileAt{At: recordedPolicyCommit(t), Path: repositoryPathOf(t, recordedCatalogPath)}
 	recorded := []byte("schema_version: 1\n")
-	contents := memory.PolicyContents{Files: map[memory.PolicyFileAt][]byte{file: recorded}}
+	var contents domain.PolicyContents = memory.PolicyContents{Files: map[memory.PolicyFileAt][]byte{file: recorded}}
 
 	answered, err := contents.ContentsAt(context.Background(), file.At, file.Path)
 
