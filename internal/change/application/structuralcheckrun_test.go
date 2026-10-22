@@ -65,6 +65,24 @@ func TestTheStructuralCheckRunCarriesThePolicyRevisionAndTheDecisionID(t *testin
 	}
 }
 
+func TestARepostOnTheSameHeadUpdatesTheOneStructuralCheckRun(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	published := &memory.CheckRuns{}
+	for _, engine := range []domain.FamilyEngine{
+		faultingEngine{fault: errors.New("conflicting rule outputs")},
+		answeringEngine{decided: domain.UndecidedDecision(revisionForTest(t))},
+	} {
+		gateStructuralChange(t, engine, published)
+	}
+
+	runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
+
+	if len(runs) != 1 {
+		t.Fatalf("the head commit holds %d check runs, want one: %v", len(runs), runs)
+	}
+	requireFailureTitled(t, runs[structuralCheckRunName], noPolicyLoaded)
+}
+
 func requireFailureTitled(t *testing.T, run domain.CheckRun, phrase string) {
 	t.Helper()
 
@@ -84,7 +102,25 @@ func (engine faultingEngine) Decide(context.Context, domain.Document) (domain.De
 	return domain.Decision{}, engine.fault
 }
 
+const structuralCheckRunName = "policy/structural"
+
 func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.CheckRun {
+	t.Helper()
+
+	published := &memory.CheckRuns{}
+	gateStructuralChange(t, engine, published)
+	runs := published.PublishedOn(locatorOf(t, "acme/payments", 412), commitSHAOf(t, recordedHeadSHA))
+	if len(runs) != 1 {
+		t.Fatalf("published %d check runs, want one: %v", len(runs), runs)
+	}
+	run, present := runs[structuralCheckRunName]
+	if !present {
+		t.Fatalf("no structural check run among %v", runs)
+	}
+	return run
+}
+
+func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *memory.CheckRuns) {
 	t.Helper()
 
 	locator := locatorOf(t, "acme/payments", 412)
@@ -94,7 +130,6 @@ func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.Ch
 	if err != nil {
 		t.Fatalf("parse gate: %v", err)
 	}
-	published := &memory.CheckRuns{}
 	useCase := application.GateChange{
 		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
@@ -105,13 +140,4 @@ func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.Ch
 	if err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID)); err != nil {
 		t.Fatalf("gate change: %v", err)
 	}
-	runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA))
-	if len(runs) != 1 {
-		t.Fatalf("published %d check runs, want one: %v", len(runs), runs)
-	}
-	run, present := runs["policy/"+string(domain.PolicyFamilyStructural)]
-	if !present {
-		t.Fatalf("no structural check run among %v", runs)
-	}
-	return run
 }
