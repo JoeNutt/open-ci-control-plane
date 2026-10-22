@@ -16,7 +16,7 @@ const recordedPolicyRepository = "JoeNutt/open-ci-policy"
 func TestDefaultBranchHeadsAnswersTheHeadRecordedForARepository(t *testing.T) {
 	repository := policyRepositoryOf(t, recordedPolicyRepository)
 	head := commitOf(t, "637d049f40a67db2936d7c97668b07c531b4dcc5")
-	heads := memory.DefaultBranchHeads{
+	var heads domain.DefaultBranchHeads = memory.DefaultBranchHeads{
 		Heads: map[domain.PolicyRepository]domain.CommitSHA{repository: head},
 	}
 
