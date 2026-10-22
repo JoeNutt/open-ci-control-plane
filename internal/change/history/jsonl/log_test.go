@@ -110,3 +110,36 @@ func TestEntriesPastRetentionAreDeletedWhenTheLogOpens(t *testing.T) {
 		t.Errorf("the expired entry is still in the file")
 	}
 }
+
+func TestALineTornByACrashIsDroppedAndTheLogStillOpens(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	history, err := jsonl.OpenLog(path, domain.DeclaredHistoryLimits(), func() time.Time { return recordedAt })
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := history.Append(json.RawMessage(`"complete"`)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	torn, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("open for the torn write: %v", err)
+	}
+	if _, err := torn.WriteString(`{"at":"2026-10-22T12:00:00Z","bo`); err != nil {
+		t.Fatalf("torn write: %v", err)
+	}
+	if err := torn.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	reopened, err := jsonl.OpenLog(path, domain.DeclaredHistoryLimits(), func() time.Time { return recordedAt })
+	if err != nil {
+		t.Fatalf("a torn last line stopped the log opening: %v", err)
+	}
+	if err := reopened.Append(json.RawMessage(`"after"`)); err != nil {
+		t.Fatalf("append after reopening: %v", err)
+	}
+	entries, err := reopened.Entries()
+	if err != nil || len(entries) != 2 || string(entries[0].Body) != `"complete"` || string(entries[1].Body) != `"after"` {
+		t.Errorf("after a torn write the log holds %+v (%v), want the complete entry then the new one", entries, err)
+	}
+}

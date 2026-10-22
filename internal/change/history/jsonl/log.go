@@ -3,7 +3,7 @@
 package jsonl
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +38,7 @@ func OpenLog(path string, limits domain.HistoryLimits, now func() time.Time) (*L
 }
 
 func (history *Log) pruneExpired() error {
-	entries, err := history.Entries()
+	entries, isTorn, err := history.readEntries()
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (history *Log) pruneExpired() error {
 	cutoff := history.now().Add(-history.limits.Retention)
 	held := len(entries)
 	entries = slices.DeleteFunc(entries, func(entry Entry) bool { return entry.At.Before(cutoff) })
-	if len(entries) == held {
+	if len(entries) == held && !isTorn {
 		return nil
 	}
 	return history.rewrite(entries)
@@ -115,23 +115,27 @@ func (history *Log) writeWithinBound(file *os.File, record []byte) error {
 	return file.Sync()
 }
 
-func (history *Log) Entries() (entries []Entry, err error) {
+func (history *Log) Entries() ([]Entry, error) {
 	history.guard.Lock()
 	defer history.guard.Unlock()
 
-	file, err := os.Open(history.path)
+	entries, _, err := history.readEntries()
+	return entries, err
+}
+
+func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
+	held, err := os.ReadFile(history.path)
 	if err != nil {
-		return nil, fmt.Errorf("open the history: %w", err)
+		return nil, false, fmt.Errorf("open the history: %w", err)
 	}
-	defer func() { err = errors.Join(err, file.Close()) }()
-	lines := bufio.NewScanner(file)
-	lines.Buffer(nil, int(history.limits.MaxBytes))
-	for lines.Scan() {
+	lines := bytes.Split(held, []byte{'\n'})
+	isTorn = len(lines[len(lines)-1]) > 0
+	for _, line := range lines[:len(lines)-1] {
 		var entry Entry
-		if err := json.Unmarshal(lines.Bytes(), &entry); err != nil {
-			return nil, fmt.Errorf("read history: %w", err)
+		if err := json.Unmarshal(line, &entry); err != nil {
+			return nil, false, fmt.Errorf("read history: %w", err)
 		}
 		entries = append(entries, entry)
 	}
-	return entries, lines.Err()
+	return entries, isTorn, nil
 }
