@@ -120,6 +120,29 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 }
 
+const forgeBase64LineLength = 60
+
+func TestContentsAtReadsContentWrappedIntoLinesAsTheForgeSendsIt(t *testing.T) {
+	source := strings.Repeat(middlewareSource, 8)
+	encoded := base64.StdEncoding.EncodeToString([]byte(source))
+	var lines []string
+	for len(encoded) > forgeBase64LineLength {
+		lines = append(lines, encoded[:forgeBase64LineLength])
+		encoded = encoded[forgeBase64LineLength:]
+	}
+	lines = append(lines, encoded)
+	server := answering(t, http.StatusOK, statedFileAnswer(len(source), strings.Join(lines, `\n`)+`\n`))
+
+	read, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+	if err != nil {
+		t.Fatalf("contents at: %v", err)
+	}
+	if string(read) != source {
+		t.Errorf("read %q, want %q", read, source)
+	}
+}
+
 func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
 
