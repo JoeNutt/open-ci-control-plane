@@ -19,3 +19,5 @@ func ParsePolicyListing(listed []ListedFile) (PolicyListing, error) {
 	}
 	return PolicyListing{files: slices.Clone(listed)}, nil
 }
+
+func (listing PolicyListing) Files() []ListedFile { return slices.Clone(listing.files) }

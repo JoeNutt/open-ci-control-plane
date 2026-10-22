@@ -5,6 +5,7 @@ package domain_test
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -31,6 +32,19 @@ func TestParsePolicyListingHoldsAFileListedAtTheByteBoundAndRefusesOneByteOver(t
 	overLimit[0].Bytes = domain.MaxPolicyFileBytes + 1
 	if _, err := domain.ParsePolicyListing(overLimit); !errors.Is(err, domain.ErrPolicyFileTooLarge) {
 		t.Fatalf("a file listed at %d bytes gave %v, want ErrPolicyFileTooLarge", domain.MaxPolicyFileBytes+1, err)
+	}
+}
+
+func TestParsePolicyListingHoldsEveryListedFileInOrder(t *testing.T) {
+	listed := listedPolicyFiles(3)
+
+	listing, err := domain.ParsePolicyListing(listed)
+
+	if err != nil {
+		t.Fatalf("parse policy listing: %v", err)
+	}
+	if !slices.Equal(listing.Files(), listed) {
+		t.Errorf("the listing holds %+v, want %+v", listing.Files(), listed)
 	}
 }
 
