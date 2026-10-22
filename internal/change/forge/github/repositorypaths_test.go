@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -84,6 +85,26 @@ func TestKnownPathsOfReportsARepositoryTheForgeCannotFindAsNoSuchRepository(t *t
 
 	if !errors.Is(err, github.ErrNoSuchRepository) {
 		t.Fatalf("error is %v, want %v", err, github.ErrNoSuchRepository)
+	}
+}
+
+func TestKnownPathsOfReadsATreeAtTheResponseBoundAndRefusesOneByteOver(t *testing.T) {
+	const bound = 256
+	listing := `{"truncated": false, "tree": [{"path": "internal/auth.go", "type": "blob"}]}`
+	for padding, isRefused := range map[int]bool{bound - len(listing): false, bound - len(listing) + 1: true} {
+		server := serving(t, "/repos/acme/payments/git/trees/HEAD", listing+strings.Repeat(" ", padding))
+		settings := settingsAt(server)
+		settings.MaxResponseBytes = bound
+		paths, err := github.ParseRepositoryPaths(settings)
+		if err != nil {
+			t.Fatalf("parse repository paths: %v", err)
+		}
+
+		_, err = paths.KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+
+		if errors.Is(err, github.ErrResponseTooLarge) != isRefused {
+			t.Errorf("a tree of %d bytes against a bound of %d: error %v", len(listing)+padding, bound, err)
+		}
 	}
 }
 
