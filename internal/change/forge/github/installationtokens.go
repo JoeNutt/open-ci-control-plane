@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 )
 
 var ErrNoSuchInstallation = errors.New("the forge found no App installation with the configured installation id")
 
 var ErrIncompleteGrant = errors.New("the forge granted an installation token with no token or no expiry")
+
+var ErrExpiredGrant = errors.New("the forge granted an installation token already past its expiry")
 
 type Installation struct {
 	Key   AppKey
@@ -23,6 +26,9 @@ type Installation struct {
 type InstallationTokens struct {
 	asApp        connection
 	installation installationID
+	mutex        sync.Mutex
+	held         installationToken
+	clock        func() time.Time
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
@@ -38,18 +44,26 @@ func ParseInstallationTokens(settings Settings, installation Installation) (*Ins
 	if err != nil {
 		return nil, err
 	}
-	return &InstallationTokens{asApp: asApp, installation: installed}, nil
+	return &InstallationTokens{asApp: asApp, installation: installed, clock: installation.Clock}, nil
 }
 
 func (tokens *InstallationTokens) authorization(ctx context.Context) (Credential, error) {
-	minted, err := tokens.exchanged(ctx)
+	tokens.mutex.Lock()
+	defer tokens.mutex.Unlock()
+
+	now := tokens.clock()
+	if tokens.held.isUsableAt(now) {
+		return tokens.held.credential, nil
+	}
+	minted, err := tokens.exchangedAt(ctx, now)
 	if err != nil {
 		return Credential{}, err
 	}
+	tokens.held = minted
 	return minted.credential, nil
 }
 
-func (tokens *InstallationTokens) exchanged(ctx context.Context) (installationToken, error) {
+func (tokens *InstallationTokens) exchangedAt(ctx context.Context, now time.Time) (installationToken, error) {
 	granted, err := exchanged[accessTokenGrant](ctx, tokens.asApp, exchange{
 		method:    http.MethodPost,
 		endpoint:  tokens.accessTokensEndpoint(),
@@ -60,7 +74,7 @@ func (tokens *InstallationTokens) exchanged(ctx context.Context) (installationTo
 	if err != nil {
 		return installationToken{}, fmt.Errorf("exchange the App JWT for an installation token: %w", err)
 	}
-	return parseGrant(granted)
+	return parseGrantAt(granted, now)
 }
 
 func (tokens *InstallationTokens) accessTokensEndpoint() string {
@@ -95,14 +109,24 @@ type accessTokenGrant struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+const tokenRefreshLead = 5 * time.Minute
+
 type installationToken struct {
 	credential Credential
 	expiresAt  time.Time
 }
 
-func parseGrant(granted accessTokenGrant) (installationToken, error) {
+func parseGrantAt(granted accessTokenGrant, now time.Time) (installationToken, error) {
 	if granted.Token == "" || granted.ExpiresAt.IsZero() {
 		return installationToken{}, ErrIncompleteGrant
 	}
+	if !granted.ExpiresAt.After(now) {
+		return installationToken{}, fmt.Errorf("%w: expired at %s, now %s",
+			ErrExpiredGrant, granted.ExpiresAt.Format(time.RFC3339), now.Format(time.RFC3339))
+	}
 	return installationToken{credential: NewCredential(granted.Token), expiresAt: granted.ExpiresAt}, nil
+}
+
+func (token installationToken) isUsableAt(now time.Time) bool {
+	return token.credential.isPresent() && now.Before(token.expiresAt.Add(-tokenRefreshLead))
 }
