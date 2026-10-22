@@ -40,6 +40,16 @@ func (source ChangeSource) PullRequestAt(
 	return reported, nil
 }
 
+func (source ChangeSource) BaseCommitOf(
+	ctx context.Context, locator domain.PullRequestLocator,
+) (domain.CommitSHA, error) {
+	stated, err := jsonAt[pullRequest](ctx, source.forge, pullRequestEndpoint(locator))
+	if err != nil {
+		return domain.CommitSHA{}, err
+	}
+	return domain.ParseCommitSHA(stated.Base.SHA)
+}
+
 func (source ChangeSource) FilesChanged(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) ([]domain.File, error) {
