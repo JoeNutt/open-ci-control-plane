@@ -33,7 +33,7 @@ func (receiving coverageUploads) ServeHTTP(answer http.ResponseWriter, asked *ht
 	receiving.answering.write(asked.Context(), answer, answered.answer)
 }
 
-func (receiving coverageUploads) record(ctx context.Context, refused classifiedFailure) {
+func (receiving coverageUploads) record(ctx context.Context, refused coverageAnswer) {
 	named := []slog.Attr{slog.String(reasonKey, refused.reason)}
 	if refused.cause != nil {
 		named = append(named, slog.String(causeKey, refused.cause.Error()))
@@ -41,7 +41,7 @@ func (receiving coverageUploads) record(ctx context.Context, refused classifiedF
 	receiving.log.LogAttrs(ctx, refused.level, refusedCoverage, named...)
 }
 
-func (receiving coverageUploads) answerTo(asked *http.Request) classifiedFailure {
+func (receiving coverageUploads) answerTo(asked *http.Request) coverageAnswer {
 	target, refused := coverageTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(suiteSegment))
 	if refused != nil {
 		return refusedBeforeUse(refused)
@@ -63,7 +63,7 @@ func (receiving coverageUploads) answerTo(asked *http.Request) classifiedFailure
 	if err != nil {
 		return coverageRefusalOf(err)
 	}
-	return classifiedFailure{answer: coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}}
+	return coverageAnswer{answer: coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}}
 }
 
 type coverageAccepted struct {
