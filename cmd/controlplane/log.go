@@ -9,7 +9,12 @@ const (
 	refusedListener      = "listener refused"
 	failedListener       = "listener failed"
 	failedShutdown       = "shutdown failed"
+	refusedEngines       = "engines refused"
+	enginesStarted       = "engines started"
+	policyRead           = "policy repository polled"
+	failedBundleListener = "policy bundle listener failed"
 	reasonKey            = "reason"
+	policyRepositoryKey  = "policyRepository"
 	familiesKey          = "families"
 	installationsKey     = "installations"
 )

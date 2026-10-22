@@ -6,9 +6,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"net"
 	"net/http"
 	"os"
@@ -98,6 +102,19 @@ func TestACompleteConfigurationServesTheEventsRouteAndLogsWhatItServes(t *testin
 	}
 }
 
+func TestTheBinaryStartsEachFamilysEngineFromThePolicyBundleItServes(t *testing.T) {
+	_, exit, logged := servedOnce(t, "")
+
+	if exit != 0 {
+		t.Errorf("exit is %d after a clean stop, want 0", exit)
+	}
+	for _, named := range []string{enginesStarted, "JoeNutt/open-ci-policy"} {
+		if !strings.Contains(logged.String(), named) {
+			t.Errorf("the start-up log does not name %s: %q", named, logged.String())
+		}
+	}
+}
+
 func TestNoStartUpOrServingLogCarriesTheWebhookSecretOrTheAppKey(t *testing.T) {
 	_, _, logged := servedOnce(t, "")
 
@@ -167,8 +184,21 @@ func firstAnswerFrom(t *testing.T, listenAddress, signedPayload string) int {
 const (
 	listenAddressItem = "listenAddress"
 	webhookSecret     = "the App's webhook secret"
-	appKeyBody        = "c3RhdGVkIGtleQ"
 )
+
+var generatedAppKeyPEM = generatedRSAKeyPEM()
+
+var appKeyBody = strings.Split(generatedAppKeyPEM, "\n")[1]
+
+func generatedRSAKeyPEM() string {
+	key, err := rsa.GenerateKey(rand.Reader, appKeyBits)
+	if err != nil {
+		panic(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
+}
+
+const appKeyBits = 2048
 
 func assertNothingServesOn(t *testing.T, listenAddress string) {
 	t.Helper()
@@ -185,8 +215,7 @@ func assertNothingServesOn(t *testing.T, listenAddress string) {
 func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 	t.Helper()
 	directory := t.TempDir()
-	appKey := writtenFile(t, directory, "app-key.pem",
-		"-----BEGIN RSA PRIVATE KEY-----\n"+appKeyBody+"\n-----END RSA PRIVATE KEY-----\n")
+	appKey := writtenFile(t, directory, "app-key.pem", generatedAppKeyPEM)
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
 		listenAddressItem:      quoted(t, unusedLoopbackAddress(t)),

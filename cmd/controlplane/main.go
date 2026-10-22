@@ -24,8 +24,9 @@ const (
 )
 
 const (
-	readHeaderBound = 10 * time.Second
-	shutdownBound   = 10 * time.Second
+	readHeaderBound  = 10 * time.Second
+	shutdownBound    = 10 * time.Second
+	engineStartBound = 30 * time.Second
 )
 
 var errNotOnePath = errors.New("the control plane takes one configuration file path")
@@ -48,12 +49,35 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 	}
 	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
 		slog.Any(installationsKey, configured.InstallationIDs()))
+	engines, err := startedPolicyEngines(ctx, configured, log)
+	if err != nil {
+		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	defer engines.stop(context.WithoutCancel(ctx))
 	server, err := serverFor(configured, log)
 	if err != nil {
 		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
 	return servedUntil(ctx, server, log)
+}
+
+func startedPolicyEngines(
+	ctx context.Context, configured configuration.Configuration, log *slog.Logger,
+) (startedEngines, error) {
+	service, err := servedPolicy(ctx, configured, log)
+	if err != nil {
+		return nil, err
+	}
+	starting, cancel := context.WithTimeout(ctx, engineStartBound)
+	defer cancel()
+	engines, err := startedEnginesFor(starting, configured.Families(), bundledEngineStarter(service))
+	if err != nil {
+		return nil, err
+	}
+	log.Info(enginesStarted, slog.Any(familiesKey, configured.Families()))
+	return engines, nil
 }
 
 func configurationPathIn(arguments []string) (string, error) {
