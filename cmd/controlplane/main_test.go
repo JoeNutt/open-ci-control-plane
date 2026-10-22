@@ -189,12 +189,14 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"-----BEGIN RSA PRIVATE KEY-----\n"+appKeyBody+"\n-----END RSA PRIVATE KEY-----\n")
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
-		listenAddressItem:   quoted(t, unusedLoopbackAddress(t)),
-		"appId":             json.RawMessage(`1204331`),
-		"appKeyFile":        quoted(t, appKey),
-		"webhookSecretFile": quoted(t, secret),
-		"installationIds":   json.RawMessage(`[52311907]`),
-		"families":          json.RawMessage(`["structural"]`),
+		listenAddressItem:      quoted(t, unusedLoopbackAddress(t)),
+		"appId":                json.RawMessage(`1204331`),
+		"appKeyFile":           quoted(t, appKey),
+		"webhookSecretFile":    quoted(t, secret),
+		"installationIds":      json.RawMessage(`[52311907]`),
+		"families":             json.RawMessage(`["structural"]`),
+		"policyRepository":     quoted(t, "JoeNutt/open-ci-policy"),
+		"policyInstallationId": json.RawMessage(`52311907`),
 	}
 }
 

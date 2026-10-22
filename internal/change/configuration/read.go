@@ -19,12 +19,14 @@ const (
 )
 
 const (
-	listenAddressItem     item = "listenAddress"
-	appIDItem             item = "appId"
-	appKeyFileItem        item = "appKeyFile"
-	webhookSecretFileItem item = "webhookSecretFile"
-	installationIDsItem   item = "installationIds"
-	familiesItem          item = "families"
+	listenAddressItem        item = "listenAddress"
+	appIDItem                item = "appId"
+	appKeyFileItem           item = "appKeyFile"
+	webhookSecretFileItem    item = "webhookSecretFile"
+	installationIDsItem      item = "installationIds"
+	familiesItem             item = "families"
+	policyRepositoryItem     item = "policyRepository"
+	policyInstallationIDItem item = "policyInstallationId"
 )
 
 var items = []item{
@@ -34,17 +36,21 @@ var items = []item{
 	webhookSecretFileItem,
 	installationIDsItem,
 	familiesItem,
+	policyRepositoryItem,
+	policyInstallationIDItem,
 }
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
 
 type Configuration struct {
-	listenAddress   netip.AddrPort
-	appID           int64
-	appKey          Secret
-	webhookSecret   Secret
-	installationIDs []int64
-	families        []domain.PolicyFamily
+	listenAddress        netip.AddrPort
+	appID                int64
+	appKey               Secret
+	webhookSecret        Secret
+	installationIDs      []int64
+	families             []domain.PolicyFamily
+	policyRepository     domain.PolicyRepository
+	policyInstallationID int64
 }
 
 func Read(path string) (Configuration, error) {
@@ -75,6 +81,12 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
 
+func (configured Configuration) PolicyRepository() domain.PolicyRepository {
+	return configured.policyRepository
+}
+
+func (configured Configuration) PolicyInstallationID() int64 { return configured.policyInstallationID }
+
 func (stated statedItems) configuration() (Configuration, error) {
 	address, addressErr := listenAddressIn(stated)
 	appID, appIDErr := appIDIn(stated)
@@ -82,16 +94,21 @@ func (stated statedItems) configuration() (Configuration, error) {
 	webhookSecret, webhookSecretErr := webhookSecretIn(stated)
 	installationIDs, installationIDsErr := installationIDsIn(stated)
 	families, familiesErr := familiesIn(stated)
-	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr)
+	policyRepository, policyRepositoryErr := policyRepositoryIn(stated)
+	policyInstallationID, policyInstallationIDErr := policyInstallationIDIn(stated)
+	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr,
+		policyRepositoryErr, policyInstallationIDErr)
 	if refusals != nil {
 		return Configuration{}, refusals
 	}
 	return Configuration{
-		listenAddress:   address,
-		appID:           appID,
-		appKey:          appKey,
-		webhookSecret:   webhookSecret,
-		installationIDs: installationIDs,
-		families:        families,
+		listenAddress:        address,
+		appID:                appID,
+		appKey:               appKey,
+		webhookSecret:        webhookSecret,
+		installationIDs:      installationIDs,
+		families:             families,
+		policyRepository:     policyRepository,
+		policyInstallationID: policyInstallationID,
 	}, nil
 }
