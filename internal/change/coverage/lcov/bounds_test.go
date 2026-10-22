@@ -22,57 +22,57 @@ const (
 	minimalPaddingLineBytes = int64(len(paddingTag + "\n"))
 )
 
-func TestReportedFilesInAcceptsADeclaredLengthAtTheBound(t *testing.T) {
+func TestReportedFilesAcceptsADeclaredLengthAtTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{
 		DeclaredBytes: limits.MaxCompressedBytes,
 		Body:          strings.NewReader(record(effectPath, lineHit)),
 	}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	if err != nil {
 		t.Fatalf("want an artifact declared at the bound accepted, got %v", err)
 	}
 }
 
-func TestReportedFilesInRefusesAnOversizedDeclaredLengthBeforeReading(t *testing.T) {
+func TestReportedFilesRefusesAnOversizedDeclaredLengthBeforeReading(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{DeclaredBytes: limits.MaxCompressedBytes + 1, Body: unreadBody{t}}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrCompressedArtifactTooLarge, err)
 }
 
-func TestReportedFilesInAcceptsABodyAtTheBound(t *testing.T) {
+func TestReportedFilesAcceptsABodyAtTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{
 		DeclaredBytes: limits.MaxCompressedBytes,
 		Body:          paddedRecord(limits.MaxCompressedBytes),
 	}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	if err != nil {
 		t.Fatalf("want a body at the bound accepted, got %v", err)
 	}
 }
 
-func TestReportedFilesInRefusesABodyLongerThanTheBoundWhateverItDeclares(t *testing.T) {
+func TestReportedFilesRefusesABodyLongerThanTheBoundWhateverItDeclares(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{DeclaredBytes: 1, Body: paddedRecord(limits.MaxCompressedBytes + 1)}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrCompressedArtifactTooLarge, err)
 }
 
-func TestReportedFilesInReadsAGzippedArtifact(t *testing.T) {
+func TestReportedFilesReadsAGzippedArtifact(t *testing.T) {
 	compressed := gzipped(t, strings.NewReader(record(effectPath, lineHit)))
 	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 
-	reported, err := lcov.ReportedFilesIn(artifact, domain.DeclaredCoverageLimits())
+	reported, err := artifact.ReportedFiles(domain.DeclaredCoverageLimits())
 
 	if err != nil {
 		t.Fatalf("parse a gzipped record: %v", err)
@@ -83,7 +83,7 @@ func TestReportedFilesInReadsAGzippedArtifact(t *testing.T) {
 	}
 }
 
-func TestReportedFilesInRefusesABrokenGzipStream(t *testing.T) {
+func TestReportedFilesRefusesABrokenGzipStream(t *testing.T) {
 	whole := gzipped(t, strings.NewReader(record(effectPath, lineHit))).Bytes()
 	refused := map[string][]byte{
 		"a corrupt header":   []byte("\x1f\x8bnot a gzip header"),
@@ -94,7 +94,7 @@ func TestReportedFilesInRefusesABrokenGzipStream(t *testing.T) {
 		t.Run(form, func(t *testing.T) {
 			artifact := lcov.Artifact{DeclaredBytes: int64(len(body)), Body: bytes.NewReader(body)}
 
-			_, err := lcov.ReportedFilesIn(artifact, domain.DeclaredCoverageLimits())
+			_, err := artifact.ReportedFiles(domain.DeclaredCoverageLimits())
 
 			if !errors.Is(err, lcov.ErrMalformedArtifact) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -103,32 +103,32 @@ func TestReportedFilesInRefusesABrokenGzipStream(t *testing.T) {
 	}
 }
 
-func TestReportedFilesInAcceptsAnArtifactExpandingToTheBound(t *testing.T) {
+func TestReportedFilesAcceptsAnArtifactExpandingToTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	compressed := gzipped(t, paddedRecord(limits.MaxDecompressedBytes))
 	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	if err != nil {
 		t.Fatalf("want an artifact expanding to the bound accepted, got %v", err)
 	}
 }
 
-func TestReportedFilesInRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
+func TestReportedFilesRefusesAnArtifactExpandingPastTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	compressed := gzipped(t, paddedRecord(limits.MaxDecompressedBytes+1))
 	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 
-	_, err := lcov.ReportedFilesIn(artifact, limits)
+	_, err := artifact.ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrDecompressedArtifactTooLarge, err)
 }
 
-func TestReportedFilesInAcceptsFileEntriesAtTheBound(t *testing.T) {
+func TestReportedFilesAcceptsFileEntriesAtTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
-	reported, err := lcov.ReportedFilesIn(artifactOfRecords(limits.MaxFileEntries), limits)
+	reported, err := artifactOfRecords(limits.MaxFileEntries).ReportedFiles(limits)
 
 	if err != nil {
 		t.Fatalf("want entries at the bound accepted, got %v", err)
@@ -138,10 +138,10 @@ func TestReportedFilesInAcceptsFileEntriesAtTheBound(t *testing.T) {
 	}
 }
 
-func TestReportedFilesInRefusesMoreFileEntriesThanTheBound(t *testing.T) {
+func TestReportedFilesRefusesMoreFileEntriesThanTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
-	_, err := lcov.ReportedFilesIn(artifactOfRecords(limits.MaxFileEntries+1), limits)
+	_, err := artifactOfRecords(limits.MaxFileEntries + 1).ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrTooManyFileEntries, err)
 }

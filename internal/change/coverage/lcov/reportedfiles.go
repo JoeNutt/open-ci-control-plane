@@ -63,7 +63,7 @@ type Artifact struct {
 	Body          io.Reader
 }
 
-func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}

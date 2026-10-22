@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -18,9 +19,9 @@ var ErrMissignedDelivery = errors.New("delivery signature does not verify")
 
 type WebhookSecret string
 
-func (secret WebhookSecret) String() string { return "[redacted]" }
+func (secret WebhookSecret) String() string { return redacted }
 
-func (secret WebhookSecret) GoString() string { return `"[redacted]"` }
+func (secret WebhookSecret) GoString() string { return strconv.Quote(redacted) }
 
 type SignedDelivery struct {
 	body []byte
