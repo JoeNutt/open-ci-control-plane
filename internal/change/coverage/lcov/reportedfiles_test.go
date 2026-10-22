@@ -90,7 +90,7 @@ func TestReportedFilesRefusesARecordOutOfOrder(t *testing.T) {
 		t.Run(form, func(t *testing.T) {
 			err := refusalOf(t, artifact)
 
-			if !errors.Is(err, lcov.ErrMalformedArtifact) {
+			if !errors.Is(err, lcov.ErrMalformedArtifact) || !errors.Is(err, domain.ErrMalformedCoverageReport) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)
 			}
 		})
