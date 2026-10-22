@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -34,3 +35,8 @@ var ErrNotAFile = errNotAFile
 var ErrContentsNotServed = errContentsNotServed
 
 var ErrContentsSizeMismatch = errContentsSizeMismatch
+
+func CheckRunsPausingWith(runs CheckRuns, pause func(context.Context, time.Duration) error) CheckRuns {
+	runs.pause = pause
+	return runs
+}

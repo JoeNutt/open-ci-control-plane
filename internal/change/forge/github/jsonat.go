@@ -11,12 +11,16 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
+
+var ErrForgeUnavailable = errors.New("the forge is unavailable")
 
 var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
 
@@ -142,11 +146,52 @@ func failureIn(response *http.Response, over exchange) error {
 	if response.StatusCode == http.StatusNotFound && over.notFound != nil {
 		return fmt.Errorf("%w: %s", over.notFound, standardStatusOf(response))
 	}
+	if isUnavailableAnswer(response) {
+		return unavailableAnswer{status: response.Status, retryAfter: retryAfterOf(response.Header)}
+	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {
 		reported = ErrUnexpectedStatus
 	}
 	return fmt.Errorf("%w: %s", reported, standardStatusOf(response))
+}
+
+const (
+	rateLimitRemainingHeader = "X-RateLimit-Remaining"
+	retryAfterHeader         = "Retry-After"
+	spentRateLimit           = "0"
+)
+
+func isUnavailableAnswer(response *http.Response) bool {
+	if response.StatusCode >= http.StatusInternalServerError || response.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	return response.StatusCode == http.StatusForbidden && isRateLimited(response.Header)
+}
+
+func isRateLimited(header http.Header) bool {
+	return header.Get(rateLimitRemainingHeader) == spentRateLimit || header.Get(retryAfterHeader) != ""
+}
+
+type unavailableAnswer struct {
+	status     string
+	retryAfter time.Duration
+}
+
+func (answer unavailableAnswer) Error() string {
+	return fmt.Sprintf("%v: %v: %s", ErrUnexpectedStatus, ErrForgeUnavailable, answer.status)
+}
+
+func (answer unavailableAnswer) Unwrap() []error {
+	return []error{ErrUnexpectedStatus, ErrForgeUnavailable}
+}
+
+func retryAfterOf(header http.Header) time.Duration {
+	seconds, err := strconv.ParseUint(header.Get(retryAfterHeader), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
