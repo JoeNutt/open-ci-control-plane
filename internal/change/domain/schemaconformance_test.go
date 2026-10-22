@@ -27,13 +27,24 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				Labels:    domain.Declared[string]{"backend"},
 				Approvals: domain.Declared[domain.Approval]{{Login: "sam"}},
 			},
-			boundedFor(t,
+			domain.Change{Files: boundedFor(t,
 				domain.File{Path: "internal/auth/middleware.go",
 					Action:    domain.FileActionModified,
 					Additions: 12, Deletions: 3, PatchBytes: 1840},
 				domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded,
 					Additions: 35, PatchBytes: 7280},
-			), domain.ClassificationRules{}),
+			)}, domain.ClassificationRules{}),
+		"a change whose Go file declares imports at head": domain.ParseDocument(
+			domain.PullRequest{Number: 412, Repository: "acme/payments", HeadSHA: "9f1cabc"},
+			changeImporting(t, domain.File{
+				Path: "internal/auth/middleware.go", Action: domain.FileActionModified},
+				"context", "github.com/acme/payments/internal/session"),
+			domain.ClassificationRules{}),
+		"a change that adds and removes an edge": domain.ParseDocument(
+			domain.PullRequest{Number: 412, Repository: "acme/payments", HeadSHA: "9f1cabc"},
+			changeMovingAnEdge(t, domain.File{
+				Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}),
+			domain.ClassificationRules{}),
 	}
 
 	for form, document := range documents {
@@ -42,6 +53,28 @@ func TestEveryEmittedDocumentMatchesThePublishedSchema(t *testing.T) {
 				t.Errorf("%s", fault)
 			}
 		})
+	}
+}
+
+func changeImporting(t *testing.T, file domain.File, imports ...string) domain.Change {
+	t.Helper()
+
+	return domain.Change{
+		Files:     boundedFor(t, file),
+		Structure: structureOf(t, domain.ImportedFile{File: file, Head: fileImportsOf(t, imports...)}),
+	}
+}
+
+func changeMovingAnEdge(t *testing.T, file domain.File) domain.Change {
+	t.Helper()
+
+	return domain.Change{
+		Files: boundedFor(t, file),
+		Structure: structureOf(t, domain.ImportedFile{
+			File: file,
+			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
+			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/session"),
+		}),
 	}
 }
 

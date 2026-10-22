@@ -11,6 +11,7 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
@@ -20,7 +21,7 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 			"number": 412,
 			"draft": false,
 			"base": {"ref": "main"},
-			"head": {"sha": "9f1c8d2e4b7a"},
+			"head": {"sha": "` + recordedHeadSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER",
 			"labels": [{"name": "backend"}]
@@ -51,17 +52,24 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 
 	source, err := github.ParseChangeSource(github.Settings{
 		BaseURL:          server.URL,
-		Token:            github.NewCredential("s3cret"),
+		Credentials:      github.NewCredential("s3cret"),
 		Client:           client,
 		MaxResponseBytes: 1 << 20,
 	})
 	if err != nil {
 		t.Fatalf("parse change source: %v", err)
 	}
-	useCase := application.BuildDocument{Source: source, Limits: domain.DeclaredLimits()}
+	locator := locatorOf(t, "acme/payments", 412)
+	useCase := application.BuildDocument{
+		Source: source,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
+			sourceImportingContext, sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
 
-	document, err := useCase.Execute(
-		context.Background(), locatorOf(t, "acme/payments", 412))
+	document, err := useCase.Execute(context.Background(), locator)
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)

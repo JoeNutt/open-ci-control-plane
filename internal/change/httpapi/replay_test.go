@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package httpapi_test
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+func TestAReplayedDeliveryIsAnsweredWithTheOriginalAcceptanceUnevaluated(t *testing.T) {
+	gate := &recordingGate{}
+	settings := listenerSettings(discardedLog(), gate)
+	settings.DecisionIDs = &sequentialDecisions{}
+	routes := parsedRoutes(t, settings)
+	original := httptest.NewRecorder()
+	replayed := httptest.NewRecorder()
+
+	routes.ServeHTTP(original, signedDelivery("pull_request", pullRequestPayload("opened")))
+	routes.ServeHTTP(replayed, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if replayed.Code != http.StatusAccepted || replayed.Body.String() != original.Body.String() {
+		t.Errorf("the replay was answered %d %q, want the original %d %q",
+			replayed.Code, replayed.Body.String(), original.Code, original.Body.String())
+	}
+	if len(gate.evaluated) != 1 {
+		t.Errorf("the gate evaluated %d times, want once", len(gate.evaluated))
+	}
+}
+
+func TestADeliveryReplayedADayLaterIsEvaluatedAgain(t *testing.T) {
+	gate := &recordingGate{}
+	clock := &steppedClock{now: time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)}
+	settings := listenerSettings(discardedLog(), gate)
+	settings.Clock = clock.read
+	routes := parsedRoutes(t, settings)
+
+	routes.ServeHTTP(httptest.NewRecorder(), signedDelivery("pull_request", pullRequestPayload("opened")))
+	clock.now = clock.now.Add(24 * time.Hour)
+	replayed := httptest.NewRecorder()
+	routes.ServeHTTP(replayed, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if len(gate.evaluated) != 2 {
+		t.Errorf("the gate evaluated %d times, want twice: the record should have lapsed", len(gate.evaluated))
+	}
+}
+
+func TestARedeliveryOfAFailedEvaluationIsEvaluatedAgain(t *testing.T) {
+	gate := &recordingGate{failure: errors.New("the forge is unreachable")}
+	routes := routedWith(t, discardedLog(), gate)
+
+	routes.ServeHTTP(httptest.NewRecorder(), signedDelivery("pull_request", pullRequestPayload("opened")))
+	gate.failure = nil
+	redelivered := httptest.NewRecorder()
+	routes.ServeHTTP(redelivered, signedDelivery("pull_request", pullRequestPayload("opened")))
+
+	if redelivered.Code != http.StatusAccepted || len(gate.evaluated) != 2 {
+		t.Errorf("the redelivery was answered %d after %d evaluations, want 202 after 2",
+			redelivered.Code, len(gate.evaluated))
+	}
+}
+
+type steppedClock struct{ now time.Time }
+
+func (clock *steppedClock) read() time.Time { return clock.now }
+
+type sequentialDecisions struct{ minted int }
+
+func (sequence *sequentialDecisions) NextDecisionID() (domain.DecisionID, error) {
+	sequence.minted++
+	return domain.ParseDecisionID(fmt.Sprintf("dec_%032x", sequence.minted))
+}
