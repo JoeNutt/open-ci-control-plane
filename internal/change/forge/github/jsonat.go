@@ -154,12 +154,21 @@ func failureIn(response *http.Response, over exchange) error {
 	return fmt.Errorf("%w: %s", reported, standardStatusOf(response))
 }
 
+const (
+	rateLimitRemainingHeader = "X-RateLimit-Remaining"
+	retryAfterHeader         = "Retry-After"
+	spentRateLimit           = "0"
+)
+
 func isUnavailableAnswer(response *http.Response) bool {
 	if response.StatusCode >= http.StatusInternalServerError || response.StatusCode == http.StatusTooManyRequests {
 		return true
 	}
-	return response.StatusCode == http.StatusForbidden &&
-		(response.Header.Get("X-RateLimit-Remaining") == "0" || response.Header.Get("Retry-After") != "")
+	return response.StatusCode == http.StatusForbidden && isRateLimited(response.Header)
+}
+
+func isRateLimited(header http.Header) bool {
+	return header.Get(rateLimitRemainingHeader) == spentRateLimit || header.Get(retryAfterHeader) != ""
 }
 
 func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {

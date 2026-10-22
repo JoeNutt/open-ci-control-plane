@@ -99,6 +99,32 @@ func TestPublishCheckRunRetriesARateLimitedPost(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunNeverRetriesAClientErrorThatIsNotARateLimit(t *testing.T) {
+	refused := map[string]refusal{
+		"forbidden":            {status: http.StatusForbidden},
+		"unprocessable entity": {status: http.StatusUnprocessableEntity},
+		"rate limit not spent": {
+			status: http.StatusForbidden, header: http.Header{"X-Ratelimit-Remaining": {"4999"}},
+		},
+	}
+
+	for form, answer := range refused {
+		t.Run(form, func(t *testing.T) {
+			busy := refusingFirst(t, newCheckRunForge(t), answer)
+
+			err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if err == nil || errors.Is(err, github.ErrForgeUnavailable) {
+				t.Errorf("error is %v, want a refusal that is not %v", err, github.ErrForgeUnavailable)
+			}
+			if busy.answered != 1 {
+				t.Errorf("the forge was asked %d times, want once", busy.answered)
+			}
+		})
+	}
+}
+
 type pauses struct {
 	durations []time.Duration
 }
