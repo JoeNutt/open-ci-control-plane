@@ -5,13 +5,13 @@ policies:
     import_roots:
       - prefix: github.com/JoeNutt/open-ci-control-plane
         path: ""
-    paths: # this repository's directories per catalog group
-      domain: ["internal/change/domain/**"]
+    paths:                      # this repository's directories per catalog group
+      domain:      ["internal/change/domain/**"]
       application: ["internal/change/application/**"]
-      adapter: ["internal/change/forge/**", "internal/change/engine/**",
-                "internal/change/ingest/**", "internal/change/rules/**",
-                "internal/change/random/**"]
-      driver: ["cmd/**"]
+      adapter:     ["internal/change/forge/**", "internal/change/engine/**",
+                    "internal/change/ingest/**", "internal/change/rules/**",
+                    "internal/change/random/**"]
+      driver:      ["cmd/**"]
 tests:
   workflow: open-ci-tests.yml
   always_run:

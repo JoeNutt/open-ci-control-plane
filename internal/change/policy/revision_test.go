@@ -21,6 +21,19 @@ func TestParseRevisionParsesTheLivePolicyRepository(t *testing.T) {
 	}
 }
 
+func TestParseRevisionParsesTheSection13ExamplesThePolicyRepositoryHolds(t *testing.T) {
+	model, err := policy.ParseRevision([]domain.PolicyFile{
+		{Path: liveCatalogFile, Content: fixture(t, section13CatalogPath)},
+		{Path: liveBindingFile, Content: fixture(t, exampleBindingPath)},
+	})
+	if err != nil {
+		t.Fatalf("parse the section 13 examples: %v", err)
+	}
+	if len(model.Catalog()) != 1 || len(model.Bindings()) != 1 {
+		t.Errorf("model holds %d catalog policies and %d bindings, want one of each", len(model.Catalog()), len(model.Bindings()))
+	}
+}
+
 func TestParseRevisionRefusesAFileOutsideTheCatalogAndBindings(t *testing.T) {
 	files := liveFiles(t)
 	files[1].Path = "templates/JoeNutt/open-ci-control-plane.yaml"
