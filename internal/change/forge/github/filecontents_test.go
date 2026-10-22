@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package github_test
+
+import (
+	"context"
+	"encoding/base64"
+	"maps"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"slices"
+	"strconv"
+	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
+)
+
+const contentsCommit = "4b9c4930c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
+
+const middlewareSource = "package auth\n\nimport \"net/http\"\n"
+
+type askedForContents struct {
+	method        string
+	escapedPath   string
+	query         url.Values
+	authorization string
+}
+
+func recordingContents(t *testing.T, asked *askedForContents, body string) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		*asked = askedForContents{
+			method:        request.Method,
+			escapedPath:   request.URL.EscapedPath(),
+			query:         request.URL.Query(),
+			authorization: request.Header.Get("Authorization"),
+		}
+		write(t, writer, body)
+	})
+}
+
+func fileAnswer(contents string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(contents))
+	return `{"type": "file", "encoding": "base64", "size": ` +
+		strconv.Itoa(len(contents)) + `, "content": "` + encoded + `"}`
+}
+
+func contentsAt(t *testing.T, server *httptest.Server) github.FileContents {
+	t.Helper()
+
+	contents, err := github.ParseFileContents(settingsAt(server), domain.DeclaredLimits().MaxSourceBytes)
+	if err != nil {
+		t.Fatalf("parse file contents: %v", err)
+	}
+	return contents
+}
+
+func fileAt(t *testing.T, repository, path string) domain.FileAtCommit {
+	t.Helper()
+
+	commit, err := domain.ParseCommitSHA(contentsCommit)
+	if err != nil {
+		t.Fatalf("parse commit: %v", err)
+	}
+	return domain.FileAtCommit{Repository: repository, Commit: commit, Path: path}
+}
+
+func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
+	var asked askedForContents
+	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
+
+	read, err := contentsAt(t, server).ContentsAt(
+		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+
+	if err != nil {
+		t.Fatalf("contents at: %v", err)
+	}
+	if string(read) != middlewareSource {
+		t.Errorf("read %q, want %q", read, middlewareSource)
+	}
+	want := askedForContents{
+		method:        http.MethodGet,
+		escapedPath:   "/repos/acme/payments/contents/internal/auth/middleware.go",
+		query:         url.Values{"ref": {contentsCommit}},
+		authorization: "Bearer " + forgeToken,
+	}
+	if asked.method != want.method || asked.escapedPath != want.escapedPath ||
+		asked.authorization != want.authorization ||
+		!maps.EqualFunc(asked.query, want.query, slices.Equal) {
+		t.Errorf("the adapter asked %+v, want %+v", asked, want)
+	}
+}
