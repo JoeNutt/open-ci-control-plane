@@ -40,7 +40,7 @@ const (
 
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	for _, key := range []string{
-		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey,
+		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey, forgeBaseURLKey,
 	} {
 		t.Run(key, func(t *testing.T) {
 			stated := completeItems(t)

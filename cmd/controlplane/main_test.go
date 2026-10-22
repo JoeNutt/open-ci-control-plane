@@ -29,6 +29,7 @@ func TestAConfigurationMissingOrInvalidInARequiredItemExitsNonZeroNamingItAndSer
 		"no App key":            {"appKeyFile", without("appKeyFile")},
 		"no webhook secret":     {"webhookSecretFile", without("webhookSecretFile")},
 		"no allowlist":          {"installationIds", without("installationIds")},
+		"no forge base URL":     {"forgeBaseUrl", without("forgeBaseUrl")},
 		"an unreadable App key": {"appKeyFile", stating("appKeyFile", `"/nonexistent/app-key.pem"`)},
 		"an empty webhook secret": {"webhookSecretFile", func(t *testing.T, stated map[string]json.RawMessage) {
 			stated["webhookSecretFile"] = quoted(t, writtenFile(t, t.TempDir(), "empty", "\n"))
