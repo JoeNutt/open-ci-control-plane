@@ -125,3 +125,22 @@ func TestAPlannedSuiteThatReportedNothingFailsTheTestsCheckRun(t *testing.T) {
 		t.Errorf("a planned suite with no results concluded %q, want failure", run.Conclusion)
 	}
 }
+
+func TestAnEmptyReportForAFullMatrixPlanFailsTheTestsCheckRun(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
+		head: {Locator: gatedLocator(t), Plan: domain.TestPlan{Head: head, FullMatrix: true}},
+	}}
+	published := &publishedCheckRuns{}
+
+	err := application.RecordRun{Ledger: ledger, Publisher: published}.Execute(context.Background(), domain.RunReport{
+		Repository: gatedLocator(t).GovernedRepository(), Head: head,
+	})
+
+	if err != nil {
+		t.Fatalf("record run: %v", err)
+	}
+	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("an empty report for the full matrix concluded %q, want failure", run.Conclusion)
+	}
+}
