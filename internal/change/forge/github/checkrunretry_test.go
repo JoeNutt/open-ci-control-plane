@@ -7,8 +7,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
@@ -18,7 +20,7 @@ func TestPublishCheckRunRetriesAPostTheForgeAnswersWithAServerError(t *testing.T
 	held := newCheckRunForge(t)
 	busy := refusingFirst(t, held, refusal{status: http.StatusBadGateway})
 
-	err := checkRunsAt(t, busy.server).PublishCheckRun(
+	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 	if err != nil {
@@ -31,7 +33,7 @@ func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
 	held := newCheckRunForge(t)
 	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit+1)...)
 
-	err := checkRunsAt(t, busy.server).PublishCheckRun(
+	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 	if !errors.Is(err, github.ErrForgeUnavailable) {
@@ -46,13 +48,45 @@ func TestPublishCheckRunSucceedsOnItsLastAllowedAttempt(t *testing.T) {
 	held := newCheckRunForge(t)
 	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit-1)...)
 
-	err := checkRunsAt(t, busy.server).PublishCheckRun(
+	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
 	if err != nil {
 		t.Fatalf("publish check run: %v", err)
 	}
 	held.onlyRun()
+}
+
+func TestPublishCheckRunBacksOffDoublingTheWaitBeforeEachRetry(t *testing.T) {
+	held := newCheckRunForge(t)
+	busy := refusingFirst(t, held, serverErrors(3)...)
+	var waited pauses
+
+	err := checkRunsWaitingOn(t, busy.server, &waited).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	want := []time.Duration{github.FirstRetryPause, 2 * github.FirstRetryPause, 4 * github.FirstRetryPause}
+	if !slices.Equal(waited.durations, want) {
+		t.Errorf("waited %v before the retries, want %v", waited.durations, want)
+	}
+}
+
+type pauses struct {
+	durations []time.Duration
+}
+
+func (waited *pauses) record(_ context.Context, pause time.Duration) error {
+	waited.durations = append(waited.durations, pause)
+	return nil
+}
+
+func checkRunsWaitingOn(t *testing.T, server *httptest.Server, waited *pauses) github.CheckRuns {
+	t.Helper()
+
+	return github.CheckRunsPausingWith(checkRunsAt(t, server), waited.record)
 }
 
 func serverErrors(count int) []refusal {

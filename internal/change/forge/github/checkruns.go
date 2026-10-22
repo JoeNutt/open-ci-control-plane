@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,7 +16,10 @@ var _ domain.CheckRunPublisher = CheckRuns{}
 type CheckRuns struct {
 	forge connection
 	owner appID
+	pause func(ctx context.Context, wait time.Duration) error
 }
+
+const FirstRetryPause = time.Second
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	forge, err := parseCredentialsConnection(settings)
@@ -26,7 +30,7 @@ func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	if err != nil {
 		return CheckRuns{}, err
 	}
-	return CheckRuns{forge: forge, owner: owner}, nil
+	return CheckRuns{forge: forge, owner: owner, pause: waitFor}, nil
 }
 
 func (runs CheckRuns) String() string {
@@ -52,13 +56,32 @@ func (runs CheckRuns) PublishCheckRun(
 
 func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publication) error {
 	var err error
-	for range domain.OutboundAttemptLimit {
+	wait := FirstRetryPause
+	for attempt := range domain.OutboundAttemptLimit {
 		err = runs.publish(ctx, pending)
 		if !errors.Is(err, ErrForgeUnavailable) {
 			return err
 		}
+		if attempt == domain.OutboundAttemptLimit-1 {
+			break
+		}
+		if pauseErr := runs.pause(ctx, wait); pauseErr != nil {
+			return errors.Join(err, pauseErr)
+		}
+		wait *= 2
 	}
 	return err
+}
+
+func waitFor(ctx context.Context, wait time.Duration) error {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {
