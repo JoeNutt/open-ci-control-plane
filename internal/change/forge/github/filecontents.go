@@ -63,7 +63,7 @@ const jsonArrayValue = "array"
 
 func refusalOfAListing(err error) error {
 	var mistyped *json.UnmarshalTypeError
-	if errors.As(err, &mistyped) && mistyped.Value == jsonArrayValue {
+	if errors.As(err, &mistyped) && mistyped.Value == jsonArrayValue && mistyped.Field == "" {
 		return fmt.Errorf("%w: a directory listing", errNotAFile)
 	}
 	return err

@@ -194,6 +194,19 @@ func TestContentsAtRefusesAnAnswerThatIsNotAFile(t *testing.T) {
 	}
 }
 
+func TestContentsAtReportsOnlyAJSONArrayAsADirectoryListing(t *testing.T) {
+	server := answering(t, http.StatusOK, `{"type": "file", "encoding": "base64", "size": [1], "content": ""}`)
+
+	_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", middlewarePath))
+
+	if err == nil {
+		t.Fatal("read an answer with an array-typed size without error")
+	}
+	if errors.Is(err, github.ErrNotAFile) {
+		t.Errorf("error %v calls a mistyped file answer a directory listing", err)
+	}
+}
+
 func TestContentsAtRefusesAFileTheForgeServesWithoutItsContent(t *testing.T) {
 	server := answering(t, http.StatusOK,
 		`{"type": "file", "encoding": "none", "size": 1000500, "content": ""}`)
