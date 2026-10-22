@@ -111,16 +111,26 @@ type service struct {
 }
 
 type bundle struct {
-	Service  string `json:"service"`
-	Resource string `json:"resource"`
+	Service  string  `json:"service"`
+	Resource string  `json:"resource"`
+	Polling  polling `json:"polling"`
 }
+
+type polling struct {
+	MinDelaySeconds int64 `json:"min_delay_seconds"`
+	MaxDelaySeconds int64 `json:"max_delay_seconds"`
+}
+
+var loopbackBundlePolling = polling{MinDelaySeconds: 1, MaxDelaySeconds: 2}
 
 func configurationFor(settings Settings) configuration {
 	family := string(settings.Family)
 	return configuration{
 		Services: map[string]service{family: {URL: settings.BundleService.String()}},
 		Bundles: map[string]bundle{
-			bundleNameFor(settings.Family): {Service: family, Resource: BundleResourceFor(settings.Family)},
+			bundleNameFor(settings.Family): {
+				Service: family, Resource: BundleResourceFor(settings.Family), Polling: loopbackBundlePolling,
+			},
 		},
 	}
 }

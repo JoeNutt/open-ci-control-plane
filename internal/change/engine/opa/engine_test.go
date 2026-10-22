@@ -180,3 +180,13 @@ func bundleServiceAt(t *testing.T, address string) opa.BundleService {
 	}
 	return service
 }
+
+const opaDefaultMinimumPollSeconds = 60
+
+func TestTheEnginePollsItsLoopbackBundleWithinSecondsNotOPAsDefaultMinute(t *testing.T) {
+	minimum, maximum := opa.BundlePollingOf(opa.Settings{Family: domain.PolicyFamilyStructural, BundleService: bundleServiceAt(t, "http://127.0.0.1:8181")})
+
+	if minimum <= 0 || maximum < minimum || maximum >= opaDefaultMinimumPollSeconds {
+		t.Errorf("the bundle is polled every %d to %d s, want a positive range under %d s", minimum, maximum, opaDefaultMinimumPollSeconds)
+	}
+}
