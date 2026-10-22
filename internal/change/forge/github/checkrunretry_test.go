@@ -74,6 +74,31 @@ func TestPublishCheckRunBacksOffDoublingTheWaitBeforeEachRetry(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunRetriesARateLimitedPost(t *testing.T) {
+	limits := map[string]refusal{
+		"too many requests": {status: http.StatusTooManyRequests},
+		"primary rate limit": {
+			status: http.StatusForbidden, header: http.Header{"X-Ratelimit-Remaining": {"0"}},
+		},
+		"secondary rate limit": {status: http.StatusForbidden, header: http.Header{"Retry-After": {"1"}}},
+	}
+
+	for form, limit := range limits {
+		t.Run(form, func(t *testing.T) {
+			held := newCheckRunForge(t)
+			busy := refusingFirst(t, held, limit)
+
+			err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
+				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+			if err != nil {
+				t.Fatalf("publish check run: %v", err)
+			}
+			held.onlyRun()
+		})
+	}
+}
+
 type pauses struct {
 	durations []time.Duration
 }

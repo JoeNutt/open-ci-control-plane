@@ -144,7 +144,7 @@ func failureIn(response *http.Response, over exchange) error {
 	if response.StatusCode == http.StatusNotFound && over.notFound != nil {
 		return fmt.Errorf("%w: %s", over.notFound, standardStatusOf(response))
 	}
-	if response.StatusCode >= http.StatusInternalServerError {
+	if isUnavailableAnswer(response) {
 		return fmt.Errorf("%w: %w: %s", ErrUnexpectedStatus, ErrForgeUnavailable, response.Status)
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
@@ -152,6 +152,14 @@ func failureIn(response *http.Response, over exchange) error {
 		reported = ErrUnexpectedStatus
 	}
 	return fmt.Errorf("%w: %s", reported, standardStatusOf(response))
+}
+
+func isUnavailableAnswer(response *http.Response) bool {
+	if response.StatusCode >= http.StatusInternalServerError || response.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	return response.StatusCode == http.StatusForbidden &&
+		(response.Header.Get("X-RateLimit-Remaining") == "0" || response.Header.Get("Retry-After") != "")
 }
 
 func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
