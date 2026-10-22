@@ -114,13 +114,15 @@ type runPresentation struct {
 
 func (presented runPresentation) checkRunFor(family PolicyFamily, id DecisionID) CheckRun {
 	return CheckRun{
-		Name:       checkRunNamePrefix + string(family),
+		Name:       checkRunNameFor(family),
 		Conclusion: presented.conclusion,
 		Title:      presented.title,
 		Headline:   presented.headline,
 		DecisionID: id,
 	}
 }
+
+func checkRunNameFor(family PolicyFamily) string { return checkRunNamePrefix + string(family) }
 
 var enforcementMarkingBySeverity = map[EnforcementSeverity]string{
 	EnforcementSeverityDeny:   "blocking",
