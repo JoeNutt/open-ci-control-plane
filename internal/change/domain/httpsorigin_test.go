@@ -4,6 +4,7 @@ package domain_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -28,5 +29,15 @@ func TestParseHTTPSOriginRefusesAnythingButAnHTTPSOrigin(t *testing.T) {
 				t.Errorf("%q gave %v, want %v", stated, err, domain.ErrMalformedHTTPSOrigin)
 			}
 		})
+	}
+}
+
+func TestTheRefusalOfAnOriginCarryingCredentialsDoesNotRepeatThem(t *testing.T) {
+	const password = "s3cret-in-the-url"
+
+	_, err := domain.ParseHTTPSOrigin("https://user:" + password + "@api.github.com")
+
+	if err == nil || strings.Contains(err.Error(), password) {
+		t.Errorf("the refusal is %v, want one that does not carry the password", err)
 	}
 }

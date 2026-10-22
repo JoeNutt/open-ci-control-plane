@@ -28,7 +28,7 @@ func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, err)
 	}
 	if fault, isFaulty := originFaultOf(parsed); isFaulty {
-		return HTTPSOrigin{}, fmt.Errorf("%w: %q %s", ErrMalformedHTTPSOrigin, stated, fault)
+		return HTTPSOrigin{}, fmt.Errorf("%w: it %s", ErrMalformedHTTPSOrigin, fault)
 	}
 	return HTTPSOrigin{value: stated}, nil
 }
