@@ -75,33 +75,32 @@ type TestPlan struct {
 	BundleRevision BundleRevision
 }
 
-type PlanBasis struct {
+type PlanSubject struct {
 	Document   Document
-	Coverage   RepositoryCoverage
 	Binding    Binding
 	DecisionID DecisionID
 	Revision   BundleRevision
 }
 
-func PlanFor(basis PlanBasis) (TestPlan, error) {
-	head, err := ParseCommitSHA(basis.Document.PR.HeadSHA)
+func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error) {
+	head, err := ParseCommitSHA(subject.Document.PR.HeadSHA)
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	selection, err := basis.Coverage.selectionFor(basis.Document.Diff.Files)
+	selection, err := coverage.selectionFor(subject.Document.Diff.Files)
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	trigger := triggerOf(plannedSelection{diff: basis.Document.Diff, selection: selection})
+	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
 	return TestPlan{
-		DecisionID:     basis.DecisionID,
-		Repository:     basis.Binding.Repository(),
+		DecisionID:     subject.DecisionID,
+		Repository:     subject.Binding.Repository(),
 		Head:           head,
-		Workflow:       basis.Binding.Workflow(),
+		Workflow:       subject.Binding.Workflow(),
 		Suites:         selection.suites,
-		AlwaysRun:      basis.Binding.AlwaysRun(),
+		AlwaysRun:      subject.Binding.AlwaysRun(),
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
-		BundleRevision: basis.Revision,
+		BundleRevision: subject.Revision,
 	}, nil
 }

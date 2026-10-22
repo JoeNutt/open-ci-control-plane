@@ -108,16 +108,15 @@ type plannedChange struct {
 func planOf(t *testing.T, change plannedChange) domain.TestPlan {
 	t.Helper()
 
-	plan, err := domain.PlanFor(domain.PlanBasis{
+	plan, err := domain.PlanFor(domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
 			Diff: domain.Diff{Files: change.files, Kinds: change.kinds},
 		},
-		Coverage:   change.coverage,
 		Binding:    planBinding(t),
 		DecisionID: decisionIDForPlan(t),
 		Revision:   revisionForTest(t),
-	})
+	}, change.coverage)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
