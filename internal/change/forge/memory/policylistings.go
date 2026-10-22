@@ -19,7 +19,7 @@ func (listings PolicyListings) ListedFilesAt(
 ) ([]domain.ListedFile, error) {
 	listed, recorded := listings.Listings[at]
 	if !recorded {
-		return nil, fmt.Errorf("%w: %s at %s", domain.ErrNoSuchCommit, at.Repository, at.Commit)
+		return nil, fmt.Errorf("%w: %s at %s", domain.ErrNoSuchCommit, at.Repository(), at.Commit())
 	}
 	return slices.Clone(listed), nil
 }
