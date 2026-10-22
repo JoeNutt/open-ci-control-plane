@@ -140,13 +140,13 @@ func failureIn(response *http.Response, over exchange) error {
 		return nil
 	}
 	if response.StatusCode == http.StatusNotFound && over.notFound != nil {
-		return fmt.Errorf("%w: %s", over.notFound, response.Status)
+		return fmt.Errorf("%w: %s", over.notFound, standardStatusOf(response))
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {
 		reported = ErrUnexpectedStatus
 	}
-	return fmt.Errorf("%w: %s", reported, response.Status)
+	return fmt.Errorf("%w: %s", reported, standardStatusOf(response))
 }
 
 func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
@@ -158,4 +158,8 @@ func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("%w: more than %d bytes", ErrResponseTooLarge, maxBytes)
 	}
 	return read, nil
+}
+
+func standardStatusOf(response *http.Response) string {
+	return fmt.Sprintf("%d %s", response.StatusCode, http.StatusText(response.StatusCode))
 }

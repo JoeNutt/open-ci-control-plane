@@ -2,7 +2,12 @@
 
 package domain
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var ErrNoSuchBranch = errors.New("the forge reports no such branch in the repository")
 
 type DefaultBranchHeads interface {
 	DefaultBranchHeadOf(ctx context.Context, repository PolicyRepository) (CommitSHA, error)
