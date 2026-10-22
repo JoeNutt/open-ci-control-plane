@@ -165,8 +165,9 @@ func firstAnswerFrom(t *testing.T, listenAddress, signedPayload string) int {
 }
 
 const (
-	webhookSecret = "the App's webhook secret"
-	appKeyBody    = "c3RhdGVkIGtleQ"
+	listenAddressItem = "listenAddress"
+	webhookSecret     = "the App's webhook secret"
+	appKeyBody        = "c3RhdGVkIGtleQ"
 )
 
 func assertNothingServesOn(t *testing.T, listenAddress string) {
@@ -188,7 +189,7 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"-----BEGIN RSA PRIVATE KEY-----\n"+appKeyBody+"\n-----END RSA PRIVATE KEY-----\n")
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
-		"listenAddress":     quoted(t, unusedLoopbackAddress(t)),
+		listenAddressItem:   quoted(t, unusedLoopbackAddress(t)),
 		"appId":             json.RawMessage(`1204331`),
 		"appKeyFile":        quoted(t, appKey),
 		"webhookSecretFile": quoted(t, secret),
@@ -246,7 +247,7 @@ func unusedLoopbackAddress(t *testing.T) string {
 func addressIn(t *testing.T, stated map[string]json.RawMessage) string {
 	t.Helper()
 	var address string
-	if err := json.Unmarshal(stated["listenAddress"], &address); err != nil {
+	if err := json.Unmarshal(stated[listenAddressItem], &address); err != nil {
 		t.Fatalf("read the stated listen address: %v", err)
 	}
 	return address
