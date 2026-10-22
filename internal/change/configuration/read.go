@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -25,6 +26,7 @@ const (
 	webhookSecretFileItem item = "webhookSecretFile"
 	installationIDsItem   item = "installationIds"
 	familiesItem          item = "families"
+	forgeBaseURLItem      item = "forgeBaseUrl"
 )
 
 var items = []item{
@@ -34,6 +36,7 @@ var items = []item{
 	webhookSecretFileItem,
 	installationIDsItem,
 	familiesItem,
+	forgeBaseURLItem,
 }
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -45,6 +48,7 @@ type Configuration struct {
 	webhookSecret   Secret
 	installationIDs []int64
 	families        []domain.PolicyFamily
+	forgeBaseURL    url.URL
 }
 
 func Read(path string) (Configuration, error) {
@@ -75,6 +79,8 @@ func (configured Configuration) Families() []domain.PolicyFamily {
 	return slices.Clone(configured.families)
 }
 
+func (configured Configuration) ForgeBaseURL() url.URL { return configured.forgeBaseURL }
+
 func (stated statedItems) configuration() (Configuration, error) {
 	address, addressErr := listenAddressIn(stated)
 	appID, appIDErr := appIDIn(stated)
@@ -82,7 +88,9 @@ func (stated statedItems) configuration() (Configuration, error) {
 	webhookSecret, webhookSecretErr := webhookSecretIn(stated)
 	installationIDs, installationIDsErr := installationIDsIn(stated)
 	families, familiesErr := familiesIn(stated)
-	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr)
+	forgeBaseURL, forgeBaseURLErr := forgeBaseURLIn(stated)
+	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr,
+		forgeBaseURLErr)
 	if refusals != nil {
 		return Configuration{}, refusals
 	}
@@ -93,5 +101,6 @@ func (stated statedItems) configuration() (Configuration, error) {
 		webhookSecret:   webhookSecret,
 		installationIDs: installationIDs,
 		families:        families,
+		forgeBaseURL:    forgeBaseURL,
 	}, nil
 }

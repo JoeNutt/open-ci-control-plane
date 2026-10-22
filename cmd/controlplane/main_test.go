@@ -194,6 +194,7 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"webhookSecretFile": quoted(t, secret),
 		"installationIds":   json.RawMessage(`[52311907]`),
 		"families":          json.RawMessage(`["structural"]`),
+		"forgeBaseUrl":      quoted(t, "https://api.github.com"),
 	}
 }
 

@@ -230,3 +230,11 @@ func distinctInstallationIDs(count int) json.RawMessage {
 	}
 	return listOf(ids...)
 }
+
+func TestTheForgeBaseURLIsTheOneTheConfigurationStates(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+
+	if stated := configured.ForgeBaseURL(); stated.String() != statedForgeBaseURL {
+		t.Errorf("the forge base URL is %s, want %s", stated.String(), statedForgeBaseURL)
+	}
+}

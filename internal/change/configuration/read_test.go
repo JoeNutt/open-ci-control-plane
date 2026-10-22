@@ -25,6 +25,7 @@ const (
 	webhookSecretFileKey = "webhookSecretFile"
 	installationIDsKey   = "installationIds"
 	familiesKey          = "families"
+	forgeBaseURLKey      = "forgeBaseUrl"
 )
 
 const (
@@ -34,6 +35,7 @@ const (
 	statedWebhookSecret  = "s3cret"
 	statedAppKeyBody     = "c3RhdGVkIGtleQ"
 	statedAppKey         = "-----BEGIN RSA PRIVATE KEY-----\n" + statedAppKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
+	statedForgeBaseURL   = "https://api.github.com"
 )
 
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
@@ -160,6 +162,7 @@ func completeItems(t *testing.T) statedItems {
 		webhookSecretFileKey: quoted(t, writtenFile(t, "webhook-secret", statedWebhookSecret)),
 		installationIDsKey:   listOf(number(statedInstallationID)),
 		familiesKey:          listOf(quoted(t, string(domain.PolicyFamilyStructural))),
+		forgeBaseURLKey:      quoted(t, statedForgeBaseURL),
 	}
 }
 
