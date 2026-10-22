@@ -9,4 +9,5 @@ const (
 	decisionIDKey        = "decisionId"
 	reasonKey            = "reason"
 	faultKey             = "fault"
+	fieldKey             = "field"
 )

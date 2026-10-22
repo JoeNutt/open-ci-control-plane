@@ -13,6 +13,11 @@ type answerBody interface {
 	status() int
 }
 
+type refusal interface {
+	answerBody
+	reason() string
+}
+
 type answers struct{ log *slog.Logger }
 
 func (writing answers) write(ctx context.Context, answer http.ResponseWriter, body answerBody) {

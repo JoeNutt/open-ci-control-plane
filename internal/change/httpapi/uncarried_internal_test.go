@@ -30,9 +30,9 @@ func TestARefusalWithoutItsParsedDeliveryIsLoggedAsAnError(t *testing.T) {
 func TestTheAdmittedStageWithoutItsParsedDeliveryAnswersAFailure(t *testing.T) {
 	var logged bytes.Buffer
 	stage := admitted{
-		allowed:   allowlist{41},
-		answering: answers{log: slog.New(slog.DiscardHandler)},
-		log:       slog.New(slog.NewJSONHandler(&logged, nil)),
+		allowed:    allowlist{41},
+		answering:  answers{log: slog.New(slog.DiscardHandler)},
+		evaluating: evaluation{log: slog.New(slog.NewJSONHandler(&logged, nil))},
 	}
 	answered := httptest.NewRecorder()
 

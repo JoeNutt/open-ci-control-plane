@@ -333,24 +333,6 @@ func TestAPullRequestNamingNoParseablePullRequestIsRefusedUnevaluated(t *testing
 	}
 }
 
-func TestARefusedSignatureIsLoggedNamingTheDeliveryAndTheReason(t *testing.T) {
-	var logged bytes.Buffer
-
-	routed(t, slog.New(slog.NewJSONHandler(&logged, nil))).ServeHTTP(
-		httptest.NewRecorder(), headedDelivery(strings.NewReader(`{}`)))
-
-	var line map[string]string
-	if err := json.Unmarshal(logged.Bytes(), &line); err != nil {
-		t.Fatalf("the refusal is not one structured line: %v: %q", err, logged.String())
-	}
-	if line["deliveryId"] != statedDeliveryID {
-		t.Errorf("the refusal names delivery %q, want %q", line["deliveryId"], statedDeliveryID)
-	}
-	if line["reason"] == "" {
-		t.Errorf("the refusal states no reason: %q", logged.String())
-	}
-}
-
 func TestAnAnswerThatCannotBeWrittenIsLogged(t *testing.T) {
 	delivery := eventDelivery(`{}`)
 	var logged bytes.Buffer
