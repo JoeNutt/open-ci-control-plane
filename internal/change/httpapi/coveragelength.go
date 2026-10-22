@@ -2,19 +2,14 @@
 
 package httpapi
 
-import (
-	"fmt"
-
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-)
+import "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 
 func uploadLengthRefusalOf(declared int64) refusal {
-	limit := fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
 	if declared == undeclaredLength {
-		return limitProblem{Code: undeclaredLengthCode, Message: "the upload declares no length", Limit: limit}
+		return undeclaredUploadLengthProblem()
 	}
 	if domain.DeclaredCoverageLimits().CompressedBytesBreach(declared) != nil {
-		return limitProblem{Code: "artifact_too_large", Message: "too large", Limit: limit}
+		return oversizedUploadProblem()
 	}
 	return nil
 }
