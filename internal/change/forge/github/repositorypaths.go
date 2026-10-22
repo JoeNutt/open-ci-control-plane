@@ -12,6 +12,8 @@ import (
 
 const fileEntryType = "blob"
 
+var ErrTruncatedTree = errors.New("the forge truncated the default-branch tree, so not every path is known")
+
 type RepositoryPaths struct {
 	forge connection
 }
@@ -32,7 +34,7 @@ func (paths RepositoryPaths) KnownPathsOf(
 		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}
 	if listed.Truncated {
-		return domain.KnownPaths{}, ErrTruncatedTree
+		return domain.KnownPaths{}, fmt.Errorf("%w: %s", ErrTruncatedTree, repository)
 	}
 	return domain.NewKnownPaths(listed.repositoryPaths()), nil
 }
@@ -40,8 +42,6 @@ func (paths RepositoryPaths) KnownPathsOf(
 func defaultBranchTreeEndpoint(repository domain.GovernedRepository) string {
 	return fmt.Sprintf("/repos/%s/%s/git/trees/HEAD?recursive=1", repository.Owner(), repository.Name())
 }
-
-var ErrTruncatedTree = errors.New("truncated")
 
 type tree struct {
 	Truncated bool        `json:"truncated"`
