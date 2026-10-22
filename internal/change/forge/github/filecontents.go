@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -37,12 +38,11 @@ func (contents FileContents) ContentsAt(
 }
 
 func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
-	for _, segment := range strings.Split(file.Path, "/") {
-		if segment == "" || segment == "." || segment == ".." {
-			return nil, domain.ErrPathOutsideRepository
-		}
+	endpoint, err := contentsEndpoint(file)
+	if err != nil {
+		return nil, err
 	}
-	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, contentsEndpoint(file))
+	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -53,20 +53,28 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 	return decoded, nil
 }
 
-func contentsEndpoint(file domain.FileAtCommit) string {
+func contentsEndpoint(file domain.FileAtCommit) (string, error) {
+	path, err := escapedRepositoryPath(file.Path)
+	if err != nil {
+		return "", err
+	}
 	query := url.Values{"ref": {file.Commit.String()}}
-	return fmt.Sprintf("/repos/%s/contents/%s?%s",
-		file.Repository, escapedRepositoryPath(file.Path), query.Encode())
+	return fmt.Sprintf("/repos/%s/contents/%s?%s", file.Repository, path, query.Encode()), nil
 }
 
 const repositoryPathSeparator = "/"
 
-func escapedRepositoryPath(path string) string {
+var segmentsResolvedAway = []string{"", ".", ".."}
+
+func escapedRepositoryPath(path string) (string, error) {
 	segments := strings.Split(path, repositoryPathSeparator)
 	for position, segment := range segments {
+		if slices.Contains(segmentsResolvedAway, segment) {
+			return "", fmt.Errorf("%w: it holds the segment %q", domain.ErrPathOutsideRepository, segment)
+		}
 		segments[position] = url.PathEscape(segment)
 	}
-	return strings.Join(segments, repositoryPathSeparator)
+	return strings.Join(segments, repositoryPathSeparator), nil
 }
 
 type contentsAnswer struct {
