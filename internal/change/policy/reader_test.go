@@ -4,6 +4,7 @@ package policy_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"testing"
 
@@ -23,6 +24,42 @@ func TestReadRevisionAcceptsThePolicyFilesAtTheDefaultBranchHeadAsThatRevision(t
 	}
 	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
 		t.Errorf("accepted revision %s, want the head %s", revision, firstPolicyCommit)
+	}
+}
+
+func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
+	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	complete := policy.ReaderPorts{Heads: recorded.heads, Listings: recorded.listings, Contents: recorded.contents}
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
+	missing := map[string]func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy){
+		"no repository": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
+			return domain.PolicyRepository{}, complete, active
+		},
+		"no heads": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
+			ports := complete
+			ports.Heads = nil
+			return readRepository(t), ports, active
+		},
+		"no listings": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
+			ports := complete
+			ports.Listings = nil
+			return readRepository(t), ports, active
+		},
+		"no contents": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
+			ports := complete
+			ports.Contents = nil
+			return readRepository(t), ports, active
+		},
+		"no active policy": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
+			return readRepository(t), complete, nil
+		},
+	}
+	for form, parts := range missing {
+		t.Run(form, func(t *testing.T) {
+			if _, err := policy.ParseReader(parts()); !errors.Is(err, policy.ErrIncompleteReader) {
+				t.Fatalf("a reader with %s gave %v, want ErrIncompleteReader", form, err)
+			}
+		})
 	}
 }
 

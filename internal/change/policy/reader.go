@@ -4,6 +4,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -21,7 +22,12 @@ type Reader struct {
 	active     *ActivePolicy
 }
 
+var ErrIncompleteReader = errors.New("policy reader is missing a part it cannot read without")
+
 func ParseReader(repository domain.PolicyRepository, ports ReaderPorts, active *ActivePolicy) (*Reader, error) {
+	if repository == (domain.PolicyRepository{}) || ports.Heads == nil || ports.Listings == nil || ports.Contents == nil || active == nil {
+		return nil, ErrIncompleteReader
+	}
 	return &Reader{repository: repository, ports: ports, active: active}, nil
 }
 
