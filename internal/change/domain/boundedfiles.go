@@ -19,6 +19,9 @@ type Limits struct {
 	MaxPathSegments      int
 	MaxSourceBytes       int
 	MaxImportsPerFile    int
+	MaxImportsPerChange  int
+	MaxGraphEdges        int
+	MaxStructuralBytes   int
 }
 
 func DeclaredLimits() Limits {
@@ -30,6 +33,9 @@ func DeclaredLimits() Limits {
 		MaxPathSegments:      20,
 		MaxSourceBytes:       1 << 20,
 		MaxImportsPerFile:    2000,
+		MaxImportsPerChange:  50000,
+		MaxGraphEdges:        20000,
+		MaxStructuralBytes:   4 << 20,
 	}
 }
 

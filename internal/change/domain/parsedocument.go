@@ -22,7 +22,7 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 func diffOf(change Change, rules ClassificationRules) Diff {
 	bounded := change.Files
 	paths := pathsOf(bounded.files)
-	imports := importsOf(change.Imported)
+	imports := slices.Clone(change.Structure.imports)
 	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 paths,
@@ -34,7 +34,7 @@ func diffOf(change Change, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution, change.Imported),
+		ModuleGraphDelta:      change.Structure.moduleGraphDelta(),
 	}
 }
 
@@ -79,16 +79,6 @@ func byDirOf(files []File) PathsByDir {
 	return byDir
 }
 
-func importsOf(imported []ImportedFile) Declared[Import] {
-	imports := make(Declared[Import], 0, len(imported))
-	for _, file := range imported {
-		if file.existsAtHead() {
-			imports = append(imports, file.headImport())
-		}
-	}
-	return imports
-}
-
 type importResolution struct {
 	unresolved int
 	share      float64
@@ -106,22 +96,4 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
 	}
 	return resolution
-}
-
-func graphDeltaFor(resolution importResolution, imported []ImportedFile) ModuleGraphDelta {
-	return ModuleGraphDelta{
-		EdgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
-		EdgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
-		Incomplete:   resolution.unresolved > 0,
-	}
-}
-
-func edgesIn(
-	imported []ImportedFile, edgesOf func(ImportedFile) []ModuleEdge,
-) Declared[ModuleEdge] {
-	var edges Declared[ModuleEdge]
-	for _, file := range imported {
-		edges = append(edges, edgesOf(file)...)
-	}
-	return edges
 }

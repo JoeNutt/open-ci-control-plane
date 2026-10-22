@@ -60,8 +60,8 @@ func changeImporting(t *testing.T, file domain.File, imports ...string) domain.C
 	t.Helper()
 
 	return domain.Change{
-		Files:    boundedFor(t, file),
-		Imported: []domain.ImportedFile{{File: file, Head: fileImportsOf(t, imports...)}},
+		Files:     boundedFor(t, file),
+		Structure: structureOf(t, domain.ImportedFile{File: file, Head: fileImportsOf(t, imports...)}),
 	}
 }
 
@@ -70,11 +70,11 @@ func changeMovingAnEdge(t *testing.T, file domain.File) domain.Change {
 
 	return domain.Change{
 		Files: boundedFor(t, file),
-		Imported: []domain.ImportedFile{{
+		Structure: structureOf(t, domain.ImportedFile{
 			File: file,
 			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
 			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/session"),
-		}},
+		}),
 	}
 }
 
