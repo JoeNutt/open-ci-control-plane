@@ -36,7 +36,7 @@ func TestAFamilyWhoseBundleNeverArrivesRefusesStartUpByTheDeadlineNamingIt(t *te
 
 	_, err := startedEnginesFor(starting,
 		[]domain.PolicyFamily{domain.PolicyFamilyStructural, domain.PolicyFamilySecurity},
-		structuralBundleService(t))
+		bundledEngineStarter(structuralBundleService(t)))
 
 	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), string(domain.PolicyFamilySecurity)) {
 		t.Errorf("the refusal is not the start-up deadline naming the security family: %v", err)
@@ -72,7 +72,7 @@ func structuralEngines(t *testing.T) startedEngines {
 	starting, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
-		structuralBundleService(t))
+		bundledEngineStarter(structuralBundleService(t)))
 	if err != nil {
 		t.Fatalf("start the engines: %v", err)
 	}

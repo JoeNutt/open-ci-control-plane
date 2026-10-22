@@ -9,14 +9,31 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/engine/opa"
 )
 
-type startedEngines map[domain.PolicyFamily]*opa.Engine
+type stoppableEngine interface {
+	domain.FamilyEngine
+	Stop(ctx context.Context)
+}
+
+type engineStarter func(ctx context.Context, family domain.PolicyFamily) (stoppableEngine, error)
+
+func bundledEngineStarter(bundleService string) engineStarter {
+	return func(ctx context.Context, family domain.PolicyFamily) (stoppableEngine, error) {
+		engine, err := opa.ParseEngine(ctx, opa.Settings{Family: family, BundleService: bundleService})
+		if err != nil {
+			return nil, err
+		}
+		return engine, nil
+	}
+}
+
+type startedEngines map[domain.PolicyFamily]stoppableEngine
 
 func startedEnginesFor(
-	ctx context.Context, families []domain.PolicyFamily, bundleService string,
+	ctx context.Context, families []domain.PolicyFamily, start engineStarter,
 ) (startedEngines, error) {
 	engines := make(startedEngines, len(families))
 	for _, family := range families {
-		engine, err := opa.ParseEngine(ctx, opa.Settings{Family: family, BundleService: bundleService})
+		engine, err := start(ctx, family)
 		if err != nil {
 			return nil, err
 		}
