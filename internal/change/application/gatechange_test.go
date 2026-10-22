@@ -59,7 +59,7 @@ func TestGateChangePublishesACheckRunForEachConfiguredFamilyOnly(t *testing.T) {
 	}
 	published := &memory.CheckRuns{}
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(locator),
+		Build:     buildOverAnAuthChange(t, locator),
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  &recordedDecisions{},
