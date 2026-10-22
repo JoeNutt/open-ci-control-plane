@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	schemaDirectory    = "../../../schema/"
-	catalogSchemaPath  = schemaDirectory + "policy.catalog.v1.schema.json"
-	bindingSchemaPath  = schemaDirectory + "policy.binding.v1.schema.json"
-	exampleBindingPath = fixtureDirectory + "section13/binding.yaml"
+	schemaDirectory      = "../../../schema/"
+	catalogSchemaPath    = schemaDirectory + "policy.catalog.v1.schema.json"
+	bindingSchemaPath    = schemaDirectory + "policy.binding.v1.schema.json"
+	exampleBindingPath   = fixtureDirectory + "section13/binding.yaml"
+	section13CatalogPath = fixtureDirectory + "section13/catalog.yaml"
 )
 
 func TestEachPublishedSchemaAdmitsTheLiveAndSection13Files(t *testing.T) {
