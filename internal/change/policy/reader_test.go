@@ -29,6 +29,34 @@ func TestReadRevisionAcceptsThePolicyFilesAtTheDefaultBranchHeadAsThatRevision(t
 	}
 }
 
+func TestReadRevisionKeepsThePreviousRevisionThroughARefusedHeadUntilAValidOne(t *testing.T) {
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
+	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	recordCommit(t, recorded, secondPolicyCommit, liveFilesWithBinding(t, liveBindingPlacingOnePathInTwoGroups(t)))
+	recordCommit(t, recorded, thirdPolicyCommit, liveFiles(t))
+	reader := readerOver(t, recorded, active)
+	readAt := func(head string) error {
+		recorded.heads.Heads[readRepository(t)] = policyCommit(t, head)
+		return reader.ReadRevision(context.Background())
+	}
+
+	if err := readAt(firstPolicyCommit); err != nil {
+		t.Fatalf("read the first head: %v", err)
+	}
+	if err := readAt(secondPolicyCommit); !errors.Is(err, domain.ErrPathInTwoGroups) {
+		t.Fatalf("a head placing one path in two groups gave %v, want ErrPathInTwoGroups", err)
+	}
+	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
+		t.Errorf("after a refused head the revision is %s, want the previous %s", revision, firstPolicyCommit)
+	}
+	if err := readAt(thirdPolicyCommit); err != nil {
+		t.Fatalf("read the third head: %v", err)
+	}
+	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, thirdPolicyCommit) {
+		t.Errorf("after a valid head the revision is %s, want %s", revision, thirdPolicyCommit)
+	}
+}
+
 func TestReadRevisionDoesNotListAgainAHeadItHasAlreadyRead(t *testing.T) {
 	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
 	listingsAsked := 0
@@ -222,6 +250,18 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 		listings: memory.PolicyListings{Listings: map[domain.PolicyCommit][]domain.ListedFile{at: listed}},
 		contents: memory.PolicyContents{Files: recorded},
 	}
+}
+
+func recordCommit(t *testing.T, recorded recordedPolicyRepository, head string, files []domain.PolicyFile) {
+	t.Helper()
+
+	at := policyHeadAt(t, head)
+	listed := make([]domain.ListedFile, 0, len(files))
+	for _, file := range files {
+		listed = append(listed, domain.ListedFile{Path: file.Path, Bytes: len(file.Content)})
+		recorded.contents.Files[memory.PolicyFileAt{At: at, Path: repositoryPathOf(t, file.Path)}] = file.Content
+	}
+	recorded.listings.Listings[at] = listed
 }
 
 func policyHeadAt(t *testing.T, head string) domain.PolicyCommit {

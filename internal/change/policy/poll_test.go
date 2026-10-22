@@ -18,24 +18,31 @@ import (
 
 var errForgeUnreachable = errors.New("the forge is unreachable")
 
-func TestPollAtEachTickKeepsTheActiveRevisionThroughAFailedPollAndLogsIt(t *testing.T) {
+func TestPollAtEachTickKeepsTheActiveRevisionThroughAFailedPollAndLogsItUntilAValidOne(t *testing.T) {
 	var logged bytes.Buffer
 	active := activePolicyLoggingTo(t, slog.NewJSONHandler(&logged, nil))
 	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	recordCommit(t, recorded, thirdPolicyCommit, liveFiles(t))
 	ports := portsOver(recorded)
 	ports.Heads = &scriptedHeads{answers: []headAnswer{
 		{head: policyCommit(t, firstPolicyCommit)},
 		{failure: errForgeUnreachable},
+		{head: policyCommit(t, thirdPolicyCommit)},
 	}}
 	ticks := make(chan time.Time)
 	polled := pollInBackground(readerWith(t, ports, active), ticks)
 
 	ticks <- time.Time{}
+	ticks <- time.Time{}
+	afterFailure := acceptedRevisionOf(t, active)
 	close(ticks)
 	<-polled
 
-	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, firstPolicyCommit) {
-		t.Errorf("after a failed poll the active revision is %s, want %s", revision, firstPolicyCommit)
+	if afterFailure != policyCommit(t, firstPolicyCommit) {
+		t.Errorf("after a failed poll the active revision is %s, want %s", afterFailure, firstPolicyCommit)
+	}
+	if revision := acceptedRevisionOf(t, active); revision != policyCommit(t, thirdPolicyCommit) {
+		t.Errorf("after a valid poll the active revision is %s, want %s", revision, thirdPolicyCommit)
 	}
 	if !strings.Contains(logged.String(), errForgeUnreachable.Error()) {
 		t.Errorf("the failed poll was not logged: %q", logged.String())

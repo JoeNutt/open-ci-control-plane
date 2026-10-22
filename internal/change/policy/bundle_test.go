@@ -40,6 +40,33 @@ func TestTheStructuralEngineDecidesWithTheRevisionTheReaderAccepted(t *testing.T
 	}
 }
 
+func TestThePreviousRevisionKeepsDecidingAfterARefusedOne(t *testing.T) {
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
+	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	recordCommit(t, recorded, secondPolicyCommit, liveFilesWithBinding(t, liveBindingWithAlias(t)))
+	reader := readerOver(t, recorded, active)
+	if err := reader.ReadRevision(context.Background()); err != nil {
+		t.Fatalf("read the first head: %v", err)
+	}
+	engine := structuralEngineServedBy(t, policy.BundleHandler{Active: active})
+	recorded.heads.Heads[readRepository(t)] = policyCommit(t, secondPolicyCommit)
+	if err := reader.ReadRevision(context.Background()); !errors.Is(err, policy.ErrAliasOrAnchor) {
+		t.Fatalf("an aliased binding gave %v, want ErrAliasOrAnchor", err)
+	}
+
+	decided, err := engine.Decide(context.Background(), domain.Document{
+		PR:   domain.PullRequest{Repository: liveRepository},
+		Diff: domain.Diff{ModuleGraphDelta: domain.ModuleGraphDelta{EdgesAdded: domain.Declared[domain.ModuleEdge]{}}},
+	})
+
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if decided.Outcome() != domain.OutcomeDecided || decided.Revision().String() != firstPolicyCommit {
+		t.Errorf("outcome %q at %q, want a decision at the previous revision %s", decided.Outcome(), decided.Revision(), firstPolicyCommit)
+	}
+}
+
 func TestTheStructuralDecisionIsUndefinedWhenNoValidPolicyFileWasEverRead(t *testing.T) {
 	active := activePolicyLoggingTo(t, slog.DiscardHandler)
 	aliased := policyRepositoryAt(t, firstPolicyCommit, liveFilesWithBinding(t, liveBindingWithAlias(t)))
