@@ -158,3 +158,24 @@ func TestAHistoryFileOverItsBoundIsRefusedBeforeItIsRead(t *testing.T) {
 		t.Errorf("opening a history one byte over its bound gave %v, want %v", err, domain.ErrHistoryFull)
 	}
 }
+
+func TestACorruptLineIsRefusedNamingItsLineNeverItsContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	const secret = "ghs_0123456789abcdefSECRET"
+	held := `{"at":"2026-10-22T12:00:00Z","body":1}` + "\n" + `{"at":"` + secret + `","body":2}` + "\n"
+	if err := os.WriteFile(path, []byte(held), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := jsonl.OpenLog(path, domain.DeclaredHistoryLimits(), func() time.Time { return recordedAt })
+
+	if err == nil {
+		t.Fatalf("a corrupt line was accepted")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("the refusal echoed the line's content: %v", err)
+	}
+	if !strings.Contains(err.Error(), "line 2") {
+		t.Errorf("the refusal does not name the corrupt line: %v", err)
+	}
+}

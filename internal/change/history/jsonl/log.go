@@ -18,6 +18,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var ErrCorruptHistory = errors.New("the history holds a line that is not an entry")
+
 type Entry struct {
 	At   time.Time       `json:"at"`
 	Body json.RawMessage `json:"body"`
@@ -131,10 +133,10 @@ func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
 	}
 	lines := bytes.Split(held, []byte{'\n'})
 	isTorn = len(lines[len(lines)-1]) > 0
-	for _, line := range lines[:len(lines)-1] {
+	for number, line := range lines[:len(lines)-1] {
 		var entry Entry
-		if err := json.Unmarshal(line, &entry); err != nil {
-			return nil, false, fmt.Errorf("read history: %w", err)
+		if json.Unmarshal(line, &entry) != nil {
+			return nil, false, fmt.Errorf("%w: line %d", ErrCorruptHistory, number+1)
 		}
 		entries = append(entries, entry)
 	}
