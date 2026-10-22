@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package httpapi
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
+)
+
+const (
+	contentTypeHeader = "Content-Type"
+	jsonMediaType     = "application/json"
+	unwrittenAnswer   = "the answer to a delivery could not be written"
+)
+
+const (
+	missingHeaderCode       = "missing_header"
+	missingHeaderMessage    = "the delivery carries no such header"
+	malformedHeaderCode     = "malformed_header"
+	malformedHeaderMessage  = "the header exceeds its length or holds a character outside its set"
+	oversizedBodyCode       = "body_too_large"
+	oversizedBodyMessage    = "the delivery declares a body above the bound"
+	undeclaredLengthCode    = "undeclared_length"
+	undeclaredLengthMessage = "the delivery declares no length"
+)
+
+var deliveryLimit = fmt.Sprintf("%d bytes", ingest.MaxDeliveryBytes)
+
+type refusal interface {
+	status() int
+}
+
+type fieldProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Field   string `json:"field"`
+}
+
+func (fieldProblem) status() int { return http.StatusBadRequest }
+
+type limitProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Limit   string `json:"limit"`
+}
+
+func (limitProblem) status() int { return http.StatusRequestEntityTooLarge }
+
+func missingHeaderProblem(header string) fieldProblem {
+	return fieldProblem{Code: missingHeaderCode, Message: missingHeaderMessage, Field: header}
+}
+
+func malformedHeaderProblem(header string) fieldProblem {
+	return fieldProblem{Code: malformedHeaderCode, Message: malformedHeaderMessage, Field: header}
+}
+
+func oversizedBodyProblem() limitProblem {
+	return limitProblem{Code: oversizedBodyCode, Message: oversizedBodyMessage, Limit: deliveryLimit}
+}
+
+func undeclaredLengthProblem() limitProblem {
+	return limitProblem{Code: undeclaredLengthCode, Message: undeclaredLengthMessage, Limit: deliveryLimit}
+}
