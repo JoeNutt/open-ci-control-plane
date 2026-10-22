@@ -16,6 +16,9 @@ func TestParseRoutesRefusesSettingsMissingAPart(t *testing.T) {
 		"an installation with no gate": func(settings *httpapi.Settings) {
 			settings.Gates[allowlistedInstallation+1] = nil
 		},
+		"an installation whose gate is a typed nil": func(settings *httpapi.Settings) {
+			settings.Gates[allowlistedInstallation+1] = (*recordingGate)(nil)
+		},
 		"no decision ID source": func(settings *httpapi.Settings) { settings.DecisionIDs = nil },
 		"no clock":              func(settings *httpapi.Settings) { settings.Clock = nil },
 	}

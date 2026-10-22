@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"fmt"
-	"maps"
 	"net/http"
 	"slices"
 
@@ -17,11 +16,15 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 	if missing := slices.IndexFunc(requiredParts, isMissingFrom(settings)); missing >= 0 {
 		return nil, fmt.Errorf("%w: %s", ErrIncompleteRoutes, requiredParts[missing].name)
 	}
+	allowed, err := parseInstallationGates(settings.Gates)
+	if err != nil {
+		return nil, err
+	}
 	answering := answers{log: settings.Log}
 	refusing := refusals{log: settings.Log}
 	check, err := ingest.ParseSignatureCheck(ingest.Settings{
 		Accepted: admitted{
-			allowed:   installationGates(maps.Clone(settings.Gates)),
+			allowed:   allowed,
 			answering: answering,
 			refusing:  refusing,
 			evaluating: evaluation{

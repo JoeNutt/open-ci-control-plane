@@ -2,7 +2,30 @@
 
 package httpapi
 
+import (
+	"fmt"
+	"maps"
+	"reflect"
+)
+
 type installationGates map[int64]ChangeGate
+
+func parseInstallationGates(stated map[int64]ChangeGate) (installationGates, error) {
+	if len(stated) == 0 {
+		return nil, fmt.Errorf("%w: a gate", ErrIncompleteRoutes)
+	}
+	for installation, gate := range stated {
+		if gate == nil || isNilPointer(gate) {
+			return nil, fmt.Errorf("%w: a gate for installation %d", ErrIncompleteRoutes, installation)
+		}
+	}
+	return installationGates(maps.Clone(stated)), nil
+}
+
+func isNilPointer(gate ChangeGate) bool {
+	held := reflect.ValueOf(gate)
+	return held.Kind() == reflect.Pointer && held.IsNil()
+}
 
 type admission struct {
 	stated payload
