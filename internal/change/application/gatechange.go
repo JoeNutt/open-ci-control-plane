@@ -21,6 +21,10 @@ func (useCase GateChange) Execute(
 	ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID,
 ) error {
 	document, err := useCase.Build.Execute(ctx, locator)
+	var over domain.ChangeOverBound
+	if errors.As(err, &over) {
+		return errors.Join(err, useCase.publish(context.WithoutCancel(ctx), locator, over.Head, domain.CheckRunForBreach(over, id)))
+	}
 	if err != nil {
 		return err
 	}

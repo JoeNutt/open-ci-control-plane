@@ -173,7 +173,7 @@ func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 	}
 }
 
-func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
+func TestAChangeThatCannotBeBuiltIsNeverDecided(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 413)
 	oversized := domain.DeclaredLimits().MaxPatchBytesPerFile + 1
 	build := buildOverRecorded(t, locator, domain.File{
@@ -199,9 +199,6 @@ func TestAChangeThatCannotBeBuiltIsNeverDecidedOrPublished(t *testing.T) {
 		if len(engine.received) != 0 {
 			t.Errorf("%s was asked about a change that was never built", family)
 		}
-	}
-	if runs := published.PublishedOn(locator, commitSHAOf(t, recordedHeadSHA)); len(runs) != 0 {
-		t.Errorf("a change that was never built was published: %v", runs)
 	}
 }
 

@@ -31,7 +31,8 @@ func (useCase BuildDocument) Execute(
 	}
 	bounded, err := domain.ParseBoundedFiles(files, useCase.Limits)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
+		return domain.Document{}, fmt.Errorf("bound %s: %w", locator,
+			domain.ChangeOverBound{Head: reported.Tips.Head(), Breach: err})
 	}
 	stated := statedChange{locator: locator, tips: reported.Tips}
 	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
