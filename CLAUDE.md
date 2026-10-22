@@ -45,7 +45,7 @@ full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
 |---|---|
 | A component, boundary or dependency | the specification, §12 design and §20 decision record |
 | Anything the specification decides | The current release's §20 decision record. The baseline spec is frozen; a release's §20 says where it overrides it |
-| Which card to pick up, or what blocks it | `docs/delivery-phases.md`, and the one-card rule in `.claude/rules/tdd-cycle.md` |
+| Which card to pick up, or what blocks it | The current release's §18 build order, the board's `Sequence`, and the one-card rule in `.claude/rules/tdd-cycle.md` |
 | An HTTP contract | §13, and `D-21` before adding any endpoint |
 | The policy input document | §13 `C-2`. It is a published cross-release contract — additive only |
 | Anything touching Rego or OPA | `knowledge-base/technology/rego-overview.md`, then `technology/opa-overview.md` |
