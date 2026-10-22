@@ -50,22 +50,6 @@ func TestParseBoundedFilesRefusesAFilePatchLargerThanTheLimitAllows(t *testing.T
 	}
 }
 
-func TestParseBoundedFilesRefusesAChangePatchLargerThanTheLimitAllows(t *testing.T) {
-	files := []domain.File{
-		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-			PatchBytes: 1840},
-		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 7280},
-	}
-	limits := domain.DeclaredLimits()
-	limits.MaxTotalPatchBytes = files[0].PatchBytes + files[1].PatchBytes - 1
-
-	_, err := domain.ParseBoundedFiles(files, limits)
-
-	if !errors.Is(err, domain.ErrChangePatchTooLarge) {
-		t.Fatalf("error is %v, want %v", err, domain.ErrChangePatchTooLarge)
-	}
-}
-
 func TestParseBoundedFilesRefusesAPathLongerThanTheLimitAllows(t *testing.T) {
 	path := "internal/auth/middleware.go"
 	limits := domain.DeclaredLimits()
@@ -115,23 +99,5 @@ func TestParseBoundedFilesDoesNotAliasTheSuppliedFileRecords(t *testing.T) {
 	if document.Diff.Files[0].Path != "internal/auth/middleware.go" {
 		t.Fatalf("the bounded files followed a later write to their input: %+v",
 			document.Diff.Files[0])
-	}
-}
-
-func TestParseBoundedFilesNamesTheOffendingFileBeforeTheAggregateBound(t *testing.T) {
-	files := []domain.File{
-		{Path: "internal/auth/middleware.go", Action: domain.FileActionModified,
-			PatchBytes: 5000},
-		{Path: "infra/iam.tf", Action: domain.FileActionAdded, PatchBytes: 5000},
-	}
-	limits := domain.DeclaredLimits()
-	limits.MaxPathBytes = len(files[1].Path)
-	limits.MaxTotalPatchBytes = files[0].PatchBytes + files[1].PatchBytes - 1
-
-	_, err := domain.ParseBoundedFiles(files, limits)
-
-	if !errors.Is(err, domain.ErrPathTooLong) {
-		t.Fatalf("error is %v, want %v naming the file rather than the aggregate",
-			err, domain.ErrPathTooLong)
 	}
 }

@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -46,5 +47,23 @@ func TestEachDeclaredChangeBoundAdmitsItsLimitAndRefusesOneOver(t *testing.T) {
 				t.Errorf("one over the limit of %d: error is %v, want %v", bound.limit, err, bound.breach)
 			}
 		})
+	}
+}
+
+func TestAChangeDocumentAtTheByteLimitIsAdmittedAndOneByteOverIsRefused(t *testing.T) {
+	limit := domain.DeclaredLimits().MaxDocumentBytes
+	empty, err := json.Marshal(domain.Document{})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	documentOf := func(size int) domain.Document {
+		return domain.Document{PR: domain.PullRequest{Repository: strings.Repeat("a", size-len(empty))}}
+	}
+
+	if _, err := domain.ParseBoundedDocument(documentOf(limit), domain.DeclaredLimits()); err != nil {
+		t.Errorf("at the limit of %d bytes: %v", limit, err)
+	}
+	if _, err := domain.ParseBoundedDocument(documentOf(limit+1), domain.DeclaredLimits()); !errors.Is(err, domain.ErrDocumentTooLarge) {
+		t.Errorf("one byte over: error is %v, want %v", err, domain.ErrDocumentTooLarge)
 	}
 }

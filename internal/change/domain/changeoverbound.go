@@ -19,7 +19,7 @@ func (over ChangeOverBound) Unwrap() error { return over.Breach }
 var errUnnamedChangeBound = errors.New("change exceeds a change bound")
 
 var changeBoundBreaches = []error{
-	ErrTooManyChangedFiles, ErrFilePatchTooLarge, ErrChangePatchTooLarge, ErrPathTooLong, ErrPathTooDeep,
+	ErrTooManyChangedFiles, ErrFilePatchTooLarge, ErrDocumentTooLarge, ErrPathTooLong, ErrPathTooDeep,
 }
 
 const (

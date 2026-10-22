@@ -14,7 +14,7 @@ const pathSeparator = "/"
 type Limits struct {
 	MaxChangedFiles      int
 	MaxPatchBytesPerFile int
-	MaxTotalPatchBytes   int
+	MaxDocumentBytes     int
 	MaxPathBytes         int
 	MaxPathSegments      int
 	MaxSourceBytes       int
@@ -28,7 +28,7 @@ func DeclaredLimits() Limits {
 	return Limits{
 		MaxChangedFiles:      1000,
 		MaxPatchBytesPerFile: 256 << 10,
-		MaxTotalPatchBytes:   8 << 20,
+		MaxDocumentBytes:     8 << 20,
 		MaxPathBytes:         4096,
 		MaxPathSegments:      20,
 		MaxSourceBytes:       1 << 20,
@@ -47,8 +47,6 @@ var ErrTooManyChangedFiles = errors.New("change exceeds the changed file bound")
 
 var ErrFilePatchTooLarge = errors.New("file exceeds the patch byte bound")
 
-var ErrChangePatchTooLarge = errors.New("change exceeds the total patch byte bound")
-
 var ErrPathTooLong = errors.New("path exceeds the path byte bound")
 
 var ErrPathTooDeep = errors.New("path exceeds the path segment bound")
@@ -56,7 +54,6 @@ var ErrPathTooDeep = errors.New("path exceeds the path segment bound")
 var boundsOfAChange = []func([]File, Limits) error{
 	changedFileCountBreachIn,
 	perFileBreachIn,
-	totalPatchBreachIn,
 }
 
 var perFileBounds = []struct {
@@ -82,18 +79,6 @@ func changedFileCountBreachIn(files []File, limits Limits) error {
 	if len(files) > limits.MaxChangedFiles {
 		return fmt.Errorf("%w: %d exceeds %d",
 			ErrTooManyChangedFiles, len(files), limits.MaxChangedFiles)
-	}
-	return nil
-}
-
-func totalPatchBreachIn(files []File, limits Limits) error {
-	total := 0
-	for _, file := range files {
-		total += file.PatchBytes
-	}
-	if total > limits.MaxTotalPatchBytes {
-		return fmt.Errorf("%w: %d exceeds %d",
-			ErrChangePatchTooLarge, total, limits.MaxTotalPatchBytes)
 	}
 	return nil
 }
