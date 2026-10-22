@@ -125,25 +125,36 @@ and the flake otherwise. Git does not enable it on clone: run `git config core.h
 test) and `cmark-gfm` (the check-run renderer test), which is another reason it only passes
 in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
 
-There is no `main` package and no binary yet. Nothing runs except the suite.
+The binary is `cmd/controlplane`. It takes exactly one argument, the path to a JSON
+configuration file (`internal/change/configuration`), logs JSON to stderr, and serves
+`POST /v1/forge/github/events`. Evaluation is not wired yet: the binary's gate is a stub that
+refuses every evaluation.
 
 ## Code layout
 
-Everything lives under `internal/change/`, arranged as ports and adapters:
+`cmd/controlplane` is the composition root. Everything else lives under `internal/change/`,
+arranged as ports and adapters:
 
-- `domain/` owns the types and the ports (`ChangeSource`, `CheckRunPublisher`,
-  `DecisionRecorder`, `DecisionIDSource`, `FamilyEngine`). Its constructors are `Parse*`, which
-  return domain values. `architecture_test.go` fails the suite if a domain package imports
-  anything except the standard library and other `domain` packages.
-- `application/` holds two use cases. `BuildDocument` assembles the policy input document
-  from what `ChangeSource` reports. `GateChange` builds it, evaluates it per policy family,
-  and for each decision both records it and publishes one check run. It does this under
-  `context.WithoutCancel`, and it joins the failures, so one family's failure never stops
-  another family's record or check run from being written.
-- The adapters are `forge/github`, `forge/memory` (a recorded fake for tests),
-  `engine/opa` (one embedded OPA instance per policy family), `jsonlines` (decision records
-  written as JSON lines), `ingest` (webhook signature check), `rules` (classification rules
-  read from outside the governed repository) and `random` (decision IDs).
+- `domain/` owns the types and the ports, each in its own file. Its constructors are
+  `Parse*`, which return domain values. `architecture_test.go` fails the suite if a domain
+  package imports anything except the standard library and other `domain` packages.
+- `application/` holds the use cases. `BuildDocument` assembles the policy input document
+  from the change, the structural facts extracted from the changed source, and the
+  classification rules. `GateChange` evaluates the document per policy family, and for each
+  decision both records it and publishes one check run. It does this under
+  `context.WithoutCancel` and joins the failures, so one family's failure never stops
+  another's record or check run. `ReplaceCoverage` authorises a coverage upload against the
+  caller's identity token, applies the `UploadRate` limit, and replaces one suite's coverage.
+- Inbound adapters: `httpapi` (routes, problem responses, replay protection, installation
+  allowlist), `ingest` (webhook signature check, GitHub Actions identity tokens) and
+  `configuration` (the bounded JSON configuration file).
+- Outbound adapters: `forge/github` (pull requests, check runs, App JWT and installation
+  tokens), `forge/memory` (recorded fakes for tests), `engine/opa` (one embedded OPA instance
+  per policy family; `engine/opa/structural` embeds the structural Rego rules), `policy`
+  (the central catalog and per-repository bindings, validated against
+  `schema/policy.*.v1.schema.json`), `coverage/lcov` and `coverage/memory`, `extract/golang`
+  (Go imports), `jsonlines` (decision records), `rules` (classification rules) and `random`
+  (decision IDs).
 
 Every `.go` file starts with `// SPDX-License-Identifier: GPL-3.0-or-later`.
 
