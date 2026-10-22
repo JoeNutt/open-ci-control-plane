@@ -14,6 +14,7 @@ import (
 const (
 	recordedPolicyRepository = "JoeNutt/open-ci-policy"
 	recordedPolicyHead       = "637d049f40a67db2936d7c97668b07c531b4dcc5"
+	recordedCatalogPath      = "catalog/clean-architecture.yaml"
 )
 
 func TestDefaultBranchHeadsAnswersTheHeadRecordedForARepository(t *testing.T) {
