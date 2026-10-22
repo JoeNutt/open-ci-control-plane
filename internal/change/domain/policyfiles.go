@@ -17,6 +17,8 @@ var ErrTooManyPolicyFiles = errors.New("policy repository exceeds the policy fil
 
 var ErrPolicyFileTooLarge = errors.New("policy file exceeds the policy file byte bound")
 
+var ErrMalformedPolicyFileSize = errors.New("policy file is listed with a negative size")
+
 var ErrMalformedPolicyFilePath = errors.New("policy file path is not a repository-relative path")
 
 type PolicyFile struct {
@@ -31,6 +33,7 @@ type BoundedPolicyFiles struct {
 var boundsOfPolicyFiles = []func([]ListedFile) error{
 	policyFileCountBreachIn,
 	malformedPolicyFilePathIn,
+	negativePolicyFileSizeIn,
 	oversizedPolicyFileIn,
 }
 
@@ -82,4 +85,12 @@ func oversizedPolicyFileIn(listed []ListedFile) error {
 	}
 	return fmt.Errorf("%w: file %d of %d holds %d bytes, exceeding %d",
 		ErrPolicyFileTooLarge, oversized+1, len(listed), listed[oversized].Bytes, MaxPolicyFileBytes)
+}
+
+func negativePolicyFileSizeIn(listed []ListedFile) error {
+	negative := slices.IndexFunc(listed, func(file ListedFile) bool { return file.Bytes < 0 })
+	if negative < 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: file %d of %d", ErrMalformedPolicyFileSize, negative+1, len(listed))
 }
