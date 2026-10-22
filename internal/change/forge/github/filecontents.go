@@ -33,7 +33,7 @@ type FileContents struct {
 
 func ParseFileContents(settings Settings, maxFileBytes int) (FileContents, error) {
 	if maxFileBytes <= 0 {
-		return FileContents{}, ErrMalformedFileBound
+		return FileContents{}, fmt.Errorf("%w: %d", ErrMalformedFileBound, maxFileBytes)
 	}
 	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
