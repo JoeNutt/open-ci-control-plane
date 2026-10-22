@@ -43,15 +43,6 @@ func recordingContents(t *testing.T, asked *askedForContents, body string) *http
 	})
 }
 
-func neverAsked(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
-		writer.WriteHeader(http.StatusNotFound)
-	})
-}
-
 func fileAnswer(contents string) string {
 	return statedFileAnswer(len(contents), base64.StdEncoding.EncodeToString([]byte(contents)))
 }
@@ -84,7 +75,15 @@ func fileAt(t *testing.T, repository, path string) domain.FileAtCommit {
 	if err != nil {
 		t.Fatalf("parse commit: %v", err)
 	}
-	return domain.FileAtCommit{Repository: repository, Commit: commit, Path: path}
+	governed, err := domain.ParseGovernedRepository(repository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	file, err := domain.ParseFileAtCommit(governed, commit, path)
+	if err != nil {
+		t.Fatalf("parse file at commit: %v", err)
+	}
+	return file
 }
 
 func TestParseFileContentsRefusesAFileByteBoundThatIsNotPositive(t *testing.T) {
@@ -118,37 +117,6 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 	if asked != want {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
-	}
-}
-
-func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t *testing.T) {
-	server := neverAsked(t)
-	hostile := []string{
-		"../secrets.go", "internal/../../secrets.go", "internal/..", "./main.go",
-		"internal/./main.go", "internal//main.go", "/etc/passwd", "internal/", "",
-	}
-
-	for _, path := range hostile {
-		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", path))
-
-		if !errors.Is(err, domain.ErrPathOutsideRepository) {
-			t.Errorf("%q: error is %v, want %v", path, err, domain.ErrPathOutsideRepository)
-		}
-	}
-}
-
-func TestContentsAtRefusesARepositoryThatIsNotAnOwnerAndNameWithoutAsking(t *testing.T) {
-	server := neverAsked(t)
-	hostile := []string{
-		"acme/payments/../secrets", "acme/pay?ref=main", "acme/pay#ments", "acme", "../acme/payments",
-	}
-
-	for _, repository := range hostile {
-		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, repository, "main.go"))
-
-		if !errors.Is(err, domain.ErrMalformedRepository) {
-			t.Errorf("%q: error is %v, want %v", repository, err, domain.ErrMalformedRepository)
-		}
 	}
 }
 
@@ -268,32 +236,5 @@ func TestContentsAtNamesTheFileInEveryRefusalButNeverTheCredentialOrTheContent(t
 			t.Errorf("%s: error %q does not name the file", name, err)
 		}
 		mustRevealNoneOf(t, name, err.Error(), []string{forgeToken, middlewareSource, encoded, unencoded})
-	}
-}
-
-func TestContentsAtRefusesAFileNamingNoCommitRatherThanReadTheDefaultBranch(t *testing.T) {
-	unparsed := domain.FileAtCommit{Repository: "acme/payments", Path: middlewarePath}
-
-	_, err := contentsAt(t, neverAsked(t)).ContentsAt(context.Background(), unparsed)
-
-	if !errors.Is(err, domain.ErrMalformedCommitSHA) {
-		t.Fatalf("error is %v, want %v", err, domain.ErrMalformedCommitSHA)
-	}
-}
-
-func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
-	var asked askedForContents
-	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
-
-	_, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/a?ref=main#b%2e.go"))
-
-	if err != nil {
-		t.Fatalf("contents at: %v", err)
-	}
-	wantPath := "/repos/acme/payments/contents/internal/a%3Fref=main%23b%252e.go"
-	if asked.escapedPath != wantPath || asked.rawQuery != "ref="+contentsCommit {
-		t.Errorf("the adapter asked for path %q query %q, want path %q query %q",
-			asked.escapedPath, asked.rawQuery, wantPath, "ref="+contentsCommit)
 	}
 }

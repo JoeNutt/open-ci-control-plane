@@ -52,7 +52,7 @@ type statedChange struct {
 }
 
 type changeEnds struct {
-	repository string
+	repository domain.GovernedRepository
 	base       domain.CommitSHA
 	head       domain.CommitSHA
 }
@@ -97,7 +97,7 @@ func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (c
 	if err != nil {
 		return changeEnds{}, fmt.Errorf("the base commit: %w", err)
 	}
-	return changeEnds{repository: stated.locator.Repository(), base: base, head: head}, nil
+	return changeEnds{repository: stated.locator.GovernedRepository(), base: base, head: head}, nil
 }
 
 func (useCase BuildDocument) importedFileAt(
@@ -106,13 +106,13 @@ func (useCase BuildDocument) importedFileAt(
 	imported := domain.ImportedFile{File: file}
 	var err error
 	if file.Action.ExistsAtBase() {
-		imported.Base, err = useCase.importsAt(ctx, ends.fileAt(ends.base, file.Path))
+		imported.Base, err = useCase.importsAt(ctx, ends, ends.base, file.Path)
 		if err != nil {
 			return domain.ImportedFile{}, fmt.Errorf("at base: %w", err)
 		}
 	}
 	if file.Action.ExistsAtHead() {
-		imported.Head, err = useCase.importsAt(ctx, ends.fileAt(ends.head, file.Path))
+		imported.Head, err = useCase.importsAt(ctx, ends, ends.head, file.Path)
 		if err != nil {
 			return domain.ImportedFile{}, fmt.Errorf("at head: %w", err)
 		}
@@ -120,24 +120,24 @@ func (useCase BuildDocument) importedFileAt(
 	return imported, nil
 }
 
-func (ends changeEnds) fileAt(commit domain.CommitSHA, path string) domain.FileAtCommit {
-	return domain.FileAtCommit{Repository: ends.repository, Commit: commit, Path: path}
-}
-
 func (useCase BuildDocument) importsAt(
-	ctx context.Context, file domain.FileAtCommit,
+	ctx context.Context, ends changeEnds, commit domain.CommitSHA, path string,
 ) (domain.FileImports, error) {
+	file, err := domain.ParseFileAtCommit(ends.repository, commit, path)
+	if err != nil {
+		return domain.FileImports{}, err
+	}
 	contents, err := useCase.Contents.ContentsAt(ctx, file)
 	if err != nil {
 		return domain.FileImports{}, err
 	}
 	source, err := domain.ParseBoundedSource(contents, useCase.Limits)
 	if err != nil {
-		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
+		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit(), err)
 	}
 	paths, err := useCase.Extractor.ImportsIn(source)
 	if err != nil {
-		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
+		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit(), err)
 	}
 	return domain.ParseFileImports(paths, useCase.Limits)
 }

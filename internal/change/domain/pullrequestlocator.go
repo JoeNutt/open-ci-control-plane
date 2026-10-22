@@ -37,6 +37,8 @@ func (locator PullRequestLocator) String() string {
 
 func (locator PullRequestLocator) Repository() string { return locator.repository.String() }
 
+func (locator PullRequestLocator) GovernedRepository() GovernedRepository { return locator.repository }
+
 func (locator PullRequestLocator) Owner() string { return locator.repository.Owner() }
 
 func (locator PullRequestLocator) Name() string { return locator.repository.Name() }

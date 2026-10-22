@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -49,17 +48,13 @@ func (contents FileContents) ContentsAt(
 ) ([]byte, error) {
 	read, err := contents.decodedAt(ctx, file)
 	if err != nil {
-		return nil, fmt.Errorf("read %s in %s at %s: %w", file.Path, file.Repository, file.Commit, err)
+		return nil, fmt.Errorf("read %s: %w", file, err)
 	}
 	return read, nil
 }
 
 func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
-	reading, err := contentsReading(file)
-	if err != nil {
-		return nil, err
-	}
-	answer, err := exchanged[contentsAnswer](ctx, contents.forge, reading)
+	answer, err := exchanged[contentsAnswer](ctx, contents.forge, contentsReading(file))
 	if err != nil {
 		return nil, refusalOfAListing(err)
 	}
@@ -76,49 +71,27 @@ func refusalOfAListing(err error) error {
 	return err
 }
 
-func contentsReading(file domain.FileAtCommit) (exchange, error) {
-	endpoint, err := contentsEndpoint(file)
-	if err != nil {
-		return exchange{}, err
-	}
+func contentsReading(file domain.FileAtCommit) exchange {
 	return exchange{
 		method:    http.MethodGet,
-		endpoint:  endpoint,
+		endpoint:  contentsEndpoint(file),
 		succeeded: http.StatusOK,
 		notFound:  domain.ErrNoSuchFile,
-	}, nil
+	}
 }
 
-func contentsEndpoint(file domain.FileAtCommit) (string, error) {
-	repository, err := domain.ParseGovernedRepository(file.Repository)
-	if err != nil {
-		return "", err
-	}
-	path, err := escapedRepositoryPath(file.Path)
-	if err != nil {
-		return "", err
-	}
-	commit, err := domain.ParseCommitSHA(file.Commit.String())
-	if err != nil {
-		return "", err
-	}
-	query := url.Values{"ref": {commit.String()}}
-	return fmt.Sprintf("%s/contents/%s?%s", repositoryEndpoint(repository), path, query.Encode()), nil
+func contentsEndpoint(file domain.FileAtCommit) string {
+	query := url.Values{"ref": {file.Commit().String()}}
+	return fmt.Sprintf("%s/contents/%s?%s",
+		repositoryEndpoint(file.Repository()), escapedPathOf(file.Path()), query.Encode())
 }
 
-const repositoryPathSeparator = "/"
-
-var segmentsResolvedAway = []string{"", ".", ".."}
-
-func escapedRepositoryPath(path string) (string, error) {
-	segments := strings.Split(path, repositoryPathSeparator)
+func escapedPathOf(path domain.RepositoryPath) string {
+	segments := path.Segments()
 	for position, segment := range segments {
-		if slices.Contains(segmentsResolvedAway, segment) {
-			return "", fmt.Errorf("%w: it holds the segment %q", domain.ErrPathOutsideRepository, segment)
-		}
 		segments[position] = url.PathEscape(segment)
 	}
-	return strings.Join(segments, repositoryPathSeparator), nil
+	return strings.Join(segments, urlPathSeparator)
 }
 
 type contentsAnswer struct {
