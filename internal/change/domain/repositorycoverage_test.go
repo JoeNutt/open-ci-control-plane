@@ -88,7 +88,7 @@ func coverageOfSuites(t *testing.T, count int) domain.RepositoryCoverage {
 }
 
 func mustReplace(
-	t *testing.T, held domain.RepositoryCoverage, suite domain.GoImportPath, coverage domain.SuiteCoverage,
+	t *testing.T, held domain.RepositoryCoverage, suite domain.CoverageSuite, coverage domain.SuiteCoverage,
 ) domain.RepositoryCoverage {
 	t.Helper()
 
@@ -99,16 +99,16 @@ func mustReplace(
 	return replaced
 }
 
-func generatedSuite(t *testing.T, index int) domain.GoImportPath {
+func generatedSuite(t *testing.T, index int) domain.CoverageSuite {
 	t.Helper()
 
 	return mustParseSuite(t, fmt.Sprintf("github.com/JoeNutt/open-ci-control-plane/generated/suite%d", index))
 }
 
-func mustParseSuite(t *testing.T, name string) domain.GoImportPath {
+func mustParseSuite(t *testing.T, name string) domain.CoverageSuite {
 	t.Helper()
 
-	parsed, err := domain.ParseGoImportPath(name)
+	parsed, err := domain.ParseCoverageSuite(name)
 	if err != nil {
 		t.Fatalf("parse suite name %q: %v", name, err)
 	}
