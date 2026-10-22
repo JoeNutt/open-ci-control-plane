@@ -30,6 +30,34 @@ func TestKnownPathsOfAsksForTheDefaultBranchTreeAsTheInstallation(t *testing.T) 
 	}
 }
 
+func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/git/trees/HEAD", `{"truncated": false, "tree": [
+		{"path": "internal", "type": "tree"},
+		{"path": "internal/auth.go", "type": "blob"},
+		{"path": "vendored", "type": "commit"}
+	]}`)
+
+	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+
+	if err != nil {
+		t.Fatalf("known paths: %v", err)
+	}
+	for path, isHeld := range map[string]bool{"internal/auth.go": true, "internal": false, "vendored": false} {
+		if known.Contains(repositoryPathOf(t, path)) != isHeld {
+			t.Errorf("known paths hold %s: %t, want %t", path, !isHeld, isHeld)
+		}
+	}
+}
+
+func repositoryPathOf(t *testing.T, stated string) domain.RepositoryPath {
+	t.Helper()
+	path, err := domain.ParseRepositoryPath(stated)
+	if err != nil {
+		t.Fatalf("parse repository path: %v", err)
+	}
+	return path
+}
+
 func repositoryPathsAt(t *testing.T, server *httptest.Server) github.RepositoryPaths {
 	t.Helper()
 	paths, err := github.ParseRepositoryPaths(settingsAt(server))

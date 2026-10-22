@@ -21,11 +21,23 @@ func ParseRepositoryPaths(settings Settings) (RepositoryPaths, error) {
 	return RepositoryPaths{forge: forge}, nil
 }
 
-type tree struct{}
+type tree struct {
+	Tree []struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	} `json:"tree"`
+}
 
 func (paths RepositoryPaths) KnownPathsOf(ctx context.Context, repository domain.GovernedRepository) (domain.KnownPaths, error) {
-	_, err := jsonAt[tree](ctx, paths.forge, defaultBranchTreeEndpoint(repository))
-	return domain.KnownPaths{}, err
+	listed, err := jsonAt[tree](ctx, paths.forge, defaultBranchTreeEndpoint(repository))
+	var files []domain.RepositoryPath
+	for _, entry := range listed.Tree {
+		if entry.Type == "blob" {
+			p, _ := domain.ParseRepositoryPath(entry.Path)
+			files = append(files, p)
+		}
+	}
+	return domain.NewKnownPaths(files), err
 }
 
 func defaultBranchTreeEndpoint(repository domain.GovernedRepository) string {
