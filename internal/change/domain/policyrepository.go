@@ -5,7 +5,7 @@ package domain
 import "fmt"
 
 type PolicyRepository struct {
-	repositoryName
+	named repositoryName
 }
 
 func ParsePolicyRepository(stated string) (PolicyRepository, error) {
@@ -13,5 +13,11 @@ func ParsePolicyRepository(stated string) (PolicyRepository, error) {
 	if err != nil {
 		return PolicyRepository{}, fmt.Errorf("policy repository: %w", err)
 	}
-	return PolicyRepository{repositoryName: named}, nil
+	return PolicyRepository{named: named}, nil
 }
+
+func (repository PolicyRepository) String() string { return repository.named.String() }
+
+func (repository PolicyRepository) Owner() string { return repository.named.Owner() }
+
+func (repository PolicyRepository) Name() string { return repository.named.Name() }
