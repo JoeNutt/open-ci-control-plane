@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v3/jwk"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
@@ -21,8 +23,6 @@ const (
 	discoveryPath          = "/.well-known/openid-configuration"
 	keySetRefetchInterval  = time.Minute
 )
-
-var ErrIssuerKeysUnavailable = errors.New("the token issuer's signing keys could not be read")
 
 var errOversizedIssuerDocument = fmt.Errorf("the issuer's document exceeds %d bytes", MaxIssuerDocumentBytes)
 
@@ -67,7 +67,7 @@ func (keys *issuerKeys) replaced(ctx context.Context) (jwk.Set, error) {
 	}
 	published, err := keys.published(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrIssuerKeysUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", domain.ErrIdentityIssuerUnavailable, err)
 	}
 	keys.held = published
 	return published, nil

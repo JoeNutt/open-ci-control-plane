@@ -15,6 +15,8 @@ var ErrAbsentIdentityToken = errors.New("no identity token was presented")
 
 var ErrUnverifiedIdentityToken = errors.New("the identity token is absent, expired or not verifiable")
 
+var ErrIdentityIssuerUnavailable = errors.New("the identity token's issuer could not be read to verify it")
+
 type IdentityToken struct {
 	value *string
 }
