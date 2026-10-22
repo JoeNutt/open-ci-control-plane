@@ -44,15 +44,21 @@ func ParseFileContents(settings Settings, maxFileBytes int) (FileContents, error
 func (contents FileContents) ContentsAt(
 	ctx context.Context, file domain.FileAtCommit,
 ) ([]byte, error) {
-	read, err := contents.decodedAt(ctx, file)
+	read, err := contents.decodedAt(ctx, contentsLocation{repository: file.Repository(), commit: file.Commit(), path: file.Path()})
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", file, err)
 	}
 	return read, nil
 }
 
-func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
-	answer, err := exchanged[contentsAnswer](ctx, contents.forge, contentsReading(file))
+type contentsLocation struct {
+	repository ownedRepository
+	commit     domain.CommitSHA
+	path       domain.RepositoryPath
+}
+
+func (contents FileContents) decodedAt(ctx context.Context, location contentsLocation) ([]byte, error) {
+	answer, err := exchanged[contentsAnswer](ctx, contents.forge, contentsReading(location))
 	if err != nil {
 		return nil, refusalOfAListing(err)
 	}
@@ -76,19 +82,19 @@ func isWholeAnswerAnArray(mistyped *json.UnmarshalTypeError) bool {
 	return mistyped.Field == wholeJSONAnswer && mistyped.Value == jsonArrayValue
 }
 
-func contentsReading(file domain.FileAtCommit) exchange {
+func contentsReading(location contentsLocation) exchange {
 	return exchange{
 		method:    http.MethodGet,
-		endpoint:  contentsEndpoint(file),
+		endpoint:  contentsEndpoint(location),
 		succeeded: http.StatusOK,
 		notFound:  domain.ErrNoSuchFile,
 	}
 }
 
-func contentsEndpoint(file domain.FileAtCommit) string {
-	query := url.Values{"ref": {file.Commit().String()}}
+func contentsEndpoint(location contentsLocation) string {
+	query := url.Values{"ref": {location.commit.String()}}
 	return fmt.Sprintf("%s/contents/%s?%s",
-		repositoryEndpoint(file.Repository()), escapedPathOf(file.Path()), query.Encode())
+		repositoryEndpoint(location.repository), escapedPathOf(location.path), query.Encode())
 }
 
 func escapedPathOf(path domain.RepositoryPath) string {
