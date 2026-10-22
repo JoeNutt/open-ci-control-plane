@@ -19,14 +19,15 @@ import (
 )
 
 const (
-	listenAddressKey      = "listenAddress"
-	appIDKey              = "appId"
-	appKeyFileKey         = "appKeyFile"
-	webhookSecretFileKey  = "webhookSecretFile"
-	installationIDsKey    = "installationIds"
-	familiesKey           = "families"
-	policyRepositoryKey   = "policyRepository"
-	policyInstallationKey = "policyInstallationId"
+	listenAddressKey           = "listenAddress"
+	appIDKey                   = "appId"
+	appKeyFileKey              = "appKeyFile"
+	webhookSecretFileKey       = "webhookSecretFile"
+	installationIDsKey         = "installationIds"
+	familiesKey                = "families"
+	policyRepositoryKey        = "policyRepository"
+	policyInstallationKey      = "policyInstallationId"
+	classificationRulesFileKey = "classificationRulesFile"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	for _, key := range []string{
 		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey,
-		policyRepositoryKey, policyInstallationKey,
+		policyRepositoryKey, policyInstallationKey, classificationRulesFileKey,
 	} {
 		t.Run(key, func(t *testing.T) {
 			stated := completeItems(t)
@@ -158,14 +159,15 @@ type statedItems map[string]json.RawMessage
 func completeItems(t *testing.T) statedItems {
 	t.Helper()
 	return statedItems{
-		listenAddressKey:      quoted(t, statedListenAddress),
-		appIDKey:              number(statedAppID),
-		appKeyFileKey:         quoted(t, writtenFile(t, "app-key.pem", statedAppKey)),
-		webhookSecretFileKey:  quoted(t, writtenFile(t, "webhook-secret", statedWebhookSecret)),
-		installationIDsKey:    listOf(number(statedInstallationID)),
-		familiesKey:           listOf(quoted(t, string(domain.PolicyFamilyStructural))),
-		policyRepositoryKey:   quoted(t, statedPolicyRepository),
-		policyInstallationKey: number(statedInstallationID),
+		listenAddressKey:           quoted(t, statedListenAddress),
+		appIDKey:                   number(statedAppID),
+		appKeyFileKey:              quoted(t, writtenFile(t, "app-key.pem", statedAppKey)),
+		webhookSecretFileKey:       quoted(t, writtenFile(t, "webhook-secret", statedWebhookSecret)),
+		installationIDsKey:         listOf(number(statedInstallationID)),
+		familiesKey:                listOf(quoted(t, string(domain.PolicyFamilyStructural))),
+		policyRepositoryKey:        quoted(t, statedPolicyRepository),
+		policyInstallationKey:      number(statedInstallationID),
+		classificationRulesFileKey: quoted(t, writtenFile(t, "rules.yaml", "go: [\"**/*.go\"]\n")),
 	}
 }
 
