@@ -193,8 +193,8 @@ func TestContentsAtReadsAFileOfExactlyTheBoundAndRefusesOneStatedOverItBeforeDec
 		t.Fatalf("at the bound: read %d bytes with error %v, want %d bytes", len(read), err, limit)
 	}
 	_, err = contentsAt(t, overLimit).ContentsAt(context.Background(), file)
-	if !errors.Is(err, github.ErrFileTooLarge) {
-		t.Fatalf("one over the bound: error is %v, want %v", err, github.ErrFileTooLarge)
+	if !errors.Is(err, domain.ErrSourceTooLarge) {
+		t.Fatalf("one over the bound: error is %v, want %v", err, domain.ErrSourceTooLarge)
 	}
 }
 

@@ -21,8 +21,6 @@ var ErrNotAFile = errors.New("the forge answered for something that is not a fil
 
 var ErrContentsNotServed = errors.New("the forge answered without the file's content")
 
-var ErrFileTooLarge = errors.New("the forge states a file larger than the file byte bound")
-
 var ErrMalformedFileBound = errors.New("the file byte bound is not positive")
 
 var ErrContentsSizeMismatch = errors.New("the forge served content of another size than it states")
@@ -125,7 +123,7 @@ func (answer contentsAnswer) refusalBeforeDecoding(maxFileBytes int) error {
 		return fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
 	}
 	if answer.Size > maxFileBytes {
-		return fmt.Errorf("%w: %d bytes exceeds %d", ErrFileTooLarge, answer.Size, maxFileBytes)
+		return fmt.Errorf("%w: %d bytes exceeds %d", domain.ErrSourceTooLarge, answer.Size, maxFileBytes)
 	}
 	if answer.Encoding != contentsEncodingBase64 {
 		return fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
