@@ -3,6 +3,7 @@
 package policy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -61,3 +62,11 @@ type AcceptedRevision struct {
 func (accepted AcceptedRevision) Revision() domain.CommitSHA { return accepted.revision }
 
 func (accepted AcceptedRevision) Model() domain.PolicyModel { return accepted.model }
+
+func (active *ActivePolicy) BindingOf(_ context.Context, repository domain.GovernedRepository) (domain.Binding, error) {
+	accepted, err := active.Accepted()
+	if err != nil {
+		return domain.Binding{}, err
+	}
+	return accepted.Model().BindingOf(repository)
+}
