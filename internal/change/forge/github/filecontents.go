@@ -130,21 +130,28 @@ const (
 )
 
 func (answer contentsAnswer) decoded(maxFileBytes int) ([]byte, error) {
-	if answer.Type != contentsTypeFile {
-		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
-	}
-	if answer.Size > maxFileBytes {
-		return nil, fmt.Errorf("%w: %d bytes exceeds %d", ErrFileTooLarge, answer.Size, maxFileBytes)
-	}
-	if answer.Encoding != contentsEncodingBase64 {
-		return nil, fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
+	if refusal := answer.refusalBeforeDecoding(maxFileBytes); refusal != nil {
+		return nil, refusal
 	}
 	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	if len(decoded) != answer.Size {
-		return nil, ErrContentsSizeMismatch
+		return nil, fmt.Errorf("%w: %d bytes served, %d stated", ErrContentsSizeMismatch, len(decoded), answer.Size)
 	}
 	return decoded, nil
+}
+
+func (answer contentsAnswer) refusalBeforeDecoding(maxFileBytes int) error {
+	if answer.Type != contentsTypeFile {
+		return fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
+	}
+	if answer.Size > maxFileBytes {
+		return fmt.Errorf("%w: %d bytes exceeds %d", ErrFileTooLarge, answer.Size, maxFileBytes)
+	}
+	if answer.Encoding != contentsEncodingBase64 {
+		return fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
+	}
+	return nil
 }
