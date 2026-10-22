@@ -20,26 +20,31 @@ func TestKnownPathsOfAsksForTheDefaultBranchTreeAsTheInstallation(t *testing.T) 
 		write(t, writer, `{"truncated": false, "tree": []}`)
 	})
 
-	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if err != nil {
 		t.Fatalf("known paths: %v", err)
 	}
-	if asked.Method != http.MethodGet || asked.URL.Path != "/repos/acme/payments/git/trees/HEAD" ||
+	if asked.Method != http.MethodGet || asked.URL.Path != treePath ||
 		asked.URL.RawQuery != "recursive=1" || asked.Header.Get("Authorization") != "Bearer "+forgeToken {
-		t.Fatalf("asked %s %s?%s with %q, want GET /repos/acme/payments/git/trees/HEAD?recursive=1 as the installation",
-			asked.Method, asked.URL.Path, asked.URL.RawQuery, asked.Header.Get("Authorization"))
+		t.Fatalf("asked %s %s?%s with %q, want GET %s?recursive=1 as the installation",
+			asked.Method, asked.URL.Path, asked.URL.RawQuery, asked.Header.Get("Authorization"), treePath)
 	}
 }
 
+const (
+	treeRepository = "acme/payments"
+	treePath       = "/repos/" + treeRepository + "/git/trees/HEAD"
+)
+
 func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
-	server := serving(t, "/repos/acme/payments/git/trees/HEAD", `{"truncated": false, "tree": [
+	server := serving(t, treePath, `{"truncated": false, "tree": [
 		{"path": "internal", "type": "tree"},
 		{"path": "internal/auth.go", "type": "blob"},
 		{"path": "vendored", "type": "commit"}
 	]}`)
 
-	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if err != nil {
 		t.Fatalf("known paths: %v", err)
@@ -52,12 +57,12 @@ func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
 }
 
 func TestKnownPathsOfHoldsEveryFileAnSFLineCouldNameAlongsideOneItCouldNot(t *testing.T) {
-	server := serving(t, "/repos/acme/payments/git/trees/HEAD", `{"truncated": false, "tree": [
+	server := serving(t, treePath, `{"truncated": false, "tree": [
 		{"path": "docs/release notes.md", "type": "blob"},
 		{"path": "internal/auth.go", "type": "blob"}
 	]}`)
 
-	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if err != nil {
 		t.Fatalf("known paths: %v", err)
@@ -68,10 +73,10 @@ func TestKnownPathsOfHoldsEveryFileAnSFLineCouldNameAlongsideOneItCouldNot(t *te
 }
 
 func TestKnownPathsOfRefusesATreeTheForgeTruncated(t *testing.T) {
-	server := serving(t, "/repos/acme/payments/git/trees/HEAD",
+	server := serving(t, treePath,
 		`{"truncated": true, "tree": [{"path": "internal/auth.go", "type": "blob"}]}`)
 
-	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if !errors.Is(err, github.ErrTruncatedTree) {
 		t.Fatalf("error is %v, want %v", err, github.ErrTruncatedTree)
@@ -81,7 +86,7 @@ func TestKnownPathsOfRefusesATreeTheForgeTruncated(t *testing.T) {
 func TestKnownPathsOfReportsARepositoryTheForgeCannotFindAsNoSuchRepository(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
 
-	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if !errors.Is(err, github.ErrNoSuchRepository) {
 		t.Fatalf("error is %v, want %v", err, github.ErrNoSuchRepository)
@@ -92,15 +97,11 @@ func TestKnownPathsOfReadsATreeAtTheResponseBoundAndRefusesOneByteOver(t *testin
 	const bound = 256
 	listing := `{"truncated": false, "tree": [{"path": "internal/auth.go", "type": "blob"}]}`
 	for padding, isRefused := range map[int]bool{bound - len(listing): false, bound - len(listing) + 1: true} {
-		server := serving(t, "/repos/acme/payments/git/trees/HEAD", listing+strings.Repeat(" ", padding))
+		server := serving(t, treePath, listing+strings.Repeat(" ", padding))
 		settings := settingsAt(server)
 		settings.MaxResponseBytes = bound
-		paths, err := github.ParseRepositoryPaths(settings)
-		if err != nil {
-			t.Fatalf("parse repository paths: %v", err)
-		}
 
-		_, err = paths.KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+		_, err := repositoryPathsWith(t, settings).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 		if errors.Is(err, github.ErrResponseTooLarge) != isRefused {
 			t.Errorf("a tree of %d bytes against a bound of %d: error %v", len(listing)+padding, bound, err)
@@ -119,7 +120,12 @@ func repositoryPathOf(t *testing.T, stated string) domain.RepositoryPath {
 
 func repositoryPathsAt(t *testing.T, server *httptest.Server) github.RepositoryPaths {
 	t.Helper()
-	paths, err := github.ParseRepositoryPaths(settingsAt(server))
+	return repositoryPathsWith(t, settingsAt(server))
+}
+
+func repositoryPathsWith(t *testing.T, settings github.Settings) github.RepositoryPaths {
+	t.Helper()
+	paths, err := github.ParseRepositoryPaths(settings)
 	if err != nil {
 		t.Fatalf("parse repository paths: %v", err)
 	}
