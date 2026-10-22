@@ -12,6 +12,7 @@ Every entry follows `FORMAT.md`. Read that before adding one.
 | `engineering/` | How code gets written: red-green-refactor, naming, routines, control flow, classes, scope, comments, layout, duplication, table-driven methods, the barricade, errors and assertions. Derived from the global `tdd` and `cc2-*` skills. | `engineering/README.md` |
 | `security/` | Secure coding: threat modeling, input validation, injection, authorization, least privilege, cryptography, secrets, error handling and logging, supply chain, review and testing. Derived from the global `sec-*` skills, plus the **OWASP Top 10:2025** as its own subdirectory. | `security/README.md` |
 | `design-patterns/` | The Gang of Four catalogue plus a marked set of later additions. One file per pattern. | `design-patterns/README.md` |
+| `test-selection/` | Test impact analysis and minimisation: bitwise coverage matrices, set cover, sparse graphs and ZDDs, digital search trees for path matching. Authored for this project, advisory. | `test-selection/README.md` |
 | `technology/` | The engine this project depends on: OPA and Rego, pinned to v1.21.2. | `technology/README.md` |
 | `process/` | How work is taken and tracked: reconciling the project board each session. The owner's direction, binding. | `process/README.md` |
 
