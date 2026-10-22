@@ -38,6 +38,14 @@ func (model PolicyModel) Catalog() []CatalogPolicy { return slices.Clone(model.c
 
 func (model PolicyModel) Bindings() []Binding { return slices.Clone(model.bindings) }
 
+func (model PolicyModel) BindingOf(repository GovernedRepository) (Binding, error) {
+	bound := slices.IndexFunc(model.bindings, func(binding Binding) bool { return binding.repository == repository })
+	if bound < 0 {
+		return Binding{}, fmt.Errorf("%w: %s", ErrNoBinding, repository)
+	}
+	return model.bindings[bound], nil
+}
+
 func duplicateCatalogPolicyIn(catalog []CatalogPolicy) error {
 	for index, policy := range catalog {
 		if slices.ContainsFunc(catalog[:index], policy.sharesNameWith) {

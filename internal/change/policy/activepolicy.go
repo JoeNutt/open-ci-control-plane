@@ -12,6 +12,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var _ domain.BindingSource = (*ActivePolicy)(nil)
+
 var ErrNoPolicyLoaded = errors.New("no policy loaded")
 
 var ErrNoPolicyLog = errors.New("active policy has no log to record revisions in")
