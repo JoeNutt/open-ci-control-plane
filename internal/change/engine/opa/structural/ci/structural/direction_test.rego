@@ -12,7 +12,7 @@ policy := {
 			{"name": "adapter", "order": 2},
 		],
 	}},
-	"bindings": {"JoeNutt/open-ci-control-plane": {"policies": [{
+	"bindings": {control_plane: {"policies": [{
 		"use": "clean-architecture",
 		"import_roots": [{"prefix": module_root, "path": ""}],
 		"paths": {
@@ -23,13 +23,17 @@ policy := {
 	}]}},
 }
 
-module_root := "github.com/JoeNutt/open-ci-control-plane"
+control_plane := "JoeNutt/open-ci-control-plane"
+
+module_root := $"github.com/{control_plane}"
 
 domain_imports_forge := {"from": "internal/change/domain/gate.go", "to": $"{module_root}/internal/change/forge/github"}
 
-change_adding(edges) := {
+change_adding(edges) := change_in(control_plane, edges)
+
+change_in(repository, edges) := {
 	"schema_version": 1,
-	"pr": {"repository": "JoeNutt/open-ci-control-plane"},
+	"pr": {"repository": repository},
 	"diff": {"module_graph_delta": {"edges_added": edges, "edges_removed": [], "incomplete": false}},
 }
 
@@ -87,7 +91,7 @@ test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
 
 policy_also_rooting(root) := json.patch(policy, [{
 	"op": "add",
-	"path": "/bindings/JoeNutt~1open-ci-control-plane/policies/0/import_roots/-",
+	"path": $"/bindings/{replace(control_plane, "/", "~1")}/policies/0/import_roots/-",
 	"value": root,
 }])
 
@@ -137,6 +141,59 @@ test_a_package_in_no_group_at_either_end_is_never_refused[note] if {
 
 	decided.effect == "allow"
 	decided.violations == []
+}
+
+mobile_app := "acme/mobile-app"
+
+model_imports_view := {"from": "app/model/user.go", "to": "example.com/mobile/app/view"}
+
+policy_with_a_second_binding := object.union(policy, {
+	"catalog": {"mvvm": {
+		"rule": "direction",
+		"direction": "lower_order_may_not_import_higher",
+		"groups": [
+			{"name": "model", "order": 0},
+			{"name": "viewmodel", "order": 1},
+			{"name": "view", "order": 2},
+		],
+	}},
+	"bindings": {mobile_app: {"policies": [{
+		"use": "mvvm",
+		"import_roots": [{"prefix": "example.com/mobile", "path": ""}],
+		"paths": {
+			"model": ["app/model/**"],
+			"viewmodel": ["app/viewmodel/**"],
+			"view": ["app/view/**"],
+		},
+	}]}},
+})
+
+test_each_repository_is_judged_only_by_the_policies_its_own_binding_names[note] if {
+	some note, case in {
+		"clean-architecture edge in the mobile app": {
+			"repository": mobile_app,
+			"edge": domain_imports_forge,
+			"refusals": set(),
+		},
+		"mvvm edge in the mobile app": {
+			"repository": mobile_app,
+			"edge": model_imports_view,
+			"refusals": {[
+				"mvvm",
+				`app/model/user.go imports example.com/mobile/app/view: group "model" may not import group "view"`,
+			]},
+		},
+		"mvvm edge in the control plane": {
+			"repository": control_plane,
+			"edge": model_imports_view,
+			"refusals": set(),
+		},
+	}
+
+	decided := structural.decision with input as change_in(case.repository, [case.edge])
+		with data.ci.policy as policy_with_a_second_binding
+
+	{[violation.rule_id, violation.message] | some violation in decided.violations} == case.refusals
 }
 
 test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
