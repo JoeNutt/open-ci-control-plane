@@ -25,6 +25,12 @@ const (
 	unverifiedTokenMessage        = "the upload carries no token, or one that is expired or cannot be verified"
 	failedCoverageCode            = "coverage_failed"
 	failedCoverageMessage         = "the coverage could not be replaced"
+	missingPartCode               = "missing_part"
+	missingPartMessage            = "the form has no such part where C-12 requires it: format, then artifact"
+	unknownFormatCode             = "unknown_format"
+	unknownFormatMessage          = "the format is not lcov, the only format accepted"
+	unparseableArtifactCode       = "unparseable_artifact"
+	unparseableArtifactMessage    = "the artifact is not parseable as LCOV"
 )
 
 var compressedArtifactLimit = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
@@ -86,4 +92,16 @@ func (problem authenticationProblem) reason() string { return problem.Code }
 
 func unverifiedTokenProblem() refusal {
 	return authenticationProblem{Code: unverifiedTokenCode, Message: unverifiedTokenMessage}
+}
+
+func missingPartProblem(part string) refusal {
+	return fieldProblem{Code: missingPartCode, Message: missingPartMessage, Field: part}
+}
+
+func unknownFormatProblem() refusal {
+	return fieldProblem{Code: unknownFormatCode, Message: unknownFormatMessage, Field: formatPart}
+}
+
+func unparseableArtifactProblem() refusal {
+	return fieldProblem{Code: unparseableArtifactCode, Message: unparseableArtifactMessage, Field: artifactPart}
 }

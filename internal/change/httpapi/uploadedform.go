@@ -24,15 +24,10 @@ type CoverageArtifacts interface {
 
 var errUnknownFormat = errors.New("the form states a format other than lcov")
 
-var errMissingPart = errors.New("missing part")
-
-type missingPartError struct{ part string }
-
-func (missingPartError) Is(target error) bool { return target == errMissingPart }
-
-func (missing missingPartError) Error() string {
-	return "the form has no " + missing.part + " part where one is due"
-}
+var (
+	errNoFormatPart   = errors.New("the form has no format part where one is due")
+	errNoArtifactPart = errors.New("the form has no artifact part where one is due")
+)
 
 type uploadedForm struct {
 	parts     *multipart.Reader
@@ -57,14 +52,14 @@ func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 }
 
 func (form uploadedForm) lcovArtifact() (*multipart.Part, error) {
-	format, err := form.nextPartNamed(formatPart)
+	format, err := form.nextPartNamed(formatPart, errNoFormatPart)
 	if err != nil {
 		return nil, err
 	}
 	if err := checkLCOVFormat(format); err != nil {
 		return nil, err
 	}
-	return form.nextPartNamed(artifactPart)
+	return form.nextPartNamed(artifactPart, errNoArtifactPart)
 }
 
 func checkLCOVFormat(format io.Reader) error {
@@ -75,10 +70,10 @@ func checkLCOVFormat(format io.Reader) error {
 	return nil
 }
 
-func (form uploadedForm) nextPartNamed(name string) (*multipart.Part, error) {
+func (form uploadedForm) nextPartNamed(name string, missing error) (*multipart.Part, error) {
 	next, err := form.parts.NextPart()
 	if err != nil || next.FormName() != name {
-		return nil, missingPartError{part: name}
+		return nil, missing
 	}
 	return next, nil
 }

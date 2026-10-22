@@ -35,8 +35,8 @@ func TestAFormThatCannotBeReadAsLCOVIsAnswered400NamingThePart(t *testing.T) {
 }
 
 func TestAFormMissingAPartIsAnswered400NamingIt(t *testing.T) {
-	for _, part := range []string{formatPart, artifactPart} {
-		refused := coverageRefusalOf(fmt.Errorf("read the artifact: %w", missingPartError{part: part}))
+	for part, missing := range map[string]error{formatPart: errNoFormatPart, artifactPart: errNoArtifactPart} {
+		refused := coverageRefusalOf(fmt.Errorf("read the artifact: %w", missing))
 
 		if refused.answer.status() != http.StatusBadRequest || refused.answer.(fieldProblem).Field != part {
 			t.Errorf("answered %#v, want %d naming %s", refused.answer, http.StatusBadRequest, part)
