@@ -90,12 +90,10 @@ func configuredIn(engines map[PolicyFamily]FamilyEngine) []PolicyFamily {
 func (gate Gate) decisionFor(
 	ctx context.Context, family PolicyFamily, document Document,
 ) Decision {
-	select {
-	case gate.slots <- struct{}{}:
-	case <-ctx.Done():
+	if err := gate.acquireSlot(ctx); err != nil {
 		return Decision{outcome: OutcomeDeadlineExceeded}
 	}
-	defer func() { <-gate.slots }()
+	defer gate.releaseSlot()
 	evaluating, cancel := context.WithTimeout(ctx, EvaluationDeadline)
 	defer cancel()
 	decided, err := gate.engines[family].Decide(evaluating, document)
@@ -107,6 +105,17 @@ func (gate Gate) decisionFor(
 	}
 	return decided
 }
+
+func (gate Gate) acquireSlot(ctx context.Context) error {
+	select {
+	case gate.slots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (gate Gate) releaseSlot() { <-gate.slots }
 
 func isPastDeadline(ctx context.Context, err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)
