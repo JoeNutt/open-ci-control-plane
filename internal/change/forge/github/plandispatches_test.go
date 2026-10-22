@@ -5,9 +5,11 @@ package github_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -67,6 +69,81 @@ func TestDispatchPlanPostsTheC9PlanAsOneInputOnTheDefaultBranch(t *testing.T) {
 	if !equalWirePlans(plan, want) {
 		t.Errorf("dispatched %+v, want %+v", plan, want)
 	}
+}
+
+func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t *testing.T) {
+	for _, bound := range []struct {
+		characters int
+		trigger    string
+	}{
+		{domain.MaxPlanCharacters, "none"},
+		{domain.MaxPlanCharacters + 1, "plan_too_large"},
+	} {
+		held := newDispatchForge(t)
+		plan := planSerialisingTo(t, bound.characters)
+
+		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+			t.Fatalf("dispatch plan: %v", err)
+		}
+
+		var sent wirePlan
+		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+			t.Fatalf("decode the plan: %v", err)
+		}
+		isReplaced := bound.trigger == "plan_too_large"
+		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Suites) == 0) != isReplaced {
+			t.Errorf("%d characters: sent %q, full matrix %v, %d suites; want %q",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Suites), bound.trigger)
+		}
+	}
+}
+
+func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
+	t.Helper()
+
+	const quotesAndComma = 3
+	plan := selectedPlan(t)
+	plan.Suites = nil
+	toFill := characters - len(encodedWirePlanOf(t, plan)) + 1
+	count := (toFill + domain.MaxGoImportPathBytes + quotesAndComma - 1) / (domain.MaxGoImportPathBytes + quotesAndComma)
+	share, extra := toFill/count, toFill%count
+	for index := range count {
+		length := share - quotesAndComma
+		if index < extra {
+			length++
+		}
+		name := fmt.Sprintf("example.com/payments/s%d/", index)
+		suite, err := domain.ParseCoverageSuite(name + strings.Repeat("a", length-len(name)))
+		if err != nil {
+			t.Fatalf("parse suite: %v", err)
+		}
+		plan.Suites = append(plan.Suites, suite)
+	}
+	if got := len(encodedWirePlanOf(t, plan)); got != characters {
+		t.Fatalf("built a plan of %d characters, want %d", got, characters)
+	}
+	return plan
+}
+
+func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
+	t.Helper()
+
+	sent := wirePlan{
+		SchemaVersion: 1, DecisionID: plan.DecisionID.String(), Repository: plan.Repository.String(),
+		HeadSHA: plan.Head.String(), Suites: []string{}, AlwaysRunSuites: []string{},
+		FullMatrix: plan.FullMatrix, TriggerReason: string(plan.Trigger), BundleRevision: plan.BundleRevision.String(),
+	}
+	for _, suite := range plan.Suites {
+		sent.Suites = append(sent.Suites, suite.String())
+	}
+	for _, suite := range plan.AlwaysRun {
+		sent.AlwaysRunSuites = append(sent.AlwaysRunSuites, suite.String())
+	}
+	encoded, err := json.Marshal(sent)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	return encoded
 }
 
 func equalWirePlans(one, other wirePlan) bool {
