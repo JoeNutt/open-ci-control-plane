@@ -3,6 +3,7 @@
 package github_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,6 +63,17 @@ func TestKnownPathsOfHoldsEveryFileAnSFLineCouldNameAlongsideOneItCouldNot(t *te
 	}
 	if !known.Contains(repositoryPathOf(t, "internal/auth.go")) {
 		t.Error("a file beside one no SF line could name is not held")
+	}
+}
+
+func TestKnownPathsOfRefusesATreeTheForgeTruncated(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/git/trees/HEAD",
+		`{"truncated": true, "tree": [{"path": "internal/auth.go", "type": "blob"}]}`)
+
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+
+	if !errors.Is(err, github.ErrTruncatedTree) {
+		t.Fatalf("error is %v, want %v", err, github.ErrTruncatedTree)
 	}
 }
 

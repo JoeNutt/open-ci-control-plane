@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -30,6 +31,9 @@ func (paths RepositoryPaths) KnownPathsOf(
 	if err != nil {
 		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}
+	if listed.Truncated {
+		return domain.KnownPaths{}, ErrTruncatedTree
+	}
 	return domain.NewKnownPaths(listed.repositoryPaths()), nil
 }
 
@@ -37,8 +41,11 @@ func defaultBranchTreeEndpoint(repository domain.GovernedRepository) string {
 	return fmt.Sprintf("/repos/%s/%s/git/trees/HEAD?recursive=1", repository.Owner(), repository.Name())
 }
 
+var ErrTruncatedTree = errors.New("truncated")
+
 type tree struct {
-	Entries []treeEntry `json:"tree"`
+	Truncated bool        `json:"truncated"`
+	Entries   []treeEntry `json:"tree"`
 }
 
 type treeEntry struct {
