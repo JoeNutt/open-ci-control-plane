@@ -15,5 +15,10 @@ func ParsePolicyListing(listed []ListedFile) (PolicyListing, error) {
 	if breach := policyFileCountBreachOf(len(listed)); breach != nil {
 		return PolicyListing{}, breach
 	}
+	for _, file := range listed {
+		if file.Bytes > MaxPolicyFileBytes {
+			return PolicyListing{}, ErrPolicyFileTooLarge
+		}
+	}
 	return PolicyListing{files: listed}, nil
 }
