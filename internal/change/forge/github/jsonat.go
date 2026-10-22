@@ -18,6 +18,8 @@ import (
 
 var ErrUnexpectedStatus = errors.New("the forge answered with an unexpected status")
 
+var ErrForgeUnavailable = errors.New("the forge is unavailable")
+
 var ErrResponseTooLarge = errors.New("the forge answered with more than the response byte bound")
 
 type exchange struct {
@@ -141,6 +143,9 @@ func failureIn(response *http.Response, over exchange) error {
 	}
 	if response.StatusCode == http.StatusNotFound && over.notFound != nil {
 		return fmt.Errorf("%w: %s", over.notFound, standardStatusOf(response))
+	}
+	if response.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("%w: %w: %s", ErrUnexpectedStatus, ErrForgeUnavailable, response.Status)
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {

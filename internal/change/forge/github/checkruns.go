@@ -4,6 +4,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -43,7 +44,11 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	if err := runs.publish(ctx, pending); err != nil {
+	err = runs.publish(ctx, pending)
+	if errors.Is(err, ErrForgeUnavailable) {
+		err = runs.publish(ctx, pending)
+	}
+	if err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
 	return nil
