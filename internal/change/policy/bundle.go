@@ -60,7 +60,15 @@ func (handler BundleHandler) servedBundle() ([]byte, error) {
 }
 
 func noPolicyBundle() ([]byte, error) {
-	manifest, err := json.Marshal(bundleManifest{Revision: noPolicyRevision})
+	files, err := ruleFilesAt(noPolicyRevision)
+	if err != nil {
+		return nil, err
+	}
+	return gzippedTarOf(files)
+}
+
+func ruleFilesAt(revision string) (map[string][]byte, error) {
+	manifest, err := json.Marshal(bundleManifest{Revision: revision})
 	if err != nil {
 		return nil, fmt.Errorf("encode the bundle manifest: %w", err)
 	}
@@ -68,7 +76,7 @@ func noPolicyBundle() ([]byte, error) {
 	for name, module := range structural.Modules() {
 		files[name] = []byte(module)
 	}
-	return gzippedTarOf(files)
+	return files, nil
 }
 
 const unservedBundleMessage = "policy bundle not served"
@@ -90,14 +98,11 @@ func bundleFilesOf(accepted AcceptedRevision) (map[string][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encode the policy data: %w", err)
 	}
-	manifest, err := json.Marshal(bundleManifest{Revision: accepted.Revision().String()})
+	files, err := ruleFilesAt(accepted.Revision().String())
 	if err != nil {
-		return nil, fmt.Errorf("encode the bundle manifest: %w", err)
+		return nil, err
 	}
-	files := map[string][]byte{bundleManifestFile: manifest, policyDataFile: encodedData}
-	for name, module := range structural.Modules() {
-		files[name] = []byte(module)
-	}
+	files[policyDataFile] = encodedData
 	return files, nil
 }
 
