@@ -59,7 +59,13 @@ func fileAnswer(contents string) string {
 func contentsAt(t *testing.T, server *httptest.Server) github.FileContents {
 	t.Helper()
 
-	contents, err := github.ParseFileContents(settingsAt(server))
+	return contentsWith(t, settingsAt(server))
+}
+
+func contentsWith(t *testing.T, settings github.Settings) github.FileContents {
+	t.Helper()
+
+	contents, err := github.ParseFileContents(settings, domain.DeclaredLimits().MaxSourceBytes)
 	if err != nil {
 		t.Fatalf("parse file contents: %v", err)
 	}
@@ -188,6 +194,25 @@ func TestContentsAtRefusesAFileTheForgeServesWithoutItsContent(t *testing.T) {
 
 	if !errors.Is(err, github.ErrContentsNotServed) {
 		t.Fatalf("read %d bytes with error %v, want %v", len(read), err, github.ErrContentsNotServed)
+	}
+}
+
+func TestContentsAtReadsAFileOfExactlyTheBoundAndRefusesOneStatedOverItBeforeDecoding(t *testing.T) {
+	limit := domain.DeclaredLimits().MaxSourceBytes
+	atLimit := answering(t, http.StatusOK, fileAnswer(strings.Repeat("a", limit)))
+	settings := settingsAt(atLimit)
+	settings.MaxResponseBytes = 2 * limit
+	overLimit := answering(t, http.StatusOK,
+		`{"type": "file", "encoding": "base64", "size": `+strconv.Itoa(limit+1)+`, "content": "!"}`)
+	file := fileAt(t, "acme/payments", "internal/generated.go")
+
+	read, err := contentsWith(t, settings).ContentsAt(context.Background(), file)
+	if err != nil || len(read) != limit {
+		t.Fatalf("at the bound: read %d bytes with error %v, want %d bytes", len(read), err, limit)
+	}
+	_, err = contentsAt(t, overLimit).ContentsAt(context.Background(), file)
+	if !errors.Is(err, github.ErrFileTooLarge) {
+		t.Fatalf("one over the bound: error is %v, want %v", err, github.ErrFileTooLarge)
 	}
 }
 

@@ -22,16 +22,19 @@ var ErrNotAFile = errors.New("the forge answered for something that is not a fil
 
 var ErrContentsNotServed = errors.New("the forge answered without the file's content")
 
+var ErrFileTooLarge = errors.New("the forge states a file larger than the file byte bound")
+
 type FileContents struct {
-	forge connection
+	forge        connection
+	maxFileBytes int
 }
 
-func ParseFileContents(settings Settings) (FileContents, error) {
+func ParseFileContents(settings Settings, maxFileBytes int) (FileContents, error) {
 	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
 		return FileContents{}, err
 	}
-	return FileContents{forge: forge}, nil
+	return FileContents{forge: forge, maxFileBytes: maxFileBytes}, nil
 }
 
 func (contents FileContents) ContentsAt(
@@ -53,7 +56,7 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 	if err != nil {
 		return nil, refusalOfAListing(err)
 	}
-	return answer.decoded()
+	return answer.decoded(contents.maxFileBytes)
 }
 
 const jsonArrayValue = "array"
@@ -110,6 +113,7 @@ func escapedRepositoryPath(path string) (string, error) {
 type contentsAnswer struct {
 	Type     string `json:"type"`
 	Encoding string `json:"encoding"`
+	Size     int    `json:"size"`
 	Content  string `json:"content"`
 }
 
@@ -118,9 +122,12 @@ const (
 	contentsEncodingBase64 = "base64"
 )
 
-func (answer contentsAnswer) decoded() ([]byte, error) {
+func (answer contentsAnswer) decoded(maxFileBytes int) ([]byte, error) {
 	if answer.Type != contentsTypeFile {
 		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
+	}
+	if answer.Size > maxFileBytes {
+		return nil, ErrFileTooLarge
 	}
 	if answer.Encoding != contentsEncodingBase64 {
 		return nil, fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
