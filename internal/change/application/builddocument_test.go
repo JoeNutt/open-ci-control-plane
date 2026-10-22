@@ -35,6 +35,7 @@ func changeSourceOver(locator domain.PullRequestLocator, files ...domain.File) m
 					Number:     locator.Number(),
 					Repository: locator.Repository(),
 					HeadSHA:    recordedHeadSHA,
+					BaseSHA:    recordedBaseTipSHA,
 				},
 				Files: files,
 			},
@@ -53,7 +54,7 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 
 	useCase := application.BuildDocument{
 		Source: source,
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
@@ -79,7 +80,7 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
@@ -106,7 +107,7 @@ func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *
 	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
 		Extractor: golang.Extractor{},
@@ -136,7 +137,7 @@ func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *t
 		strings.Repeat("x", domain.DeclaredLimits().MaxSourceBytes) + "`\n"
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  recordedAtBothEnds(t, locator, file.Path, sourceImportingContext, oversized),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -179,7 +180,7 @@ func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) 
 	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -202,7 +203,7 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedBaseSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -230,7 +231,7 @@ func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
 	limits.MaxGraphEdges = 1
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAt(t, locator, recordedHeadSHA, file.Path,
 			"package auth\n\nimport (\n\t\"context\"\n\t\"errors\"\n)\n"),
 		Extractor: golang.Extractor{},
@@ -249,7 +250,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			sourceThatDoesNotParse),
 		Extractor: golang.Extractor{},
@@ -310,7 +311,7 @@ func TestBuildDocumentAdmitsAGoFileImportingAPathWithAPlusAndPublishesItsEdges(t
 	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Bases:     recordedBases(t, locator),
+		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, "package auth\n\nimport \"example.com/c++\"\n"),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),

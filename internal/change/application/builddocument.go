@@ -33,7 +33,7 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	stated := statedChange{locator: locator, headSHA: pullRequest.HeadSHA}
+	stated := statedChange{locator: locator, headSHA: pullRequest.HeadSHA, baseSHA: pullRequest.BaseSHA}
 	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
@@ -49,6 +49,7 @@ func (useCase BuildDocument) Execute(
 type statedChange struct {
 	locator domain.PullRequestLocator
 	headSHA string
+	baseSHA string
 }
 
 type changeEnds struct {
@@ -93,9 +94,13 @@ func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (c
 	if err != nil {
 		return changeEnds{}, fmt.Errorf("the head commit: %w", err)
 	}
-	base, err := useCase.Bases.BaseCommitOf(ctx, stated.locator)
+	baseTip, err := domain.ParseCommitSHA(stated.baseSHA)
 	if err != nil {
 		return changeEnds{}, fmt.Errorf("the base commit: %w", err)
+	}
+	base, err := useCase.Bases.MergeBaseOf(ctx, stated.locator, domain.BranchTips{Base: baseTip, Head: head})
+	if err != nil {
+		return changeEnds{}, fmt.Errorf("the merge base: %w", err)
 	}
 	return changeEnds{repository: stated.locator.GovernedRepository(), base: base, head: head}, nil
 }

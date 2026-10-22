@@ -20,7 +20,7 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 		"/repos/acme/payments/pulls/412": `{
 			"number": 412,
 			"draft": false,
-			"base": {"ref": "main"},
+			"base": {"ref": "main", "sha": "` + recordedBaseTipSHA + `"},
 			"head": {"sha": "` + recordedHeadSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER",
@@ -62,7 +62,7 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	useCase := application.BuildDocument{
 		Source: source,
-		Bases:  recordedBases(t, locator),
+		Bases:  recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},

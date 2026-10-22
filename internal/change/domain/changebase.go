@@ -5,5 +5,10 @@ package domain
 import "context"
 
 type ChangeBase interface {
-	BaseCommitOf(ctx context.Context, locator PullRequestLocator) (CommitSHA, error)
+	MergeBaseOf(ctx context.Context, locator PullRequestLocator, tips BranchTips) (CommitSHA, error)
+}
+
+type BranchTips struct {
+	Base CommitSHA
+	Head CommitSHA
 }

@@ -45,22 +45,10 @@ func (source ChangeSource) PullRequestAt(
 	return reported, nil
 }
 
-func (source ChangeSource) BaseCommitOf(
-	ctx context.Context, locator domain.PullRequestLocator,
+func (source ChangeSource) MergeBaseOf(
+	ctx context.Context, locator domain.PullRequestLocator, tips domain.BranchTips,
 ) (domain.CommitSHA, error) {
-	stated, err := jsonAt[pullRequest](ctx, source.forge, pullRequestEndpoint(locator))
-	if err != nil {
-		return domain.CommitSHA{}, fmt.Errorf("read the pull request %s: %w", locator, err)
-	}
-	base, err := domain.ParseCommitSHA(stated.Base.SHA)
-	if err != nil {
-		return domain.CommitSHA{}, fmt.Errorf("the base commit of %s: %w", locator, err)
-	}
-	head, err := domain.ParseCommitSHA(stated.Head.SHA)
-	if err != nil {
-		return domain.CommitSHA{}, fmt.Errorf("the head commit of %s: %w", locator, err)
-	}
-	mergeBase, err := source.mergeBaseOf(ctx, locator, base, head)
+	mergeBase, err := source.mergeBaseOf(ctx, locator, tips.Base, tips.Head)
 	if err != nil {
 		return domain.CommitSHA{}, fmt.Errorf("the merge base of %s: %w", locator, err)
 	}

@@ -464,12 +464,12 @@ func buildOverRecorded(
 				locator: {
 					PullRequest: domain.PullRequest{
 						Number: locator.Number(), Repository: locator.Repository(),
-						HeadSHA: recordedHeadSHA},
+						HeadSHA: recordedHeadSHA, BaseSHA: recordedBaseTipSHA},
 					Files: []domain.File{file},
 				},
 			},
 		},
-		Bases: recordedBases(t, locator),
+		Bases: recordedBases(t),
 		Contents: recordedAtBothEnds(t, locator, file.Path,
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
@@ -481,11 +481,14 @@ const sourceImportingContext = "package auth\n\nimport \"context\"\n"
 
 const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
 
-func recordedBases(t *testing.T, locator domain.PullRequestLocator) memory.ChangeBases {
+const recordedBaseTipSHA = "7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3"
+
+func recordedBases(t *testing.T) memory.ChangeBases {
 	t.Helper()
 
-	return memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{
-		locator: commitSHAOf(t, recordedBaseSHA),
+	tips := domain.BranchTips{Base: commitSHAOf(t, recordedBaseTipSHA), Head: commitSHAOf(t, recordedHeadSHA)}
+	return memory.ChangeBases{MergeBases: map[domain.BranchTips]domain.CommitSHA{
+		tips: commitSHAOf(t, recordedBaseSHA),
 	}}
 }
 
