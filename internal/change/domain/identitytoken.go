@@ -13,6 +13,8 @@ const redacted = "[redacted]"
 
 var ErrAbsentIdentityToken = errors.New("no identity token was presented")
 
+var ErrUnverifiedIdentityToken = errors.New("the identity token is absent, expired or not verifiable")
+
 type IdentityToken struct {
 	value *string
 }

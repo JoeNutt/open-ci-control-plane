@@ -23,7 +23,7 @@ const (
 
 var ErrIncompleteActionsTokens = errors.New("token verification is missing a part it cannot work without")
 
-var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
+var ErrUnverifiedToken = domain.ErrUnverifiedIdentityToken
 
 var (
 	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", ErrUnverifiedToken)
