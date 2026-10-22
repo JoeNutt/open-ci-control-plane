@@ -71,7 +71,7 @@ func TestReadRevisionRefusesAListingOverABoundBeforeFetchingAnyFile(t *testing.T
 		"one policy file over the count bound": {
 			listed: func(listed []domain.ListedFile) []domain.ListedFile {
 				for index := len(listed); index <= domain.MaxPolicyFiles+1; index++ {
-					listed = append(listed, domain.ListedFile{Path: fmt.Sprintf("bindings/owner/repository%d.yaml", index), Bytes: 1})
+					listed = append(listed, domain.ListedFile{Path: fmt.Sprintf(extraBindingPathFormat, index), Bytes: 1})
 				}
 				return listed
 			},

@@ -21,6 +21,8 @@ const (
 	liveDriverPaths  = `driver: ["cmd/**"]`
 	liveRootPathLine = `        path: ""`
 
+	extraBindingPathFormat = "bindings/owner/repository%d.yaml"
+
 	liveSchemaVersionLine  = "schema_version: 1"
 	laterSchemaVersionLine = "schema_version: 2"
 )
