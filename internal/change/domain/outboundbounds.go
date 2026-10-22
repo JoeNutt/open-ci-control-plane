@@ -2,4 +2,8 @@
 
 package domain
 
+import "time"
+
 const OutboundAttemptLimit = 5
+
+const OutboundRetryWindow = 5 * time.Minute

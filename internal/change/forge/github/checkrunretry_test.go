@@ -145,6 +145,24 @@ func TestPublishCheckRunWaitsAsLongAsTheForgeAsksBeforeRetrying(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunGivesUpRatherThanWaitPastTheRetryWindow(t *testing.T) {
+	beyondWindow := strconv.Itoa(int(domain.OutboundRetryWindow/time.Second) + 1)
+	busy := refusingFirst(t, newCheckRunForge(t), refusal{
+		status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {beyondWindow}},
+	})
+	var waited pauses
+
+	err := checkRunsWaitingOn(t, busy.server, &waited).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if !errors.Is(err, github.ErrForgeUnavailable) {
+		t.Fatalf("error is %v, want %v", err, github.ErrForgeUnavailable)
+	}
+	if len(waited.durations) != 0 || busy.answered != 1 {
+		t.Errorf("waited %v and asked %d times, want no wait and one ask", waited.durations, busy.answered)
+	}
+}
+
 type pauses struct {
 	durations []time.Duration
 }

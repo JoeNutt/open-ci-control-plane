@@ -55,14 +55,20 @@ func (runs CheckRuns) PublishCheckRun(
 }
 
 func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publication) error {
-	err := runs.publish(ctx, pending)
+	bounded, cancel := context.WithTimeout(ctx, domain.OutboundRetryWindow)
+	defer cancel()
+	err := runs.publish(bounded, pending)
 	wait := FirstRetryPause
 	for attempt := 1; attempt < domain.OutboundAttemptLimit && errors.Is(err, ErrForgeUnavailable); attempt++ {
-		if pauseErr := runs.pause(ctx, max(wait, askedPauseOf(err))); pauseErr != nil {
+		pause := max(wait, askedPauseOf(err))
+		if deadline, _ := bounded.Deadline(); time.Until(deadline) < pause {
+			return err
+		}
+		if pauseErr := runs.pause(bounded, pause); pauseErr != nil {
 			return errors.Join(err, pauseErr)
 		}
 		wait *= 2
-		err = runs.publish(ctx, pending)
+		err = runs.publish(bounded, pending)
 	}
 	return err
 }
