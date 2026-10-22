@@ -51,9 +51,12 @@ func neverAsked(t *testing.T) *httptest.Server {
 }
 
 func fileAnswer(contents string) string {
-	encoded := base64.StdEncoding.EncodeToString([]byte(contents))
+	return statedFileAnswer(len(contents), base64.StdEncoding.EncodeToString([]byte(contents)))
+}
+
+func statedFileAnswer(size int, encoded string) string {
 	return `{"type": "file", "encoding": "base64", "size": ` +
-		strconv.Itoa(len(contents)) + `, "content": "` + encoded + `"}`
+		strconv.Itoa(size) + `, "content": "` + encoded + `"}`
 }
 
 func contentsAt(t *testing.T, server *httptest.Server) github.FileContents {
@@ -202,8 +205,7 @@ func TestContentsAtReadsAFileOfExactlyTheBoundAndRefusesOneStatedOverItBeforeDec
 	atLimit := answering(t, http.StatusOK, fileAnswer(strings.Repeat("a", limit)))
 	settings := settingsAt(atLimit)
 	settings.MaxResponseBytes = 2 * limit
-	overLimit := answering(t, http.StatusOK,
-		`{"type": "file", "encoding": "base64", "size": `+strconv.Itoa(limit+1)+`, "content": "!"}`)
+	overLimit := answering(t, http.StatusOK, statedFileAnswer(limit+1, "!"))
 	file := fileAt(t, "acme/payments", "internal/generated.go")
 
 	read, err := contentsWith(t, settings).ContentsAt(context.Background(), file)

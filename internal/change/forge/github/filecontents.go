@@ -127,7 +127,7 @@ func (answer contentsAnswer) decoded(maxFileBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
 	}
 	if answer.Size > maxFileBytes {
-		return nil, ErrFileTooLarge
+		return nil, fmt.Errorf("%w: %d bytes exceeds %d", ErrFileTooLarge, answer.Size, maxFileBytes)
 	}
 	if answer.Encoding != contentsEncodingBase64 {
 		return nil, fmt.Errorf("%w: encoding %q", ErrContentsNotServed, answer.Encoding)
