@@ -464,7 +464,8 @@ func buildOverRecorded(
 				locator: {
 					PullRequest: domain.PullRequest{
 						Number: locator.Number(), Repository: locator.Repository(),
-						HeadSHA: recordedHeadSHA, BaseSHA: recordedBaseTipSHA},
+						HeadSHA: recordedHeadSHA},
+					Tips:  recordedTips(t),
 					Files: []domain.File{file},
 				},
 			},
@@ -483,15 +484,21 @@ const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
 
 const recordedBaseTipSHA = "7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3"
 
-func recordedBases(t *testing.T) memory.ChangeBases {
+func recordedTips(t *testing.T) domain.BranchTips {
 	t.Helper()
 
 	tips, err := domain.ParseBranchTips(commitSHAOf(t, recordedBaseTipSHA), commitSHAOf(t, recordedHeadSHA))
 	if err != nil {
 		t.Fatalf("parse branch tips: %v", err)
 	}
+	return tips
+}
+
+func recordedBases(t *testing.T) memory.ChangeBases {
+	t.Helper()
+
 	return memory.ChangeBases{MergeBases: map[domain.BranchTips]domain.CommitSHA{
-		tips: commitSHAOf(t, recordedBaseSHA),
+		recordedTips(t): commitSHAOf(t, recordedBaseSHA),
 	}}
 }
 

@@ -26,7 +26,6 @@ type PullRequest struct {
 	Repository string             `json:"repository"`
 	BaseRef    string             `json:"base_ref"`
 	HeadSHA    string             `json:"head_sha"`
-	BaseSHA    string             `json:"-"`
 	Draft      bool               `json:"draft"`
 	Author     Author             `json:"author"`
 	Labels     Declared[string]   `json:"labels"`

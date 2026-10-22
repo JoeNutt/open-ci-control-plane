@@ -49,7 +49,6 @@ func pullRequestOf(
 		Repository: locator.Repository(),
 		BaseRef:    stated.Base.Ref,
 		HeadSHA:    stated.Head.SHA,
-		BaseSHA:    stated.Base.SHA,
 		Draft:      stated.Draft,
 		Author:     author,
 		Labels:     labelsOf(stated.Labels),

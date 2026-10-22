@@ -5,6 +5,6 @@ package domain
 import "context"
 
 type ChangeSource interface {
-	PullRequestAt(ctx context.Context, locator PullRequestLocator) (PullRequest, error)
+	PullRequestAt(ctx context.Context, locator PullRequestLocator) (ReportedPullRequest, error)
 	FilesChanged(ctx context.Context, locator PullRequestLocator) ([]File, error)
 }

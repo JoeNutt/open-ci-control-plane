@@ -15,7 +15,7 @@ import (
 func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
 	server := servingEach(t, map[string]string{
 		"/repos/acme/payments/pulls/412": `{
-			"number": 412,
+			"number": 412, "base": {"sha": "` + baseSHA + `"}, "head": {"sha": "` + headTipSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER"
 		}`,
@@ -33,15 +33,15 @@ func TestPullRequestAtReportsEveryApprovalTheForgeHolds(t *testing.T) {
 		t.Fatalf("pull request at: %v", err)
 	}
 	want := domain.Declared[domain.Approval]{{Login: "sam"}}
-	if !reflect.DeepEqual(pullRequest.Approvals, want) {
-		t.Fatalf("approvals are %+v, want %+v", pullRequest.Approvals, want)
+	if !reflect.DeepEqual(pullRequest.PullRequest.Approvals, want) {
+		t.Fatalf("approvals are %+v, want %+v", pullRequest.PullRequest.Approvals, want)
 	}
 }
 
 func TestPullRequestAtDropsAnApprovalItsReviewerWithdrew(t *testing.T) {
 	server := servingEach(t, map[string]string{
 		"/repos/acme/payments/pulls/412": `{
-			"number": 412,
+			"number": 412, "base": {"sha": "` + baseSHA + `"}, "head": {"sha": "` + headTipSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER"
 		}`,
@@ -61,8 +61,8 @@ func TestPullRequestAtDropsAnApprovalItsReviewerWithdrew(t *testing.T) {
 		t.Fatalf("pull request at: %v", err)
 	}
 	want := domain.Declared[domain.Approval]{{Login: "kim"}}
-	if !reflect.DeepEqual(pullRequest.Approvals, want) {
-		t.Fatalf("approvals are %+v, want %+v", pullRequest.Approvals, want)
+	if !reflect.DeepEqual(pullRequest.PullRequest.Approvals, want) {
+		t.Fatalf("approvals are %+v, want %+v", pullRequest.PullRequest.Approvals, want)
 	}
 }
 
@@ -71,8 +71,8 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		"/repos/acme/payments/pulls/412": `{
 			"number": 412,
 			"draft": false,
-			"base": {"ref": "main"},
-			"head": {"sha": "9f1c8d2e4b7a"},
+			"base": {"ref": "main", "sha": "` + baseSHA + `"},
+			"head": {"sha": "` + headTipSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER",
 			"labels": [{"name": "backend"}, {"name": "needs-review"}]
@@ -91,7 +91,7 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		Number:     412,
 		Repository: "acme/payments",
 		BaseRef:    "main",
-		HeadSHA:    "9f1c8d2e4b7a",
+		HeadSHA:    headTipSHA,
 		Author: domain.Author{
 			Login:       "jo",
 			Association: domain.AuthorAssociationMember,
@@ -99,14 +99,33 @@ func TestPullRequestAtReportsTheContextTheForgeStates(t *testing.T) {
 		Labels:    domain.Declared[string]{"backend", "needs-review"},
 		Approvals: domain.Declared[domain.Approval]{},
 	}
-	if !reflect.DeepEqual(pullRequest, want) {
-		t.Fatalf("pull request is %+v, want %+v", pullRequest, want)
+	if !reflect.DeepEqual(pullRequest.PullRequest, want) {
+		t.Fatalf("pull request is %+v, want %+v", pullRequest.PullRequest, want)
+	}
+}
+
+func TestPullRequestAtReportsTheBranchTipsItStatesParsed(t *testing.T) {
+	server := servingEach(t, map[string]string{
+		"/repos/acme/payments/pulls/412": `{"number": 412,
+			"base": {"ref": "main", "sha": "` + baseSHA + `"}, "head": {"sha": "` + headTipSHA + `"},
+			"user": {"login": "jo", "type": "User"}, "author_association": "MEMBER"}`,
+		"/repos/acme/payments/pulls/412/reviews": `[]`,
+	})
+
+	reported, err := sourceAt(t, server).PullRequestAt(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("pull request at: %v", err)
+	}
+	if reported.Tips != tipsOf(t) {
+		t.Errorf("tips are %s...%s, want %s...%s",
+			reported.Tips.Base(), reported.Tips.Head(), baseSHA, headTipSHA)
 	}
 }
 
 func TestPullRequestAtRefusesAnAccountTypeItCannotClassify(t *testing.T) {
 	server := serving(t, "/repos/acme/payments/pulls/412", `{
-		"number": 412,
+		"number": 412, "base": {"sha": "`+baseSHA+`"}, "head": {"sha": "`+headTipSHA+`"},
 		"user": {"login": "jo", "type": "Golem"}
 	}`)
 	source := sourceAt(t, server)
@@ -122,7 +141,7 @@ func TestPullRequestAtRefusesAnAccountTypeItCannotClassify(t *testing.T) {
 func TestPullRequestAtRefusesAReviewStateItCannotClassify(t *testing.T) {
 	server := servingEach(t, map[string]string{
 		"/repos/acme/payments/pulls/412": `{
-			"number": 412,
+			"number": 412, "base": {"sha": "` + baseSHA + `"}, "head": {"sha": "` + headTipSHA + `"},
 			"user": {"login": "jo", "type": "User"},
 			"author_association": "MEMBER"
 		}`,
