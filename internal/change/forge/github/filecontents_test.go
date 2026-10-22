@@ -40,6 +40,15 @@ func recordingContents(t *testing.T, asked *askedForContents, body string) *http
 	})
 }
 
+func neverAsked(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
+		writer.WriteHeader(http.StatusNotFound)
+	})
+}
+
 func fileAnswer(contents string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(contents))
 	return `{"type": "file", "encoding": "base64", "size": ` +
@@ -91,10 +100,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 }
 
 func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t *testing.T) {
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
-		writer.WriteHeader(http.StatusNotFound)
-	})
+	server := neverAsked(t)
 	hostile := []string{
 		"../secrets.go", "internal/../../secrets.go", "internal/..", "./main.go",
 		"internal/./main.go", "internal//main.go", "/etc/passwd", "internal/", "",
@@ -110,10 +116,7 @@ func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t
 }
 
 func TestContentsAtRefusesARepositoryThatIsNotAnOwnerAndNameWithoutAsking(t *testing.T) {
-	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
-		writer.WriteHeader(http.StatusNotFound)
-	})
+	server := neverAsked(t)
 	hostile := []string{
 		"acme/payments/../secrets", "acme/pay?ref=main", "acme/pay#ments", "acme", "../acme/payments",
 	}
