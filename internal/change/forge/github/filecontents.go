@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -42,7 +43,12 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 	if err != nil {
 		return nil, err
 	}
-	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, endpoint)
+	answer, err := exchanged[contentsAnswer](ctx, contents.forge, exchange{
+		method:    http.MethodGet,
+		endpoint:  endpoint,
+		succeeded: http.StatusOK,
+		notFound:  domain.ErrNoSuchFile,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -130,6 +130,20 @@ func TestContentsAtRefusesARepositoryThatIsNotAnOwnerAndNameWithoutAsking(t *tes
 	}
 }
 
+func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
+
+	_, err := contentsAt(t, server).ContentsAt(
+		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+
+	if !errors.Is(err, domain.ErrNoSuchFile) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
+	}
+	if errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Errorf("error %v claims the pull request is missing", err)
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
