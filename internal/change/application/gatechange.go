@@ -42,29 +42,40 @@ func (useCase GateChange) Execute(
 		failures = append(failures,
 			useCase.record(posting, decided, document, id),
 			useCase.publish(posting, locator, head, run))
-		if decided.Family == domain.PolicyFamilyStructural && run.Conclusion == domain.ConclusionSuccess {
+		if isStructuralPass(decided, run) {
 			failures = append(failures, useCase.planAndDispatch(posting, document, id, decided.Decision.Revision()))
 		}
 	}
 	return errors.Join(failures...)
 }
 
+func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
+	return decided.Family == domain.PolicyFamilyStructural && run.Conclusion == domain.ConclusionSuccess
+}
+
 func (useCase GateChange) planAndDispatch(
 	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
 ) error {
-	repository, err := domain.ParseGovernedRepository(document.PR.Repository)
+	plan, err := useCase.planOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
 	if err != nil {
-		return err
+		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, err)
 	}
-	binding, err := useCase.Bindings.BindingOf(ctx, repository)
+	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
+		return fmt.Errorf("dispatch the plan for %s: %w", document.PR.Repository, err)
+	}
+	return nil
+}
+
+func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject) (domain.TestPlan, error) {
+	repository, err := domain.ParseGovernedRepository(subject.Document.PR.Repository)
 	if err != nil {
-		return err
+		return domain.TestPlan{}, err
 	}
-	plan, err := useCase.Planner.Execute(ctx, domain.PlanSubject{Document: document, Binding: binding, DecisionID: id, Revision: revision})
+	subject.Binding, err = useCase.Bindings.BindingOf(ctx, repository)
 	if err != nil {
-		return err
+		return domain.TestPlan{}, err
 	}
-	return useCase.Dispatcher.DispatchPlan(ctx, plan)
+	return useCase.Planner.Execute(ctx, subject)
 }
 
 func (useCase GateChange) refuseOverBound(
