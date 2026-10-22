@@ -23,13 +23,10 @@ const (
 )
 
 func servedPolicy(
-	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
+	ctx context.Context, configured configuration.Configuration, evaluation evaluating,
 ) (opa.BundleService, <-chan struct{}, error) {
-	active, err := policy.ParseActivePolicy(log)
-	if err != nil {
-		return opa.BundleService{}, nil, err
-	}
-	reader, err := policyReaderFor(configured, app, active)
+	active, log := evaluation.active, evaluation.log
+	reader, err := policyReaderFor(configured, evaluation.app, active)
 	if err != nil {
 		return opa.BundleService{}, nil, err
 	}
