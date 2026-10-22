@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"slices"
 	"time"
 )
@@ -39,6 +40,7 @@ func (decided FamilyDecision) FailurePosture() FailurePosture {
 type Gate struct {
 	families []PolicyFamily
 	engines  map[PolicyFamily]FamilyEngine
+	slots    chan struct{}
 }
 
 func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
@@ -49,7 +51,7 @@ func ParseGate(engines map[PolicyFamily]FamilyEngine) (Gate, error) {
 	if err != nil {
 		return Gate{}, err
 	}
-	return Gate{families: configuredIn(held), engines: held}, nil
+	return Gate{families: configuredIn(held), engines: held, slots: make(chan struct{}, EvaluationSlots())}, nil
 }
 
 func heldEngines(configured map[PolicyFamily]FamilyEngine) (map[PolicyFamily]FamilyEngine, error) {
@@ -88,6 +90,12 @@ func configuredIn(engines map[PolicyFamily]FamilyEngine) []PolicyFamily {
 func (gate Gate) decisionFor(
 	ctx context.Context, family PolicyFamily, document Document,
 ) Decision {
+	select {
+	case gate.slots <- struct{}{}:
+	case <-ctx.Done():
+		return Decision{outcome: OutcomeDeadlineExceeded}
+	}
+	defer func() { <-gate.slots }()
 	evaluating, cancel := context.WithTimeout(ctx, EvaluationDeadline)
 	defer cancel()
 	decided, err := gate.engines[family].Decide(evaluating, document)
@@ -103,3 +111,5 @@ func (gate Gate) decisionFor(
 func isPastDeadline(ctx context.Context, err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)
 }
+
+func EvaluationSlots() int { return 2 * runtime.GOMAXPROCS(0) }
