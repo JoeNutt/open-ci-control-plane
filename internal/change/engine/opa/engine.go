@@ -20,7 +20,7 @@ var ErrIncompleteSettings = errors.New("engine settings are missing a part the e
 
 type Settings struct {
 	Family        domain.PolicyFamily
-	BundleService string
+	BundleService BundleService
 }
 
 type Engine struct {
@@ -32,7 +32,7 @@ func ParseEngine(ctx context.Context, settings Settings) (*Engine, error) {
 	if _, err := domain.ParsePolicyFamily(string(settings.Family)); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrIncompleteSettings, err)
 	}
-	if settings.BundleService == "" {
+	if settings.BundleService == (BundleService{}) {
 		return nil, fmt.Errorf("%w: no bundle service to load %q from",
 			ErrIncompleteSettings, settings.Family)
 	}
@@ -118,7 +118,7 @@ type bundle struct {
 func configurationFor(settings Settings) configuration {
 	family := string(settings.Family)
 	return configuration{
-		Services: map[string]service{family: {URL: settings.BundleService}},
+		Services: map[string]service{family: {URL: settings.BundleService.String()}},
 		Bundles: map[string]bundle{
 			bundleNameFor(settings.Family): {Service: family, Resource: BundleResourceFor(settings.Family)},
 		},

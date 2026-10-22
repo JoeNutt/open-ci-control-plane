@@ -73,7 +73,7 @@ func engineServing(t *testing.T, policyData []byte) *opa.Engine {
 	server := sdktest.MustNewServer(sdktest.MockBundle(opa.BundleResourceFor(family), bundleFiles))
 	t.Cleanup(server.Stop)
 
-	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: family, BundleService: server.URL()})
+	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: family, BundleService: loopbackServiceAt(t, server.URL())})
 	if err != nil {
 		t.Fatalf("parse engine: %v", err)
 	}
@@ -99,4 +99,13 @@ func decoded[Shape any](t *testing.T, encoded []byte) Shape {
 		t.Fatalf("decode a fixture: %v", err)
 	}
 	return shaped
+}
+
+func loopbackServiceAt(t *testing.T, address string) opa.BundleService {
+	t.Helper()
+	service, err := opa.ParseBundleService(address)
+	if err != nil {
+		t.Fatalf("the test bundle server's address: %v", err)
+	}
+	return service
 }

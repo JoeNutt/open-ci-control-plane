@@ -16,7 +16,7 @@ type stoppableEngine interface {
 
 type engineStarter func(ctx context.Context, family domain.PolicyFamily) (stoppableEngine, error)
 
-func bundledEngineStarter(bundleService string) engineStarter {
+func bundledEngineStarter(bundleService opa.BundleService) engineStarter {
 	return func(ctx context.Context, family domain.PolicyFamily) (stoppableEngine, error) {
 		engine, err := opa.ParseEngine(ctx, opa.Settings{Family: family, BundleService: bundleService})
 		if err != nil {

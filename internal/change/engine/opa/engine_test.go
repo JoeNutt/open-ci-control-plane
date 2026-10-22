@@ -52,7 +52,7 @@ func engineServing(t *testing.T, family domain.PolicyFamily, files map[string]st
 
 	engine, err := opa.ParseEngine(context.Background(), opa.Settings{
 		Family:        family,
-		BundleService: server.URL(),
+		BundleService: bundleServiceAt(t, server.URL()),
 	})
 	if err != nil {
 		t.Fatalf("parse engine: %v", err)
@@ -170,4 +170,13 @@ func TestAnEvaluationFaultCrossesThePortInTheDomainsTerms(t *testing.T) {
 	if errors.As(err, &vendor) {
 		t.Errorf("an OPA error type crossed the port: %v", vendor)
 	}
+}
+
+func bundleServiceAt(t *testing.T, address string) opa.BundleService {
+	t.Helper()
+	service, err := opa.ParseBundleService(address)
+	if err != nil {
+		t.Fatalf("the test bundle server's address: %v", err)
+	}
+	return service
 }

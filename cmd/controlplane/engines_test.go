@@ -19,14 +19,18 @@ import (
 
 const undecidingStructuralPolicy = "package ci.structural\n"
 
-func structuralBundleService(t *testing.T) string {
+func structuralBundleService(t *testing.T) opa.BundleService {
 	t.Helper()
 	server := sdktest.MustNewServer(sdktest.MockBundle(opa.BundleResourceFor(domain.PolicyFamilyStructural), map[string]string{
 		"policy.rego": undecidingStructuralPolicy,
 		".manifest":   `{"revision": "b0b0000000000000000000000000000000000b0b"}`,
 	}))
 	t.Cleanup(server.Stop)
-	return server.URL()
+	service, err := opa.ParseBundleService(server.URL())
+	if err != nil {
+		t.Fatalf("the test bundle server's address: %v", err)
+	}
+	return service
 }
 
 func TestAFamilyWhoseBundleNeverArrivesRefusesStartUpByTheDeadlineNamingIt(t *testing.T) {
