@@ -40,14 +40,22 @@ func uploadedFormOf(asked *http.Request, artifacts CoverageArtifacts) (uploadedF
 }
 
 func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	format, err := form.parts.NextPart()
-	if err != nil || format.FormName() != formatPart {
-		return nil, missingPartError{part: formatPart}
+	format, err := form.nextPartNamed(formatPart)
+	if err != nil {
+		return nil, err
 	}
 	_, _ = io.ReadAll(format)
-	artifact, err := form.parts.NextPart()
-	if err != nil || artifact.FormName() != artifactPart {
-		return nil, missingPartError{part: artifactPart}
+	artifact, err := form.nextPartNamed(artifactPart)
+	if err != nil {
+		return nil, err
 	}
 	return form.artifacts.ArtifactOf(form.declared, artifact).ReportedFiles(limits)
+}
+
+func (form uploadedForm) nextPartNamed(name string) (*multipart.Part, error) {
+	next, err := form.parts.NextPart()
+	if err != nil || next.FormName() != name {
+		return nil, missingPartError{part: name}
+	}
+	return next, nil
 }
