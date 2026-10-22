@@ -47,15 +47,7 @@ func TestAFamilyWhoseBundleNeverArrivesRefusesStartUpByTheDeadlineNamingIt(t *te
 }
 
 func TestEnginesStartOnlyForTheConfiguredFamilies(t *testing.T) {
-	starting, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
-		structuralBundleService(t))
-	if err != nil {
-		t.Fatalf("start the engines: %v", err)
-	}
-	t.Cleanup(func() { engines.stop(context.Background()) })
+	engines := structuralEngines(t)
 
 	started := slices.Collect(maps.Keys(engines))
 	if !slices.Equal(started, []domain.PolicyFamily{domain.PolicyFamilyStructural}) {
@@ -64,16 +56,7 @@ func TestEnginesStartOnlyForTheConfiguredFamilies(t *testing.T) {
 }
 
 func TestTheGateOfTheStartedEnginesDecidesOnlyTheConfiguredFamilies(t *testing.T) {
-	starting, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
-		structuralBundleService(t))
-	if err != nil {
-		t.Fatalf("start the engines: %v", err)
-	}
-	t.Cleanup(func() { engines.stop(context.Background()) })
-
-	gate, err := engines.gate()
+	gate, err := structuralEngines(t).gate()
 	if err != nil {
 		t.Fatalf("build the gate: %v", err)
 	}
@@ -82,4 +65,17 @@ func TestTheGateOfTheStartedEnginesDecidesOnlyTheConfiguredFamilies(t *testing.T
 	if len(decided) != 1 || decided[0].Family != domain.PolicyFamilyStructural {
 		t.Errorf("the gate decided %v, want the structural family only", decided)
 	}
+}
+
+func structuralEngines(t *testing.T) startedEngines {
+	t.Helper()
+	starting, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
+		structuralBundleService(t))
+	if err != nil {
+		t.Fatalf("start the engines: %v", err)
+	}
+	t.Cleanup(func() { engines.stop(context.Background()) })
+	return engines
 }

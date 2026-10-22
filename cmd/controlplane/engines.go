@@ -14,7 +14,7 @@ type startedEngines map[domain.PolicyFamily]*opa.Engine
 func startedEnginesFor(
 	ctx context.Context, families []domain.PolicyFamily, bundleService string,
 ) (startedEngines, error) {
-	engines := startedEngines{}
+	engines := make(startedEngines, len(families))
 	for _, family := range families {
 		engine, err := opa.ParseEngine(ctx, opa.Settings{Family: family, BundleService: bundleService})
 		if err != nil {
@@ -26,7 +26,7 @@ func startedEnginesFor(
 }
 
 func (engines startedEngines) gate() (domain.Gate, error) {
-	deciding := map[domain.PolicyFamily]domain.FamilyEngine{}
+	deciding := make(map[domain.PolicyFamily]domain.FamilyEngine, len(engines))
 	for family, engine := range engines {
 		deciding[family] = engine
 	}
