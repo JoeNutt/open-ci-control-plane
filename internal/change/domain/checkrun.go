@@ -8,6 +8,7 @@ type CheckRun struct {
 	Title          string
 	Headline       string
 	DecisionID     DecisionID
+	Revision       BundleRevision
 	Violations     []CheckRunViolation
 	ViolationCount int
 }

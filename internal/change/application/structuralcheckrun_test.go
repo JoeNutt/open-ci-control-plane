@@ -54,6 +54,17 @@ func TestAnEvaluationPastItsDeadlineFailsReportingAPolicyFault(t *testing.T) {
 	requireFailureTitled(t, run, policyFault)
 }
 
+func TestTheStructuralCheckRunCarriesThePolicyRevisionAndTheDecisionID(t *testing.T) {
+	run := structuralCheckRunAfter(t, answeringEngine{decided: domain.UndecidedDecision(revisionForTest(t))})
+
+	if run.Revision != revisionForTest(t) {
+		t.Errorf("revision is %q, want %q", run.Revision, revisionForTest(t))
+	}
+	if run.DecisionID != decisionIDOf(t, gatedDecisionID) {
+		t.Errorf("decision is %q, want %q", run.DecisionID, gatedDecisionID)
+	}
+}
+
 func requireFailureTitled(t *testing.T, run domain.CheckRun, phrase string) {
 	t.Helper()
 

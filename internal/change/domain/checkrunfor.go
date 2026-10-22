@@ -17,6 +17,7 @@ var presentationRuleByOutcome = map[Outcome]presentationRule{
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
 	run := presentationFor(decided).checkRunFor(decided.Family, id)
+	run.Revision = decided.Decision.Revision()
 	run.ViolationCount = len(decided.Decision.Violations())
 	run.Violations = checkRunViolationsFrom(listedOf(decided.Decision.Violations()))
 	return run
