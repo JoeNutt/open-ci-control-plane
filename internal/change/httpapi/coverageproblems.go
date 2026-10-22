@@ -31,9 +31,16 @@ const (
 	unknownFormatMessage          = "the format is not lcov, the only format accepted"
 	unparseableArtifactCode       = "unparseable_artifact"
 	unparseableArtifactMessage    = "the artifact is not parseable as LCOV"
+	boundExceededCode             = "bound_exceeded"
+	boundExceededMessage          = "the artifact exceeds an NFR-5 bound; nothing was stored"
 )
 
-var compressedArtifactLimit = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
+var (
+	compressedArtifactLimit   = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
+	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", domain.DeclaredCoverageLimits().MaxDecompressedBytes)
+	fileEntriesLimit          = fmt.Sprintf("%d file entries", domain.DeclaredCoverageLimits().MaxFileEntries)
+	suitesLimit               = fmt.Sprintf("%d suites per repository", domain.DeclaredCoverageLimits().MaxSuitesPerRepository)
+)
 
 func malformedPathProblem(segment string) refusal {
 	return fieldProblem{Code: malformedPathCode, Message: malformedPathMessage, Field: segment}
@@ -104,4 +111,8 @@ func unknownFormatProblem() refusal {
 
 func unparseableArtifactProblem() refusal {
 	return fieldProblem{Code: unparseableArtifactCode, Message: unparseableArtifactMessage, Field: artifactPart}
+}
+
+func boundProblem(limit string) refusal {
+	return limitProblem{Code: boundExceededCode, Message: boundExceededMessage, Limit: limit}
 }

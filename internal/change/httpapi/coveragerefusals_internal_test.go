@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -40,6 +41,23 @@ func TestAFormMissingAPartIsAnswered400NamingIt(t *testing.T) {
 
 		if refused.answer.status() != http.StatusBadRequest || refused.answer.(fieldProblem).Field != part {
 			t.Errorf("answered %#v, want %d naming %s", refused.answer, http.StatusBadRequest, part)
+		}
+	}
+}
+
+func TestAnArtifactOverAnNFR5BoundIsAnswered413NamingThatBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	for breach, bound := range map[error]string{
+		domain.ErrCompressedArtifactTooLarge:   fmt.Sprint(limits.MaxCompressedBytes),
+		domain.ErrDecompressedArtifactTooLarge: fmt.Sprint(limits.MaxDecompressedBytes),
+		domain.ErrTooManyFileEntries:           fmt.Sprint(limits.MaxFileEntries),
+		domain.ErrTooManySuites:                fmt.Sprint(limits.MaxSuitesPerRepository),
+	} {
+		refused := coverageRefusalOf(fmt.Errorf("refuse coverage: %w", breach))
+
+		problem, isLimit := refused.answer.(limitProblem)
+		if !isLimit || problem.status() != http.StatusRequestEntityTooLarge || !strings.HasPrefix(problem.Limit, bound+" ") {
+			t.Errorf("%v: answered %#v, want %d naming %s", breach, refused.answer, http.StatusRequestEntityTooLarge, bound)
 		}
 	}
 }

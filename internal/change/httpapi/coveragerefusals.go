@@ -31,6 +31,10 @@ var coverageRefusals = []causedRefusal{
 	{cause: errNoArtifactPart, refusal: missingPartProblem(artifactPart), level: slog.LevelWarn},
 	{cause: errUnknownFormat, refusal: unknownFormatProblem(), level: slog.LevelWarn},
 	{cause: domain.ErrMalformedCoverageReport, refusal: unparseableArtifactProblem(), level: slog.LevelWarn},
+	{cause: domain.ErrCompressedArtifactTooLarge, refusal: boundProblem(compressedArtifactLimit), level: slog.LevelWarn},
+	{cause: domain.ErrDecompressedArtifactTooLarge, refusal: boundProblem(decompressedArtifactLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManyFileEntries, refusal: boundProblem(fileEntriesLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManySuites, refusal: boundProblem(suitesLimit), level: slog.LevelWarn},
 }
 
 func coverageRefusalOf(failure error) classifiedFailure {
