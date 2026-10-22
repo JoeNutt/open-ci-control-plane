@@ -96,4 +96,4 @@ both cards; at closing time an unmet obligation keeps the card open — see
 **Trade-off:** a minute at the start of every session, and Blocked reasons that must be kept
 current — cheaper than one card worked out of order.
 
-**Related:** `../../CLAUDE.md` "Work order", `../../.claude/rules/tdd-cycle.md`
+**Related:** `../../../CLAUDE.md` "Work order", `../../../.claude/rules/tdd-cycle.md`

@@ -78,11 +78,11 @@ and `cmark-gfm` on your `PATH`, because the suite calls both.
 | Where | What |
 |---|---|
 | [Specification](https://claude.ai/code/artifact/db03f5d3-b4e0-4fb0-8254-375c6cf0d08d) | Full systems analysis and design — requirements, contracts, decisions, threat model |
-| `knowledge-base/technology/` | OPA and Rego, pinned to v1.21.2 and verified by executing it |
-| `knowledge-base/architecture/` | Dependency direction, ports and adapters, coupling, boundaries |
-| `knowledge-base/engineering/` | Construction standards and the red-green-refactor cycle |
-| `knowledge-base/security/` | Secure coding, and the OWASP Top 10:2025 one entry per category |
-| `knowledge-base/design-patterns/` | The Gang of Four catalogue, one file per pattern |
+| `docs/knowledge-base/technology/` | OPA and Rego, pinned to v1.21.2 and verified by executing it |
+| `docs/knowledge-base/architecture/` | Dependency direction, ports and adapters, coupling, boundaries |
+| `docs/knowledge-base/engineering/` | Construction standards and the red-green-refactor cycle |
+| `docs/knowledge-base/security/` | Secure coding, and the OWASP Top 10:2025 one entry per category |
+| `docs/knowledge-base/design-patterns/` | The Gang of Four catalogue, one file per pattern |
 | `schema/ci.diff.v1.schema.json` | The policy input contract, as a JSON Schema. Every emitted document is tested against it |
 | `CLAUDE.md` | Router for agent sessions. Read it before changing anything |
 
@@ -92,7 +92,7 @@ Two conventions are not negotiable, and both are enforced rather than requested.
 
 **Test first, and refactor after.** The cycle is red, green, **refactor** — a failing test
 before any code, the minimum to pass it, then restructure against the standards in
-`knowledge-base/`. A `Stop` hook refuses to end a turn that edited source without stating a
+`docs/knowledge-base/`. A `Stop` hook refuses to end a turn that edited source without stating a
 refactor verdict, and a git `pre-commit` hook refuses a commit with a red suite, unformatted
 files, or `go vet` failures. See `.claude/rules/tdd-cycle.md`.
 
