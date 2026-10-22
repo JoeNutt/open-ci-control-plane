@@ -29,7 +29,7 @@ func ParseDefaultBranchHeads(settings Settings) (DefaultBranchHeads, error) {
 func (heads DefaultBranchHeads) DefaultBranchHeadOf(
 	ctx context.Context, repository domain.PolicyRepository,
 ) (domain.CommitSHA, error) {
-	branch, err := heads.defaultBranchOf(ctx, repository)
+	branch, err := defaultBranchOf(ctx, heads.forge, repository)
 	if err != nil {
 		return domain.CommitSHA{}, fmt.Errorf("read the default branch of %s: %w", repository, err)
 	}
@@ -44,10 +44,8 @@ type repositoryAnswer struct {
 	DefaultBranch string `json:"default_branch"`
 }
 
-func (heads DefaultBranchHeads) defaultBranchOf(
-	ctx context.Context, repository domain.PolicyRepository,
-) (string, error) {
-	described, err := exchanged[repositoryAnswer](ctx, heads.forge,
+func defaultBranchOf(ctx context.Context, forge connection, repository ownedRepository) (string, error) {
+	described, err := exchanged[repositoryAnswer](ctx, forge,
 		policyRepositoryReading(repositoryEndpoint(repository), domain.ErrNoSuchRepository))
 	if err != nil {
 		return "", err
