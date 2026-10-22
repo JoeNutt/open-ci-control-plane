@@ -4,6 +4,8 @@ package lcov
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +23,7 @@ const (
 	firstLineNumber    = 1
 	decimal            = 10
 	countBits          = 64
+	gzipMagic          = "\x1f\x8b"
 )
 
 var ErrMalformedArtifact = errors.New("artifact is not parseable as LCOV")
@@ -52,20 +55,61 @@ type recordReading struct {
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
+	limits             domain.CoverageLimits
 }
 
-func ReportedFilesIn(artifact io.Reader) ([]domain.ReportedFile, error) {
-	var reading recordReading
-	lines := bufio.NewScanner(artifact)
-	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
-		if err := reading.take(lines.Text()); err != nil {
-			return nil, fmt.Errorf("line %d: %w", lineNumber, err)
-		}
+type Artifact struct {
+	DeclaredBytes int64
+	Body          io.Reader
+}
+
+func ReportedFilesIn(artifact Artifact, limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
+		return nil, breach
 	}
-	if err := lines.Err(); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
+	compressed := &boundedReader{source: artifact.Body, breachOf: limits.CompressedBytesBreach}
+	plain, err := plainBodyOf(compressed)
+	if err != nil {
+		return nil, err
+	}
+	decompressed := &boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach}
+	reading := recordReading{limits: limits}
+	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
+		return nil, err
 	}
 	return reading.completed()
+}
+
+func plainBodyOf(body io.Reader) (io.Reader, error) {
+	buffered := bufio.NewReader(body)
+	leading, err := buffered.Peek(len(gzipMagic))
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, readFailureOf(err)
+	}
+	if !bytes.Equal(leading, []byte(gzipMagic)) {
+		return buffered, nil
+	}
+	decompressed, err := gzip.NewReader(buffered)
+	if err != nil {
+		return nil, readFailureOf(err)
+	}
+	return decompressed, nil
+}
+
+func (reading *recordReading) takeAll(lines *bufio.Scanner) error {
+	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
+		if err := reading.take(lines.Text()); err != nil {
+			return fmt.Errorf("line %d: %w", lineNumber, err)
+		}
+	}
+	return readFailureOf(lines.Err())
+}
+
+func readFailureOf(err error) error {
+	if err == nil || errors.Is(err, domain.ErrCoverageBoundExceeded) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrMalformedArtifact, err)
 }
 
 func (reading *recordReading) take(line string) error {
@@ -81,6 +125,10 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
+	entriesWithThisOne := len(reading.reported) + 1
+	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
+		return breach
+	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
 		return err
@@ -109,6 +157,21 @@ func (reading *recordReading) closeRecord(string) error {
 		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	reading.isRecordOpen = false
 	return nil
+}
+
+type boundedReader struct {
+	source    io.Reader
+	bytesRead int64
+	breachOf  func(bytes int64) error
+}
+
+func (bounded *boundedReader) Read(buffer []byte) (int, error) {
+	count, err := bounded.source.Read(buffer)
+	bounded.bytesRead += int64(count)
+	if breach := bounded.breachOf(bounded.bytesRead); breach != nil {
+		return 0, breach
+	}
+	return count, err
 }
 
 func carryingNothing(*recordReading, string) error { return nil }
