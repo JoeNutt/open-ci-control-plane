@@ -2,6 +2,8 @@
 
 package domain
 
+import "slices"
+
 type ListedFile struct {
 	Path  string
 	Bytes int
@@ -11,14 +13,16 @@ type PolicyListing struct {
 	files []ListedFile
 }
 
+var boundsOfAPolicyListing = []func([]ListedFile) error{
+	policyFileCountBreachIn,
+	oversizedPolicyFileIn,
+}
+
 func ParsePolicyListing(listed []ListedFile) (PolicyListing, error) {
-	if breach := policyFileCountBreachOf(len(listed)); breach != nil {
-		return PolicyListing{}, breach
-	}
-	for _, file := range listed {
-		if file.Bytes > MaxPolicyFileBytes {
-			return PolicyListing{}, ErrPolicyFileTooLarge
+	for _, breachIn := range boundsOfAPolicyListing {
+		if breach := breachIn(listed); breach != nil {
+			return PolicyListing{}, breach
 		}
 	}
-	return PolicyListing{files: listed}, nil
+	return PolicyListing{files: slices.Clone(listed)}, nil
 }

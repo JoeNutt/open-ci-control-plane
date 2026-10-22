@@ -28,15 +28,16 @@ type BoundedPolicyFiles struct {
 	files []PolicyFile
 }
 
-var boundsOfPolicyFiles = []func([]PolicyFile) error{
+var boundsOfPolicyFiles = []func([]ListedFile) error{
 	policyFileCountBreachIn,
 	malformedPolicyFilePathIn,
 	oversizedPolicyFileIn,
 }
 
 func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
+	listed := listedPolicyFilesOf(files)
 	for _, breachIn := range boundsOfPolicyFiles {
-		if breach := breachIn(files); breach != nil {
+		if breach := breachIn(listed); breach != nil {
 			return BoundedPolicyFiles{}, breach
 		}
 	}
@@ -45,30 +46,34 @@ func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
 
 func (bounded BoundedPolicyFiles) Files() []PolicyFile { return slices.Clone(bounded.files) }
 
-func policyFileCountBreachIn(files []PolicyFile) error {
-	return policyFileCountBreachOf(len(files))
+func listedPolicyFilesOf(files []PolicyFile) []ListedFile {
+	listed := make([]ListedFile, 0, len(files))
+	for _, file := range files {
+		listed = append(listed, ListedFile{Path: file.Path, Bytes: len(file.Content)})
+	}
+	return listed
 }
 
-func policyFileCountBreachOf(count int) error {
-	if count > MaxPolicyFiles {
-		return fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, count, MaxPolicyFiles)
+func policyFileCountBreachIn(listed []ListedFile) error {
+	if len(listed) > MaxPolicyFiles {
+		return fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, len(listed), MaxPolicyFiles)
 	}
 	return nil
 }
 
-func malformedPolicyFilePathIn(files []PolicyFile) error {
-	malformed := slices.IndexFunc(files, func(file PolicyFile) bool { return !isRepositoryPath(file.Path) })
+func malformedPolicyFilePathIn(listed []ListedFile) error {
+	malformed := slices.IndexFunc(listed, func(file ListedFile) bool { return !isRepositoryPath(file.Path) })
 	if malformed < 0 {
 		return nil
 	}
-	return fmt.Errorf("%w: file %d of %d, %d bytes", ErrMalformedPolicyFilePath, malformed+1, len(files), len(files[malformed].Path))
+	return fmt.Errorf("%w: file %d of %d, %d bytes", ErrMalformedPolicyFilePath, malformed+1, len(listed), len(listed[malformed].Path))
 }
 
-func oversizedPolicyFileIn(files []PolicyFile) error {
-	oversized := slices.IndexFunc(files, func(file PolicyFile) bool { return len(file.Content) > MaxPolicyFileBytes })
+func oversizedPolicyFileIn(listed []ListedFile) error {
+	oversized := slices.IndexFunc(listed, func(file ListedFile) bool { return file.Bytes > MaxPolicyFileBytes })
 	if oversized < 0 {
 		return nil
 	}
 	return fmt.Errorf("%w: file %d of %d holds %d bytes, exceeding %d",
-		ErrPolicyFileTooLarge, oversized+1, len(files), len(files[oversized].Content), MaxPolicyFileBytes)
+		ErrPolicyFileTooLarge, oversized+1, len(listed), listed[oversized].Bytes, MaxPolicyFileBytes)
 }
