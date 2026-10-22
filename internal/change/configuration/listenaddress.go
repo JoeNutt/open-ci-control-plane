@@ -22,7 +22,7 @@ func listenAddressIn(stated statedItems) (netip.AddrPort, error) {
 	if err != nil {
 		return netip.AddrPort{}, listenAddressItem.invalid(err)
 	}
-	if !address.Addr().IsLoopback() {
+	if !address.Addr().IsLoopback() && !address.Addr().IsPrivate() {
 		return netip.AddrPort{}, listenAddressItem.invalid(errOffLoopback)
 	}
 	if address.Port() == unchosenPort {

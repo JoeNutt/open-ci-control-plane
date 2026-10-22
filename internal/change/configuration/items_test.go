@@ -27,6 +27,17 @@ func TestTheListenAddressIsTheLoopbackAddressTheConfigurationStates(t *testing.T
 	}
 }
 
+func TestTheListenAddressMayBeAPrivateAddressBehindTheProxy(t *testing.T) {
+	stated := completeItems(t)
+	stated[listenAddressKey] = quoted(t, "172.18.0.50:8080")
+
+	configured := readConfiguration(t, stated)
+
+	if configured.ListenAddress() != netip.MustParseAddrPort("172.18.0.50:8080") {
+		t.Errorf("the listen address is %s, want 172.18.0.50:8080", configured.ListenAddress())
+	}
+}
+
 func TestAListenAddressThatIsNotALoopbackAddressWithAPortIsRefusedNamingIt(t *testing.T) {
 	for _, address := range []string{
 		"0.0.0.0:8080", "[::]:8080", "192.0.2.10:8080", "localhost:8080",
