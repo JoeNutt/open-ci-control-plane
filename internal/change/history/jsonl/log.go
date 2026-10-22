@@ -107,7 +107,7 @@ func (history *Log) writeWithinBound(file *os.File, record []byte) error {
 	if err != nil {
 		return fmt.Errorf("measure the history: %w", err)
 	}
-	if held.Size()+int64(len(record)) > history.limits.MaxBytes {
+	if history.exceedsBound(held.Size() + int64(len(record))) {
 		return domain.ErrHistoryFull
 	}
 	if _, err := file.Write(record); err != nil {
@@ -151,8 +151,10 @@ func (history *Log) boundedContents() (held []byte, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("measure the history: %w", err)
 	}
-	if measured.Size() > history.limits.MaxBytes {
+	if history.exceedsBound(measured.Size()) {
 		return nil, domain.ErrHistoryFull
 	}
 	return io.ReadAll(io.LimitReader(file, history.limits.MaxBytes))
 }
+
+func (history *Log) exceedsBound(size int64) bool { return size > history.limits.MaxBytes }
