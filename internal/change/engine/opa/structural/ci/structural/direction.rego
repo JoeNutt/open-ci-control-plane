@@ -39,8 +39,8 @@ violations contains {
 	some bound in bound_policies
 	model := data.ci.policy.catalog[bound.use]
 	some edge in input.diff.module_graph_delta.edges_added
-	importer := group_containing(bound, edge.from)
-	imported := group_containing(bound, go_file_in(package_path(bound, edge.to)))
+	importer := group_containing_file(bound, edge.from)
+	imported := group_containing_package(bound, package_path(bound, edge.to))
 	refused_relation_by_direction[model.direction] == relation_of(order_of(model, importer), order_of(model, imported))
 }
 
@@ -57,7 +57,7 @@ refusal_of(edge, importer, imported) := concat(": ", [
 	$`group "{importer}" may not import group "{imported}"`,
 ])
 
-group_containing(bound, file) := group if {
+group_containing_file(bound, file) := group if {
 	some group, patterns in bound.paths
 	some pattern in patterns
 	glob.match(pattern, ["/"], file)
@@ -77,7 +77,19 @@ is_under(imported, prefix) if imported == prefix
 
 is_under(imported, prefix) if startswith(imported, $"{prefix}/")
 
-go_file_in(directory) := $"{directory}/package.go"
+group_containing_package(bound, directory) := group if {
+	some group, patterns in bound.paths
+	some pattern in patterns
+	is_within_directory_pattern(directory, pattern)
+}
+
+directory_pattern_suffix := "/**"
+
+is_within_directory_pattern(directory, pattern) if {
+	endswith(pattern, directory_pattern_suffix)
+	some at_root_or_beneath in {trim_suffix(pattern, directory_pattern_suffix), pattern}
+	glob.match(at_root_or_beneath, ["/"], directory)
+}
 
 order_of(model, name) := group.order if {
 	some group in model.groups
