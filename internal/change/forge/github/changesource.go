@@ -58,22 +58,13 @@ func (source ChangeSource) BaseCommitOf(
 	}
 	head, err := domain.ParseCommitSHA(stated.Head.SHA)
 	if err != nil {
-		return domain.CommitSHA{}, err
+		return domain.CommitSHA{}, fmt.Errorf("the head commit of %s: %w", locator, err)
 	}
-	var compared struct {
-		MergeBaseCommit struct {
-			SHA string `json:"sha"`
-		} `json:"merge_base_commit"`
-	}
-	compared, err = jsonAt[struct {
-		MergeBaseCommit struct {
-			SHA string `json:"sha"`
-		} `json:"merge_base_commit"`
-	}](ctx, source.forge, fmt.Sprintf("/repos/%s/%s/compare/%s...%s", locator.Owner(), locator.Name(), base, head))
+	mergeBase, err := source.mergeBaseOf(ctx, locator, base, head)
 	if err != nil {
-		return domain.CommitSHA{}, err
+		return domain.CommitSHA{}, fmt.Errorf("the merge base of %s: %w", locator, err)
 	}
-	return domain.ParseCommitSHA(compared.MergeBaseCommit.SHA)
+	return mergeBase, nil
 }
 
 func (source ChangeSource) FilesChanged(
