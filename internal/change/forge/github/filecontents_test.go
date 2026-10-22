@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -141,6 +142,21 @@ func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
 	}
 	if errors.Is(err, domain.ErrNoSuchPullRequest) {
 		t.Errorf("error %v claims the pull request is missing", err)
+	}
+}
+
+func TestContentsAtNamesTheCommitOnceWhenTheForgeCannotBeReached(t *testing.T) {
+	server := answering(t, http.StatusOK, fileAnswer(middlewareSource))
+	contents := contentsAt(t, server)
+	server.Close()
+
+	_, err := contents.ContentsAt(context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+
+	if err == nil {
+		t.Fatal("read from a closed forge without error")
+	}
+	if named := strings.Count(err.Error(), contentsCommit); named != 1 {
+		t.Errorf("error %q names the commit %d times, want once", err, named)
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -78,7 +80,12 @@ func answered(ctx context.Context, forge connection, over exchange) (*http.Respo
 	}
 	response, err := forge.settings.Client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("send %s %s: %w", over.method, over.endpoint, err)
+		path, _, _ := strings.Cut(over.endpoint, "?")
+		var failed *url.Error
+		if errors.As(err, &failed) {
+			err = failed.Err
+		}
+		return nil, fmt.Errorf("send %s %s: %w", over.method, path, err)
 	}
 	if failure := failureIn(response, over); failure != nil {
 		_ = response.Body.Close()
