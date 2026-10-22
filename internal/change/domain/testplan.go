@@ -2,11 +2,7 @@
 
 package domain
 
-import (
-	"fmt"
-	"slices"
-	"strings"
-)
+import "fmt"
 
 type PlanTrigger string
 
@@ -39,19 +35,10 @@ func PlanFor(basis PlanBasis) (TestPlan, error) {
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	var suites []CoverageSuite
-	for _, file := range basis.Document.Diff.Files {
-		path, err := ParseRepositoryPath(file.Path)
-		if err != nil {
-			return TestPlan{}, fmt.Errorf("plan tests: %w", err)
-		}
-		for _, suite := range basis.Coverage.SuitesCovering(path) {
-			if !slices.Contains(suites, suite) {
-				suites = append(suites, suite)
-			}
-		}
+	suites, err := basis.Coverage.suitesCoveringAny(basis.Document.Diff.Files)
+	if err != nil {
+		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	slices.SortFunc(suites, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
 	return TestPlan{
 		DecisionID:     basis.DecisionID,
 		Repository:     basis.Binding.Repository(),
@@ -62,14 +49,4 @@ func PlanFor(basis PlanBasis) (TestPlan, error) {
 		Trigger:        PlanTriggerNone,
 		BundleRevision: basis.Revision,
 	}, nil
-}
-
-func (repositoryCoverage RepositoryCoverage) SuitesCovering(path RepositoryPath) []CoverageSuite {
-	var covering []CoverageSuite
-	for suite, coverage := range repositoryCoverage.suites {
-		if coverage.Covers(path) {
-			covering = append(covering, suite)
-		}
-	}
-	return covering
 }

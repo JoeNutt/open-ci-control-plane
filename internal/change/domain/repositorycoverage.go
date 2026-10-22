@@ -5,6 +5,8 @@ package domain
 import (
 	"errors"
 	"maps"
+	"slices"
+	"strings"
 )
 
 var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
@@ -38,4 +40,27 @@ func (repositoryCoverage RepositoryCoverage) SuiteCoverageOf(suite CoverageSuite
 		return SuiteCoverage{}, ErrNoCoverageMap
 	}
 	return coverage, nil
+}
+
+func (repositoryCoverage RepositoryCoverage) suitesCoveringAny(files []File) ([]CoverageSuite, error) {
+	var covering []CoverageSuite
+	for _, file := range files {
+		path, err := ParseRepositoryPath(file.Path)
+		if err != nil {
+			return nil, err
+		}
+		covering = append(covering, repositoryCoverage.suitesCovering(path)...)
+	}
+	slices.SortFunc(covering, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
+	return slices.Compact(covering), nil
+}
+
+func (repositoryCoverage RepositoryCoverage) suitesCovering(path RepositoryPath) []CoverageSuite {
+	var covering []CoverageSuite
+	for suite, coverage := range repositoryCoverage.suites {
+		if coverage.Covers(path) {
+			covering = append(covering, suite)
+		}
+	}
+	return covering
 }
