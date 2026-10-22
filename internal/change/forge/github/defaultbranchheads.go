@@ -47,7 +47,8 @@ type repositoryAnswer struct {
 func (heads DefaultBranchHeads) defaultBranchOf(
 	ctx context.Context, repository domain.PolicyRepository,
 ) (string, error) {
-	described, err := exchanged[repositoryAnswer](ctx, heads.forge, policyRepositoryReading(repositoryEndpoint(repository), domain.ErrNoSuchRepository))
+	described, err := exchanged[repositoryAnswer](ctx, heads.forge,
+		policyRepositoryReading(repositoryEndpoint(repository), domain.ErrNoSuchRepository))
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +67,8 @@ type branchReferenceAnswer struct {
 func (heads DefaultBranchHeads) headOf(
 	ctx context.Context, repository domain.PolicyRepository, branch string,
 ) (domain.CommitSHA, error) {
-	reference, err := exchanged[branchReferenceAnswer](ctx, heads.forge, policyRepositoryReading(branchReferenceEndpoint(repository, branch), domain.ErrNoSuchBranch))
+	reference, err := exchanged[branchReferenceAnswer](ctx, heads.forge,
+		policyRepositoryReading(branchReferenceEndpoint(repository, branch), domain.ErrNoSuchBranch))
 	if err != nil {
 		return domain.CommitSHA{}, err
 	}
