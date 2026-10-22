@@ -4,6 +4,7 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -84,6 +85,16 @@ func TestDefaultBranchHeadOfAsksForTheBranchTheForgeNamedAsOnePathSegment(t *tes
 	}
 	if len(asked) != 2 || asked[1].escapedPath != policyBranchHeadsPath+escapedBranch || asked[1].rawQuery != "" {
 		t.Errorf("the adapter asked %+v, want the branch as one escaped segment and no query", asked)
+	}
+}
+
+func TestDefaultBranchHeadOfReportsARepositoryTheForgeDoesNotHold(t *testing.T) {
+	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
+
+	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
+
+	if !errors.Is(err, domain.ErrNoSuchRepository) || errors.Is(err, domain.ErrNoSuchPullRequest) {
+		t.Fatalf("error is %v, want only %v", err, domain.ErrNoSuchRepository)
 	}
 }
 

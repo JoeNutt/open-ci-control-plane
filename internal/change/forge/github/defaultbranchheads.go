@@ -5,6 +5,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -43,7 +44,12 @@ type repositoryAnswer struct {
 func (heads DefaultBranchHeads) defaultBranchOf(
 	ctx context.Context, repository domain.PolicyRepository,
 ) (string, error) {
-	described, err := jsonAt[repositoryAnswer](ctx, heads.forge, repositoryEndpoint(repository))
+	described, err := exchanged[repositoryAnswer](ctx, heads.forge, exchange{
+		method:    http.MethodGet,
+		endpoint:  repositoryEndpoint(repository),
+		succeeded: http.StatusOK,
+		notFound:  domain.ErrNoSuchRepository,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +65,12 @@ type branchReferenceAnswer struct {
 func (heads DefaultBranchHeads) headOf(
 	ctx context.Context, repository domain.PolicyRepository, branch string,
 ) (domain.CommitSHA, error) {
-	reference, err := jsonAt[branchReferenceAnswer](ctx, heads.forge, branchReferenceEndpoint(repository, branch))
+	reference, err := exchanged[branchReferenceAnswer](ctx, heads.forge, exchange{
+		method:    http.MethodGet,
+		endpoint:  branchReferenceEndpoint(repository, branch),
+		succeeded: http.StatusOK,
+		notFound:  domain.ErrNoSuchRepository,
+	})
 	if err != nil {
 		return domain.CommitSHA{}, err
 	}
