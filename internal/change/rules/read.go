@@ -13,7 +13,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var ErrMalformedRuleDocument = errors.New("classification rule document is malformed")
+var ErrMalformedRuleDocument = errors.New("classification rule document is not well formed")
 
 func ReadFrom(stated io.Reader) (domain.ClassificationRules, error) {
 	reading := yaml.NewDecoder(stated)
