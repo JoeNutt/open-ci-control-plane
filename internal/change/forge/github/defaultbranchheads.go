@@ -44,12 +44,7 @@ type repositoryAnswer struct {
 func (heads DefaultBranchHeads) defaultBranchOf(
 	ctx context.Context, repository domain.PolicyRepository,
 ) (string, error) {
-	described, err := exchanged[repositoryAnswer](ctx, heads.forge, exchange{
-		method:    http.MethodGet,
-		endpoint:  repositoryEndpoint(repository),
-		succeeded: http.StatusOK,
-		notFound:  domain.ErrNoSuchRepository,
-	})
+	described, err := exchanged[repositoryAnswer](ctx, heads.forge, policyRepositoryReading(repositoryEndpoint(repository)))
 	if err != nil {
 		return "", err
 	}
@@ -65,12 +60,7 @@ type branchReferenceAnswer struct {
 func (heads DefaultBranchHeads) headOf(
 	ctx context.Context, repository domain.PolicyRepository, branch string,
 ) (domain.CommitSHA, error) {
-	reference, err := exchanged[branchReferenceAnswer](ctx, heads.forge, exchange{
-		method:    http.MethodGet,
-		endpoint:  branchReferenceEndpoint(repository, branch),
-		succeeded: http.StatusOK,
-		notFound:  domain.ErrNoSuchRepository,
-	})
+	reference, err := exchanged[branchReferenceAnswer](ctx, heads.forge, policyRepositoryReading(branchReferenceEndpoint(repository, branch)))
 	if err != nil {
 		return domain.CommitSHA{}, err
 	}
@@ -79,4 +69,13 @@ func (heads DefaultBranchHeads) headOf(
 
 func branchReferenceEndpoint(repository domain.PolicyRepository, branch string) string {
 	return repositoryEndpoint(repository) + "/git/ref/heads/" + url.PathEscape(branch)
+}
+
+func policyRepositoryReading(endpoint string) exchange {
+	return exchange{
+		method:    http.MethodGet,
+		endpoint:  endpoint,
+		succeeded: http.StatusOK,
+		notFound:  domain.ErrNoSuchRepository,
+	}
 }
