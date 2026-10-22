@@ -3,6 +3,7 @@
 package jsonl_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -179,3 +180,22 @@ func TestACorruptLineIsRefusedNamingItsLineNeverItsContent(t *testing.T) {
 		t.Errorf("the refusal does not name the corrupt line: %v", err)
 	}
 }
+
+func TestAFullOrCorruptLogIsNotVerifiedReadable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	history, err := jsonl.OpenLog(path, domain.DeclaredHistoryLimits(), func() time.Time { return recordedAt })
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := history.VerifyReadable(context.Background()); err != nil {
+		t.Errorf("an empty log was not readable: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("not an entry\n"), 0o600); err != nil {
+		t.Fatalf("corrupt: %v", err)
+	}
+	if err := history.VerifyReadable(context.Background()); !errors.Is(err, jsonl.ErrCorruptHistory) {
+		t.Errorf("a corrupt log verified as %v, want %v", err, jsonl.ErrCorruptHistory)
+	}
+}
+
+var _ domain.ShadowHistory = (*jsonl.Log)(nil)

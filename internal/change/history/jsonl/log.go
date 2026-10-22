@@ -4,6 +4,7 @@ package jsonl
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,6 +125,17 @@ func (history *Log) Entries() ([]Entry, error) {
 
 	entries, _, err := history.readEntries()
 	return entries, err
+}
+
+func (history *Log) VerifyReadable(context.Context) error {
+	history.guard.Lock()
+	defer history.guard.Unlock()
+
+	_, _, err := history.readEntries()
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
