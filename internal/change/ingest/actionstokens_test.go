@@ -157,8 +157,8 @@ func TestActionsTokensRefuseAnIssuerTheyCannotRead(t *testing.T) {
 
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), issuer.governedToken(t))
 
-			if !errors.Is(err, ingest.ErrIssuerKeysUnavailable) {
-				t.Fatalf("want ErrIssuerKeysUnavailable, got %v", err)
+			if !errors.Is(err, domain.ErrIdentityIssuerUnavailable) {
+				t.Fatalf("want ErrIdentityIssuerUnavailable, got %v", err)
 			}
 		})
 	}
