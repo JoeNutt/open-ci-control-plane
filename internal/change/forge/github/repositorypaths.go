@@ -15,7 +15,7 @@ const blobEntryType = "blob"
 
 var ErrNoSuchRepository = errors.New("the forge found no such repository")
 
-var ErrTruncatedTree = errors.New("the forge truncated the default-branch tree, so not every path is known")
+var ErrTruncatedTree = errors.New("the forge truncated the tree, so not every path is known")
 
 type RepositoryPaths struct {
 	forge connection
@@ -63,6 +63,7 @@ type tree struct {
 type treeEntry struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
+	Size int    `json:"size"`
 }
 
 func (listed tree) blobPaths() []string {
@@ -70,6 +71,16 @@ func (listed tree) blobPaths() []string {
 	for _, entry := range listed.Entries {
 		if entry.Type == blobEntryType {
 			blobs = append(blobs, entry.Path)
+		}
+	}
+	return blobs
+}
+
+func (listed tree) blobFiles() []domain.ListedFile {
+	var blobs []domain.ListedFile
+	for _, entry := range listed.Entries {
+		if entry.Type == blobEntryType {
+			blobs = append(blobs, domain.ListedFile{Path: entry.Path, Bytes: entry.Size})
 		}
 	}
 	return blobs
