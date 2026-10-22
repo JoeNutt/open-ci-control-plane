@@ -77,8 +77,7 @@ func contentsEndpoint(file domain.FileAtCommit) (string, error) {
 		return "", err
 	}
 	query := url.Values{"ref": {file.Commit.String()}}
-	return fmt.Sprintf("/repos/%s/%s/contents/%s?%s",
-		url.PathEscape(repository.Owner()), url.PathEscape(repository.Name()), path, query.Encode()), nil
+	return fmt.Sprintf("%s/contents/%s?%s", repositoryEndpoint(repository), path, query.Encode()), nil
 }
 
 const repositoryPathSeparator = "/"

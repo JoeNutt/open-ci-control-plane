@@ -10,8 +10,7 @@ import (
 )
 
 func pullRequestEndpoint(locator domain.PullRequestLocator) string {
-	return fmt.Sprintf("/repos/%s/%s/pulls/%d",
-		locator.Owner(), locator.Name(), locator.Number())
+	return fmt.Sprintf("%s/pulls/%d", repositoryEndpoint(locator), locator.Number())
 }
 
 type pullRequest struct {
