@@ -13,7 +13,7 @@ import (
 )
 
 func TestPolicyContentsAnswersTheContentsRecordedForAFileAtAPolicyCommit(t *testing.T) {
-	file := memory.PolicyFileAt{At: recordedPolicyCommit(t), Path: repositoryPathOf(t, "catalog/clean-architecture.yaml")}
+	file := memory.PolicyFileAt{At: recordedPolicyCommit(t), Path: repositoryPathOf(t, recordedCatalogPath)}
 	recorded := []byte("schema_version: 1\n")
 	contents := memory.PolicyContents{Files: map[memory.PolicyFileAt][]byte{file: recorded}}
 
@@ -29,7 +29,7 @@ func TestPolicyContentsAnswersTheContentsRecordedForAFileAtAPolicyCommit(t *test
 
 func TestPolicyContentsRefusesAFileItHoldsNoContentsFor(t *testing.T) {
 	_, err := memory.PolicyContents{}.ContentsAt(
-		context.Background(), recordedPolicyCommit(t), repositoryPathOf(t, "catalog/clean-architecture.yaml"))
+		context.Background(), recordedPolicyCommit(t), repositoryPathOf(t, recordedCatalogPath))
 
 	if !errors.Is(err, domain.ErrNoSuchFile) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
