@@ -179,6 +179,18 @@ func TestContentsAtRefusesAnAnswerThatIsNotAFile(t *testing.T) {
 	}
 }
 
+func TestContentsAtRefusesAFileTheForgeServesWithoutItsContent(t *testing.T) {
+	server := answering(t, http.StatusOK,
+		`{"type": "file", "encoding": "none", "size": 1000500, "content": ""}`)
+
+	read, err := contentsAt(t, server).ContentsAt(
+		context.Background(), fileAt(t, "acme/payments", "internal/generated.go"))
+
+	if !errors.Is(err, github.ErrContentsNotServed) {
+		t.Fatalf("read %d bytes with error %v, want %v", len(read), err, github.ErrContentsNotServed)
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))

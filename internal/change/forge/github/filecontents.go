@@ -20,6 +20,8 @@ var _ domain.FileContents = FileContents{}
 
 var ErrNotAFile = errors.New("the forge answered for something that is not a file")
 
+var ErrContentsNotServed = errors.New("the forge answered without the file's content")
+
 type FileContents struct {
 	forge connection
 }
@@ -106,8 +108,9 @@ func escapedRepositoryPath(path string) (string, error) {
 }
 
 type contentsAnswer struct {
-	Type    string `json:"type"`
-	Content string `json:"content"`
+	Type     string `json:"type"`
+	Encoding string `json:"encoding"`
+	Content  string `json:"content"`
 }
 
 const contentsTypeFile = "file"
@@ -115,6 +118,9 @@ const contentsTypeFile = "file"
 func (answer contentsAnswer) decoded() ([]byte, error) {
 	if answer.Type != contentsTypeFile {
 		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
+	}
+	if answer.Encoding != "base64" {
+		return nil, ErrContentsNotServed
 	}
 	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
 	if err != nil {
