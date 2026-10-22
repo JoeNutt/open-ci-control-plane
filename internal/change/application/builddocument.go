@@ -21,7 +21,7 @@ type BuildDocument struct {
 func (useCase BuildDocument) Execute(
 	ctx context.Context, locator domain.PullRequestLocator,
 ) (domain.Document, error) {
-	pullRequest, err := useCase.Source.PullRequestAt(ctx, locator)
+	reported, err := useCase.Source.PullRequestAt(ctx, locator)
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("read pull request %s: %w", locator, err)
 	}
@@ -33,7 +33,7 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	stated := statedChange{locator: locator, headSHA: pullRequest.HeadSHA}
+	stated := statedChange{locator: locator, tips: reported.Tips}
 	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
@@ -43,12 +43,12 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
 	}
 	change := domain.Change{Files: bounded, Structure: facts}
-	return domain.ParseDocument(pullRequest, change, useCase.Rules), nil
+	return domain.ParseDocument(reported.PullRequest, change, useCase.Rules), nil
 }
 
 type statedChange struct {
 	locator domain.PullRequestLocator
-	headSHA string
+	tips    domain.BranchTips
 }
 
 type changeEnds struct {
@@ -89,15 +89,11 @@ func (useCase BuildDocument) importedFilesOf(
 }
 
 func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (changeEnds, error) {
-	head, err := domain.ParseCommitSHA(stated.headSHA)
+	base, err := useCase.Bases.MergeBaseOf(ctx, stated.locator, stated.tips)
 	if err != nil {
-		return changeEnds{}, fmt.Errorf("the head commit: %w", err)
+		return changeEnds{}, fmt.Errorf("the merge base: %w", err)
 	}
-	base, err := useCase.Bases.BaseCommitOf(ctx, stated.locator)
-	if err != nil {
-		return changeEnds{}, fmt.Errorf("the base commit: %w", err)
-	}
-	return changeEnds{repository: stated.locator.GovernedRepository(), base: base, head: head}, nil
+	return changeEnds{repository: stated.locator.GovernedRepository(), base: base, head: stated.tips.Head()}, nil
 }
 
 func (useCase BuildDocument) importedFileAt(

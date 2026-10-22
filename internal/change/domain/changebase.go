@@ -2,8 +2,13 @@
 
 package domain
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 type ChangeBase interface {
-	BaseCommitOf(ctx context.Context, locator PullRequestLocator) (CommitSHA, error)
+	MergeBaseOf(ctx context.Context, locator PullRequestLocator, tips BranchTips) (CommitSHA, error)
 }
+
+var ErrNoMergeBase = errors.New("the forge holds no merge base for the branch tips")

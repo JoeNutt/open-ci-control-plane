@@ -36,8 +36,8 @@ func TestChangeSourceStandsInWhereverTheDomainAsksForAForge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pull request at %s: %v", locator, err)
 	}
-	if pullRequest.Number != 412 {
-		t.Fatalf("pull request number is %d, want 412", pullRequest.Number)
+	if pullRequest.PullRequest.Number != 412 {
+		t.Fatalf("pull request number is %d, want 412", pullRequest.PullRequest.Number)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestChangeSourceReportsThePullRequestRecordedForALocator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pull request at %s: %v", locator, err)
 	}
-	if !reflect.DeepEqual(reported, pullRequest) {
-		t.Fatalf("pull request is %+v, want %+v", reported, pullRequest)
+	if !reflect.DeepEqual(reported.PullRequest, pullRequest) {
+		t.Fatalf("pull request is %+v, want %+v", reported.PullRequest, pullRequest)
 	}
 }
 

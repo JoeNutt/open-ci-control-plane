@@ -10,6 +10,11 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var (
+	_ domain.ChangeSource = ChangeSource{}
+	_ domain.ChangeBase   = ChangeSource{}
+)
+
 type ChangeSource struct {
 	forge connection
 }
@@ -24,20 +29,24 @@ func (source ChangeSource) GoString() string {
 
 func (source ChangeSource) PullRequestAt(
 	ctx context.Context, locator domain.PullRequestLocator,
-) (domain.PullRequest, error) {
+) (domain.ReportedPullRequest, error) {
 	stated, err := jsonAt[pullRequest](ctx, source.forge, pullRequestEndpoint(locator))
 	if err != nil {
-		return domain.PullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
+		return domain.ReportedPullRequest{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
 	reported, err := pullRequestOf(stated, locator)
 	if err != nil {
-		return domain.PullRequest{}, err
+		return domain.ReportedPullRequest{}, err
 	}
 	reported.Approvals, err = source.approvalsOf(ctx, locator, reported.Author.Login)
 	if err != nil {
-		return domain.PullRequest{}, fmt.Errorf("read the reviews of %s: %w", locator, err)
+		return domain.ReportedPullRequest{}, fmt.Errorf("read the reviews of %s: %w", locator, err)
 	}
-	return reported, nil
+	tips, err := tipsOf(stated)
+	if err != nil {
+		return domain.ReportedPullRequest{}, fmt.Errorf("the branch tips of %s: %w", locator, err)
+	}
+	return domain.ReportedPullRequest{PullRequest: reported, Tips: tips}, nil
 }
 
 func (source ChangeSource) FilesChanged(

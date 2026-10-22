@@ -10,15 +10,16 @@ import (
 )
 
 type ChangeBases struct {
-	Bases map[domain.PullRequestLocator]domain.CommitSHA
+	MergeBases map[domain.BranchTips]domain.CommitSHA
 }
 
-func (bases ChangeBases) BaseCommitOf(
-	_ context.Context, locator domain.PullRequestLocator,
+func (bases ChangeBases) MergeBaseOf(
+	_ context.Context, locator domain.PullRequestLocator, tips domain.BranchTips,
 ) (domain.CommitSHA, error) {
-	base, recorded := bases.Bases[locator]
+	mergeBase, recorded := bases.MergeBases[tips]
 	if !recorded {
-		return domain.CommitSHA{}, fmt.Errorf("%w: %s", domain.ErrNoSuchPullRequest, locator)
+		return domain.CommitSHA{}, fmt.Errorf("%w: %s has no merge base recorded for %s...%s",
+			domain.ErrNoMergeBase, locator, tips.Base(), tips.Head())
 	}
-	return base, nil
+	return mergeBase, nil
 }

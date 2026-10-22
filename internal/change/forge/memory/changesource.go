@@ -12,6 +12,7 @@ import (
 
 type Change struct {
 	PullRequest domain.PullRequest
+	Tips        domain.BranchTips
 	Files       []domain.File
 }
 
@@ -21,12 +22,12 @@ type ChangeSource struct {
 
 func (source ChangeSource) PullRequestAt(
 	_ context.Context, locator domain.PullRequestLocator,
-) (domain.PullRequest, error) {
+) (domain.ReportedPullRequest, error) {
 	change, err := source.changeAt(locator)
 	if err != nil {
-		return domain.PullRequest{}, err
+		return domain.ReportedPullRequest{}, err
 	}
-	return change.PullRequest, nil
+	return domain.ReportedPullRequest{PullRequest: change.PullRequest, Tips: change.Tips}, nil
 }
 
 func (source ChangeSource) FilesChanged(

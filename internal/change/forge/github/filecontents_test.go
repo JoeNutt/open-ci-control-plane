@@ -22,27 +22,6 @@ const middlewarePath = "internal/auth/middleware.go"
 
 const middlewareSource = "package auth\n\nimport \"net/http\"\n"
 
-type askedForContents struct {
-	method        string
-	escapedPath   string
-	rawQuery      string
-	authorization string
-}
-
-func recordingContents(t *testing.T, asked *askedForContents, body string) *httptest.Server {
-	t.Helper()
-
-	return forge(t, func(writer http.ResponseWriter, request *http.Request) {
-		*asked = askedForContents{
-			method:        request.Method,
-			escapedPath:   request.URL.EscapedPath(),
-			rawQuery:      request.URL.RawQuery,
-			authorization: request.Header.Get("Authorization"),
-		}
-		write(t, writer, body)
-	})
-}
-
 func fileAnswer(contents string) string {
 	return statedFileAnswer(len(contents), base64.StdEncoding.EncodeToString([]byte(contents)))
 }
@@ -97,8 +76,8 @@ func TestParseFileContentsRefusesAFileByteBoundThatIsNotPositive(t *testing.T) {
 }
 
 func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
-	var asked askedForContents
-	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
+	var asked recordedRequest
+	server := recording(t, &asked, fileAnswer(middlewareSource))
 
 	read, err := contentsAt(t, server).ContentsAt(
 		context.Background(), fileAt(t, "acme/payments", middlewarePath))
@@ -109,7 +88,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	if string(read) != middlewareSource {
 		t.Errorf("read %q, want %q", read, middlewareSource)
 	}
-	want := askedForContents{
+	want := recordedRequest{
 		method:        http.MethodGet,
 		escapedPath:   "/repos/acme/payments/contents/" + middlewarePath,
 		rawQuery:      "ref=" + contentsCommit,
