@@ -55,32 +55,47 @@ func (dispatches PlanDispatches) DispatchPlan(ctx context.Context, plan domain.T
 	if err != nil {
 		return fmt.Errorf("read the default branch of %s: %w", plan.Repository, err)
 	}
-	payload := planPayload{
+	encoded, err := json.Marshal(payloadOf(plan))
+	if err != nil {
+		return fmt.Errorf("encode the plan for %s: %w", plan.Repository, err)
+	}
+	if err := delivered(ctx, dispatches.forge, dispatchOf(plan, branch, string(encoded))); err != nil {
+		return fmt.Errorf("dispatch the plan for %s at %s: %w", plan.Repository, plan.Head, err)
+	}
+	return nil
+}
+
+func payloadOf(plan domain.TestPlan) planPayload {
+	return planPayload{
 		SchemaVersion:   planSchemaVersion,
 		DecisionID:      plan.DecisionID.String(),
 		Repository:      plan.Repository.String(),
 		HeadSHA:         plan.Head.String(),
-		Suites:          []string{},
-		AlwaysRunSuites: []string{},
+		Suites:          namesOf(plan.Suites),
+		AlwaysRunSuites: namesOf(plan.AlwaysRun),
 		FullMatrix:      plan.FullMatrix,
 		TriggerReason:   string(plan.Trigger),
 		BundleRevision:  plan.BundleRevision.String(),
 	}
-	for _, suite := range plan.Suites {
-		payload.Suites = append(payload.Suites, suite.String())
+}
+
+func namesOf[Named fmt.Stringer](suites []Named) []string {
+	names := make([]string, 0, len(suites))
+	for _, suite := range suites {
+		names = append(names, suite.String())
 	}
-	for _, suite := range plan.AlwaysRun {
-		payload.AlwaysRunSuites = append(payload.AlwaysRunSuites, suite.String())
-	}
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	return delivered(ctx, dispatches.forge, exchange{
-		method: http.MethodPost,
-		endpoint: repositoryEndpoint(plan.Repository) + "/actions/workflows/" +
-			url.PathEscape(plan.Workflow.String()) + "/dispatches",
-		sent:      workflowDispatch{Ref: branch, Inputs: dispatchInputs{Plan: string(encoded)}},
+	return names
+}
+
+func dispatchOf(plan domain.TestPlan, branch, encodedPlan string) exchange {
+	return exchange{
+		method:    http.MethodPost,
+		endpoint:  workflowDispatchEndpoint(plan),
+		sent:      workflowDispatch{Ref: branch, Inputs: dispatchInputs{Plan: encodedPlan}},
 		succeeded: http.StatusNoContent,
-	})
+	}
+}
+
+func workflowDispatchEndpoint(plan domain.TestPlan) string {
+	return repositoryEndpoint(plan.Repository) + "/actions/workflows/" + url.PathEscape(plan.Workflow.String()) + "/dispatches"
 }
