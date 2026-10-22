@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -24,6 +25,14 @@ func TestDefaultBranchHeadsAnswersTheHeadRecordedForARepository(t *testing.T) {
 	}
 	if answered != head {
 		t.Fatalf("default branch head is %s, want %s", answered, head)
+	}
+}
+
+func TestDefaultBranchHeadsRefusesARepositoryItHoldsNoHeadFor(t *testing.T) {
+	_, err := memory.DefaultBranchHeads{}.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, "JoeNutt/open-ci-policy"))
+
+	if !errors.Is(err, domain.ErrNoSuchRepository) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchRepository)
 	}
 }
 

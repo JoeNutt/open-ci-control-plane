@@ -2,7 +2,12 @@
 
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrNoSuchRepository = errors.New("the forge reports no such repository")
 
 type PolicyRepository struct {
 	repositoryName

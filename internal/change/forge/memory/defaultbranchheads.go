@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,5 +16,9 @@ type DefaultBranchHeads struct {
 func (heads DefaultBranchHeads) DefaultBranchHeadOf(
 	_ context.Context, repository domain.PolicyRepository,
 ) (domain.CommitSHA, error) {
-	return heads.Heads[repository], nil
+	head, recorded := heads.Heads[repository]
+	if !recorded {
+		return domain.CommitSHA{}, fmt.Errorf("%w: %s", domain.ErrNoSuchRepository, repository)
+	}
+	return head, nil
 }
