@@ -16,6 +16,10 @@ type ReaderPorts struct {
 	Contents domain.PolicyContents
 }
 
+func (ports ReaderPorts) isComplete() bool {
+	return ports.Heads != nil && ports.Listings != nil && ports.Contents != nil
+}
+
 type Reader struct {
 	repository domain.PolicyRepository
 	ports      ReaderPorts
@@ -25,7 +29,7 @@ type Reader struct {
 var ErrIncompleteReader = errors.New("policy reader is missing a part it cannot read without")
 
 func ParseReader(repository domain.PolicyRepository, ports ReaderPorts, active *ActivePolicy) (*Reader, error) {
-	if repository == (domain.PolicyRepository{}) || ports.Heads == nil || ports.Listings == nil || ports.Contents == nil || active == nil {
+	if repository == (domain.PolicyRepository{}) || !ports.isComplete() || active == nil {
 		return nil, ErrIncompleteReader
 	}
 	return &Reader{repository: repository, ports: ports, active: active}, nil

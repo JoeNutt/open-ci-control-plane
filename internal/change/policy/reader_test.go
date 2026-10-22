@@ -28,38 +28,38 @@ func TestReadRevisionAcceptsThePolicyFilesAtTheDefaultBranchHeadAsThatRevision(t
 }
 
 func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
-	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
-	complete := policy.ReaderPorts{Heads: recorded.heads, Listings: recorded.listings, Contents: recorded.contents}
-	active := activePolicyLoggingTo(t, slog.DiscardHandler)
-	missing := map[string]func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy){
-		"no repository": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
-			return domain.PolicyRepository{}, complete, active
-		},
-		"no heads": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
-			ports := complete
-			ports.Heads = nil
-			return readRepository(t), ports, active
-		},
-		"no listings": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
-			ports := complete
-			ports.Listings = nil
-			return readRepository(t), ports, active
-		},
-		"no contents": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
-			ports := complete
-			ports.Contents = nil
-			return readRepository(t), ports, active
-		},
-		"no active policy": func() (domain.PolicyRepository, policy.ReaderPorts, *policy.ActivePolicy) {
-			return readRepository(t), complete, nil
-		},
+	missing := map[string]func(*readerParts){
+		"no repository":    func(parts *readerParts) { parts.repository = domain.PolicyRepository{} },
+		"no heads":         func(parts *readerParts) { parts.ports.Heads = nil },
+		"no listings":      func(parts *readerParts) { parts.ports.Listings = nil },
+		"no contents":      func(parts *readerParts) { parts.ports.Contents = nil },
+		"no active policy": func(parts *readerParts) { parts.active = nil },
 	}
-	for form, parts := range missing {
+	for form, remove := range missing {
 		t.Run(form, func(t *testing.T) {
-			if _, err := policy.ParseReader(parts()); !errors.Is(err, policy.ErrIncompleteReader) {
+			parts := completeReaderParts(t)
+			remove(&parts)
+
+			if _, err := policy.ParseReader(parts.repository, parts.ports, parts.active); !errors.Is(err, policy.ErrIncompleteReader) {
 				t.Fatalf("a reader with %s gave %v, want ErrIncompleteReader", form, err)
 			}
 		})
+	}
+}
+
+type readerParts struct {
+	repository domain.PolicyRepository
+	ports      policy.ReaderPorts
+	active     *policy.ActivePolicy
+}
+
+func completeReaderParts(t *testing.T) readerParts {
+	t.Helper()
+
+	return readerParts{
+		repository: readRepository(t),
+		ports:      portsOver(policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))),
+		active:     activePolicyLoggingTo(t, slog.DiscardHandler),
 	}
 }
 
@@ -93,15 +93,15 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 func readerOver(t *testing.T, recorded recordedPolicyRepository, active *policy.ActivePolicy) *policy.Reader {
 	t.Helper()
 
-	reader, err := policy.ParseReader(readRepository(t), policy.ReaderPorts{
-		Heads:    recorded.heads,
-		Listings: recorded.listings,
-		Contents: recorded.contents,
-	}, active)
+	reader, err := policy.ParseReader(readRepository(t), portsOver(recorded), active)
 	if err != nil {
 		t.Fatalf("parse reader: %v", err)
 	}
 	return reader
+}
+
+func portsOver(recorded recordedPolicyRepository) policy.ReaderPorts {
+	return policy.ReaderPorts{Heads: recorded.heads, Listings: recorded.listings, Contents: recorded.contents}
 }
 
 func readRepository(t *testing.T) domain.PolicyRepository {
