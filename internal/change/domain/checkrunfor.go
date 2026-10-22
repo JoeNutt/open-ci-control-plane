@@ -58,7 +58,21 @@ func undecidedPresentation(decided FamilyDecision) runPresentation {
 	if decided.FailurePosture() == FailurePostureOpen {
 		return admittedWithoutDecisionPresentation(decided)
 	}
-	return policyErrorPresentation(decided)
+	return noPolicyLoadedPresentation(decided)
+}
+
+const (
+	noPolicyLoadedTitle  = "No policy loaded"
+	noPolicyLoadedLayout = "No policy loaded for %s, so this change cannot be judged."
+)
+
+func noPolicyLoadedPresentation(decided FamilyDecision) runPresentation {
+	return runPresentation{
+		conclusion: ConclusionFailure,
+		verdict:    VerdictRefused,
+		title:      noPolicyLoadedTitle,
+		headline:   fmt.Sprintf(noPolicyLoadedLayout, decided.Family),
+	}
 }
 
 const (

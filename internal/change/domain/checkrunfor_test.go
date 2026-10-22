@@ -192,7 +192,7 @@ func TestAnUndecidedFamilyThatFailsOpenSaysThePolicyDidNotDecide(t *testing.T) {
 	}
 }
 
-func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
+func TestAnUndecidedFamilyThatFailsClosedReadsNoPolicyLoaded(t *testing.T) {
 	for _, family := range []domain.PolicyFamily{
 		domain.PolicyFamilySecurity, domain.PolicyFamilyStructural,
 	} {
@@ -202,7 +202,7 @@ func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
 			if run.Conclusion != domain.ConclusionFailure {
 				t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
 			}
-			stated := fmt.Sprintf("Policy %s failed to evaluate.", family)
+			stated := fmt.Sprintf("No policy loaded for %s", family)
 			if !strings.Contains(run.Headline, stated) {
 				t.Errorf("headline does not say %q:\n%s", stated, run.Headline)
 			}
