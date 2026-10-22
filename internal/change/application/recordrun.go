@@ -15,8 +15,11 @@ type RecordRun struct {
 }
 
 func (useCase RecordRun) Execute(ctx context.Context, report domain.RunReport) error {
-	if _, err := useCase.Ledger.DispatchedPlanFor(ctx, report.Repository, report.Head); err != nil {
+	dispatched, err := useCase.Ledger.DispatchedPlanFor(ctx, report.Repository, report.Head)
+	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head, err)
 	}
-	return nil
+	return useCase.Publisher.PublishCheckRun(ctx, dispatched.Locator, report.Head, domain.CheckRun{
+		Name: domain.TestsCheckRunName, Conclusion: domain.ConclusionSuccess, DecisionID: dispatched.Plan.DecisionID,
+	})
 }
