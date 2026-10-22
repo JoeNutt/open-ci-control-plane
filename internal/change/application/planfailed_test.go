@@ -31,3 +31,26 @@ func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *te
 			plans[0].FullMatrix, plans[0].Trigger, len(plans[0].Suites), domain.PlanTriggerPlanFailed)
 	}
 }
+
+var errBindingUnreadable = errors.New("the policy binding cannot be read")
+
+type unreadableBinding struct{}
+
+func (unreadableBinding) BindingOf(context.Context, domain.GovernedRepository) (domain.Binding, error) {
+	return domain.Binding{}, errBindingUnreadable
+}
+
+func TestAPassingChangeWhoseBindingCannotBeReadDispatchesNothingAndSaysWhy(t *testing.T) {
+	dispatched := &memory.PlanDispatches{}
+	useCase := passingGateChange(t, &memory.CheckRuns{}, dispatched)
+	useCase.Bindings = unreadableBinding{}
+
+	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, errBindingUnreadable) {
+		t.Errorf("the binding's cause was not returned for the log: %v", err)
+	}
+	if plans := dispatched.Dispatched(); len(plans) != 0 {
+		t.Errorf("dispatched %d plans with no workflow to dispatch to", len(plans))
+	}
+}
