@@ -18,15 +18,24 @@ type classifiedFailure struct {
 
 type causedRefusal struct {
 	cause   error
-	refusal func() refusal
+	refusal func(failure error) refusal
 	level   slog.Level
 }
 
 var coverageRefusals = []causedRefusal{
-	{cause: domain.ErrUnverifiedIdentityToken, refusal: unverifiedTokenProblem, level: slog.LevelWarn},
-	{cause: domain.ErrIdentityIssuerUnavailable, refusal: unverifiedTokenProblem, level: slog.LevelError},
-	{cause: application.ErrForeignRepository, refusal: foreignRepositoryProblem, level: slog.LevelWarn},
-	{cause: domain.ErrPathOutsideRepository, refusal: unknownPathProblem, level: slog.LevelWarn},
+	{cause: domain.ErrUnverifiedIdentityToken, refusal: func(error) refusal { return unverifiedTokenProblem() }, level: slog.LevelWarn},
+	{cause: domain.ErrIdentityIssuerUnavailable, refusal: func(error) refusal { return unverifiedTokenProblem() }, level: slog.LevelError},
+	{cause: application.ErrForeignRepository, refusal: func(error) refusal { return foreignRepositoryProblem() }, level: slog.LevelWarn},
+	{cause: domain.ErrPathOutsideRepository, refusal: func(error) refusal { return unknownPathProblem() }, level: slog.LevelWarn},
+	{cause: errUnknownFormat, refusal: func(error) refusal { return fieldProblem{Code: "unknown_format", Message: "x", Field: formatPart} }, level: slog.LevelWarn},
+	{cause: domain.ErrMalformedCoverageReport, refusal: func(error) refusal {
+		return fieldProblem{Code: "unparseable_artifact", Message: "x", Field: artifactPart}
+	}, level: slog.LevelWarn},
+	{cause: errMissingPart, refusal: func(failure error) refusal {
+		var missing missingPartError
+		errors.As(failure, &missing)
+		return fieldProblem{Code: "missing_part", Message: "x", Field: missing.part}
+	}, level: slog.LevelWarn},
 }
 
 func coverageRefusalOf(failure error) classifiedFailure {
@@ -35,5 +44,5 @@ func coverageRefusalOf(failure error) classifiedFailure {
 		return classifiedFailure{answer: failedCoverageProblem(), level: slog.LevelError}
 	}
 	row := coverageRefusals[matching]
-	return classifiedFailure{answer: row.refusal(), level: row.level}
+	return classifiedFailure{answer: row.refusal(failure), level: row.level}
 }

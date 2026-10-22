@@ -21,6 +21,29 @@ func TestAnUploadFromAnotherRepositoryIsAnswered403(t *testing.T) {
 	}
 }
 
+func TestAFormThatCannotBeReadAsLCOVIsAnswered400NamingThePart(t *testing.T) {
+	for part, failure := range map[string]error{
+		formatPart:   errUnknownFormat,
+		artifactPart: fmt.Errorf("read the artifact: line 3: %w", domain.ErrMalformedCoverageReport),
+	} {
+		refused := coverageRefusalOf(failure)
+
+		if refused.answer.status() != http.StatusBadRequest || refused.answer.(fieldProblem).Field != part {
+			t.Errorf("%v: answered %#v, want %d naming %s", failure, refused.answer, http.StatusBadRequest, part)
+		}
+	}
+}
+
+func TestAFormMissingAPartIsAnswered400NamingIt(t *testing.T) {
+	for _, part := range []string{formatPart, artifactPart} {
+		refused := coverageRefusalOf(fmt.Errorf("read the artifact: %w", missingPartError{part: part}))
+
+		if refused.answer.status() != http.StatusBadRequest || refused.answer.(fieldProblem).Field != part {
+			t.Errorf("answered %#v, want %d naming %s", refused.answer, http.StatusBadRequest, part)
+		}
+	}
+}
+
 func TestAnUnverifiedTokenIsAnswered401AsARefusal(t *testing.T) {
 	refused := coverageRefusalOf(fmt.Errorf("verify: %w", domain.ErrUnverifiedIdentityToken))
 

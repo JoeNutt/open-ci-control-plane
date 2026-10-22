@@ -24,7 +24,11 @@ type CoverageArtifacts interface {
 
 var errUnknownFormat = errors.New("the form states a format other than lcov")
 
+var errMissingPart = errors.New("missing part")
+
 type missingPartError struct{ part string }
+
+func (missingPartError) Is(target error) bool { return target == errMissingPart }
 
 func (missing missingPartError) Error() string {
 	return "the form has no " + missing.part + " part where one is due"
