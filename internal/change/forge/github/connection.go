@@ -3,6 +3,7 @@
 package github
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,11 +13,9 @@ import (
 )
 
 type Settings struct {
-	BaseURL string
-	Token   Credential
-	AppID   int64
-	// Client is copied shallowly when the settings are parsed: later changes to its
-	// fields are not seen, but its Transport and Jar are shared with the caller.
+	BaseURL          string
+	Credentials      CredentialSource
+	AppID            int64
 	Client           *http.Client
 	MaxResponseBytes int
 }
@@ -32,14 +31,27 @@ var ErrNoClient = errors.New("the forge settings carry no http client")
 var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
 
 type connection struct {
-	settings Settings
-	token    Credential
+	settings   Settings
+	authorizer requestAuthorizer
 }
 
-func parseConnection(settings Settings) (connection, error) {
-	if !settings.Token.isPresent() {
+type requestAuthorizer interface {
+	authorization(ctx context.Context) (Credential, error)
+}
+
+type CredentialSource interface {
+	requestAuthorizer
+	isPresent() bool
+}
+
+func parseCredentialsConnection(settings Settings) (connection, error) {
+	if settings.Credentials == nil || !settings.Credentials.isPresent() {
 		return connection{}, ErrNoCredential
 	}
+	return parseConnection(settings, settings.Credentials)
+}
+
+func parseConnection(settings Settings, authorizer requestAuthorizer) (connection, error) {
 	if settings.Client == nil {
 		return connection{}, ErrNoClient
 	}
@@ -54,9 +66,8 @@ func parseConnection(settings Settings) (connection, error) {
 	if settings.Client.Timeout <= 0 {
 		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
-	token := settings.Token
-	settings.Token = Credential{}
-	return connection{settings: settings, token: token}, nil
+	settings.Credentials = nil
+	return connection{settings: settings, authorizer: authorizer}, nil
 }
 
 func checkBaseURL(address string) error {

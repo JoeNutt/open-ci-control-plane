@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package application assembles a change document from what a forge reports.
 package application
 
 import (
@@ -11,9 +10,12 @@ import (
 )
 
 type BuildDocument struct {
-	Source domain.ChangeSource
-	Limits domain.Limits
-	Rules  domain.ClassificationRules
+	Source    domain.ChangeSource
+	Bases     domain.ChangeBase
+	Contents  domain.FileContents
+	Extractor domain.ImportExtractor
+	Limits    domain.Limits
+	Rules     domain.ClassificationRules
 }
 
 func (useCase BuildDocument) Execute(
@@ -31,5 +33,111 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, err)
 	}
-	return domain.ParseDocument(pullRequest, bounded, useCase.Rules), nil
+	stated := statedChange{locator: locator, headSHA: pullRequest.HeadSHA}
+	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
+	if err != nil {
+		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
+	}
+	facts, err := domain.ParseStructuralFacts(imported, useCase.Limits)
+	if err != nil {
+		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
+	}
+	change := domain.Change{Files: bounded, Structure: facts}
+	return domain.ParseDocument(pullRequest, change, useCase.Rules), nil
+}
+
+type statedChange struct {
+	locator domain.PullRequestLocator
+	headSHA string
+}
+
+type changeEnds struct {
+	repository string
+	base       domain.CommitSHA
+	head       domain.CommitSHA
+}
+
+func (useCase BuildDocument) claimedOf(files []domain.File) []domain.File {
+	var claimed []domain.File
+	for _, file := range files {
+		if useCase.Extractor.Claims(file.Path) {
+			claimed = append(claimed, file)
+		}
+	}
+	return claimed
+}
+
+func (useCase BuildDocument) importedFilesOf(
+	ctx context.Context, stated statedChange, claimed []domain.File,
+) ([]domain.ImportedFile, error) {
+	if len(claimed) == 0 {
+		return nil, nil
+	}
+	ends, err := useCase.endsOf(ctx, stated)
+	if err != nil {
+		return nil, err
+	}
+	imported := make([]domain.ImportedFile, 0, len(claimed))
+	for _, file := range claimed {
+		importedFile, err := useCase.importedFileAt(ctx, ends, file)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", file.Path, err)
+		}
+		imported = append(imported, importedFile)
+	}
+	return imported, nil
+}
+
+func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (changeEnds, error) {
+	head, err := domain.ParseCommitSHA(stated.headSHA)
+	if err != nil {
+		return changeEnds{}, fmt.Errorf("the head commit: %w", err)
+	}
+	base, err := useCase.Bases.BaseCommitOf(ctx, stated.locator)
+	if err != nil {
+		return changeEnds{}, fmt.Errorf("the base commit: %w", err)
+	}
+	return changeEnds{repository: stated.locator.Repository(), base: base, head: head}, nil
+}
+
+func (useCase BuildDocument) importedFileAt(
+	ctx context.Context, ends changeEnds, file domain.File,
+) (domain.ImportedFile, error) {
+	imported := domain.ImportedFile{File: file}
+	var err error
+	if file.Action.ExistsAtBase() {
+		imported.Base, err = useCase.importsAt(ctx, ends.fileAt(ends.base, file.Path))
+		if err != nil {
+			return domain.ImportedFile{}, fmt.Errorf("at base: %w", err)
+		}
+	}
+	if file.Action.ExistsAtHead() {
+		imported.Head, err = useCase.importsAt(ctx, ends.fileAt(ends.head, file.Path))
+		if err != nil {
+			return domain.ImportedFile{}, fmt.Errorf("at head: %w", err)
+		}
+	}
+	return imported, nil
+}
+
+func (ends changeEnds) fileAt(commit domain.CommitSHA, path string) domain.FileAtCommit {
+	return domain.FileAtCommit{Repository: ends.repository, Commit: commit, Path: path}
+}
+
+func (useCase BuildDocument) importsAt(
+	ctx context.Context, file domain.FileAtCommit,
+) (domain.FileImports, error) {
+	contents, err := useCase.Contents.ContentsAt(ctx, file)
+	if err != nil {
+		return domain.FileImports{}, fmt.Errorf("read at %s: %w", file.Commit, err)
+	}
+	source, err := domain.ParseBoundedSource(contents, useCase.Limits)
+	if err != nil {
+		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
+	}
+	paths, err := useCase.Extractor.ImportsIn(source)
+	if err != nil {
+		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit, err)
+	}
+	return domain.ParseFileImports(paths, useCase.Limits)
 }

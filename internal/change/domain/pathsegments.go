@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain
+
+import "strings"
+
+const (
+	pathSegmentCharacters = asciiAlphanumerics + "-._~"
+	pathSegmentDot        = "."
+)
+
+var pathSegmentRule = segmentRule{
+	maxBytes:          DeclaredLimits().MaxPathBytes,
+	firstCharacters:   pathSegmentCharacters,
+	wholeCharacters:   pathSegmentCharacters,
+	requiresOneBeyond: pathSegmentDot,
+}
+
+func isRepositoryPath(stated string) bool {
+	return len(stated) <= DeclaredLimits().MaxPathBytes && pathSegmentRule.admitsEverySegmentOf(stated)
+}
+
+func (rule segmentRule) admitsEverySegmentOf(stated string) bool {
+	for segment := range strings.SplitSeq(stated, pathSeparator) {
+		if !rule.admits(segment) {
+			return false
+		}
+	}
+	return true
+}
