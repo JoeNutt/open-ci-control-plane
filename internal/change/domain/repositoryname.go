@@ -3,9 +3,12 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
+
+var ErrNoSuchRepository = errors.New("the forge reports no such repository")
 
 type repositoryName struct {
 	owner string
