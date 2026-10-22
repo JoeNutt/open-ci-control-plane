@@ -28,6 +28,7 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 				ids:      settings.DecisionIDs,
 				log:      settings.Log,
 				refusing: refusing,
+				accepted: newAcceptedDeliveries(settings.Clock),
 			},
 		},
 		Secret:   settings.Secret,

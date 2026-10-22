@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
@@ -400,6 +401,7 @@ func listenerSettings(log *slog.Logger, gate *recordingGate) httpapi.Settings {
 		Installations: []int64{allowlistedInstallation},
 		Gate:          gate,
 		DecisionIDs:   mintedDecisions{},
+		Clock:         time.Now,
 	}
 }
 

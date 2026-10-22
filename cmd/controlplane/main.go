@@ -70,6 +70,7 @@ func serverFor(configured configuration.Configuration, log *slog.Logger) (*http.
 		Installations: configured.InstallationIDs(),
 		Gate:          unwiredEvaluation{},
 		DecisionIDs:   random.DecisionIDs{},
+		Clock:         time.Now,
 	})
 	if err != nil {
 		return nil, err
