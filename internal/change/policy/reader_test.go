@@ -109,6 +109,44 @@ func (counted countedContents) ContentsAt(ctx context.Context, at domain.PolicyC
 	return counted.contents.ContentsAt(ctx, at, path)
 }
 
+func TestReadRevisionReadsEveryPolicyFileFromThePolicyRepositoryAndNoOther(t *testing.T) {
+	recorded := policyRepositoryAt(t, firstPolicyCommit, liveFiles(t))
+	var askedAbout []domain.PolicyRepository
+	ports := portsOver(recorded)
+	ports.Contents = repositoriesAsked{contents: recorded.contents, asked: &askedAbout}
+	active := activePolicyLoggingTo(t, slog.DiscardHandler)
+
+	if err := readerWith(t, ports, active).ReadRevision(context.Background()); err != nil {
+		t.Fatalf("read revision: %v", err)
+	}
+
+	accepted, err := active.Accepted()
+	if err != nil {
+		t.Fatalf("accepted revision: %v", err)
+	}
+	if workflow := accepted.Model().Bindings()[0].Workflow().String(); workflow != liveWorkflow {
+		t.Errorf("the binding used names workflow %q, want the policy repository's %q", workflow, liveWorkflow)
+	}
+	for _, repository := range askedAbout {
+		if repository != readRepository(t) {
+			t.Errorf("the reader read a file from %s, want only %s", repository, readPolicyRepository)
+		}
+	}
+	if len(askedAbout) != len(liveFiles(t)) {
+		t.Errorf("the reader read %d files, want the %d policy files", len(askedAbout), len(liveFiles(t)))
+	}
+}
+
+type repositoriesAsked struct {
+	contents domain.PolicyContents
+	asked    *[]domain.PolicyRepository
+}
+
+func (recording repositoriesAsked) ContentsAt(ctx context.Context, at domain.PolicyCommit, path domain.RepositoryPath) ([]byte, error) {
+	*recording.asked = append(*recording.asked, at.Repository())
+	return recording.contents.ContentsAt(ctx, at, path)
+}
+
 func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
 	missing := map[string]func(*readerParts){
 		"no repository":    func(parts *readerParts) { parts.repository = domain.PolicyRepository{} },
