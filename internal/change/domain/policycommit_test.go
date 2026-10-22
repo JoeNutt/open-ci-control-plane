@@ -9,10 +9,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const policyHead = "637d049f40a67db2936d7c97668b07c531b4dcc5"
-
 func TestParsePolicyCommitKeepsItsRepositoryAndCommit(t *testing.T) {
-	repository, commit := parsedPolicyRepository(t), parsedCommit(t, policyHead)
+	repository, commit := parsedPolicyRepository(t), parsedCommit(t, wellFormedCommitSHA)
 
 	at, err := domain.ParsePolicyCommit(repository, commit)
 
@@ -28,7 +26,7 @@ func TestParsePolicyCommitRefusesAnUnparsedRepositoryOrCommit(t *testing.T) {
 	if _, err := domain.ParsePolicyCommit(parsedPolicyRepository(t), domain.CommitSHA{}); !errors.Is(err, domain.ErrMalformedCommitSHA) {
 		t.Errorf("a zero commit gave %v, want ErrMalformedCommitSHA", err)
 	}
-	if _, err := domain.ParsePolicyCommit(domain.PolicyRepository{}, parsedCommit(t, policyHead)); !errors.Is(err, domain.ErrMalformedRepository) {
+	if _, err := domain.ParsePolicyCommit(domain.PolicyRepository{}, parsedCommit(t, wellFormedCommitSHA)); !errors.Is(err, domain.ErrMalformedRepository) {
 		t.Errorf("a zero repository gave %v, want ErrMalformedRepository", err)
 	}
 }
