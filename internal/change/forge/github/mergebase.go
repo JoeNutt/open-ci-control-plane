@@ -41,7 +41,7 @@ const threeDotRange = "..."
 
 func compareEndpoint(locator domain.PullRequestLocator, tips domain.BranchTips) string {
 	return repositoryEndpoint(locator) + "/compare/" +
-		url.PathEscape(tips.Base.String()+threeDotRange+tips.Head.String())
+		url.PathEscape(tips.Base().String()+threeDotRange+tips.Head().String())
 }
 
 type comparison struct {

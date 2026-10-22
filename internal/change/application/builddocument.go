@@ -98,7 +98,11 @@ func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (c
 	if err != nil {
 		return changeEnds{}, fmt.Errorf("the base commit: %w", err)
 	}
-	base, err := useCase.Bases.MergeBaseOf(ctx, stated.locator, domain.BranchTips{Base: baseTip, Head: head})
+	tips, err := domain.ParseBranchTips(baseTip, head)
+	if err != nil {
+		return changeEnds{}, err
+	}
+	base, err := useCase.Bases.MergeBaseOf(ctx, stated.locator, tips)
 	if err != nil {
 		return changeEnds{}, fmt.Errorf("the merge base: %w", err)
 	}

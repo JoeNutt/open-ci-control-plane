@@ -486,7 +486,10 @@ const recordedBaseTipSHA = "7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3"
 func recordedBases(t *testing.T) memory.ChangeBases {
 	t.Helper()
 
-	tips := domain.BranchTips{Base: commitSHAOf(t, recordedBaseTipSHA), Head: commitSHAOf(t, recordedHeadSHA)}
+	tips, err := domain.ParseBranchTips(commitSHAOf(t, recordedBaseTipSHA), commitSHAOf(t, recordedHeadSHA))
+	if err != nil {
+		t.Fatalf("parse branch tips: %v", err)
+	}
 	return memory.ChangeBases{MergeBases: map[domain.BranchTips]domain.CommitSHA{
 		tips: commitSHAOf(t, recordedBaseSHA),
 	}}

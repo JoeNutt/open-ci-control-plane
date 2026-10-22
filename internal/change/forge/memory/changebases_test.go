@@ -14,10 +14,13 @@ import (
 func recordedTips(t *testing.T) domain.BranchTips {
 	t.Helper()
 
-	return domain.BranchTips{
-		Base: commitOf(t, "7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3"),
-		Head: commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"),
+	tips, err := domain.ParseBranchTips(
+		commitOf(t, "7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3"),
+		commitOf(t, "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"))
+	if err != nil {
+		t.Fatalf("parse branch tips: %v", err)
 	}
+	return tips
 }
 
 func TestChangeBasesAnswersTheMergeBaseRecordedForTheTips(t *testing.T) {

@@ -24,7 +24,11 @@ const (
 func tipsOf(t *testing.T) domain.BranchTips {
 	t.Helper()
 
-	return domain.BranchTips{Base: commitOf(t, baseSHA), Head: commitOf(t, headTipSHA)}
+	tips, err := domain.ParseBranchTips(commitOf(t, baseSHA), commitOf(t, headTipSHA))
+	if err != nil {
+		t.Fatalf("parse branch tips: %v", err)
+	}
+	return tips
 }
 
 func commitOf(t *testing.T, stated string) domain.CommitSHA {
