@@ -24,18 +24,10 @@ func TestArtifactsReadAnLCOVBodyAsTheReportItDeclares(t *testing.T) {
 
 func TestArtifactsRefuseABodyDeclaredOverTheCompressedBoundUnread(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
-	unread := &failingReader{}
 
-	_, err := lcov.Artifacts{}.ArtifactOf(limits.MaxCompressedBytes+1, unread).ReportedFiles(limits)
+	_, err := lcov.Artifacts{}.ArtifactOf(limits.MaxCompressedBytes+1, unreadBody{t}).ReportedFiles(limits)
 
-	if !errors.Is(err, domain.ErrCompressedArtifactTooLarge) || unread.isRead {
-		t.Fatalf("error %v, read %t: want ErrCompressedArtifactTooLarge with the body unread", err, unread.isRead)
+	if !errors.Is(err, domain.ErrCompressedArtifactTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrCompressedArtifactTooLarge)
 	}
-}
-
-type failingReader struct{ isRead bool }
-
-func (reader *failingReader) Read([]byte) (int, error) {
-	reader.isRead = true
-	return 0, errors.New("the body was read")
 }
