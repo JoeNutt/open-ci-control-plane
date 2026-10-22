@@ -5,6 +5,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -66,5 +67,5 @@ func (heads DefaultBranchHeads) headOf(
 }
 
 func branchReferenceEndpoint(repository domain.PolicyRepository, branch string) string {
-	return repositoryEndpoint(repository) + "/git/ref/heads/" + branch
+	return repositoryEndpoint(repository) + "/git/ref/heads/" + url.PathEscape(branch)
 }

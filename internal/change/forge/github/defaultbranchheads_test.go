@@ -69,6 +69,26 @@ func TestDefaultBranchHeadOfReadsTheDefaultBranchThenItsCommitAsTheInstallation(
 	}
 }
 
+func TestDefaultBranchHeadOfAsksForTheBranchTheForgeNamedAsOnePathSegment(t *testing.T) {
+	var asked []askedRequest
+	const escapedBranch = "release%2F..%2Fv1%3Fref=x"
+	server := recordingEach(t, &asked, map[string]string{
+		"/repos/JoeNutt/open-ci-policy":                                `{"default_branch": "release/../v1?ref=x"}`,
+		"/repos/JoeNutt/open-ci-policy/git/ref/heads/" + escapedBranch: `{"object": {"sha": "` + policyHead + `"}}`,
+	})
+	heads, err := github.ParseDefaultBranchHeads(settingsAt(server))
+	if err != nil {
+		t.Fatalf("parse default branch heads: %v", err)
+	}
+
+	if _, err := heads.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, "JoeNutt/open-ci-policy")); err != nil {
+		t.Fatalf("default branch head: %v", err)
+	}
+	if len(asked) != 2 || asked[1].escapedPath != "/repos/JoeNutt/open-ci-policy/git/ref/heads/"+escapedBranch || asked[1].rawQuery != "" {
+		t.Errorf("the adapter asked %+v, want the branch as one escaped segment and no query", asked)
+	}
+}
+
 func policyRepositoryOf(t *testing.T, stated string) domain.PolicyRepository {
 	t.Helper()
 
