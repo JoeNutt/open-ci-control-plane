@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"maps"
-	"slices"
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -35,13 +34,20 @@ type requiredPart struct {
 var requiredParts = []requiredPart{
 	{name: "a log", isMissing: func(settings Settings) bool { return settings.Log == nil }},
 	{name: "a gate", isMissing: func(settings Settings) bool { return len(settings.Gates) == 0 }},
-	{name: "a gate for every allowed installation", isMissing: func(settings Settings) bool {
-		return slices.Contains(slices.Collect(maps.Values(settings.Gates)), nil)
-	}},
+	{name: "a gate for every allowed installation", isMissing: hasInstallationWithNoGate},
 	{name: "a decision ID source", isMissing: func(settings Settings) bool { return settings.DecisionIDs == nil }},
 	{name: "a clock", isMissing: func(settings Settings) bool { return settings.Clock == nil }},
 }
 
 func isMissingFrom(settings Settings) func(requiredPart) bool {
 	return func(part requiredPart) bool { return part.isMissing(settings) }
+}
+
+func hasInstallationWithNoGate(settings Settings) bool {
+	for gate := range maps.Values(settings.Gates) {
+		if gate == nil {
+			return true
+		}
+	}
+	return false
 }
