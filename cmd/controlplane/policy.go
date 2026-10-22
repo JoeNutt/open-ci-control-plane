@@ -18,18 +18,18 @@ import (
 
 const (
 	forgeBaseURL          = "https://api.github.com"
-	forgeCallBound        = 10 * time.Second
-	forgeResponseBound    = 4 << 20
 	bundleListenerAddress = "127.0.0.1:0"
 	bundleServiceScheme   = "http://"
 )
 
-func servedPolicy(ctx context.Context, configured configuration.Configuration, log *slog.Logger) (opa.BundleService, error) {
+func servedPolicy(
+	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
+) (opa.BundleService, error) {
 	active, err := policy.ParseActivePolicy(log)
 	if err != nil {
 		return opa.BundleService{}, err
 	}
-	reader, err := policyReaderFor(configured, active)
+	reader, err := policyReaderFor(configured, app, active)
 	if err != nil {
 		return opa.BundleService{}, err
 	}
@@ -46,24 +46,13 @@ func servedPolicy(ctx context.Context, configured configuration.Configuration, l
 	return service, nil
 }
 
-func policyReaderFor(configured configuration.Configuration, active *policy.ActivePolicy) (*policy.Reader, error) {
-	key, err := github.ParseAppKey(configured.AppKey().Reveal())
+func policyReaderFor(
+	configured configuration.Configuration, app appForge, active *policy.ActivePolicy,
+) (*policy.Reader, error) {
+	settings, err := app.settingsFor(configured.PolicyInstallationID())
 	if err != nil {
 		return nil, err
 	}
-	settings := github.Settings{
-		BaseURL:          forgeBaseURL,
-		AppID:            configured.AppID(),
-		Client:           &http.Client{Timeout: forgeCallBound},
-		MaxResponseBytes: forgeResponseBound,
-	}
-	tokens, err := github.ParseInstallationTokens(settings, github.Installation{
-		Key: key, ID: configured.PolicyInstallationID(), Clock: time.Now,
-	})
-	if err != nil {
-		return nil, err
-	}
-	settings.Credentials = tokens
 	ports, err := policyPortsOver(settings)
 	if err != nil {
 		return nil, err

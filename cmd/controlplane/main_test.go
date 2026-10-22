@@ -6,17 +6,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,9 +27,12 @@ func TestAConfigurationMissingOrInvalidInARequiredItemExitsNonZeroNamingItAndSer
 		item  string
 		state func(t *testing.T, stated map[string]json.RawMessage)
 	}{
-		"no App key":            {"appKeyFile", without("appKeyFile")},
-		"no webhook secret":     {"webhookSecretFile", without("webhookSecretFile")},
-		"no allowlist":          {"installationIds", without("installationIds")},
+		"no App key":        {"appKeyFile", without("appKeyFile")},
+		"no webhook secret": {"webhookSecretFile", without("webhookSecretFile")},
+		"no allowlist":      {"installationIds", without("installationIds")},
+		"an App key that is not an RSA key": {"appKeyFile", func(t *testing.T, stated map[string]json.RawMessage) {
+			stated["appKeyFile"] = quoted(t, writtenFile(t, t.TempDir(), "app-key.pem", unparseableAppKey))
+		}},
 		"an unreadable App key": {"appKeyFile", stating("appKeyFile", `"/nonexistent/app-key.pem"`)},
 		"an empty webhook secret": {"webhookSecretFile", func(t *testing.T, stated map[string]json.RawMessage) {
 			stated["webhookSecretFile"] = quoted(t, writtenFile(t, t.TempDir(), "empty", "\n"))
@@ -95,7 +95,7 @@ func TestACompleteConfigurationServesTheEventsRouteAndLogsWhatItServes(t *testin
 	if exit != 0 {
 		t.Errorf("exit is %d after a clean stop, want 0", exit)
 	}
-	for _, named := range []string{`"structural"`, "52311907"} {
+	for _, named := range []string{`"structural"`, strconv.Itoa(installationID)} {
 		if !strings.Contains(logged.String(), named) {
 			t.Errorf("the start-up log does not name %s: %q", named, logged.String())
 		}
@@ -118,7 +118,8 @@ func TestTheBinaryStartsEachFamilysEngineFromThePolicyBundleItServes(t *testing.
 func TestNoStartUpOrServingLogCarriesTheWebhookSecretOrTheAppKey(t *testing.T) {
 	_, _, logged := servedOnce(t, "")
 
-	for name, secret := range map[string]string{"the webhook secret": webhookSecret, "the App key": appKeyBody} {
+	keyLines := strings.Split(rsaAppKeyPEM(t), "\n")
+	for name, secret := range map[string]string{"the webhook secret": webhookSecret, "the App key": keyLines[1]} {
 		if strings.Contains(logged.String(), secret) {
 			t.Errorf("a log line carries %s: %q", name, logged.String())
 		}
@@ -129,7 +130,7 @@ var _ httpapi.ChangeGate = application.GateChange{}
 
 func TestAPullRequestTheBinaryCannotYetEvaluateIsNeverAccepted(t *testing.T) {
 	opened := `{"action":"opened","number":7,"repository":{"full_name":"JoeNutt/open-ci-control-plane"},` +
-		`"installation":{"id":52311907}}`
+		`"installation":{"id":` + strconv.Itoa(installationID) + `}}`
 
 	answered, _, logged := servedOnce(t, opened)
 
@@ -184,21 +185,12 @@ func firstAnswerFrom(t *testing.T, listenAddress, signedPayload string) int {
 const (
 	listenAddressItem = "listenAddress"
 	webhookSecret     = "the App's webhook secret"
+	appKeyBody        = "c3RhdGVkIGtleQ"
+	appID             = 1204331
+	installationID    = 52311907
 )
 
-var generatedAppKeyPEM = generatedRSAKeyPEM()
-
-var appKeyBody = strings.Split(generatedAppKeyPEM, "\n")[1]
-
-func generatedRSAKeyPEM() string {
-	key, err := rsa.GenerateKey(rand.Reader, appKeyBits)
-	if err != nil {
-		panic(err)
-	}
-	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
-}
-
-const appKeyBits = 2048
+const unparseableAppKey = "-----BEGIN RSA PRIVATE KEY-----\n" + appKeyBody + "\n-----END RSA PRIVATE KEY-----\n"
 
 func assertNothingServesOn(t *testing.T, listenAddress string) {
 	t.Helper()
@@ -215,17 +207,17 @@ func assertNothingServesOn(t *testing.T, listenAddress string) {
 func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 	t.Helper()
 	directory := t.TempDir()
-	appKey := writtenFile(t, directory, "app-key.pem", generatedAppKeyPEM)
+	appKey := writtenFile(t, directory, "app-key.pem", rsaAppKeyPEM(t))
 	secret := writtenFile(t, directory, "webhook-secret", webhookSecret+"\n")
 	return map[string]json.RawMessage{
 		listenAddressItem:      quoted(t, unusedLoopbackAddress(t)),
-		"appId":                json.RawMessage(`1204331`),
+		"appId":                json.RawMessage(strconv.Itoa(appID)),
 		"appKeyFile":           quoted(t, appKey),
 		"webhookSecretFile":    quoted(t, secret),
-		"installationIds":      json.RawMessage(`[52311907]`),
+		"installationIds":      json.RawMessage("[" + strconv.Itoa(installationID) + "]"),
 		"families":             json.RawMessage(`["structural"]`),
 		"policyRepository":     quoted(t, "JoeNutt/open-ci-policy"),
-		"policyInstallationId": json.RawMessage(`52311907`),
+		"policyInstallationId": json.RawMessage(strconv.Itoa(installationID)),
 	}
 }
 

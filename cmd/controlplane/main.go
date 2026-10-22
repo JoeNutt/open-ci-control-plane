@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"io"
 	"log/slog"
@@ -47,9 +48,19 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
+	trusted, err := x509.SystemCertPool()
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	app, err := appForgeOf(configured, forgeEndpoint{baseURL: forgeBaseURL, trusted: trusted})
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
 	log.Info(readConfiguration, slog.Any(familiesKey, configured.Families()),
 		slog.Any(installationsKey, configured.InstallationIDs()))
-	engines, err := startedPolicyEngines(ctx, configured, log)
+	engines, err := startedPolicyEngines(ctx, configured, app, log)
 	if err != nil {
 		log.Error(refusedEngines, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -64,9 +75,9 @@ func run(ctx context.Context, arguments []string, logs io.Writer) int {
 }
 
 func startedPolicyEngines(
-	ctx context.Context, configured configuration.Configuration, log *slog.Logger,
+	ctx context.Context, configured configuration.Configuration, app appForge, log *slog.Logger,
 ) (startedEngines, error) {
-	service, err := servedPolicy(ctx, configured, log)
+	service, err := servedPolicy(ctx, configured, app, log)
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,6 @@ import (
 
 const (
 	MaxFileBytes       = 64 << 10
-	MaxAppKeyFileBytes = 16 << 10
 	MaxSecretFileBytes = 4 << 10
 	MaxInstallations   = 256
 )
