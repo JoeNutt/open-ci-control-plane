@@ -49,6 +49,22 @@ func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
 	}
 }
 
+func TestKnownPathsOfHoldsEveryFileAnSFLineCouldNameAlongsideOneItCouldNot(t *testing.T) {
+	server := serving(t, "/repos/acme/payments/git/trees/HEAD", `{"truncated": false, "tree": [
+		{"path": "docs/release notes.md", "type": "blob"},
+		{"path": "internal/auth.go", "type": "blob"}
+	]}`)
+
+	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, "acme/payments"))
+
+	if err != nil {
+		t.Fatalf("known paths: %v", err)
+	}
+	if !known.Contains(repositoryPathOf(t, "internal/auth.go")) {
+		t.Error("a file beside one no SF line could name is not held")
+	}
+}
+
 func repositoryPathOf(t *testing.T, stated string) domain.RepositoryPath {
 	t.Helper()
 	path, err := domain.ParseRepositoryPath(stated)

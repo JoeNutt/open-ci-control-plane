@@ -9,6 +9,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const fileEntryType = "blob"
+
 type RepositoryPaths struct {
 	forge connection
 }
@@ -21,25 +23,35 @@ func ParseRepositoryPaths(settings Settings) (RepositoryPaths, error) {
 	return RepositoryPaths{forge: forge}, nil
 }
 
-type tree struct {
-	Tree []struct {
-		Path string `json:"path"`
-		Type string `json:"type"`
-	} `json:"tree"`
-}
-
-func (paths RepositoryPaths) KnownPathsOf(ctx context.Context, repository domain.GovernedRepository) (domain.KnownPaths, error) {
+func (paths RepositoryPaths) KnownPathsOf(
+	ctx context.Context, repository domain.GovernedRepository,
+) (domain.KnownPaths, error) {
 	listed, err := jsonAt[tree](ctx, paths.forge, defaultBranchTreeEndpoint(repository))
-	var files []domain.RepositoryPath
-	for _, entry := range listed.Tree {
-		if entry.Type == "blob" {
-			p, _ := domain.ParseRepositoryPath(entry.Path)
-			files = append(files, p)
-		}
+	if err != nil {
+		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}
-	return domain.NewKnownPaths(files), err
+	return domain.NewKnownPaths(listed.repositoryPaths()), nil
 }
 
 func defaultBranchTreeEndpoint(repository domain.GovernedRepository) string {
 	return fmt.Sprintf("/repos/%s/%s/git/trees/HEAD?recursive=1", repository.Owner(), repository.Name())
+}
+
+type tree struct {
+	Entries []treeEntry `json:"tree"`
+}
+
+type treeEntry struct {
+	Path string `json:"path"`
+	Type string `json:"type"`
+}
+
+func (listed tree) repositoryPaths() []domain.RepositoryPath {
+	var files []domain.RepositoryPath
+	for _, entry := range listed.Entries {
+		if path, err := domain.ParseRepositoryPath(entry.Path); entry.Type == fileEntryType && err == nil {
+			files = append(files, path)
+		}
+	}
+	return files
 }
