@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -25,6 +26,25 @@ func TestKnownPathsContainOnlyWhatTheRepositoryHolds(t *testing.T) {
 	}
 	if known.Contains(absent) {
 		t.Errorf("a path the repository does not hold is contained")
+	}
+}
+
+func TestParseKnownPathsHoldsEveryPathTheRepositoryStates(t *testing.T) {
+	known, err := domain.ParseKnownPaths([]string{heldFile, otherHeldFile})
+
+	if err != nil {
+		t.Fatalf("parse known paths: %v", err)
+	}
+	if !known.Contains(mustParseRepositoryPath(t, heldFile)) || !known.Contains(mustParseRepositoryPath(t, otherHeldFile)) {
+		t.Error("a stated path is not held")
+	}
+}
+
+func TestParseKnownPathsRefusesAStatedPathThatIsNotARepositoryPath(t *testing.T) {
+	for _, stated := range []string{"docs/release notes.md", "/etc/passwd", "internal/../go.mod"} {
+		if _, err := domain.ParseKnownPaths([]string{heldFile, stated}); !errors.Is(err, domain.ErrPathOutsideRepository) {
+			t.Errorf("%q: error is %v, want %v", stated, err, domain.ErrPathOutsideRepository)
+		}
 	}
 }
 
