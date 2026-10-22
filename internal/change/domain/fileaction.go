@@ -29,3 +29,31 @@ var ErrUnknownFileAction = errors.New("unknown file action")
 func ParseFileAction(name string) (FileAction, error) {
 	return parseDeclaration(name, declaredFileActions, ErrUnknownFileAction)
 }
+
+func (action FileAction) ExistsAtHead() bool { return action.presence().atHead }
+
+func (action FileAction) ExistsAtBase() bool { return action.presence().atBase }
+
+type presenceAtEnds struct {
+	atBase bool
+	atHead bool
+}
+
+var presenceAfter = map[FileAction]presenceAtEnds{
+	FileActionAdded:    {atBase: false, atHead: true},
+	FileActionModified: {atBase: true, atHead: true},
+	FileActionRemoved:  {atBase: true, atHead: false},
+	FileActionRenamed:  {atBase: false, atHead: true},
+	FileActionCopied:   {atBase: false, atHead: true},
+	FileActionChanged:  {atBase: true, atHead: true},
+}
+
+var presenceAfterAnUndeclaredAction = presenceAtEnds{atBase: false, atHead: true}
+
+func (action FileAction) presence() presenceAtEnds {
+	present, declared := presenceAfter[action]
+	if !declared {
+		return presenceAfterAnUndeclaredAction
+	}
+	return present
+}
