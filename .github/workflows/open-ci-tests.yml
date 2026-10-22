@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   tests:
+    if: github.triggering_actor == 'open-ci-control-plane[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
