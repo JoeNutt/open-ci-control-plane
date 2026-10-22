@@ -271,7 +271,7 @@ func TestEveryStateIsTitled(t *testing.T) {
 		}, "Blocked"},
 		"policy error": {domain.PolicyFamilySecurity, func(t *testing.T) domain.Decision {
 			return evaluatedWith(t, &statedEngine{fault: errors.New("conflicting rule outputs")})
-		}, "Policy failed to evaluate"},
+		}, "Policy fault"},
 		"admitted without a decision": {domain.PolicyFamilyQuality, func(t *testing.T) domain.Decision {
 			return domain.UndecidedDecision(revisionForTest(t))
 		}, "Admitted without a decision"},

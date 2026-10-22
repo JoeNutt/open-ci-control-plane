@@ -11,8 +11,8 @@ type presentationRule func(decided FamilyDecision) runPresentation
 var presentationRuleByOutcome = map[Outcome]presentationRule{
 	OutcomeDecided:          decidedPresentation,
 	OutcomeUndefined:        undecidedPresentation,
-	OutcomeEngineError:      policyErrorPresentation,
-	OutcomeDeadlineExceeded: policyErrorPresentation,
+	OutcomeEngineError:      policyFaultPresentation,
+	OutcomeDeadlineExceeded: policyFaultPresentation,
 }
 
 func CheckRunFor(decided FamilyDecision, id DecisionID) CheckRun {
@@ -27,7 +27,7 @@ func (decided FamilyDecision) Verdict() Verdict { return presentationFor(decided
 func presentationFor(decided FamilyDecision) runPresentation {
 	rule, declared := presentationRuleByOutcome[decided.Decision.Outcome()]
 	if !declared {
-		return policyErrorPresentation(decided)
+		return policyFaultPresentation(decided)
 	}
 	return rule(decided)
 }
@@ -91,16 +91,16 @@ func admittedWithoutDecisionPresentation(decided FamilyDecision) runPresentation
 }
 
 const (
-	policyErrorTitle  = "Policy failed to evaluate"
-	policyErrorLayout = "Policy %s failed to evaluate. This is not a problem with your change."
+	policyFaultTitle  = "Policy fault"
+	policyFaultLayout = "Policy %s failed to evaluate. This is not a problem with your change."
 )
 
-func policyErrorPresentation(decided FamilyDecision) runPresentation {
+func policyFaultPresentation(decided FamilyDecision) runPresentation {
 	return runPresentation{
 		conclusion: ConclusionFailure,
 		verdict:    VerdictRefused,
-		title:      policyErrorTitle,
-		headline:   fmt.Sprintf(policyErrorLayout, decided.Family),
+		title:      policyFaultTitle,
+		headline:   fmt.Sprintf(policyFaultLayout, decided.Family),
 	}
 }
 
