@@ -5,6 +5,8 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -32,6 +34,9 @@ const (
 	unparseableArtifactCode       = "unparseable_artifact"
 	unparseableArtifactMessage    = "the artifact is not parseable as LCOV"
 	boundExceededCode             = "bound_exceeded"
+	rateExceededCode              = "rate_exceeded"
+	rateExceededMessage           = "the repository has uploaded more coverage this minute than C-12 allows"
+	retryAfterHeader              = "Retry-After"
 	boundExceededMessage          = "the artifact exceeds an NFR-5 bound; nothing was stored"
 )
 
@@ -115,4 +120,22 @@ func unparseableArtifactProblem() refusal {
 
 func boundProblem(limit string) refusal {
 	return limitProblem{Code: boundExceededCode, Message: boundExceededMessage, Limit: limit}
+}
+
+type rateProblem struct {
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	retryAfter time.Duration
+}
+
+func (rateProblem) status() int { return http.StatusTooManyRequests }
+
+func (problem rateProblem) reason() string { return problem.Code }
+
+func (problem rateProblem) writeHeaders(headers http.Header) {
+	headers.Set(retryAfterHeader, strconv.FormatInt(int64(problem.retryAfter/time.Second), 10))
+}
+
+func rateProblemAfter(retryAfter time.Duration) refusal {
+	return rateProblem{Code: rateExceededCode, Message: rateExceededMessage, retryAfter: retryAfter}
 }

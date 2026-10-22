@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -59,6 +61,17 @@ func TestAnArtifactOverAnNFR5BoundIsAnswered413NamingThatBound(t *testing.T) {
 		if !isLimit || problem.status() != http.StatusRequestEntityTooLarge || !strings.HasPrefix(problem.Limit, bound+" ") {
 			t.Errorf("%v: answered %#v, want %d naming %s", breach, refused.answer, http.StatusRequestEntityTooLarge, bound)
 		}
+	}
+}
+
+func TestAnUploadOverTheRateIsAnswered429WithRetryAfterInSeconds(t *testing.T) {
+	refused := coverageRefusalOf(fmt.Errorf("admit: %w", application.UploadRateRefusal{RetryAfter: 7 * time.Second}))
+	answered := httptest.NewRecorder()
+
+	answers{log: slog.New(slog.DiscardHandler)}.write(t.Context(), answered, refused.answer)
+
+	if answered.Code != http.StatusTooManyRequests || answered.Header().Get("Retry-After") != "7" {
+		t.Errorf("answered %d with Retry-After %q, want %d with 7", answered.Code, answered.Header().Get("Retry-After"), http.StatusTooManyRequests)
 	}
 }
 

@@ -38,6 +38,10 @@ var coverageRefusals = []causedRefusal{
 }
 
 func coverageRefusalOf(failure error) classifiedFailure {
+	var overRate application.UploadRateRefusal
+	if errors.As(failure, &overRate) {
+		return classifiedFailure{answer: rateProblemAfter(overRate.RetryAfter), level: slog.LevelWarn}
+	}
 	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
 	if matching < 0 {
 		return classifiedFailure{answer: failedCoverageProblem(), level: slog.LevelError}
