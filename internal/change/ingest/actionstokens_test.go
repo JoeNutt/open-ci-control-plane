@@ -126,7 +126,7 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, unverifiable))
 
-			if !errors.Is(err, ingest.ErrUnverifiedToken) {
+			if !errors.Is(err, ingest.ErrUnverifiedToken) || !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
 				t.Fatalf("want ErrUnverifiedToken, got %v", err)
 			}
 			if strings.Contains(err.Error(), unverifiable) {

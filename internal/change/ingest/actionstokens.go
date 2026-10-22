@@ -27,7 +27,7 @@ var ErrIncompleteActionsTokens = errors.New("token verification is missing a par
 
 var ErrMalformedActionsTokens = errors.New("token verification settings name no https issuer or audience")
 
-var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
+var ErrUnverifiedToken = domain.ErrUnverifiedIdentityToken
 
 var (
 	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", ErrUnverifiedToken)
