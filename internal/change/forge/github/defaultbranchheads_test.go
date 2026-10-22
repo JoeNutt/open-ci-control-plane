@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -132,9 +131,10 @@ func TestDefaultBranchHeadOfCarriesNoTokenAForgeRefusalEchoes(t *testing.T) {
 
 	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
 
-	if err == nil || strings.Contains(err.Error(), forgeToken) {
-		t.Fatalf("error %v carries the token the forge echoed", err)
+	if err == nil {
+		t.Fatal("a refused read reported no error")
 	}
+	mustRevealNoneOf(t, "a refused default-branch read", err.Error(), []string{forgeToken})
 }
 
 func echoRefusalCarrying(t *testing.T, writer http.ResponseWriter, echoed string) {
