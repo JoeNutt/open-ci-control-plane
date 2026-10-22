@@ -39,7 +39,11 @@ func (paths RepositoryPaths) KnownPathsOf(
 	if listed.Truncated {
 		return domain.KnownPaths{}, fmt.Errorf("%w: %s", ErrTruncatedTree, repository)
 	}
-	return domain.NewKnownPaths(listed.repositoryPaths()), nil
+	files, err := listed.repositoryPaths()
+	if err != nil {
+		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
+	}
+	return domain.NewKnownPaths(files), nil
 }
 
 func defaultBranchTreeReading(repository domain.GovernedRepository) exchange {
@@ -61,12 +65,17 @@ type treeEntry struct {
 	Type string `json:"type"`
 }
 
-func (listed tree) repositoryPaths() []domain.RepositoryPath {
+func (listed tree) repositoryPaths() ([]domain.RepositoryPath, error) {
 	var files []domain.RepositoryPath
 	for _, entry := range listed.Entries {
-		if path, err := domain.ParseRepositoryPath(entry.Path); entry.Type == fileEntryType && err == nil {
-			files = append(files, path)
+		if entry.Type != fileEntryType {
+			continue
 		}
+		path, err := domain.ParseRepositoryPath(entry.Path)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, path)
 	}
-	return files
+	return files, nil
 }

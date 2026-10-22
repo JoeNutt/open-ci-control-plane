@@ -58,19 +58,29 @@ func TestKnownPathsOfHoldsTheTreesFilesAndNoDirectoryOrSubmodule(t *testing.T) {
 	}
 }
 
-func TestKnownPathsOfHoldsEveryFileAnSFLineCouldNameAlongsideOneItCouldNot(t *testing.T) {
+func TestKnownPathsOfRefusesATreeHoldingAFileThatIsNotARepositoryPath(t *testing.T) {
 	server := serving(t, treePath, `{"truncated": false, "tree": [
 		{"path": "docs/release notes.md", "type": "blob"},
 		{"path": "internal/auth.go", "type": "blob"}
 	]}`)
 
-	known, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
+
+	if !errors.Is(err, domain.ErrPathOutsideRepository) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPathOutsideRepository)
+	}
+}
+
+func TestKnownPathsOfNeverParsesTheNameOfADirectoryOrSubmodule(t *testing.T) {
+	server := serving(t, treePath, `{"truncated": false, "tree": [
+		{"path": "docs/release notes", "type": "tree"},
+		{"path": "internal/auth.go", "type": "blob"}
+	]}`)
+
+	_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
 
 	if err != nil {
 		t.Fatalf("known paths: %v", err)
-	}
-	if !known.Contains(repositoryPathOf(t, "internal/auth.go")) {
-		t.Error("a file beside one no SF line could name is not held")
 	}
 }
 
