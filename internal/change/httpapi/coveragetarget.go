@@ -19,11 +19,11 @@ type coverageTarget struct {
 func coverageTargetOf(owner, repo, suite string) (coverageTarget, refusal) {
 	repository, err := domain.ParseGovernedRepositorySegments(owner, repo)
 	if err != nil {
-		return coverageTarget{}, fieldProblem{Code: "malformed_path", Message: "bad", Field: repositorySegments}
+		return coverageTarget{}, malformedPathProblem(repositorySegments)
 	}
 	parsedSuite, err := domain.ParseCoverageSuite(suite)
 	if err != nil {
-		return coverageTarget{}, fieldProblem{Code: "malformed_path", Message: "bad", Field: suiteSegment}
+		return coverageTarget{}, malformedPathProblem(suiteSegment)
 	}
 	return coverageTarget{repository: repository, suite: parsedSuite}, nil
 }
