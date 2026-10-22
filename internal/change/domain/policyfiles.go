@@ -35,16 +35,22 @@ var boundsOfPolicyFiles = []func([]ListedFile) error{
 }
 
 func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
-	listed := listedPolicyFilesOf(files)
-	for _, breachIn := range boundsOfPolicyFiles {
-		if breach := breachIn(listed); breach != nil {
-			return BoundedPolicyFiles{}, breach
-		}
+	if breach := policyFileBoundBreachIn(listedPolicyFilesOf(files)); breach != nil {
+		return BoundedPolicyFiles{}, breach
 	}
 	return BoundedPolicyFiles{files: slices.Clone(files)}, nil
 }
 
 func (bounded BoundedPolicyFiles) Files() []PolicyFile { return slices.Clone(bounded.files) }
+
+func policyFileBoundBreachIn(listed []ListedFile) error {
+	for _, breachIn := range boundsOfPolicyFiles {
+		if breach := breachIn(listed); breach != nil {
+			return breach
+		}
+	}
+	return nil
+}
 
 func listedPolicyFilesOf(files []PolicyFile) []ListedFile {
 	listed := make([]ListedFile, 0, len(files))

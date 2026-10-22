@@ -13,17 +13,9 @@ type PolicyListing struct {
 	files []ListedFile
 }
 
-var boundsOfAPolicyListing = []func([]ListedFile) error{
-	policyFileCountBreachIn,
-	malformedPolicyFilePathIn,
-	oversizedPolicyFileIn,
-}
-
 func ParsePolicyListing(listed []ListedFile) (PolicyListing, error) {
-	for _, breachIn := range boundsOfAPolicyListing {
-		if breach := breachIn(listed); breach != nil {
-			return PolicyListing{}, breach
-		}
+	if breach := policyFileBoundBreachIn(listed); breach != nil {
+		return PolicyListing{}, breach
 	}
 	return PolicyListing{files: slices.Clone(listed)}, nil
 }
