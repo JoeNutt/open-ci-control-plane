@@ -26,8 +26,7 @@ func (source ChangeSource) changedFilesAcrossPages(
 }
 
 func changedFilesEndpoint(locator domain.PullRequestLocator, page int) string {
-	return fmt.Sprintf("/repos/%s/%s/pulls/%d/files?per_page=%d&page=%d",
-		locator.Owner(), locator.Name(), locator.Number(), FilesPerPage, page)
+	return fmt.Sprintf("%s/files?per_page=%d&page=%d", pullRequestEndpoint(locator), FilesPerPage, page)
 }
 
 type changedFile struct {

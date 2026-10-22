@@ -129,7 +129,7 @@ func (useCase BuildDocument) importsAt(
 ) (domain.FileImports, error) {
 	contents, err := useCase.Contents.ContentsAt(ctx, file)
 	if err != nil {
-		return domain.FileImports{}, fmt.Errorf("read at %s: %w", file.Commit, err)
+		return domain.FileImports{}, err
 	}
 	source, err := domain.ParseBoundedSource(contents, useCase.Limits)
 	if err != nil {

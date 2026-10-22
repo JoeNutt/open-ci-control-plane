@@ -41,8 +41,7 @@ func (source ChangeSource) approvalsOf(
 }
 
 func reviewsEndpoint(locator domain.PullRequestLocator, page int) string {
-	return fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews?per_page=%d&page=%d",
-		locator.Owner(), locator.Name(), locator.Number(), ReviewsPerPage, page)
+	return fmt.Sprintf("%s/reviews?per_page=%d&page=%d", pullRequestEndpoint(locator), ReviewsPerPage, page)
 }
 
 type review struct {

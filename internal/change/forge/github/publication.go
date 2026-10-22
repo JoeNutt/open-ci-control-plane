@@ -109,8 +109,7 @@ func (pending publication) updateOf(id checkRunID) exchange {
 }
 
 func (pending publication) checkRunsEndpoint() string {
-	return fmt.Sprintf("/repos/%s/%s/check-runs",
-		pending.locator.Owner(), pending.locator.Name())
+	return repositoryEndpoint(pending.locator) + "/check-runs"
 }
 
 func (pending publication) listingEndpoint(owner appID) string {
@@ -120,6 +119,6 @@ func (pending publication) listingEndpoint(owner appID) string {
 		"filter":     {filterLatest},
 		"per_page":   {strconv.Itoa(CheckRunsPerPage)},
 	}
-	return fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?%s",
-		pending.locator.Owner(), pending.locator.Name(), pending.head, query.Encode())
+	return fmt.Sprintf("%s/commits/%s/check-runs?%s",
+		repositoryEndpoint(pending.locator), url.PathEscape(pending.head.String()), query.Encode())
 }
