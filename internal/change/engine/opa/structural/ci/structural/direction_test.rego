@@ -27,6 +27,10 @@ control_plane := "JoeNutt/open-ci-control-plane"
 
 module_root := $"github.com/{control_plane}"
 
+control_plane_binding := $"/bindings/{replace(control_plane, "/", "~1")}"
+
+control_plane_policies := $"{control_plane_binding}/policies"
+
 domain_imports_forge := {"from": "internal/change/domain/gate.go", "to": $"{module_root}/internal/change/forge/github"}
 
 change_adding(edges) := change_in(control_plane, edges)
@@ -91,7 +95,7 @@ test_a_forbidden_import_the_edited_file_already_had_is_not_judged if {
 
 policy_also_rooting(root) := json.patch(policy, [{
 	"op": "add",
-	"path": $"/bindings/{replace(control_plane, "/", "~1")}/policies/0/import_roots/-",
+	"path": $"{control_plane_policies}/0/import_roots/-",
 	"value": root,
 }])
 
@@ -196,12 +200,36 @@ test_each_repository_is_judged_only_by_the_policies_its_own_binding_names[note] 
 	{[violation.rule_id, violation.message] | some violation in decided.violations} == case.refusals
 }
 
-test_a_policy_whose_direction_the_rule_does_not_know_is_undecided_never_admitted if {
-	unknown_direction := json.patch(policy, [{
-		"op": "replace",
-		"path": "/catalog/clean-architecture/direction",
-		"value": "higher_order_may_not_import_lower",
-	}])
+test_policy_data_the_rule_cannot_judge_by_leaves_the_decision_undefined[note] if {
+	some note, patch in {
+		"no binding for the repository": [{"op": "remove", "path": control_plane_binding}],
+		"a binding naming a policy absent from the catalog": [{"op": "remove", "path": "/catalog/clean-architecture"}],
+		"a binding naming no policies": [{"op": "replace", "path": control_plane_policies, "value": []}],
+		"a direction the rule does not know": [{
+			"op": "replace",
+			"path": "/catalog/clean-architecture/direction",
+			"value": "higher_order_may_not_import_lower",
+		}],
+		"no policy data at all": [{"op": "replace", "path": "", "value": {}}],
+	}
 
-	not structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as unknown_direction
+	unjudgeable := json.patch(policy, patch)
+
+	not structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as unjudgeable
+}
+
+test_a_change_the_rule_cannot_read_is_stated_as_not_wellformed[note] if {
+	some note, patch in {
+		"added edges that are not a list": [{
+			"op": "replace",
+			"path": "/diff/module_graph_delta/edges_added",
+			"value": "internal/change/domain/gate.go",
+		}],
+		"no module graph delta": [{"op": "remove", "path": "/diff/module_graph_delta"}],
+	}
+	malformed := json.patch(change_adding([domain_imports_forge]), patch)
+
+	decided := structural.decision with input as malformed with data.ci.policy as policy
+
+	decided.input_wellformed == false
 }
