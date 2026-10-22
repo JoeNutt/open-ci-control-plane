@@ -7,11 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
 type FamilyEngine interface {
 	Decide(ctx context.Context, document Document) (Decision, error)
 }
+
+const EvaluationDeadline = 250 * time.Millisecond
 
 var ErrEngineFault = errors.New("policy engine failed to evaluate")
 
@@ -83,8 +86,10 @@ func configuredIn(engines map[PolicyFamily]FamilyEngine) []PolicyFamily {
 func (gate Gate) decisionFor(
 	ctx context.Context, family PolicyFamily, document Document,
 ) Decision {
-	decided, err := gate.engines[family].Decide(ctx, document)
-	if isPastDeadline(ctx, err) {
+	evaluating, cancel := context.WithTimeout(ctx, EvaluationDeadline)
+	defer cancel()
+	decided, err := gate.engines[family].Decide(evaluating, document)
+	if isPastDeadline(evaluating, err) {
 		return Decision{outcome: OutcomeDeadlineExceeded}
 	}
 	if err != nil {
