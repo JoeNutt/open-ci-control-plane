@@ -10,6 +10,11 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var (
+	_ domain.ChangeSource = ChangeSource{}
+	_ domain.ChangeBase   = ChangeSource{}
+)
+
 type ChangeSource struct {
 	forge connection
 }
@@ -45,9 +50,13 @@ func (source ChangeSource) BaseCommitOf(
 ) (domain.CommitSHA, error) {
 	stated, err := jsonAt[pullRequest](ctx, source.forge, pullRequestEndpoint(locator))
 	if err != nil {
-		return domain.CommitSHA{}, err
+		return domain.CommitSHA{}, fmt.Errorf("read the pull request %s: %w", locator, err)
 	}
-	return domain.ParseCommitSHA(stated.Base.SHA)
+	base, err := domain.ParseCommitSHA(stated.Base.SHA)
+	if err != nil {
+		return domain.CommitSHA{}, fmt.Errorf("the base commit of %s: %w", locator, err)
+	}
+	return base, nil
 }
 
 func (source ChangeSource) FilesChanged(
