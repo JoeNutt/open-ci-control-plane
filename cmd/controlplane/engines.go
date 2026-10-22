@@ -25,6 +25,14 @@ func startedEnginesFor(
 	return engines, nil
 }
 
+func (engines startedEngines) gate() (domain.Gate, error) {
+	deciding := map[domain.PolicyFamily]domain.FamilyEngine{}
+	for family, engine := range engines {
+		deciding[family] = engine
+	}
+	return domain.ParseGate(deciding)
+}
+
 func (engines startedEngines) stop(ctx context.Context) {
 	for _, engine := range engines {
 		engine.Stop(ctx)

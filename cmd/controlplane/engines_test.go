@@ -62,3 +62,24 @@ func TestEnginesStartOnlyForTheConfiguredFamilies(t *testing.T) {
 		t.Errorf("engines started for %v, want the structural family only", started)
 	}
 }
+
+func TestTheGateOfTheStartedEnginesDecidesOnlyTheConfiguredFamilies(t *testing.T) {
+	starting, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	engines, err := startedEnginesFor(starting, []domain.PolicyFamily{domain.PolicyFamilyStructural},
+		structuralBundleService(t))
+	if err != nil {
+		t.Fatalf("start the engines: %v", err)
+	}
+	t.Cleanup(func() { engines.stop(context.Background()) })
+
+	gate, err := engines.gate()
+	if err != nil {
+		t.Fatalf("build the gate: %v", err)
+	}
+
+	decided := gate.DecisionsFor(context.Background(), domain.Document{})
+	if len(decided) != 1 || decided[0].Family != domain.PolicyFamilyStructural {
+		t.Errorf("the gate decided %v, want the structural family only", decided)
+	}
+}
