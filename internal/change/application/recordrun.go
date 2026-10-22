@@ -20,6 +20,6 @@ func (useCase RecordRun) Execute(ctx context.Context, report domain.RunReport) e
 		return fmt.Errorf("record the run of %s: %w", report.Head, err)
 	}
 	return useCase.Publisher.PublishCheckRun(ctx, dispatched.Locator, report.Head, domain.CheckRun{
-		Name: domain.TestsCheckRunName, Conclusion: domain.TestsConclusionOf(report.Results), DecisionID: dispatched.Plan.DecisionID,
+		Name: domain.TestsCheckRunName, Conclusion: domain.TestsConclusionOf(dispatched.Plan, report.Results), DecisionID: dispatched.Plan.DecisionID,
 	})
 }

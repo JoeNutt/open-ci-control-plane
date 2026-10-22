@@ -23,9 +23,19 @@ type RunReport struct {
 	Results    []TestResult
 }
 
-func TestsConclusionOf(results []TestResult) Conclusion {
+func TestsConclusionOf(plan TestPlan, results []TestResult) Conclusion {
+	if len(results) == 0 {
+		return ConclusionFailure
+	}
+	reported := map[CoverageSuite]bool{}
 	for _, result := range results {
 		if result.Outcome == TestOutcomeFail {
+			return ConclusionFailure
+		}
+		reported[result.Suite] = true
+	}
+	for _, suite := range plan.Suites {
+		if !reported[suite] {
 			return ConclusionFailure
 		}
 	}

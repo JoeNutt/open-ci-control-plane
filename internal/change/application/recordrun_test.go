@@ -99,3 +99,29 @@ func TestAReportWithAFailedTestPostsAFailedTestsCheckRun(t *testing.T) {
 		t.Errorf("a report with a failed test concluded %q, want failure", run.Conclusion)
 	}
 }
+
+func TestAPlannedSuiteThatReportedNothingFailsTheTestsCheckRun(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	suite := plannedSuiteOf(t)
+	unreported, err := domain.ParseCoverageSuite("github.com/JoeNutt/open-ci-control-plane/internal/change/domain")
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
+		head: {Locator: gatedLocator(t), Plan: domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite, unreported}}},
+	}}
+	published := &publishedCheckRuns{}
+
+	err = application.RecordRun{Ledger: ledger, Publisher: published}.Execute(context.Background(), domain.RunReport{
+		Repository: gatedLocator(t).GovernedRepository(),
+		Head:       head,
+		Results:    []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}},
+	})
+
+	if err != nil {
+		t.Fatalf("record run: %v", err)
+	}
+	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("a planned suite with no results concluded %q, want failure", run.Conclusion)
+	}
+}
