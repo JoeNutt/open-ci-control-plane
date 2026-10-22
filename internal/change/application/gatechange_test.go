@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"strings"
 	"testing"
@@ -442,7 +443,9 @@ func buildOverRecorded(
 				},
 			},
 		},
-		Contents:  recordedAtHead(t, locator, file.Path, sourceImportingContext),
+		Bases: recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path,
+			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -450,15 +453,35 @@ func buildOverRecorded(
 
 const sourceImportingContext = "package auth\n\nimport \"context\"\n"
 
-func recordedAtHead(
-	t *testing.T, locator domain.PullRequestLocator, path, source string,
+const recordedBaseSHA = "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
+
+func recordedBases(t *testing.T, locator domain.PullRequestLocator) memory.ChangeBases {
+	t.Helper()
+
+	return memory.ChangeBases{Bases: map[domain.PullRequestLocator]domain.CommitSHA{
+		locator: commitSHAOf(t, recordedBaseSHA),
+	}}
+}
+
+func recordedAtBothEnds(
+	t *testing.T, locator domain.PullRequestLocator, path, baseSource, headSource string,
+) memory.FileContents {
+	t.Helper()
+
+	contents := recordedAt(t, locator, recordedHeadSHA, path, headSource)
+	maps.Copy(contents.Files, recordedAt(t, locator, recordedBaseSHA, path, baseSource).Files)
+	return contents
+}
+
+func recordedAt(
+	t *testing.T, locator domain.PullRequestLocator, commit, path, source string,
 ) memory.FileContents {
 	t.Helper()
 
 	return memory.FileContents{Files: map[domain.FileAtCommit][]byte{
 		{
 			Repository: locator.Repository(),
-			Commit:     commitSHAOf(t, recordedHeadSHA),
+			Commit:     commitSHAOf(t, commit),
 			Path:       path,
 		}: []byte(source),
 	}}

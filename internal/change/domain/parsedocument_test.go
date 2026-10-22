@@ -154,6 +154,81 @@ func TestParseDocumentPublishesTheImportsAFileDeclaresAtHead(t *testing.T) {
 	}
 }
 
+func TestParseDocumentAddsAnEdgeForEachImportTheChangeAddsToAFile(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	change := domain.Change{
+		Files: withinBounds(t, file),
+		Imported: []domain.ImportedFile{{
+			File: file,
+			Base: fileImportsOf(t, "context"),
+			Head: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
+		}},
+	}
+
+	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+
+	want := domain.Declared[domain.ModuleEdge]{
+		{From: file.Path, To: "github.com/acme/payments/internal/forge"},
+	}
+	if !reflect.DeepEqual(delta.EdgesAdded, want) {
+		t.Fatalf("edges added are %+v, want %+v", delta.EdgesAdded, want)
+	}
+}
+
+func TestParseDocumentRemovesAnEdgeForEachImportTheChangeDropsFromAFile(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	change := domain.Change{
+		Files: withinBounds(t, file),
+		Imported: []domain.ImportedFile{{
+			File: file,
+			Base: fileImportsOf(t, "context", "github.com/acme/payments/internal/forge"),
+			Head: fileImportsOf(t, "context"),
+		}},
+	}
+
+	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+
+	want := domain.Declared[domain.ModuleEdge]{
+		{From: file.Path, To: "github.com/acme/payments/internal/forge"},
+	}
+	if !reflect.DeepEqual(delta.EdgesRemoved, want) {
+		t.Fatalf("edges removed are %+v, want %+v", delta.EdgesRemoved, want)
+	}
+}
+
+func TestParseDocumentFindsNoEdgeInAFileWhoseImportsAreUnchanged(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	declared := []string{"context", "github.com/acme/payments/internal/forge"}
+	change := domain.Change{
+		Files: withinBounds(t, file),
+		Imported: []domain.ImportedFile{{
+			File: file,
+			Base: fileImportsOf(t, declared...),
+			Head: fileImportsOf(t, declared...),
+		}},
+	}
+
+	delta := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{}).Diff.ModuleGraphDelta
+
+	if len(delta.EdgesAdded) != 0 || len(delta.EdgesRemoved) != 0 {
+		t.Fatalf("unchanged imports contributed edges: %+v", delta)
+	}
+}
+
+func TestParseDocumentPublishesNoImportEntryForARemovedFile(t *testing.T) {
+	file := domain.File{Path: "internal/change/domain/legacy.go", Action: domain.FileActionRemoved}
+	change := domain.Change{
+		Files:    withinBounds(t, file),
+		Imported: []domain.ImportedFile{{File: file, Base: fileImportsOf(t, "context")}},
+	}
+
+	document := domain.ParseDocument(domain.PullRequest{}, change, domain.ClassificationRules{})
+
+	if len(document.Diff.Imports) != 0 {
+		t.Fatalf("a removed file published imports: %+v", document.Diff.Imports)
+	}
+}
+
 func TestParseDocumentCountsNoUnresolvedFileForFilesNoExtractorRead(t *testing.T) {
 	bounded := withinBounds(t,
 		domain.File{Path: "infra/iam.tf", Action: domain.FileActionAdded},

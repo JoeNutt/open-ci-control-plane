@@ -21,3 +21,17 @@ func ParseFileImports(imports []string, limits Limits) (FileImports, error) {
 }
 
 func (parsed FileImports) ImportPaths() []string { return slices.Clone(parsed.imports) }
+
+func (parsed FileImports) importsAbsentFrom(other FileImports) []string {
+	present := make(map[string]bool, len(other.imports))
+	for _, imported := range other.imports {
+		present[imported] = true
+	}
+	var absent []string
+	for _, imported := range parsed.imports {
+		if !present[imported] {
+			absent = append(absent, imported)
+		}
+	}
+	return absent
+}

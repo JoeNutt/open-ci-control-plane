@@ -50,8 +50,10 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	)
 
 	useCase := application.BuildDocument{
-		Source:    source,
-		Contents:  recordedAtHead(t, locator, "internal/auth/middleware.go", sourceImportingContext),
+		Source: source,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
+			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -75,7 +77,8 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	file := domain.File{Path: "internal/auth/middleware.go", Action: domain.FileActionModified}
 	useCase := application.BuildDocument{
 		Source: changeSourceOver(locator, file),
-		Contents: recordedAtHead(t, locator, file.Path,
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
@@ -96,6 +99,33 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 	}
 }
 
+func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/change/domain/gate.go", Action: domain.FileActionModified}
+	useCase := application.BuildDocument{
+		Source: changeSourceOver(locator, file),
+		Bases:  recordedBases(t, locator),
+		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
+			"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.ModuleGraphDelta{
+		EdgesAdded: domain.Declared[domain.ModuleEdge]{
+			{From: file.Path, To: "github.com/acme/payments/internal/forge"},
+		},
+	}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta, want) {
+		t.Fatalf("delta is %+v, want %+v", document.Diff.ModuleGraphDelta, want)
+	}
+}
+
 func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *testing.T) {
 	const quotedFromTheFile = "hunter2ApiKey"
 	locator := locatorOf(t, "acme/payments", 412)
@@ -104,7 +134,8 @@ func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *t
 		strings.Repeat("x", domain.DeclaredLimits().MaxSourceBytes) + "`\n"
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Contents:  recordedAtHead(t, locator, file.Path, oversized),
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAtBothEnds(t, locator, file.Path, sourceImportingContext, oversized),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -141,12 +172,36 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 	}
 }
 
-func TestBuildDocumentReadsNothingAtHeadForARemovedGoFile(t *testing.T) {
+func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	file := domain.File{Path: "internal/auth/session.go", Action: domain.FileActionAdded}
+	useCase := application.BuildDocument{
+		Source:    changeSourceOver(locator, file),
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, sourceImportingContext),
+		Extractor: golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	document, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	want := domain.Declared[domain.ModuleEdge]{{From: file.Path, To: "context"}}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta.EdgesAdded, want) {
+		t.Fatalf("edges added are %+v, want %+v",
+			document.Diff.ModuleGraphDelta.EdgesAdded, want)
+	}
+}
+
+func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	file := domain.File{Path: "internal/auth/legacy.go", Action: domain.FileActionRemoved}
 	useCase := application.BuildDocument{
 		Source:    changeSourceOver(locator, file),
-		Contents:  memory.FileContents{},
+		Bases:     recordedBases(t, locator),
+		Contents:  recordedAt(t, locator, recordedBaseSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
@@ -158,5 +213,10 @@ func TestBuildDocumentReadsNothingAtHeadForARemovedGoFile(t *testing.T) {
 	}
 	if len(document.Diff.Imports) != 0 {
 		t.Fatalf("a removed file published head imports: %+v", document.Diff.Imports)
+	}
+	want := domain.Declared[domain.ModuleEdge]{{From: file.Path, To: "context"}}
+	if !reflect.DeepEqual(document.Diff.ModuleGraphDelta.EdgesRemoved, want) {
+		t.Fatalf("edges removed are %+v, want %+v",
+			document.Diff.ModuleGraphDelta.EdgesRemoved, want)
 	}
 }

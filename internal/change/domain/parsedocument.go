@@ -34,7 +34,7 @@ func diffOf(change Change, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution),
+		ModuleGraphDelta:      graphDeltaFor(resolution, change.Imported),
 	}
 }
 
@@ -82,7 +82,9 @@ func byDirOf(files []File) PathsByDir {
 func importsOf(imported []ImportedFile) Declared[Import] {
 	imports := make(Declared[Import], 0, len(imported))
 	for _, file := range imported {
-		imports = append(imports, file.headImport())
+		if file.existsAtHead() {
+			imports = append(imports, file.headImport())
+		}
 	}
 	return imports
 }
@@ -106,6 +108,20 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 	return resolution
 }
 
-func graphDeltaFor(resolution importResolution) ModuleGraphDelta {
-	return ModuleGraphDelta{Incomplete: resolution.unresolved > 0}
+func graphDeltaFor(resolution importResolution, imported []ImportedFile) ModuleGraphDelta {
+	return ModuleGraphDelta{
+		EdgesAdded:   edgesIn(imported, ImportedFile.edgesAdded),
+		EdgesRemoved: edgesIn(imported, ImportedFile.edgesRemoved),
+		Incomplete:   resolution.unresolved > 0,
+	}
+}
+
+func edgesIn(
+	imported []ImportedFile, edgesOf func(ImportedFile) []ModuleEdge,
+) Declared[ModuleEdge] {
+	var edges Declared[ModuleEdge]
+	for _, file := range imported {
+		edges = append(edges, edgesOf(file)...)
+	}
+	return edges
 }
