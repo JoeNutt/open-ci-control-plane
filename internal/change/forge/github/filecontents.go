@@ -48,21 +48,20 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 		return nil, err
 	}
 	answer, err := exchanged[contentsAnswer](ctx, contents.forge, reading)
-	var typeErr *json.UnmarshalTypeError
-	if errors.As(err, &typeErr) && typeErr.Value == "array" {
-		return nil, ErrNotAFile
-	}
 	if err != nil {
-		return nil, err
+		return nil, refusalOfAListing(err)
 	}
-	if answer.Type != "file" {
-		return nil, ErrNotAFile
+	return answer.decoded()
+}
+
+const jsonArrayValue = "array"
+
+func refusalOfAListing(err error) error {
+	var mistyped *json.UnmarshalTypeError
+	if errors.As(err, &mistyped) && mistyped.Value == jsonArrayValue {
+		return fmt.Errorf("%w: a directory listing", ErrNotAFile)
 	}
-	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
-	if err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
-	}
-	return decoded, nil
+	return err
 }
 
 func contentsReading(file domain.FileAtCommit) (exchange, error) {
@@ -109,4 +108,17 @@ func escapedRepositoryPath(path string) (string, error) {
 type contentsAnswer struct {
 	Type    string `json:"type"`
 	Content string `json:"content"`
+}
+
+const contentsTypeFile = "file"
+
+func (answer contentsAnswer) decoded() ([]byte, error) {
+	if answer.Type != contentsTypeFile {
+		return nil, fmt.Errorf("%w: a %q", ErrNotAFile, answer.Type)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	return decoded, nil
 }
