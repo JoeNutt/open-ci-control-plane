@@ -20,7 +20,7 @@ import (
 
 func TestPublishCheckRunRetriesAPostTheForgeAnswersWithAServerError(t *testing.T) {
 	held := newCheckRunForge(t)
-	busy := refusingFirst(t, held, refusal{status: http.StatusBadGateway})
+	busy := refusingFirst(t, held.server.Config.Handler, refusal{status: http.StatusBadGateway})
 
 	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
@@ -33,7 +33,7 @@ func TestPublishCheckRunRetriesAPostTheForgeAnswersWithAServerError(t *testing.T
 
 func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
 	held := newCheckRunForge(t)
-	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit+1)...)
+	busy := refusingFirst(t, held.server.Config.Handler, serverErrors(domain.OutboundAttemptLimit+1)...)
 
 	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
@@ -48,7 +48,7 @@ func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
 
 func TestPublishCheckRunSucceedsOnItsLastAllowedAttempt(t *testing.T) {
 	held := newCheckRunForge(t)
-	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit-1)...)
+	busy := refusingFirst(t, held.server.Config.Handler, serverErrors(domain.OutboundAttemptLimit-1)...)
 
 	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
@@ -61,7 +61,7 @@ func TestPublishCheckRunSucceedsOnItsLastAllowedAttempt(t *testing.T) {
 
 func TestPublishCheckRunBacksOffDoublingTheWaitBeforeEachRetry(t *testing.T) {
 	held := newCheckRunForge(t)
-	busy := refusingFirst(t, held, serverErrors(3)...)
+	busy := refusingFirst(t, held.server.Config.Handler, serverErrors(3)...)
 	var waited pauses
 
 	err := checkRunsWaitingOn(t, busy.server, &waited).PublishCheckRun(
@@ -88,7 +88,7 @@ func TestPublishCheckRunRetriesARateLimitedPost(t *testing.T) {
 	for form, limit := range limits {
 		t.Run(form, func(t *testing.T) {
 			held := newCheckRunForge(t)
-			busy := refusingFirst(t, held, limit)
+			busy := refusingFirst(t, held.server.Config.Handler, limit)
 
 			err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
@@ -112,7 +112,7 @@ func TestPublishCheckRunNeverRetriesAClientErrorThatIsNotARateLimit(t *testing.T
 
 	for form, answer := range refused {
 		t.Run(form, func(t *testing.T) {
-			busy := refusingFirst(t, newCheckRunForge(t), answer)
+			busy := refusingFirst(t, newCheckRunForge(t).server.Config.Handler, answer)
 
 			err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 				context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
@@ -130,7 +130,7 @@ func TestPublishCheckRunNeverRetriesAClientErrorThatIsNotARateLimit(t *testing.T
 func TestPublishCheckRunWaitsAsLongAsTheForgeAsksBeforeRetrying(t *testing.T) {
 	held := newCheckRunForge(t)
 	const askedSeconds = 30
-	busy := refusingFirst(t, held, refusal{
+	busy := refusingFirst(t, held.server.Config.Handler, refusal{
 		status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {strconv.Itoa(askedSeconds)}},
 	})
 	var waited pauses
@@ -148,7 +148,7 @@ func TestPublishCheckRunWaitsAsLongAsTheForgeAsksBeforeRetrying(t *testing.T) {
 
 func TestPublishCheckRunGivesUpRatherThanWaitPastTheRetryWindow(t *testing.T) {
 	beyondWindow := strconv.Itoa(int(domain.OutboundRetryWindow/time.Second) + 1)
-	busy := refusingFirst(t, newCheckRunForge(t), refusal{
+	busy := refusingFirst(t, newCheckRunForge(t).server.Config.Handler, refusal{
 		status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {beyondWindow}},
 	})
 	var waited pauses
@@ -213,7 +213,7 @@ type refusingForge struct {
 	answered int
 }
 
-func refusingFirst(t *testing.T, held *checkRunForge, refusals ...refusal) *refusingForge {
+func refusingFirst(t *testing.T, next http.Handler, refusals ...refusal) *refusingForge {
 	t.Helper()
 
 	busy := &refusingForge{pending: refusals}
@@ -225,7 +225,7 @@ func refusingFirst(t *testing.T, held *checkRunForge, refusals ...refusal) *refu
 			writer.WriteHeader(answer.status)
 			return
 		}
-		held.server.Config.Handler.ServeHTTP(writer, request)
+		next.ServeHTTP(writer, request)
 	})
 	return busy
 }

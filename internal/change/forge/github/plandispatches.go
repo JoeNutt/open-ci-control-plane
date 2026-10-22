@@ -19,6 +19,7 @@ const planSchemaVersion = 1
 
 type PlanDispatches struct {
 	forge connection
+	pause pauseFunc
 }
 
 func ParsePlanDispatches(settings Settings) (PlanDispatches, error) {
@@ -26,7 +27,7 @@ func ParsePlanDispatches(settings Settings) (PlanDispatches, error) {
 	if err != nil {
 		return PlanDispatches{}, err
 	}
-	return PlanDispatches{forge: forge}, nil
+	return PlanDispatches{forge: forge, pause: waitFor}, nil
 }
 
 type planPayload struct {
@@ -52,6 +53,11 @@ type workflowDispatch struct {
 }
 
 func (dispatches PlanDispatches) DispatchPlan(ctx context.Context, plan domain.TestPlan) error {
+	dispatching := func(bounded context.Context) error { return dispatches.dispatch(bounded, plan) }
+	return withinAttempts(ctx, dispatches.pause, dispatching)
+}
+
+func (dispatches PlanDispatches) dispatch(ctx context.Context, plan domain.TestPlan) error {
 	branch, err := defaultBranchOf(ctx, dispatches.forge, plan.Repository)
 	if err != nil {
 		return fmt.Errorf("read the default branch of %s: %w", plan.Repository, err)

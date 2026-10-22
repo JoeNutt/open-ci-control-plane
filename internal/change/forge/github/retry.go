@@ -15,29 +15,31 @@ const FirstRetryPause = time.Second
 
 var ErrRetriesExhausted = errors.New("the forge stayed unavailable through every retry")
 
-func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publication) error {
+type pauseFunc func(ctx context.Context, wait time.Duration) error
+
+func withinAttempts(ctx context.Context, pause pauseFunc, operation func(context.Context) error) error {
 	bounded, cancel := context.WithTimeout(ctx, domain.OutboundRetryWindow)
 	defer cancel()
-	err := runs.publishRetrying(bounded, pending)
+	err := retrying(bounded, pause, operation)
 	if errors.Is(err, ErrForgeUnavailable) {
 		return fmt.Errorf("%w: %w", ErrRetriesExhausted, err)
 	}
 	return err
 }
 
-func (runs CheckRuns) publishRetrying(bounded context.Context, pending publication) error {
-	err := runs.publish(bounded, pending)
+func retrying(bounded context.Context, pause pauseFunc, operation func(context.Context) error) error {
+	err := operation(bounded)
 	wait := FirstRetryPause
 	for attempt := 1; attempt < domain.OutboundAttemptLimit && errors.Is(err, ErrForgeUnavailable); attempt++ {
-		pause := max(wait, askedPauseOf(err))
-		if deadline, _ := bounded.Deadline(); time.Until(deadline) < pause {
+		delay := max(wait, askedPauseOf(err))
+		if deadline, _ := bounded.Deadline(); time.Until(deadline) < delay {
 			return err
 		}
-		if pauseErr := runs.pause(bounded, pause); pauseErr != nil {
+		if pauseErr := pause(bounded, delay); pauseErr != nil {
 			return errors.Join(err, pauseErr)
 		}
 		wait *= 2
-		err = runs.publish(bounded, pending)
+		err = operation(bounded)
 	}
 	return err
 }

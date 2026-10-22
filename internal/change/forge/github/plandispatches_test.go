@@ -5,6 +5,7 @@ package github_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -144,6 +145,22 @@ func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
 		t.Fatalf("encode: %v", err)
 	}
 	return encoded
+}
+
+func TestDispatchPlanRetriesADispatchTheForgeAnswersWithAServerErrorThenGivesUp(t *testing.T) {
+	held := newDispatchForge(t)
+	busy := refusingFirst(t, held.server.Config.Handler, serverErrors(domain.OutboundAttemptLimit)...)
+	waited := &pauses{}
+
+	err := github.PlanDispatchesPausingWith(dispatchesAt(t, busy.server), waited.record).DispatchPlan(
+		context.Background(), selectedPlan(t))
+
+	if !errors.Is(err, github.ErrRetriesExhausted) {
+		t.Fatalf("error is %v, want %v", err, github.ErrRetriesExhausted)
+	}
+	if busy.answered != domain.OutboundAttemptLimit || len(waited.durations) != domain.OutboundAttemptLimit-1 {
+		t.Errorf("asked %d times after %d waits, want %d asks", busy.answered, len(waited.durations), domain.OutboundAttemptLimit)
+	}
 }
 
 func equalWirePlans(one, other wirePlan) bool {
