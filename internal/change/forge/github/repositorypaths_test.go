@@ -32,6 +32,8 @@ func TestKnownPathsOfAsksForTheDefaultBranchTreeAsTheInstallation(t *testing.T) 
 	}
 }
 
+var _ domain.RepositoryPaths = github.RepositoryPaths{}
+
 const (
 	treeRepository = "acme/payments"
 	treePath       = "/repos/" + treeRepository + "/git/trees/HEAD"
