@@ -35,9 +35,14 @@ func TestParseHTTPSOriginRefusesAnythingButAnHTTPSOrigin(t *testing.T) {
 func TestTheRefusalOfAnOriginCarryingCredentialsDoesNotRepeatThem(t *testing.T) {
 	const password = "s3cret-in-the-url"
 
-	_, err := domain.ParseHTTPSOrigin("https://user:" + password + "@api.github.com")
+	for _, stated := range []string{
+		"https://user:" + password + "@api.github.com",
+		"https://user:" + password + "@api.github.com:port",
+	} {
+		_, err := domain.ParseHTTPSOrigin(stated)
 
-	if err == nil || strings.Contains(err.Error(), password) {
-		t.Errorf("the refusal is %v, want one that does not carry the password", err)
+		if err == nil || strings.Contains(err.Error(), password) {
+			t.Errorf("the refusal is %v, want one that does not carry the password", err)
+		}
 	}
 }

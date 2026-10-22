@@ -24,8 +24,9 @@ type originFault struct {
 
 func ParseHTTPSOrigin(stated string) (HTTPSOrigin, error) {
 	parsed, err := url.Parse(stated)
-	if err != nil {
-		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, err)
+	var unparsable *url.Error
+	if errors.As(err, &unparsable) {
+		return HTTPSOrigin{}, fmt.Errorf("%w: %w", ErrMalformedHTTPSOrigin, unparsable.Err)
 	}
 	if fault, isFaulty := originFaultOf(parsed); isFaulty {
 		return HTTPSOrigin{}, fmt.Errorf("%w: it %s", ErrMalformedHTTPSOrigin, fault)
