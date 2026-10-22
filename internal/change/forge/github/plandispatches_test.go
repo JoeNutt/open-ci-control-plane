@@ -164,6 +164,19 @@ func TestDispatchPlanRetriesADispatchTheForgeAnswersWithAServerErrorThenGivesUp(
 	}
 }
 
+func TestDispatchPlanReportsAFailedDispatchWithoutTheCredential(t *testing.T) {
+	echoing := failingOn(t, failedStep{http.MethodPost, http.StatusUnprocessableEntity, `{"default_branch": "main"}`})
+
+	err := dispatchesAt(t, echoing).DispatchPlan(context.Background(), selectedPlan(t))
+
+	if !errors.Is(err, github.ErrUnexpectedStatus) {
+		t.Fatalf("error is %v, want %v", err, github.ErrUnexpectedStatus)
+	}
+	if strings.Contains(err.Error(), forgeToken) {
+		t.Errorf("error %q reveals the credential", err)
+	}
+}
+
 func TestEveryForgeConnectionAdmitsTheCallTimeoutAndRefusesOneNanosecondOver(t *testing.T) {
 	for _, bound := range []struct {
 		timeout    time.Duration
