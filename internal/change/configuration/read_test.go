@@ -28,10 +28,12 @@ const (
 	policyRepositoryKey        = "policyRepository"
 	policyInstallationKey      = "policyInstallationId"
 	classificationRulesFileKey = "classificationRulesFile"
+	instanceURLKey             = "instanceUrl"
 )
 
 const (
 	statedListenAddress    = "127.0.0.1:8080"
+	statedInstanceURL      = "https://control-plane.example"
 	statedAppID            = 1_204_331
 	statedInstallationID   = 52_311_907
 	statedPolicyRepository = "JoeNutt/open-ci-policy"
@@ -42,7 +44,7 @@ const (
 
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	for _, key := range []string{
-		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey,
+		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey, instanceURLKey,
 		policyRepositoryKey, policyInstallationKey, classificationRulesFileKey,
 	} {
 		t.Run(key, func(t *testing.T) {
@@ -168,6 +170,7 @@ func completeItems(t *testing.T) statedItems {
 		policyRepositoryKey:        quoted(t, statedPolicyRepository),
 		policyInstallationKey:      number(statedInstallationID),
 		classificationRulesFileKey: quoted(t, writtenFile(t, "rules.yaml", "go: [\"**/*.go\"]\n")),
+		instanceURLKey:             quoted(t, statedInstanceURL),
 	}
 }
 

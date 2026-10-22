@@ -41,6 +41,21 @@ func TestAListenAddressThatIsNotALoopbackAddressWithAPortIsRefusedNamingIt(t *te
 	}
 }
 
+func TestTheInstanceURLIsTheOriginTheConfigurationStates(t *testing.T) {
+	configured := readConfiguration(t, completeItems(t))
+
+	if configured.InstanceURL().String() != statedInstanceURL {
+		t.Errorf("the instance URL is %s, want %s", configured.InstanceURL(), statedInstanceURL)
+	}
+}
+
+func TestAnInstanceURLThatIsNotAnHTTPSOriginIsRefusedNamingIt(t *testing.T) {
+	stated := completeItems(t)
+	stated[instanceURLKey] = quoted(t, "http://control-plane.example/ci")
+
+	assertOnlyRefusal(t, refusalOf(t, stated), configuration.ErrInvalidItem, instanceURLKey)
+}
+
 func TestTheAppIDIsTheOneTheConfigurationStates(t *testing.T) {
 	configured := readConfiguration(t, completeItems(t))
 

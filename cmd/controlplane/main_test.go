@@ -204,6 +204,7 @@ func completeConfiguration(t *testing.T) map[string]json.RawMessage {
 		"installationIds":         json.RawMessage("[" + strconv.Itoa(installationID) + "]"),
 		"families":                json.RawMessage(`["structural"]`),
 		"policyRepository":        quoted(t, "JoeNutt/open-ci-policy"),
+		"instanceUrl":             quoted(t, "https://control-plane.example"),
 		"policyInstallationId":    json.RawMessage(strconv.Itoa(installationID)),
 		"classificationRulesFile": quoted(t, writtenFile(t, directory, "rules.yaml", classificationRules)),
 	}
