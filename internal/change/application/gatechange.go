@@ -11,10 +11,13 @@ import (
 )
 
 type GateChange struct {
-	Build     BuildDocument
-	Gate      domain.Gate
-	Publisher domain.CheckRunPublisher
-	Recorder  domain.DecisionRecorder
+	Build      BuildDocument
+	Gate       domain.Gate
+	Publisher  domain.CheckRunPublisher
+	Recorder   domain.DecisionRecorder
+	Bindings   domain.BindingSource
+	Planner    PlanTests
+	Dispatcher domain.PlanDispatcher
 }
 
 func (useCase GateChange) Execute(
@@ -35,11 +38,33 @@ func (useCase GateChange) Execute(
 	var failures []error
 	posting := context.WithoutCancel(ctx)
 	for _, decided := range useCase.Gate.DecisionsFor(ctx, document) {
+		run := domain.CheckRunFor(decided, id)
 		failures = append(failures,
 			useCase.record(posting, decided, document, id),
-			useCase.publish(posting, locator, head, domain.CheckRunFor(decided, id)))
+			useCase.publish(posting, locator, head, run))
+		if decided.Family == domain.PolicyFamilyStructural && run.Conclusion == domain.ConclusionSuccess {
+			failures = append(failures, useCase.planAndDispatch(posting, document, id, decided.Decision.Revision()))
+		}
 	}
 	return errors.Join(failures...)
+}
+
+func (useCase GateChange) planAndDispatch(
+	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
+) error {
+	repository, err := domain.ParseGovernedRepository(document.PR.Repository)
+	if err != nil {
+		return err
+	}
+	binding, err := useCase.Bindings.BindingOf(ctx, repository)
+	if err != nil {
+		return err
+	}
+	plan, err := useCase.Planner.Execute(ctx, domain.PlanSubject{Document: document, Binding: binding, DecisionID: id, Revision: revision})
+	if err != nil {
+		return err
+	}
+	return useCase.Dispatcher.DispatchPlan(ctx, plan)
 }
 
 func (useCase GateChange) refuseOverBound(

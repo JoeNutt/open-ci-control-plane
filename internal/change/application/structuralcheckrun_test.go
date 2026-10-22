@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	coverage "github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
@@ -148,10 +149,13 @@ func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEng
 		t.Fatalf("parse gate: %v", err)
 	}
 	useCase := application.GateChange{
-		Build:     change.build,
-		Gate:      gate,
-		Publisher: published,
-		Recorder:  &recordedDecisions{},
+		Build:      change.build,
+		Gate:       gate,
+		Publisher:  published,
+		Recorder:   &recordedDecisions{},
+		Bindings:   bindingForEveryRepository{},
+		Planner:    application.PlanTests{Maps: coverage.NewCoverageMaps(domain.DeclaredCoverageLimits())},
+		Dispatcher: &memory.PlanDispatches{},
 	}
 
 	if err := useCase.Execute(context.Background(), change.locator, decisionIDOf(t, gatedDecisionID)); err != nil {
