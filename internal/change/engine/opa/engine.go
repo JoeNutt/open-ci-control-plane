@@ -120,9 +120,15 @@ func configurationFor(settings Settings) configuration {
 	return configuration{
 		Services: map[string]service{family: {URL: settings.BundleService}},
 		Bundles: map[string]bundle{
-			bundleNameFor(settings.Family): {Service: family, Resource: "/bundles/" + family},
+			bundleNameFor(settings.Family): {Service: family, Resource: BundleResourceFor(settings.Family)},
 		},
 	}
 }
 
 func bundleNameFor(family domain.PolicyFamily) string { return string(family) }
+
+const bundleResourcePrefix = "/bundles/"
+
+func BundleResourceFor(family domain.PolicyFamily) string {
+	return bundleResourcePrefix + string(family)
+}

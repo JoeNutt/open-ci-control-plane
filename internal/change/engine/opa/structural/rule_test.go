@@ -70,7 +70,7 @@ func engineServing(t *testing.T, policyData []byte) *opa.Engine {
 	bundleFiles["data.json"] = `{"ci": {"policy": ` + string(policyData) + `}}`
 	bundleFiles[".manifest"] = `{"revision": "` + policyRevision + `"}`
 	family := domain.PolicyFamilyStructural
-	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(family), bundleFiles))
+	server := sdktest.MustNewServer(sdktest.MockBundle(opa.BundleResourceFor(family), bundleFiles))
 	t.Cleanup(server.Stop)
 
 	engine, err := opa.ParseEngine(context.Background(), opa.Settings{Family: family, BundleService: server.URL()})

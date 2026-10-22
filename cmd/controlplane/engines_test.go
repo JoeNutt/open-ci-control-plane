@@ -14,13 +14,14 @@ import (
 	sdktest "github.com/open-policy-agent/opa/v1/sdk/test"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/engine/opa"
 )
 
 const undecidingStructuralPolicy = "package ci.structural\n"
 
 func structuralBundleService(t *testing.T) string {
 	t.Helper()
-	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(domain.PolicyFamilyStructural), map[string]string{
+	server := sdktest.MustNewServer(sdktest.MockBundle(opa.BundleResourceFor(domain.PolicyFamilyStructural), map[string]string{
 		"policy.rego": undecidingStructuralPolicy,
 		".manifest":   `{"revision": "b0b0000000000000000000000000000000000b0b"}`,
 	}))

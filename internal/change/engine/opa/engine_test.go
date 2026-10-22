@@ -47,7 +47,7 @@ func engineFor(t *testing.T, policy string, family domain.PolicyFamily) *opa.Eng
 func engineServing(t *testing.T, family domain.PolicyFamily, files map[string]string) *opa.Engine {
 	t.Helper()
 
-	server := sdktest.MustNewServer(sdktest.MockBundle("/bundles/"+string(family), files))
+	server := sdktest.MustNewServer(sdktest.MockBundle(opa.BundleResourceFor(family), files))
 	t.Cleanup(server.Stop)
 
 	engine, err := opa.ParseEngine(context.Background(), opa.Settings{
