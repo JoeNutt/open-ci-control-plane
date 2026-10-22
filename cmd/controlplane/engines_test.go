@@ -79,3 +79,32 @@ func structuralEngines(t *testing.T) startedEngines {
 	t.Cleanup(func() { engines.stop(context.Background()) })
 	return engines
 }
+
+type countedEngine struct{ stops *int }
+
+func (countedEngine) Decide(context.Context, domain.Document) (domain.Decision, error) {
+	return domain.Decision{}, errors.New("a counted engine does not decide")
+}
+
+func (engine countedEngine) Stop(context.Context) { *engine.stops++ }
+
+func TestAnEngineStartedBeforeALaterOneFailsIsStopped(t *testing.T) {
+	stops := 0
+	refused := errors.New("the security bundle never arrived")
+	start := func(_ context.Context, family domain.PolicyFamily) (stoppableEngine, error) {
+		if family == domain.PolicyFamilySecurity {
+			return nil, refused
+		}
+		return countedEngine{stops: &stops}, nil
+	}
+
+	_, err := startedEnginesFor(context.Background(),
+		[]domain.PolicyFamily{domain.PolicyFamilyStructural, domain.PolicyFamilySecurity}, start)
+
+	if !errors.Is(err, refused) {
+		t.Errorf("start-up error is %v, want %v", err, refused)
+	}
+	if stops != 1 {
+		t.Errorf("the structural engine was stopped %d times, want once", stops)
+	}
+}

@@ -35,6 +35,7 @@ func startedEnginesFor(
 	for _, family := range families {
 		engine, err := start(ctx, family)
 		if err != nil {
+			engines.stop(context.WithoutCancel(ctx))
 			return nil, err
 		}
 		engines[family] = engine
