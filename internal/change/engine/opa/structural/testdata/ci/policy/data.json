@@ -1,0 +1,28 @@
+{
+  "catalog": {
+    "clean-architecture": {
+      "rule": "direction",
+      "direction": "lower_order_may_not_import_higher",
+      "groups": [
+        {"name": "domain", "order": 0},
+        {"name": "application", "order": 1},
+        {"name": "adapter", "order": 2}
+      ]
+    }
+  },
+  "bindings": {
+    "JoeNutt/open-ci-control-plane": {
+      "policies": [
+        {
+          "use": "clean-architecture",
+          "import_roots": [{"prefix": "github.com/JoeNutt/open-ci-control-plane", "path": ""}],
+          "paths": {
+            "domain": ["internal/change/domain/**"],
+            "application": ["internal/change/application/**"],
+            "adapter": ["internal/change/forge/**"]
+          }
+        }
+      ]
+    }
+  }
+}
