@@ -27,18 +27,16 @@ var ErrIncompleteActionsTokens = errors.New("token verification is missing a par
 
 var ErrMalformedActionsTokens = errors.New("token verification settings name no https issuer or audience")
 
-var ErrUnverifiedToken = domain.ErrUnverifiedIdentityToken
-
 var (
-	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", ErrUnverifiedToken)
-	errForeignIssuer         = fmt.Errorf("%w: another issuer signed it", ErrUnverifiedToken)
-	errForeignAudience       = fmt.Errorf("%w: it was minted for another audience", ErrUnverifiedToken)
-	errExpired               = fmt.Errorf("%w: it has expired", ErrUnverifiedToken)
-	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", ErrUnverifiedToken)
-	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", ErrUnverifiedToken)
-	errNoRepository          = fmt.Errorf("%w: it names no repository", ErrUnverifiedToken)
-	errNotARepository        = fmt.Errorf("%w: its repository claim is not an owner/name pair", ErrUnverifiedToken)
-	errOversizedToken        = fmt.Errorf("%w: it exceeds %d bytes", ErrUnverifiedToken, MaxActionsTokenBytes)
+	errUnverifiableSignature = fmt.Errorf("%w: its signature or form does not verify", domain.ErrUnverifiedIdentityToken)
+	errForeignIssuer         = fmt.Errorf("%w: another issuer signed it", domain.ErrUnverifiedIdentityToken)
+	errForeignAudience       = fmt.Errorf("%w: it was minted for another audience", domain.ErrUnverifiedIdentityToken)
+	errExpired               = fmt.Errorf("%w: it has expired", domain.ErrUnverifiedIdentityToken)
+	errNotYetValid           = fmt.Errorf("%w: it is not yet valid", domain.ErrUnverifiedIdentityToken)
+	errNoLifetime            = fmt.Errorf("%w: it states no expiry or not-before", domain.ErrUnverifiedIdentityToken)
+	errNoRepository          = fmt.Errorf("%w: it names no repository", domain.ErrUnverifiedIdentityToken)
+	errNotARepository        = fmt.Errorf("%w: its repository claim is not an owner/name pair", domain.ErrUnverifiedIdentityToken)
+	errOversizedToken        = fmt.Errorf("%w: it exceeds %d bytes", domain.ErrUnverifiedIdentityToken, MaxActionsTokenBytes)
 )
 
 type unverifiedReason struct {

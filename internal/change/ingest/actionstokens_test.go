@@ -126,8 +126,8 @@ func TestActionsTokensRefuseATokenTheyCannotVerify(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, unverifiable))
 
-			if !errors.Is(err, ingest.ErrUnverifiedToken) || !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
-				t.Fatalf("want ErrUnverifiedToken, got %v", err)
+			if !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
+				t.Fatalf("want ErrUnverifiedIdentityToken, got %v", err)
 			}
 			if strings.Contains(err.Error(), unverifiable) {
 				t.Fatalf("the refusal carries the token: %v", err)
@@ -143,8 +143,8 @@ func TestActionsTokensRefuseATokenOverTheBoundBeforeParsingIt(t *testing.T) {
 
 	_, err := issuer.tokensFor(t, instanceURL).RepositoryOf(t.Context(), identity(t, oversized))
 
-	if !errors.Is(err, ingest.ErrUnverifiedToken) {
-		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+	if !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
+		t.Fatalf("want ErrUnverifiedIdentityToken, got %v", err)
 	}
 	if fetches := issuer.keySetFetches.Load(); fetches != 0 {
 		t.Fatalf("fetched the key set %d times for an oversized token, want 0", fetches)
@@ -221,8 +221,8 @@ func TestActionsTokensRefetchTheKeySetAtMostOnceForUnknownKeys(t *testing.T) {
 
 	for _, unknownKeyID := range []string{"unknown-1", "unknown-2", "unknown-3"} {
 		forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, unknownKeyID))
-		if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, ingest.ErrUnverifiedToken) {
-			t.Fatalf("want ErrUnverifiedToken, got %v", err)
+		if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
+			t.Fatalf("want ErrUnverifiedIdentityToken, got %v", err)
 		}
 	}
 
@@ -238,8 +238,8 @@ func TestActionsTokensRefetchTheKeySetAgainOnceADayHasPassed(t *testing.T) {
 		t.Fatalf("verify a token GitHub Actions issued: %v", err)
 	}
 	forged := issuer.forge(t, issuer.claims(governedRepository), newSigningKey(t, "unknown"))
-	if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, ingest.ErrUnverifiedToken) {
-		t.Fatalf("want ErrUnverifiedToken, got %v", err)
+	if _, err := tokens.RepositoryOf(t.Context(), identity(t, forged)); !errors.Is(err, domain.ErrUnverifiedIdentityToken) {
+		t.Fatalf("want ErrUnverifiedIdentityToken, got %v", err)
 	}
 
 	issuer.advance(24 * time.Hour)
