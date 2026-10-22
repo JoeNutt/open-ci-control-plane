@@ -98,7 +98,11 @@ func contentsEndpoint(file domain.FileAtCommit) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	query := url.Values{"ref": {file.Commit.String()}}
+	commit, err := domain.ParseCommitSHA(file.Commit.String())
+	if err != nil {
+		return "", err
+	}
+	query := url.Values{"ref": {commit.String()}}
 	return fmt.Sprintf("%s/contents/%s?%s", repositoryEndpoint(repository), path, query.Encode()), nil
 }
 

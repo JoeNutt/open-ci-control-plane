@@ -271,6 +271,16 @@ func TestContentsAtNamesTheFileInEveryRefusalButNeverTheCredentialOrTheContent(t
 	}
 }
 
+func TestContentsAtRefusesAFileNamingNoCommitRatherThanReadTheDefaultBranch(t *testing.T) {
+	unparsed := domain.FileAtCommit{Repository: "acme/payments", Path: middlewarePath}
+
+	_, err := contentsAt(t, neverAsked(t)).ContentsAt(context.Background(), unparsed)
+
+	if !errors.Is(err, domain.ErrMalformedCommitSHA) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrMalformedCommitSHA)
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
