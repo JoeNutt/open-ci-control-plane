@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -27,7 +30,48 @@ type Log struct {
 }
 
 func OpenLog(path string, limits domain.HistoryLimits, now func() time.Time) (*Log, error) {
-	return &Log{path: path, limits: limits, now: now}, nil
+	history := &Log{path: path, limits: limits, now: now}
+	if err := history.pruneExpired(); err != nil {
+		return nil, err
+	}
+	return history, nil
+}
+
+func (history *Log) pruneExpired() error {
+	entries, err := history.Entries()
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cutoff := history.now().Add(-history.limits.Retention)
+	held := len(entries)
+	entries = slices.DeleteFunc(entries, func(entry Entry) bool { return entry.At.Before(cutoff) })
+	if len(entries) == held {
+		return nil
+	}
+	return history.rewrite(entries)
+}
+
+func (history *Log) rewrite(entries []Entry) error {
+	staged, err := os.CreateTemp(filepath.Dir(history.path), ".history-*")
+	if err != nil {
+		return fmt.Errorf("stage the pruned history: %w", err)
+	}
+	for _, entry := range entries {
+		line, err := json.Marshal(entry)
+		if err != nil {
+			return errors.Join(fmt.Errorf("encode a history entry: %w", err), staged.Close(), os.Remove(staged.Name()))
+		}
+		if _, err := staged.Write(append(line, '\n')); err != nil {
+			return errors.Join(fmt.Errorf("write the pruned history: %w", err), staged.Close(), os.Remove(staged.Name()))
+		}
+	}
+	if err := errors.Join(staged.Sync(), staged.Close()); err != nil {
+		return errors.Join(err, os.Remove(staged.Name()))
+	}
+	return os.Rename(staged.Name(), history.path)
 }
 
 func (history *Log) Append(body json.RawMessage) error {

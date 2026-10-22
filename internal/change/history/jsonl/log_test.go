@@ -5,6 +5,7 @@ package jsonl_test
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -76,5 +77,36 @@ func TestAnEntryLargerThanTheScannersDefaultLineReadsBack(t *testing.T) {
 
 	if err != nil || len(entries) != 1 || len(entries[0].Body) != len(large) {
 		t.Errorf("reading a %d-byte entry back gave %d entries and %v", len(large), len(entries), err)
+	}
+}
+
+func TestEntriesPastRetentionAreDeletedWhenTheLogOpens(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	limits := domain.DeclaredHistoryLimits()
+	clock := recordedAt
+	history, err := jsonl.OpenLog(path, limits, func() time.Time { return clock })
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := history.Append(json.RawMessage(`"old"`)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	clock = recordedAt.Add(2 * 24 * time.Hour)
+	if err := history.Append(json.RawMessage(`"recent"`)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	clock = recordedAt.Add(limits.Retention + 24*time.Hour)
+	reopened, err := jsonl.OpenLog(path, limits, func() time.Time { return clock })
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	entries, err := reopened.Entries()
+
+	if err != nil || len(entries) != 1 || string(entries[0].Body) != `"recent"` {
+		t.Errorf("after retention the log holds %+v (%v), want only the recent entry", entries, err)
+	}
+	if held, _ := os.ReadFile(path); strings.Contains(string(held), `"old"`) {
+		t.Errorf("the expired entry is still in the file")
 	}
 }
