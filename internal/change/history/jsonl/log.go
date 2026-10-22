@@ -27,15 +27,15 @@ func OpenLog(path string, now func() time.Time) (*Log, error) {
 	return &Log{path: path, now: now}, nil
 }
 
-func (log *Log) Append(body json.RawMessage) error {
-	log.guard.Lock()
-	defer log.guard.Unlock()
+func (history *Log) Append(body json.RawMessage) error {
+	history.guard.Lock()
+	defer history.guard.Unlock()
 
-	line, err := json.Marshal(Entry{At: log.now(), Body: body})
+	line, err := json.Marshal(Entry{At: history.now(), Body: body})
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(log.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	file, err := os.OpenFile(history.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -45,11 +45,11 @@ func (log *Log) Append(body json.RawMessage) error {
 	return errors.Join(file.Sync(), file.Close())
 }
 
-func (log *Log) Entries() ([]Entry, error) {
-	log.guard.Lock()
-	defer log.guard.Unlock()
+func (history *Log) Entries() ([]Entry, error) {
+	history.guard.Lock()
+	defer history.guard.Unlock()
 
-	file, err := os.Open(log.path)
+	file, err := os.Open(history.path)
 	if err != nil {
 		return nil, err
 	}
