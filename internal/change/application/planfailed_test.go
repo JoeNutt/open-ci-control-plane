@@ -9,12 +9,11 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
 func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *testing.T) {
-	dispatched := &memory.PlanDispatches{}
-	useCase := passingGateChange(t, &memory.CheckRuns{}, dispatched)
+	dispatched := &dispatchedPlans{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
 	useCase.Planner = application.PlanTests{Maps: unreadableCoverage{}}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
@@ -41,8 +40,8 @@ func (unreadableBinding) BindingOf(context.Context, domain.GovernedRepository) (
 }
 
 func TestAPassingChangeWhoseBindingCannotBeReadDispatchesNothingAndSaysWhy(t *testing.T) {
-	dispatched := &memory.PlanDispatches{}
-	useCase := passingGateChange(t, &memory.CheckRuns{}, dispatched)
+	dispatched := &dispatchedPlans{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
 	useCase.Bindings = unreadableBinding{}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
