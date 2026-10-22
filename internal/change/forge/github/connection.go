@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type Settings struct {
@@ -28,7 +30,7 @@ var ErrMalformedResponseBound = errors.New("the forge settings carry no positive
 
 var ErrNoClient = errors.New("the forge settings carry no http client")
 
-var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
+var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout within the call bound")
 
 type connection struct {
 	settings   Settings
@@ -63,7 +65,7 @@ func parseConnection(settings Settings, authorizer requestAuthorizer) (connectio
 	if settings.MaxResponseBytes <= 0 {
 		return connection{}, fmt.Errorf("%w: %d", ErrMalformedResponseBound, settings.MaxResponseBytes)
 	}
-	if settings.Client.Timeout <= 0 {
+	if settings.Client.Timeout <= 0 || settings.Client.Timeout > domain.OutboundCallTimeout {
 		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
 	settings.Credentials = nil

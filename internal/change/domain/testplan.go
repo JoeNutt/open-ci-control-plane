@@ -119,3 +119,12 @@ func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []Coverag
 	}
 	return selection.suites
 }
+
+const MaxPlanCharacters = 60000
+
+func (plan TestPlan) AsTooLarge() TestPlan {
+	plan.Suites = nil
+	plan.FullMatrix = true
+	plan.Trigger = PlanTriggerPlanTooLarge
+	return plan
+}

@@ -5,7 +5,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -15,7 +14,7 @@ var _ domain.CheckRunPublisher = CheckRuns{}
 type CheckRuns struct {
 	forge connection
 	owner appID
-	pause func(ctx context.Context, wait time.Duration) error
+	pause pauseFunc
 }
 
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
@@ -45,7 +44,8 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	if err := runs.publishWithinAttempts(ctx, pending); err != nil {
+	publishing := func(bounded context.Context) error { return runs.publish(bounded, pending) }
+	if err := withinAttempts(ctx, runs.pause, publishing); err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
 	return nil

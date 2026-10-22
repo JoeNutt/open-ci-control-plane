@@ -21,8 +21,6 @@ type appForge struct {
 	clock    func() time.Time
 }
 
-const outboundForgeCallBound = 10 * time.Second
-
 type forgeEndpoint struct {
 	baseURL string
 	trusted *x509.CertPool
@@ -43,7 +41,7 @@ func appForgeOf(configured configuration.Configuration, endpoint forgeEndpoint) 
 
 func forgeClientTrusting(trusted *x509.CertPool) *http.Client {
 	return &http.Client{
-		Timeout:       outboundForgeCallBound,
+		Timeout:       domain.OutboundCallTimeout,
 		CheckRedirect: refuseRedirect,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{RootCAs: trusted, MinVersion: tls.VersionTLS12},

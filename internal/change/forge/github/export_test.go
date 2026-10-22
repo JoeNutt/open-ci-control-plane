@@ -40,3 +40,8 @@ func CheckRunsPausingWith(runs CheckRuns, pause func(context.Context, time.Durat
 	runs.pause = pause
 	return runs
 }
+
+func PlanDispatchesPausingWith(dispatches PlanDispatches, pause func(context.Context, time.Duration) error) PlanDispatches {
+	dispatches.pause = pause
+	return dispatches
+}
