@@ -58,19 +58,27 @@ type installationForge struct {
 }
 
 func (app appForge) installationForgeFor(installation int64) (installationForge, error) {
-	tokens, err := github.ParseInstallationTokens(app.settings,
-		github.Installation{Key: app.key, ID: installation, Clock: app.clock})
+	settings, err := app.settingsFor(installation)
 	if err != nil {
-		return installationForge{}, refusedInstallation(installation, err)
+		return installationForge{}, err
 	}
-	settings := app.settings
-	settings.Credentials = tokens
 	source, sourceErr := github.ParseChangeSource(settings)
 	checkRuns, checkRunsErr := github.ParseCheckRuns(settings)
 	if err := errors.Join(sourceErr, checkRunsErr); err != nil {
 		return installationForge{}, refusedInstallation(installation, err)
 	}
 	return installationForge{source: source, checkRuns: checkRuns}, nil
+}
+
+func (app appForge) settingsFor(installation int64) (github.Settings, error) {
+	tokens, err := github.ParseInstallationTokens(app.settings,
+		github.Installation{Key: app.key, ID: installation, Clock: app.clock})
+	if err != nil {
+		return github.Settings{}, refusedInstallation(installation, err)
+	}
+	settings := app.settings
+	settings.Credentials = tokens
+	return settings, nil
 }
 
 func refusedInstallation(installation int64, reason error) error {
