@@ -11,8 +11,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/memory"
 )
 
+const recordedPolicyRepository = "JoeNutt/open-ci-policy"
+
 func TestDefaultBranchHeadsAnswersTheHeadRecordedForARepository(t *testing.T) {
-	repository := policyRepositoryOf(t, "JoeNutt/open-ci-policy")
+	repository := policyRepositoryOf(t, recordedPolicyRepository)
 	head := commitOf(t, "637d049f40a67db2936d7c97668b07c531b4dcc5")
 	heads := memory.DefaultBranchHeads{
 		Heads: map[domain.PolicyRepository]domain.CommitSHA{repository: head},
@@ -29,7 +31,7 @@ func TestDefaultBranchHeadsAnswersTheHeadRecordedForARepository(t *testing.T) {
 }
 
 func TestDefaultBranchHeadsRefusesARepositoryItHoldsNoHeadFor(t *testing.T) {
-	_, err := memory.DefaultBranchHeads{}.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, "JoeNutt/open-ci-policy"))
+	_, err := memory.DefaultBranchHeads{}.DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, recordedPolicyRepository))
 
 	if !errors.Is(err, domain.ErrNoSuchRepository) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchRepository)
