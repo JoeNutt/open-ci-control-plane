@@ -80,17 +80,14 @@ func placedFilesIn(listed []domain.ListedFile) []domain.ListedFile {
 func (reader *Reader) policyFilesAt(
 	ctx context.Context, at domain.PolicyCommit, listing domain.PolicyListing,
 ) ([]domain.PolicyFile, error) {
-	files := make([]domain.PolicyFile, 0, len(listing.Files()))
-	for _, listed := range listing.Files() {
-		path, err := domain.ParseRepositoryPath(listed.Path)
-		if err != nil {
-			return nil, err
-		}
+	paths := listing.Paths()
+	files := make([]domain.PolicyFile, 0, len(paths))
+	for _, path := range paths {
 		content, err := reader.ports.Contents.ContentsAt(ctx, at, path)
 		if err != nil {
 			return nil, err
 		}
-		files = append(files, domain.PolicyFile{Path: listed.Path, Content: content})
+		files = append(files, domain.PolicyFile{Path: path.String(), Content: content})
 	}
 	return files, nil
 }
