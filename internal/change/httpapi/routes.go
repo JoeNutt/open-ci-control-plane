@@ -42,8 +42,8 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 	}
 	routes := http.NewServeMux()
 	routes.Handle(eventsRoute, events{answering: answering, check: check, refusing: refusing})
-	routes.Handle(coverageRoute, coverageUploads{answering: answering, replacement: settings.Coverage, artifacts: settings.Artifacts})
-	return routes, nil
+	routes.Handle(coverageRoute, coverageUploads{log: settings.Log, answering: answering, replacement: settings.Coverage, artifacts: settings.Artifacts})
+	return canonicalRepositoryPaths{routes: routes, answering: answering, log: settings.Log}, nil
 }
 
 type events struct {

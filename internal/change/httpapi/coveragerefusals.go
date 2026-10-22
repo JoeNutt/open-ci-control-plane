@@ -13,7 +13,13 @@ import (
 
 type classifiedFailure struct {
 	answer answerBody
+	reason string
+	cause  error
 	level  slog.Level
+}
+
+func refusedBeforeUse(refused refusal) classifiedFailure {
+	return classifiedFailure{answer: refused, reason: refused.reason(), level: slog.LevelWarn}
 }
 
 type causedRefusal struct {
@@ -40,12 +46,12 @@ var coverageRefusals = []causedRefusal{
 func coverageRefusalOf(failure error) classifiedFailure {
 	var overRate application.UploadRateRefusal
 	if errors.As(failure, &overRate) {
-		return classifiedFailure{answer: rateProblemAfter(overRate.RetryAfter), level: slog.LevelWarn}
+		return classifiedFailure{answer: rateProblemAfter(overRate.RetryAfter), reason: rateExceededCode, cause: failure, level: slog.LevelWarn}
 	}
 	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
 	if matching < 0 {
-		return classifiedFailure{answer: failedCoverageProblem(), level: slog.LevelError}
+		return classifiedFailure{answer: failedCoverageProblem(), reason: failedCoverageCode, cause: failure, level: slog.LevelError}
 	}
 	row := coverageRefusals[matching]
-	return classifiedFailure{answer: row.refusal, level: row.level}
+	return classifiedFailure{answer: row.refusal, reason: row.refusal.reason(), cause: failure, level: row.level}
 }

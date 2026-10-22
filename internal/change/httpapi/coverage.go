@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -17,6 +18,7 @@ type CoverageReplacement interface {
 }
 
 type coverageUploads struct {
+	log         *slog.Logger
 	answering   answers
 	replacement CoverageReplacement
 	artifacts   CoverageArtifacts
@@ -24,32 +26,44 @@ type coverageUploads struct {
 
 func (receiving coverageUploads) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.DeclaredCoverageLimits().MaxCompressedBytes)
-	receiving.answering.write(asked.Context(), answer, receiving.answerTo(asked))
+	answered := receiving.answerTo(asked)
+	if answered.reason != "" {
+		receiving.record(asked.Context(), answered)
+	}
+	receiving.answering.write(asked.Context(), answer, answered.answer)
 }
 
-func (receiving coverageUploads) answerTo(asked *http.Request) answerBody {
+func (receiving coverageUploads) record(ctx context.Context, refused classifiedFailure) {
+	named := []slog.Attr{slog.String(reasonKey, refused.reason)}
+	if refused.cause != nil {
+		named = append(named, slog.String(causeKey, refused.cause.Error()))
+	}
+	receiving.log.LogAttrs(ctx, refused.level, refusedCoverage, named...)
+}
+
+func (receiving coverageUploads) answerTo(asked *http.Request) classifiedFailure {
 	target, refused := coverageTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(suiteSegment))
 	if refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	if refused := uploadLengthRefusalOf(asked.ContentLength); refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	if err != nil {
-		return coverageRefusalOf(err).answer
+		return coverageRefusalOf(err)
 	}
 	form, refused := uploadedFormOf(asked, receiving.artifacts)
 	if refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	replaced, err := receiving.replacement.Execute(asked.Context(), application.CoverageUpload{
 		Token: token, Repository: target.repository, Suite: target.suite, Report: form,
 	})
 	if err != nil {
-		return coverageRefusalOf(err).answer
+		return coverageRefusalOf(err)
 	}
-	return coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}
+	return classifiedFailure{answer: coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}}
 }
 
 type coverageAccepted struct {
