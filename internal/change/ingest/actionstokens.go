@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"slices"
 	"time"
 
@@ -20,12 +19,9 @@ import (
 const (
 	MaxActionsTokenBytes = 16 << 10
 	repositoryClaim      = "repository"
-	httpsScheme          = "https"
 )
 
 var ErrIncompleteActionsTokens = errors.New("token verification is missing a part it cannot work without")
-
-var ErrMalformedActionsTokens = errors.New("token verification settings name no https issuer or audience")
 
 var ErrUnverifiedToken = errors.New("token is absent, expired or not verifiable")
 
@@ -55,15 +51,15 @@ var unverifiedReasons = []unverifiedReason{
 }
 
 type ActionsTokenSettings struct {
-	Issuer   string
-	Audience string
+	Issuer   domain.HTTPSOrigin
+	Audience domain.HTTPSOrigin
 	Client   *http.Client
 	Now      func() time.Time
 }
 
 type ActionsTokens struct {
-	issuer   *url.URL
-	audience *url.URL
+	issuer   domain.HTTPSOrigin
+	audience domain.HTTPSOrigin
 	now      func() time.Time
 	keys     *issuerKeys
 }
@@ -72,19 +68,11 @@ func ParseActionsTokens(settings ActionsTokenSettings) (*ActionsTokens, error) {
 	if err := incompletenessOf(settings); err != nil {
 		return nil, err
 	}
-	issuer, err := httpsURLOf(settings.Issuer)
-	if err != nil {
-		return nil, err
-	}
-	audience, err := httpsURLOf(settings.Audience)
-	if err != nil {
-		return nil, err
-	}
 	return &ActionsTokens{
-		issuer:   issuer,
-		audience: audience,
+		issuer:   settings.Issuer,
+		audience: settings.Audience,
 		now:      settings.Now,
-		keys:     &issuerKeys{issuer: issuer, client: settings.Client, now: settings.Now},
+		keys:     &issuerKeys{issuer: settings.Issuer, client: settings.Client, now: settings.Now},
 	}, nil
 }
 
@@ -95,8 +83,8 @@ type settingsPart struct {
 
 func incompletenessOf(settings ActionsTokenSettings) error {
 	parts := []settingsPart{
-		{isAbsent: settings.Issuer == "", description: "no issuer to expect"},
-		{isAbsent: settings.Audience == "", description: "no audience to expect"},
+		{isAbsent: settings.Issuer == domain.HTTPSOrigin{}, description: "no issuer to expect"},
+		{isAbsent: settings.Audience == domain.HTTPSOrigin{}, description: "no audience to expect"},
 		{isAbsent: settings.Client == nil, description: "no client to reach the issuer with"},
 		{isAbsent: hasNoTimeout(settings.Client), description: "no timeout on the client"},
 		{isAbsent: settings.Now == nil, description: "no clock to judge a token's lifetime by"},
@@ -106,14 +94,6 @@ func incompletenessOf(settings ActionsTokenSettings) error {
 		return nil
 	}
 	return fmt.Errorf("%w: %s", ErrIncompleteActionsTokens, parts[absent].description)
-}
-
-func httpsURLOf(stated string) (*url.URL, error) {
-	parsed, err := url.Parse(stated)
-	if err != nil || parsed.Scheme != httpsScheme || parsed.Host == "" {
-		return nil, fmt.Errorf("%w: %q", ErrMalformedActionsTokens, stated)
-	}
-	return parsed, nil
 }
 
 func hasNoTimeout(client *http.Client) bool {

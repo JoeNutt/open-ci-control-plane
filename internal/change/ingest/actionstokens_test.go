@@ -39,14 +39,15 @@ var issuedAt = time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 
 func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 	complete := ingest.ActionsTokenSettings{
-		Issuer: "https://token.actions.githubusercontent.com", Audience: instanceURL, Client: &http.Client{Timeout: time.Second}, Now: time.Now}
+		Issuer: originOf(t, "https://token.actions.githubusercontent.com"), Audience: originOf(t, instanceURL),
+		Client: &http.Client{Timeout: time.Second}, Now: time.Now}
 	for form, without := range map[string]func(ingest.ActionsTokenSettings) ingest.ActionsTokenSettings{
 		"no issuer": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
-			settings.Issuer = ""
+			settings.Issuer = domain.HTTPSOrigin{}
 			return settings
 		},
 		"no audience": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
-			settings.Audience = ""
+			settings.Audience = domain.HTTPSOrigin{}
 			return settings
 		},
 		"no client": func(settings ingest.ActionsTokenSettings) ingest.ActionsTokenSettings {
@@ -71,25 +72,6 @@ func TestParseActionsTokensRefusesIncompleteSettings(t *testing.T) {
 
 			if !errors.Is(err, ingest.ErrIncompleteActionsTokens) {
 				t.Fatalf("want ErrIncompleteActionsTokens, got %v", err)
-			}
-		})
-	}
-}
-
-func TestParseActionsTokensRefusesAnIssuerOrAudienceThatIsNotAnHTTPSURL(t *testing.T) {
-	for form, malformed := range map[string]ingest.ActionsTokenSettings{
-		"plain-text issuer":   {Issuer: "http://token.actions.githubusercontent.com", Audience: instanceURL},
-		"issuer with no host": {Issuer: "https://", Audience: instanceURL},
-		"plain-text audience": {Issuer: "https://token.actions.githubusercontent.com", Audience: "http://control-plane.example"},
-		"audience not a URL":  {Issuer: "https://token.actions.githubusercontent.com", Audience: "control-plane"},
-	} {
-		t.Run(form, func(t *testing.T) {
-			malformed.Client, malformed.Now = &http.Client{Timeout: time.Second}, time.Now
-
-			_, err := ingest.ParseActionsTokens(malformed)
-
-			if !errors.Is(err, ingest.ErrMalformedActionsTokens) {
-				t.Fatalf("want ErrMalformedActionsTokens, got %v", err)
 			}
 		})
 	}
@@ -380,8 +362,8 @@ func (minted *issuer) tokensFor(t *testing.T, audience string) domain.CallerRepo
 	t.Helper()
 
 	tokens, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
-		Issuer:   minted.server.URL,
-		Audience: audience,
+		Issuer:   originOf(t, minted.server.URL),
+		Audience: originOf(t, audience),
 		Client:   minted.timedClient(),
 		Now:      minted.now,
 	})
@@ -492,4 +474,13 @@ func newSigningKey(t *testing.T, keyID string) jwk.Key {
 		t.Fatalf("assign algorithm: %v", err)
 	}
 	return key
+}
+
+func originOf(t *testing.T, stated string) domain.HTTPSOrigin {
+	t.Helper()
+	origin, err := domain.ParseHTTPSOrigin(stated)
+	if err != nil {
+		t.Fatalf("parse origin %q: %v", stated, err)
+	}
+	return origin
 }

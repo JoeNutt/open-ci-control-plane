@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v3/jwk"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
@@ -27,7 +28,7 @@ var ErrIssuerKeysUnavailable = errors.New("the token issuer's signing keys could
 var errOversizedIssuerDocument = fmt.Errorf("the issuer's document exceeds %d bytes", MaxIssuerDocumentBytes)
 
 type issuerKeys struct {
-	issuer      *url.URL
+	issuer      domain.HTTPSOrigin
 	client      *http.Client
 	now         func() time.Time
 	guard       sync.Mutex
@@ -90,7 +91,7 @@ func (keys *issuerKeys) published(ctx context.Context) (jwk.Set, error) {
 }
 
 func (keys *issuerKeys) keySetLocation(ctx context.Context) (string, error) {
-	document, err := keys.documentAt(ctx, keys.issuer.JoinPath(discoveryPath).String())
+	document, err := keys.documentAt(ctx, keys.issuer.String()+discoveryPath)
 	if err != nil {
 		return "", fmt.Errorf("read the issuer's configuration: %w", err)
 	}

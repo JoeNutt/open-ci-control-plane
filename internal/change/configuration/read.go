@@ -27,6 +27,7 @@ const (
 	policyRepositoryItem        item = "policyRepository"
 	policyInstallationIDItem    item = "policyInstallationId"
 	classificationRulesFileItem item = "classificationRulesFile"
+	instanceURLItem             item = "instanceUrl"
 )
 
 var items = []item{
@@ -39,6 +40,7 @@ var items = []item{
 	policyRepositoryItem,
 	policyInstallationIDItem,
 	classificationRulesFileItem,
+	instanceURLItem,
 }
 
 var ErrMalformedConfiguration = errors.New("the configuration file is not a configuration")
@@ -53,6 +55,7 @@ type Configuration struct {
 	policyRepository     domain.PolicyRepository
 	policyInstallationID int64
 	classificationRules  []byte
+	instanceURL          domain.HTTPSOrigin
 }
 
 func Read(path string) (Configuration, error) {
@@ -89,6 +92,8 @@ func (configured Configuration) PolicyRepository() domain.PolicyRepository {
 
 func (configured Configuration) PolicyInstallationID() int64 { return configured.policyInstallationID }
 
+func (configured Configuration) InstanceURL() domain.HTTPSOrigin { return configured.instanceURL }
+
 func (stated statedItems) configuration() (Configuration, error) {
 	address, addressErr := listenAddressIn(stated)
 	appID, appIDErr := appIDIn(stated)
@@ -99,8 +104,9 @@ func (stated statedItems) configuration() (Configuration, error) {
 	policyRepository, policyRepositoryErr := policyRepositoryIn(stated)
 	policyInstallationID, policyInstallationIDErr := policyInstallationIDIn(stated)
 	classificationRules, classificationRulesErr := classificationRulesIn(stated)
+	instanceURL, instanceURLErr := instanceURLIn(stated)
 	refusals := errors.Join(addressErr, appIDErr, appKeyErr, webhookSecretErr, installationIDsErr, familiesErr,
-		policyRepositoryErr, policyInstallationIDErr, classificationRulesErr)
+		policyRepositoryErr, policyInstallationIDErr, classificationRulesErr, instanceURLErr)
 	if refusals != nil {
 		return Configuration{}, refusals
 	}
@@ -114,5 +120,6 @@ func (stated statedItems) configuration() (Configuration, error) {
 		policyRepository:     policyRepository,
 		policyInstallationID: policyInstallationID,
 		classificationRules:  classificationRules,
+		instanceURL:          instanceURL,
 	}, nil
 }
