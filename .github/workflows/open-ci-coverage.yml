@@ -1,0 +1,66 @@
+name: open-ci coverage
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: open-ci-coverage
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CONTROL_PLANE: https://ci.joenutt.com
+      OPA_VERSION: v1.21.2
+      OPA_SHA256: 830ab11f61ffec760b5e19db0d7ad02bf037e13f5ef4d665faeaf17632177527
+      GCOV2LCOV_VERSION: v1.1.1
+    steps:
+      - name: Check out
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install the tools the suite shells out to
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmark-gfm
+          curl -fsSL -o "$RUNNER_TEMP/opa" "https://github.com/open-policy-agent/opa/releases/download/$OPA_VERSION/opa_linux_amd64_static"
+          echo "$OPA_SHA256  $RUNNER_TEMP/opa" | sha256sum --check --strict
+          sudo install -m 0755 "$RUNNER_TEMP/opa" /usr/local/bin/opa
+          go install "github.com/jandelgado/gcov2lcov@$GCOV2LCOV_VERSION"
+
+      - name: Upload one suite's coverage per package
+        run: |
+          set -euo pipefail
+          export GOROOT="$(go env GOROOT)"
+          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+          echo "::add-mask::$token"
+          for package in $(go list ./...); do
+            profile="$RUNNER_TEMP/cover.out"
+            report="$RUNNER_TEMP/cover.lcov"
+            rm -f "$profile" "$report"
+            go test -coverpkg=./... -coverprofile="$profile" "$package" >/dev/null
+            [[ -s "$profile" ]] || { echo "no coverage for $package"; continue; }
+            "$(go env GOPATH)/bin/gcov2lcov" -infile "$profile" -outfile "$report"
+            answer="$(curl -sS -o /dev/stderr -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $token" \
+              -F format=lcov -F "artifact=@$report" \
+              "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/$package")"
+            echo " <- $package: $answer"
+            [[ "$answer" == 201 ]]
+          done
