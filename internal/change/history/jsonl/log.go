@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -124,9 +125,9 @@ func (history *Log) Entries() ([]Entry, error) {
 }
 
 func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
-	held, err := os.ReadFile(history.path)
+	held, err := history.boundedContents()
 	if err != nil {
-		return nil, false, fmt.Errorf("open the history: %w", err)
+		return nil, false, err
 	}
 	lines := bytes.Split(held, []byte{'\n'})
 	isTorn = len(lines[len(lines)-1]) > 0
@@ -138,4 +139,20 @@ func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
 		entries = append(entries, entry)
 	}
 	return entries, isTorn, nil
+}
+
+func (history *Log) boundedContents() (held []byte, err error) {
+	file, err := os.Open(history.path)
+	if err != nil {
+		return nil, fmt.Errorf("open the history: %w", err)
+	}
+	defer func() { err = errors.Join(err, file.Close()) }()
+	measured, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("measure the history: %w", err)
+	}
+	if measured.Size() > history.limits.MaxBytes {
+		return nil, domain.ErrHistoryFull
+	}
+	return io.ReadAll(io.LimitReader(file, history.limits.MaxBytes))
 }

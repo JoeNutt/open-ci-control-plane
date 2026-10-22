@@ -143,3 +143,18 @@ func TestALineTornByACrashIsDroppedAndTheLogStillOpens(t *testing.T) {
 		t.Errorf("after a torn write the log holds %+v (%v), want the complete entry then the new one", entries, err)
 	}
 }
+
+func TestAHistoryFileOverItsBoundIsRefusedBeforeItIsRead(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	oversized := strings.Repeat(`{"at":"2026-10-22T12:00:00Z","body":1}`+"\n", 4)
+	if err := os.WriteFile(path, []byte(oversized), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	limits := domain.HistoryLimits{MaxBytes: int64(len(oversized)) - 1, Retention: domain.DeclaredHistoryLimits().Retention}
+
+	_, err := jsonl.OpenLog(path, limits, func() time.Time { return recordedAt })
+
+	if !errors.Is(err, domain.ErrHistoryFull) {
+		t.Errorf("opening a history one byte over its bound gave %v, want %v", err, domain.ErrHistoryFull)
+	}
+}
