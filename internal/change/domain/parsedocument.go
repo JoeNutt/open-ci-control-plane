@@ -8,9 +8,9 @@ import (
 )
 
 func ParseDocument(
-	pullRequest PullRequest, bounded BoundedFiles, rules ClassificationRules,
+	pullRequest PullRequest, change Change, rules ClassificationRules,
 ) Document {
-	return Document{PR: cloneOf(pullRequest), Diff: diffOf(bounded, rules)}
+	return Document{PR: cloneOf(pullRequest), Diff: diffOf(change, rules)}
 }
 
 func cloneOf(pullRequest PullRequest) PullRequest {
@@ -19,9 +19,10 @@ func cloneOf(pullRequest PullRequest) PullRequest {
 	return pullRequest
 }
 
-func diffOf(bounded BoundedFiles, rules ClassificationRules) Diff {
+func diffOf(change Change, rules ClassificationRules) Diff {
+	bounded := change.Files
 	paths := pathsOf(bounded.files)
-	imports := importsOf(bounded.files)
+	imports := slices.Clone(change.Structure.imports)
 	resolution := importResolutionIn(imports)
 	return Diff{
 		Paths:                 paths,
@@ -33,7 +34,7 @@ func diffOf(bounded BoundedFiles, rules ClassificationRules) Diff {
 		Imports:               imports,
 		UnresolvedImportFiles: resolution.unresolved,
 		ResolvedImportShare:   resolution.share,
-		ModuleGraphDelta:      graphDeltaFor(resolution),
+		ModuleGraphDelta:      change.Structure.moduleGraphDelta(),
 	}
 }
 
@@ -78,14 +79,6 @@ func byDirOf(files []File) PathsByDir {
 	return byDir
 }
 
-func importsOf(files []File) Declared[Import] {
-	imports := make(Declared[Import], 0, len(files))
-	for _, file := range files {
-		imports = append(imports, Import{Path: file.Path, State: ImportStateUnknown})
-	}
-	return imports
-}
-
 type importResolution struct {
 	unresolved int
 	share      float64
@@ -103,8 +96,4 @@ func importResolutionIn(imports Declared[Import]) importResolution {
 		resolution.share = float64(len(imports)-unresolved) / float64(len(imports))
 	}
 	return resolution
-}
-
-func graphDeltaFor(resolution importResolution) ModuleGraphDelta {
-	return ModuleGraphDelta{Incomplete: resolution.unresolved > 0}
 }

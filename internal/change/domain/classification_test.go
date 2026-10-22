@@ -90,7 +90,7 @@ func TestParseDocumentClassifiesEveryChangedPath(t *testing.T) {
 		domain.File{Path: "README.md", Action: domain.FileActionModified},
 	)
 
-	document := domain.ParseDocument(domain.PullRequest{}, bounded, rules)
+	document := domain.ParseDocument(domain.PullRequest{}, domain.Change{Files: bounded}, rules)
 
 	if len(document.Diff.Kinds.Test) != 1 {
 		t.Errorf("test kind is %v, want the test file", document.Diff.Kinds.Test)
