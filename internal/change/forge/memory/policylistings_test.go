@@ -42,6 +42,6 @@ func recordedPolicyCommit(t *testing.T) domain.PolicyCommit {
 
 	return domain.PolicyCommit{
 		Repository: policyRepositoryOf(t, recordedPolicyRepository),
-		Commit:     commitOf(t, "637d049f40a67db2936d7c97668b07c531b4dcc5"),
+		Commit:     commitOf(t, recordedPolicyHead),
 	}
 }
