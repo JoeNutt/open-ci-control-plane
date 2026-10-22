@@ -10,9 +10,8 @@ import (
 type FailurePosture string
 
 const (
-	FailurePostureClosed            FailurePosture = "closed"
-	FailurePostureOpen              FailurePosture = "open"
-	FailurePostureDeclaredPerPolicy FailurePosture = "declared_per_policy"
+	FailurePostureClosed FailurePosture = "closed"
+	FailurePostureOpen   FailurePosture = "open"
 )
 
 type PolicyFamily string
@@ -32,7 +31,7 @@ var declaredPolicyFamilies = []PolicyFamily{
 }
 
 var failurePostures = map[PolicyFamily]FailurePosture{
-	PolicyFamilyStructural: FailurePostureDeclaredPerPolicy,
+	PolicyFamilyStructural: FailurePostureClosed,
 	PolicyFamilySecurity:   FailurePostureClosed,
 	PolicyFamilyQuality:    FailurePostureOpen,
 	PolicyFamilyRouting:    FailurePostureOpen,

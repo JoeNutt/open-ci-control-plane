@@ -192,7 +192,7 @@ func TestAnUndecidedFamilyThatFailsOpenSaysThePolicyDidNotDecide(t *testing.T) {
 	}
 }
 
-func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
+func TestAnUndecidedFamilyThatFailsClosedReadsNoPolicyLoaded(t *testing.T) {
 	for _, family := range []domain.PolicyFamily{
 		domain.PolicyFamilySecurity, domain.PolicyFamilyStructural,
 	} {
@@ -202,7 +202,7 @@ func TestAnUndecidedFamilyThatFailsClosedIsAPolicyError(t *testing.T) {
 			if run.Conclusion != domain.ConclusionFailure {
 				t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
 			}
-			stated := fmt.Sprintf("Policy %s failed to evaluate.", family)
+			stated := fmt.Sprintf("No policy loaded for %s", family)
 			if !strings.Contains(run.Headline, stated) {
 				t.Errorf("headline does not say %q:\n%s", stated, run.Headline)
 			}
@@ -496,16 +496,16 @@ func checkRunFor(
 	return domain.CheckRunFor(domain.FamilyDecision{Family: family, Decision: decision}, id)
 }
 
-func TestAnUndecidedPolicyIsGovernedByThePostureItDeclaresOverItsFamilys(t *testing.T) {
+func TestAnUndecidedPolicyMayCloseItsFamilyButNeverOpenAClosedOne(t *testing.T) {
 	declared := map[string]struct {
 		family domain.PolicyFamily
 		stated string
 		want   domain.Conclusion
 	}{
-		"closed in an open family": {domain.PolicyFamilyQuality, "true", domain.ConclusionFailure},
-		"open in a closed family":  {domain.PolicyFamilySecurity, "false", domain.ConclusionNeutral},
-		"open in a family that defers to its policies": {
-			domain.PolicyFamilyStructural, "false", domain.ConclusionNeutral},
+		"closed in an open family":      {domain.PolicyFamilyQuality, "true", domain.ConclusionFailure},
+		"open in an open family":        {domain.PolicyFamilyQuality, "false", domain.ConclusionNeutral},
+		"open in a closed family":       {domain.PolicyFamilySecurity, "false", domain.ConclusionFailure},
+		"open in the structural family": {domain.PolicyFamilyStructural, "false", domain.ConclusionFailure},
 	}
 
 	for form, policy := range declared {
