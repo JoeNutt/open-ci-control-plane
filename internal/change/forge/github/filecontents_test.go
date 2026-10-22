@@ -109,6 +109,24 @@ func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t
 	}
 }
 
+func TestContentsAtRefusesARepositoryThatIsNotAnOwnerAndNameWithoutAsking(t *testing.T) {
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
+		writer.WriteHeader(http.StatusNotFound)
+	})
+	hostile := []string{
+		"acme/payments/../secrets", "acme/pay?ref=main", "acme/pay#ments", "acme", "../acme/payments",
+	}
+
+	for _, repository := range hostile {
+		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, repository, "main.go"))
+
+		if !errors.Is(err, domain.ErrMalformedRepository) {
+			t.Errorf("%q: error is %v, want %v", repository, err, domain.ErrMalformedRepository)
+		}
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))

@@ -54,12 +54,17 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 }
 
 func contentsEndpoint(file domain.FileAtCommit) (string, error) {
+	repository, err := domain.ParseGovernedRepository(file.Repository)
+	if err != nil {
+		return "", err
+	}
 	path, err := escapedRepositoryPath(file.Path)
 	if err != nil {
 		return "", err
 	}
 	query := url.Values{"ref": {file.Commit.String()}}
-	return fmt.Sprintf("/repos/%s/contents/%s?%s", file.Repository, path, query.Encode()), nil
+	return fmt.Sprintf("/repos/%s/%s/contents/%s?%s",
+		url.PathEscape(repository.Owner()), url.PathEscape(repository.Name()), path, query.Encode()), nil
 }
 
 const repositoryPathSeparator = "/"
