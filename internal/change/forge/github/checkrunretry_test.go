@@ -4,10 +4,14 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
 )
 
 func TestPublishCheckRunRetriesAPostTheForgeAnswersWithAServerError(t *testing.T) {
@@ -21,6 +25,29 @@ func TestPublishCheckRunRetriesAPostTheForgeAnswersWithAServerError(t *testing.T
 		t.Fatalf("publish check run: %v", err)
 	}
 	held.onlyRun()
+}
+
+func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
+	held := newCheckRunForge(t)
+	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit+1)...)
+
+	err := checkRunsAt(t, busy.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if !errors.Is(err, github.ErrForgeUnavailable) {
+		t.Fatalf("error is %v, want %v", err, github.ErrForgeUnavailable)
+	}
+	if busy.answered != domain.OutboundAttemptLimit {
+		t.Errorf("the forge was asked %d times, want %d", busy.answered, domain.OutboundAttemptLimit)
+	}
+}
+
+func serverErrors(count int) []refusal {
+	refusals := make([]refusal, count)
+	for index := range refusals {
+		refusals[index] = refusal{status: http.StatusServiceUnavailable}
+	}
+	return refusals
 }
 
 type refusal struct {

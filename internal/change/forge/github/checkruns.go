@@ -44,9 +44,11 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	err = runs.publish(ctx, pending)
-	if errors.Is(err, ErrForgeUnavailable) {
+	for range domain.OutboundAttemptLimit {
 		err = runs.publish(ctx, pending)
+		if !errors.Is(err, ErrForgeUnavailable) {
+			break
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
