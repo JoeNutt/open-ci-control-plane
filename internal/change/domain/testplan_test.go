@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -97,6 +98,40 @@ func TestAPlanCarriesItsDecisionRepositoryHeadRevisionAndTheBindingsWorkflow(t *
 		t.Errorf("workflow %q running %v, want the binding's %q running %v",
 			plan.Workflow, plan.AlwaysRun, binding.Workflow(), binding.AlwaysRun())
 	}
+}
+
+func TestAPlanAtTheSuiteLimitIsSelectedAndOneSuiteOverIsTheFullMatrix(t *testing.T) {
+	for _, bound := range []struct {
+		suites     int
+		fullMatrix bool
+		trigger    domain.PlanTrigger
+	}{
+		{domain.MaxPlanSuites, false, domain.PlanTriggerNone},
+		{domain.MaxPlanSuites + 1, true, domain.PlanTriggerPlanTooLarge},
+	} {
+		plan := planOf(t, changeCoveredBySuites(t, bound.suites))
+
+		if plan.FullMatrix != bound.fullMatrix || plan.Trigger != bound.trigger {
+			t.Errorf("%d suites: full matrix %v with %q, want %v with %q",
+				bound.suites, plan.FullMatrix, plan.Trigger, bound.fullMatrix, bound.trigger)
+		}
+		if plan.FullMatrix && len(plan.Suites) != 0 {
+			t.Errorf("%d suites: a full-matrix plan names %d suites, want none", bound.suites, len(plan.Suites))
+		}
+	}
+}
+
+func changeCoveredBySuites(t *testing.T, count int) plannedChange {
+	t.Helper()
+
+	fileBySuite := make(map[string]string, count)
+	files := make([]domain.File, 0, count)
+	for index := range count {
+		file := fmt.Sprintf("internal/suite%d/file.go", index)
+		fileBySuite[fmt.Sprintf("github.com/JoeNutt/open-ci-control-plane/internal/suite%d", index)] = file
+		files = append(files, modified(file))
+	}
+	return plannedChange{files: files, coverage: coverageByFiles(t, fileBySuite)}
 }
 
 type plannedChange struct {

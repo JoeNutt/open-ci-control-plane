@@ -17,7 +17,10 @@ const (
 	PlanTriggerLockfile     PlanTrigger = "lockfile"
 	PlanTriggerMigration    PlanTrigger = "migration"
 	PlanTriggerCIConfig     PlanTrigger = "ci_config"
+	PlanTriggerPlanTooLarge PlanTrigger = "plan_too_large"
 )
+
+const MaxPlanSuites = 512
 
 type plannedSelection struct {
 	diff      Diff
@@ -34,6 +37,11 @@ var fullMatrixTriggers = []struct {
 	{PlanTriggerMigration, addsMigration},
 	{PlanTriggerFileAdded, addsFile},
 	{PlanTriggerUnmappedFile, changesUnmappedFile},
+	{PlanTriggerPlanTooLarge, selectsTooManySuites},
+}
+
+func selectsTooManySuites(planned plannedSelection) bool {
+	return len(planned.selection.suites) > MaxPlanSuites
 }
 
 func holdsNoMap(planned plannedSelection) bool { return !planned.selection.isAnyMapHeld }
@@ -92,6 +100,9 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
+	if trigger != PlanTriggerNone {
+		selection.suites = nil
+	}
 	return TestPlan{
 		DecisionID:     subject.DecisionID,
 		Repository:     subject.Binding.Repository(),
