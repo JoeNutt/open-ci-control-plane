@@ -25,8 +25,7 @@ type coverageUploads struct {
 }
 
 func (receiving coverageUploads) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.DeclaredCoverageLimits().MaxCompressedBytes)
-	answered := receiving.answerTo(asked)
+	answered := receiving.answerTo(answer, asked)
 	if answered.reason != "" {
 		receiving.record(asked.Context(), answered)
 	}
@@ -41,7 +40,7 @@ func (receiving coverageUploads) record(ctx context.Context, refused coverageAns
 	receiving.log.LogAttrs(ctx, refused.level, refusedCoverage, named...)
 }
 
-func (receiving coverageUploads) answerTo(asked *http.Request) coverageAnswer {
+func (receiving coverageUploads) answerTo(answer http.ResponseWriter, asked *http.Request) coverageAnswer {
 	target, refused := coverageTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(suiteSegment))
 	if refused != nil {
 		return refusedBeforeUse(refused)
@@ -49,6 +48,7 @@ func (receiving coverageUploads) answerTo(asked *http.Request) coverageAnswer {
 	if refused := uploadLengthRefusalOf(asked.ContentLength); refused != nil {
 		return refusedBeforeUse(refused)
 	}
+	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.DeclaredCoverageLimits().MaxCompressedBytes)
 	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	if err != nil {
 		return coverageRefusalOf(err)
