@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 )
 
@@ -18,7 +19,12 @@ func withDelivery(asked *http.Request, received delivery) *http.Request {
 	return asked.WithContext(context.WithValue(asked.Context(), deliveryKey{}, received))
 }
 
-func deliveryOf(ctx context.Context) (delivery, bool) {
+var errUncarriedDelivery = errors.New("the headers the listener parsed did not reach this stage")
+
+func deliveryOf(ctx context.Context) (delivery, error) {
 	received, isCarried := ctx.Value(deliveryKey{}).(delivery)
-	return received, isCarried
+	if !isCarried {
+		return delivery{}, errUncarriedDelivery
+	}
+	return received, nil
 }

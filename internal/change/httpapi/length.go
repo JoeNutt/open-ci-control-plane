@@ -6,7 +6,7 @@ import "github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 
 const undeclaredLength = -1
 
-func lengthRefusalOf(declared int64) refusal {
+func lengthRefusalOf(declared int64) answerBody {
 	if declared == undeclaredLength {
 		return undeclaredLengthProblem()
 	}

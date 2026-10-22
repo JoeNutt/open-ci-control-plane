@@ -16,21 +16,25 @@ const (
 )
 
 const (
-	missingHeaderCode       = "missing_header"
-	missingHeaderMessage    = "the delivery carries no such header"
-	malformedHeaderCode     = "malformed_header"
-	malformedHeaderMessage  = "the header exceeds its length or holds a character outside its set"
-	oversizedBodyCode       = "body_too_large"
-	oversizedBodyMessage    = "the delivery declares a body above the bound"
-	undeclaredLengthCode    = "undeclared_length"
-	undeclaredLengthMessage = "the delivery declares no length"
+	missingHeaderCode             = "missing_header"
+	missingHeaderMessage          = "the delivery carries no such header"
+	malformedHeaderCode           = "malformed_header"
+	malformedHeaderMessage        = "the header exceeds its length or holds a character outside its set"
+	oversizedBodyCode             = "body_too_large"
+	oversizedBodyMessage          = "the delivery declares a body above the bound"
+	malformedPayloadCode          = "malformed_payload"
+	malformedPayloadMessage       = "the signed body is not a JSON object"
+	payloadField                  = "body"
+	unparseablePullRequestCode    = "unparseable_pull_request"
+	unparseablePullRequestMessage = "the payload names no pull request this service accepts"
+	pullRequestFields             = "repository.full_name, number"
+	failedEvaluationCode          = "evaluation_failed"
+	failedEvaluationMessage       = "the change could not be evaluated"
+	undeclaredLengthCode          = "undeclared_length"
+	undeclaredLengthMessage       = "the delivery declares no length"
 )
 
 var deliveryLimit = fmt.Sprintf("%d bytes", ingest.MaxDeliveryBytes)
-
-type refusal interface {
-	status() int
-}
 
 type fieldProblem struct {
 	Code    string `json:"code"`
@@ -48,6 +52,13 @@ type limitProblem struct {
 
 func (limitProblem) status() int { return http.StatusRequestEntityTooLarge }
 
+type serverProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (serverProblem) status() int { return http.StatusInternalServerError }
+
 func missingHeaderProblem(header string) fieldProblem {
 	return fieldProblem{Code: missingHeaderCode, Message: missingHeaderMessage, Field: header}
 }
@@ -56,10 +67,26 @@ func malformedHeaderProblem(header string) fieldProblem {
 	return fieldProblem{Code: malformedHeaderCode, Message: malformedHeaderMessage, Field: header}
 }
 
+func malformedPayloadProblem() fieldProblem {
+	return fieldProblem{Code: malformedPayloadCode, Message: malformedPayloadMessage, Field: payloadField}
+}
+
+func unparseablePullRequestProblem() fieldProblem {
+	return fieldProblem{
+		Code:    unparseablePullRequestCode,
+		Message: unparseablePullRequestMessage,
+		Field:   pullRequestFields,
+	}
+}
+
 func oversizedBodyProblem() limitProblem {
 	return limitProblem{Code: oversizedBodyCode, Message: oversizedBodyMessage, Limit: deliveryLimit}
 }
 
 func undeclaredLengthProblem() limitProblem {
 	return limitProblem{Code: undeclaredLengthCode, Message: undeclaredLengthMessage, Limit: deliveryLimit}
+}
+
+func failedEvaluationProblem() serverProblem {
+	return serverProblem{Code: failedEvaluationCode, Message: failedEvaluationMessage}
 }

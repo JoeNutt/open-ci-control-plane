@@ -37,7 +37,7 @@ var requiredHeaders = []headerRule{
 	{name: deliveryHeader, maxBytes: maxDeliveryBytes, characters: deliveryCharacters},
 }
 
-func deliveryIn(stated http.Header) (delivery, refusal) {
+func deliveryIn(stated http.Header) (delivery, answerBody) {
 	if absent := slices.IndexFunc(requiredHeaders, isAbsentFrom(stated)); absent >= 0 {
 		return delivery{}, missingHeaderProblem(requiredHeaders[absent].name)
 	}
