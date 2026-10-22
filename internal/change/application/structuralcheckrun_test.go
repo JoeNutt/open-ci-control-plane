@@ -66,7 +66,7 @@ func TestTheStructuralCheckRunCarriesThePolicyRevisionAndTheDecisionID(t *testin
 }
 
 func TestARepostOnTheSameHeadUpdatesTheOneStructuralCheckRun(t *testing.T) {
-	locator := locatorOf(t, "acme/payments", 412)
+	locator := gatedLocator(t)
 	published := &memory.CheckRuns{}
 	for _, engine := range []domain.FamilyEngine{
 		faultingEngine{fault: errors.New("conflicting rule outputs")},
@@ -104,12 +104,18 @@ func (engine faultingEngine) Decide(context.Context, domain.Document) (domain.De
 
 const structuralCheckRunName = "policy/structural"
 
+func gatedLocator(t *testing.T) domain.PullRequestLocator {
+	t.Helper()
+
+	return locatorOf(t, "acme/payments", 412)
+}
+
 func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.CheckRun {
 	t.Helper()
 
 	published := &memory.CheckRuns{}
 	gateStructuralChange(t, engine, published)
-	runs := published.PublishedOn(locatorOf(t, "acme/payments", 412), commitSHAOf(t, recordedHeadSHA))
+	runs := published.PublishedOn(gatedLocator(t), commitSHAOf(t, recordedHeadSHA))
 	if len(runs) != 1 {
 		t.Fatalf("published %d check runs, want one: %v", len(runs), runs)
 	}
@@ -123,7 +129,15 @@ func structuralCheckRunAfter(t *testing.T, engine domain.FamilyEngine) domain.Ch
 func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *memory.CheckRuns) {
 	t.Helper()
 
-	locator := locatorOf(t, "acme/payments", 412)
+	gateChangeBuiltBy(t, buildOverAnAuthChange(t, gatedLocator(t)), engine, published)
+}
+
+func gateChangeBuiltBy(
+	t *testing.T, build application.BuildDocument, engine domain.FamilyEngine, published *memory.CheckRuns,
+) {
+	t.Helper()
+
+	locator := gatedLocator(t)
 	gate, err := domain.ParseGate(map[domain.PolicyFamily]domain.FamilyEngine{
 		domain.PolicyFamilyStructural: engine,
 	})
@@ -131,7 +145,7 @@ func gateStructuralChange(t *testing.T, engine domain.FamilyEngine, published *m
 		t.Fatalf("parse gate: %v", err)
 	}
 	useCase := application.GateChange{
-		Build:     buildOverAnAuthChange(t, locator),
+		Build:     build,
 		Gate:      gate,
 		Publisher: published,
 		Recorder:  &recordedDecisions{},
