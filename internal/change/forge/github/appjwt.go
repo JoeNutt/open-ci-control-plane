@@ -3,12 +3,14 @@
 package github
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -29,6 +31,36 @@ type appJWTClaims struct {
 	Issuer    string `json:"iss"`
 	IssuedAt  int64  `json:"iat"`
 	ExpiresAt int64  `json:"exp"`
+}
+
+var ErrNoClock = errors.New("the forge settings carry no clock to date an App JWT")
+
+type appJWTIssuer struct {
+	key   AppKey
+	app   appID
+	clock func() time.Time
+}
+
+func parseAppJWTIssuer(settings Settings, installation Installation) (appJWTIssuer, error) {
+	app, err := parseAppID(settings.AppID)
+	if err != nil {
+		return appJWTIssuer{}, err
+	}
+	if !installation.Key.isPresent() {
+		return appJWTIssuer{}, ErrNoAppKey
+	}
+	if installation.Clock == nil {
+		return appJWTIssuer{}, ErrNoClock
+	}
+	return appJWTIssuer{key: installation.Key, app: app, clock: installation.Clock}, nil
+}
+
+func (issuer appJWTIssuer) authorization(context.Context) (Credential, error) {
+	minted, err := appJWTAt(issuer.key, issuer.app, issuer.clock())
+	if err != nil {
+		return Credential{}, err
+	}
+	return NewCredential(minted), nil
 }
 
 func appJWTAt(appKey AppKey, app appID, now time.Time) (string, error) {

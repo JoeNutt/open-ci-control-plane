@@ -3,6 +3,7 @@
 package github
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -32,14 +33,22 @@ var ErrNoClient = errors.New("the forge settings carry no http client")
 var ErrUnboundedClient = errors.New("the forge settings carry an http client with no timeout")
 
 type connection struct {
-	settings Settings
-	token    Credential
+	settings  Settings
+	authority authority
 }
 
-func parseConnection(settings Settings) (connection, error) {
+type authority interface {
+	authorization(ctx context.Context) (Credential, error)
+}
+
+func parseTokenConnection(settings Settings) (connection, error) {
 	if !settings.Token.isPresent() {
 		return connection{}, ErrNoCredential
 	}
+	return parseConnection(settings, settings.Token)
+}
+
+func parseConnection(settings Settings, credentials authority) (connection, error) {
 	if settings.Client == nil {
 		return connection{}, ErrNoClient
 	}
@@ -54,9 +63,8 @@ func parseConnection(settings Settings) (connection, error) {
 	if settings.Client.Timeout <= 0 {
 		return connection{}, fmt.Errorf("%w: %v", ErrUnboundedClient, settings.Client.Timeout)
 	}
-	token := settings.Token
 	settings.Token = Credential{}
-	return connection{settings: settings, token: token}, nil
+	return connection{settings: settings, authority: credentials}, nil
 }
 
 func checkBaseURL(address string) error {
