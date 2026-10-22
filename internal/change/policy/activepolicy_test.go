@@ -17,6 +17,7 @@ import (
 const (
 	firstPolicyCommit  = "1111111111111111111111111111111111111111"
 	secondPolicyCommit = "2222222222222222222222222222222222222222"
+	thirdPolicyCommit  = "3333333333333333333333333333333333333333"
 )
 
 func TestParseActivePolicyRefusesANilLogger(t *testing.T) {
