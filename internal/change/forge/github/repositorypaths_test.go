@@ -121,6 +121,21 @@ func TestKnownPathsOfReadsATreeAtTheResponseBoundAndRefusesOneByteOver(t *testin
 	}
 }
 
+func TestKnownPathsOfNeverCarriesTheInstallationTokenAForgeEchoesIntoItsError(t *testing.T) {
+	for status, echo := range map[int]string{
+		http.StatusInternalServerError: `{"message": "bad credentials ` + forgeToken + `"}`,
+		http.StatusOK:                  forgeToken + ` is not a tree`,
+	} {
+		server := answering(t, status, echo)
+
+		_, err := repositoryPathsAt(t, server).KnownPathsOf(t.Context(), governedRepositoryOf(t, treeRepository))
+
+		if err == nil || strings.Contains(err.Error(), forgeToken) {
+			t.Errorf("answered %d: error %v, want one that does not carry the token", status, err)
+		}
+	}
+}
+
 func repositoryPathOf(t *testing.T, stated string) domain.RepositoryPath {
 	t.Helper()
 	path, err := domain.ParseRepositoryPath(stated)
