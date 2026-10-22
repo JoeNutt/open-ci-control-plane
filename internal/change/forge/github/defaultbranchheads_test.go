@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -120,6 +122,36 @@ func TestDefaultBranchHeadOfReportsADefaultBranchTheForgeHoldsNoReferenceFor(t *
 
 	if !errors.Is(err, domain.ErrNoSuchBranch) || errors.Is(err, domain.ErrNoSuchRepository) {
 		t.Fatalf("error is %v, want only %v", err, domain.ErrNoSuchBranch)
+	}
+}
+
+func TestDefaultBranchHeadOfCarriesNoTokenAForgeRefusalEchoes(t *testing.T) {
+	server := forge(t, func(writer http.ResponseWriter, _ *http.Request) {
+		echoRefusalCarrying(t, writer, forgeToken)
+	})
+
+	_, err := headsAt(t, server).DefaultBranchHeadOf(context.Background(), policyRepositoryOf(t, readPolicyRepository))
+
+	if err == nil || strings.Contains(err.Error(), forgeToken) {
+		t.Fatalf("error %v carries the token the forge echoed", err)
+	}
+}
+
+func echoRefusalCarrying(t *testing.T, writer http.ResponseWriter, echoed string) {
+	t.Helper()
+
+	connection, buffered, err := http.NewResponseController(writer).Hijack()
+	if err != nil {
+		t.Fatalf("hijack: %v", err)
+	}
+	defer func() { _ = connection.Close() }()
+	body := `{"message": "Bad credentials: ` + echoed + `"}`
+	if _, err := buffered.WriteString("HTTP/1.1 401 Bad credentials " + echoed + "\r\nContent-Length: " +
+		strconv.Itoa(len(body)) + "\r\nConnection: close\r\n\r\n" + body); err != nil {
+		t.Errorf("write refusal: %v", err)
+	}
+	if err := buffered.Flush(); err != nil {
+		t.Errorf("flush refusal: %v", err)
 	}
 }
 
