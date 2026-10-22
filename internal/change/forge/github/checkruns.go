@@ -44,16 +44,21 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	for range domain.OutboundAttemptLimit {
-		err = runs.publish(ctx, pending)
-		if !errors.Is(err, ErrForgeUnavailable) {
-			break
-		}
-	}
-	if err != nil {
+	if err := runs.publishWithinAttempts(ctx, pending); err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
 	return nil
+}
+
+func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publication) error {
+	var err error
+	for range domain.OutboundAttemptLimit {
+		err = runs.publish(ctx, pending)
+		if !errors.Is(err, ErrForgeUnavailable) {
+			return err
+		}
+	}
+	return err
 }
 
 func (runs CheckRuns) publish(ctx context.Context, pending publication) error {

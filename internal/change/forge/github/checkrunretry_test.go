@@ -42,6 +42,19 @@ func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
 	}
 }
 
+func TestPublishCheckRunSucceedsOnItsLastAllowedAttempt(t *testing.T) {
+	held := newCheckRunForge(t)
+	busy := refusingFirst(t, held, serverErrors(domain.OutboundAttemptLimit-1)...)
+
+	err := checkRunsAt(t, busy.server).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	held.onlyRun()
+}
+
 func serverErrors(count int) []refusal {
 	refusals := make([]refusal, count)
 	for index := range refusals {
