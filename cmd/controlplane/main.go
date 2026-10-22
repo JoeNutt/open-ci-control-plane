@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/history/jsonl"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/jsonlines"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
@@ -154,9 +156,13 @@ func evaluatingOf(
 	if err != nil {
 		return evaluating{}, err
 	}
+	history, err := jsonl.OpenLog(configured.HistoryFile(), domain.DeclaredHistoryLimits(), time.Now)
+	if err != nil {
+		return evaluating{}, fmt.Errorf("open the shadow history: %w", err)
+	}
 	return evaluating{
 		app: app, endpoint: endpoint, rules: rules, recorder: recorder, active: active,
-		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), log: log,
+		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, log: log,
 	}, nil
 }
 

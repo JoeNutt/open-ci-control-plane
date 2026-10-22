@@ -11,6 +11,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/history/jsonl"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
@@ -25,6 +26,7 @@ type evaluating struct {
 	recorder domain.DecisionRecorder
 	active   *policy.ActivePolicy
 	maps     *memory.CoverageMaps
+	history  *jsonl.Log
 	log      *slog.Logger
 }
 
@@ -75,7 +77,7 @@ func (evaluation installationEvaluation) evaluated(
 		Publisher:  forge.checkRuns,
 		Recorder:   evaluation.evaluating.recorder,
 		Bindings:   evaluation.evaluating.active,
-		Planner:    application.PlanTests{Maps: evaluation.evaluating.maps},
+		Planner:    application.PlanTests{Maps: evaluation.evaluating.maps, History: evaluation.evaluating.history},
 		Dispatcher: forge.dispatches,
 	}.Execute(ctx, locator, id)
 }

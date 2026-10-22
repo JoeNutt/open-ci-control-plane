@@ -18,6 +18,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const statedHistoryFile = "/var/lib/open-ci/history.jsonl"
+
 const (
 	listenAddressKey           = "listenAddress"
 	appIDKey                   = "appId"
@@ -29,6 +31,7 @@ const (
 	policyInstallationKey      = "policyInstallationId"
 	classificationRulesFileKey = "classificationRulesFile"
 	instanceURLKey             = "instanceUrl"
+	historyFileKey             = "historyFile"
 )
 
 const (
@@ -45,7 +48,7 @@ const (
 func TestAConfigurationMissingAnItemIsRefusedNamingThatItem(t *testing.T) {
 	for _, key := range []string{
 		listenAddressKey, appIDKey, appKeyFileKey, webhookSecretFileKey, installationIDsKey, familiesKey, instanceURLKey,
-		policyRepositoryKey, policyInstallationKey, classificationRulesFileKey,
+		policyRepositoryKey, policyInstallationKey, classificationRulesFileKey, historyFileKey,
 	} {
 		t.Run(key, func(t *testing.T) {
 			stated := completeItems(t)
@@ -171,6 +174,7 @@ func completeItems(t *testing.T) statedItems {
 		policyInstallationKey:      number(statedInstallationID),
 		classificationRulesFileKey: quoted(t, writtenFile(t, "rules.yaml", "go: [\"**/*.go\"]\n")),
 		instanceURLKey:             quoted(t, statedInstanceURL),
+		historyFileKey:             quoted(t, statedHistoryFile),
 	}
 }
 
