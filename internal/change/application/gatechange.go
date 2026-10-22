@@ -56,41 +56,37 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 func (useCase GateChange) planAndDispatch(
 	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
 ) error {
-	plan, planErr := useCase.planOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
-	if planErr != nil && !plan.FullMatrix {
-		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
+	subject, err := useCase.subjectOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
+	if err != nil {
+		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, err)
 	}
-	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
-		return errors.Join(planErr, fmt.Errorf("dispatch the plan for %s: %w", document.PR.Repository, err))
-	}
+	plan, planErr := useCase.Planner.Execute(ctx, subject)
 	if planErr != nil {
-		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
+		planErr = fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
+		if plan, err = domain.FailedPlanFor(subject); err != nil {
+			return errors.Join(planErr, err)
+		}
 	}
-	return nil
+	return errors.Join(planErr, useCase.dispatch(ctx, plan))
 }
 
-func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject) (domain.TestPlan, error) {
+func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubject) (domain.PlanSubject, error) {
 	repository, err := domain.ParseGovernedRepository(subject.Document.PR.Repository)
 	if err != nil {
-		return domain.TestPlan{}, err
+		return domain.PlanSubject{}, err
 	}
 	subject.Binding, err = useCase.Bindings.BindingOf(ctx, repository)
 	if err != nil {
-		return domain.TestPlan{}, err
+		return domain.PlanSubject{}, err
 	}
-	plan, err := useCase.Planner.Execute(ctx, subject)
-	if err != nil {
-		head, headErr := domain.ParseCommitSHA(subject.Document.PR.HeadSHA)
-		if headErr != nil {
-			return domain.TestPlan{}, errors.Join(err, headErr)
-		}
-		return domain.TestPlan{
-			DecisionID: subject.DecisionID, Repository: subject.Binding.Repository(), Head: head,
-			Workflow: subject.Binding.Workflow(), AlwaysRun: subject.Binding.AlwaysRun(),
-			FullMatrix: true, Trigger: domain.PlanTriggerPlanFailed, BundleRevision: subject.Revision,
-		}, err
+	return subject, nil
+}
+
+func (useCase GateChange) dispatch(ctx context.Context, plan domain.TestPlan) error {
+	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
+		return fmt.Errorf("dispatch the plan for %s: %w", plan.Repository, err)
 	}
-	return plan, nil
+	return nil
 }
 
 func (useCase GateChange) refuseOverBound(
