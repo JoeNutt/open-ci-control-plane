@@ -124,14 +124,7 @@ const forgeBase64LineLength = 60
 
 func TestContentsAtReadsContentWrappedIntoLinesAsTheForgeSendsIt(t *testing.T) {
 	source := strings.Repeat(middlewareSource, 8)
-	encoded := base64.StdEncoding.EncodeToString([]byte(source))
-	var lines []string
-	for len(encoded) > forgeBase64LineLength {
-		lines = append(lines, encoded[:forgeBase64LineLength])
-		encoded = encoded[forgeBase64LineLength:]
-	}
-	lines = append(lines, encoded)
-	server := answering(t, http.StatusOK, statedFileAnswer(len(source), strings.Join(lines, `\n`)+`\n`))
+	server := answering(t, http.StatusOK, statedFileAnswer(len(source), wrappedAsTheForgeSends(source)))
 
 	read, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
@@ -141,6 +134,16 @@ func TestContentsAtReadsContentWrappedIntoLinesAsTheForgeSendsIt(t *testing.T) {
 	if string(read) != source {
 		t.Errorf("read %q, want %q", read, source)
 	}
+}
+
+func wrappedAsTheForgeSends(source string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(source))
+	var lines []string
+	for len(encoded) > forgeBase64LineLength {
+		lines = append(lines, encoded[:forgeBase64LineLength])
+		encoded = encoded[forgeBase64LineLength:]
+	}
+	return strings.Join(append(lines, encoded), `\n`) + `\n`
 }
 
 func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
