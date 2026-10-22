@@ -31,6 +31,15 @@ binding_refusals contains {
 	not data.ci.policy.bindings[input.pr.repository]
 }
 
+binding_refusals contains {
+	"rule_id": "binding",
+	"message": $"binding for {input.pr.repository} names policy {bound.use}, absent from the catalog",
+	"severity": "deny",
+} if {
+	some bound in bound_policies
+	not data.ci.policy.catalog[bound.use]
+}
+
 bound_policies := data.ci.policy.bindings[input.pr.repository].policies
 
 is_every_bound_policy_judgeable if {

@@ -209,6 +209,17 @@ test_a_repository_with_no_binding_is_refused_naming_that if {
 	violation.message == $"repository {control_plane} has no binding"
 }
 
+test_a_binding_naming_a_policy_absent_from_the_catalog_is_refused_naming_it if {
+	uncatalogued := json.patch(policy, [{"op": "remove", "path": "/catalog/clean-architecture"}])
+
+	decided := structural.decision with input as change_adding([domain_imports_forge]) with data.ci.policy as uncatalogued
+
+	decided.effect == "block"
+	[violation] := decided.violations
+	violation.severity == "deny"
+	violation.message == $"binding for {control_plane} names policy clean-architecture, absent from the catalog"
+}
+
 test_policy_data_the_rule_cannot_judge_by_leaves_the_decision_undefined[note] if {
 	some note, patch in {
 		"a binding naming no policies": [{"op": "replace", "path": control_plane_policies, "value": []}],
