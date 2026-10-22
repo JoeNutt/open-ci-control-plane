@@ -32,10 +32,7 @@ func TestReadRevisionDoesNotListAgainAHeadItHasAlreadyRead(t *testing.T) {
 	listingsAsked := 0
 	ports := portsOver(recorded)
 	ports.Listings = countedListings{listings: recorded.listings, asked: &listingsAsked}
-	reader, err := policy.ParseReader(readRepository(t), ports, activePolicyLoggingTo(t, slog.DiscardHandler))
-	if err != nil {
-		t.Fatalf("parse reader: %v", err)
-	}
+	reader := readerWith(t, ports, activePolicyLoggingTo(t, slog.DiscardHandler))
 
 	for range 2 {
 		if err := reader.ReadRevision(context.Background()); err != nil {
@@ -124,7 +121,13 @@ func policyRepositoryAt(t *testing.T, head string, files []domain.PolicyFile) re
 func readerOver(t *testing.T, recorded recordedPolicyRepository, active *policy.ActivePolicy) *policy.Reader {
 	t.Helper()
 
-	reader, err := policy.ParseReader(readRepository(t), portsOver(recorded), active)
+	return readerWith(t, portsOver(recorded), active)
+}
+
+func readerWith(t *testing.T, ports policy.ReaderPorts, active *policy.ActivePolicy) *policy.Reader {
+	t.Helper()
+
+	reader, err := policy.ParseReader(readRepository(t), ports, active)
 	if err != nil {
 		t.Fatalf("parse reader: %v", err)
 	}
