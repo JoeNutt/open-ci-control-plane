@@ -1,15 +1,32 @@
 package ci.structural
 
-decision := {
+decision := decision_of(effect, violations) if is_every_bound_policy_judgeable
+
+decision := decision_of("block", binding_refusals) if count(binding_refusals) > 0
+
+decision_of(decided_effect, refusals) := {
 	"input_wellformed": input_wellformed,
 	"schema_version_accepted": 1,
-	"effect": effect,
-	"violations": sort([violation | some violation in violations]),
+	"effect": decided_effect,
+	"violations": sort([refusal | some refusal in refusals]),
 	"reviewers": [],
 	"fail_closed": true,
-} if {
-	is_every_bound_policy_judgeable
 }
+
+binding_rule_id := "binding"
+
+binding_refusals contains binding_refusal($"repository {input.pr.repository} has no binding") if {
+	is_object(data.ci.policy.bindings)
+	not data.ci.policy.bindings[input.pr.repository]
+}
+
+binding_refusals contains binding_refusal(message) if {
+	some bound in bound_policies
+	not data.ci.policy.catalog[bound.use]
+	message := $"binding for {input.pr.repository} names policy {bound.use}, absent from the catalog"
+}
+
+binding_refusal(message) := {"rule_id": binding_rule_id, "message": message, "severity": "deny"}
 
 bound_policies := data.ci.policy.bindings[input.pr.repository].policies
 
