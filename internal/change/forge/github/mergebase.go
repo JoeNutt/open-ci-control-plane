@@ -40,9 +40,8 @@ func comparing(locator domain.PullRequestLocator, tips domain.BranchTips) exchan
 const threeDotRange = "..."
 
 func compareEndpoint(locator domain.PullRequestLocator, tips domain.BranchTips) string {
-	return fmt.Sprintf("/repos/%s/%s/compare/%s",
-		url.PathEscape(locator.Owner()), url.PathEscape(locator.Name()),
-		url.PathEscape(tips.Base.String()+threeDotRange+tips.Head.String()))
+	return repositoryEndpoint(locator) + "/compare/" +
+		url.PathEscape(tips.Base.String()+threeDotRange+tips.Head.String())
 }
 
 type comparison struct {
