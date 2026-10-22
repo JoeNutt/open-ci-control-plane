@@ -58,13 +58,21 @@ func (runs CheckRuns) publishWithinAttempts(ctx context.Context, pending publica
 	err := runs.publish(ctx, pending)
 	wait := FirstRetryPause
 	for attempt := 1; attempt < domain.OutboundAttemptLimit && errors.Is(err, ErrForgeUnavailable); attempt++ {
-		if pauseErr := runs.pause(ctx, wait); pauseErr != nil {
+		if pauseErr := runs.pause(ctx, max(wait, askedPauseOf(err))); pauseErr != nil {
 			return errors.Join(err, pauseErr)
 		}
 		wait *= 2
 		err = runs.publish(ctx, pending)
 	}
 	return err
+}
+
+func askedPauseOf(err error) time.Duration {
+	var answer unavailableAnswer
+	if !errors.As(err, &answer) {
+		return 0
+	}
+	return answer.retryAfter
 }
 
 func waitFor(ctx context.Context, wait time.Duration) error {

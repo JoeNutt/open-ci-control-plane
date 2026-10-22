@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -122,6 +123,25 @@ func TestPublishCheckRunNeverRetriesAClientErrorThatIsNotARateLimit(t *testing.T
 				t.Errorf("the forge was asked %d times, want once", busy.answered)
 			}
 		})
+	}
+}
+
+func TestPublishCheckRunWaitsAsLongAsTheForgeAsksBeforeRetrying(t *testing.T) {
+	held := newCheckRunForge(t)
+	const askedSeconds = 30
+	busy := refusingFirst(t, held, refusal{
+		status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {strconv.Itoa(askedSeconds)}},
+	})
+	var waited pauses
+
+	err := checkRunsWaitingOn(t, busy.server, &waited).PublishCheckRun(
+		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
+
+	if err != nil {
+		t.Fatalf("publish check run: %v", err)
+	}
+	if want := []time.Duration{askedSeconds * time.Second}; !slices.Equal(waited.durations, want) {
+		t.Errorf("waited %v, want %v", waited.durations, want)
 	}
 }
 

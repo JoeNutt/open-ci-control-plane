@@ -11,7 +11,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -145,7 +147,7 @@ func failureIn(response *http.Response, over exchange) error {
 		return fmt.Errorf("%w: %s", over.notFound, standardStatusOf(response))
 	}
 	if isUnavailableAnswer(response) {
-		return fmt.Errorf("%w: %w: %s", ErrUnexpectedStatus, ErrForgeUnavailable, response.Status)
+		return unavailableAnswer{status: response.Status, retryAfter: retryAfterOf(response.Header)}
 	}
 	reported, mapped := reportedByStatus[response.StatusCode]
 	if !mapped {
@@ -169,6 +171,27 @@ func isUnavailableAnswer(response *http.Response) bool {
 
 func isRateLimited(header http.Header) bool {
 	return header.Get(rateLimitRemainingHeader) == spentRateLimit || header.Get(retryAfterHeader) != ""
+}
+
+type unavailableAnswer struct {
+	status     string
+	retryAfter time.Duration
+}
+
+func (answer unavailableAnswer) Error() string {
+	return fmt.Sprintf("%v: %v: %s", ErrUnexpectedStatus, ErrForgeUnavailable, answer.status)
+}
+
+func (answer unavailableAnswer) Unwrap() []error {
+	return []error{ErrUnexpectedStatus, ErrForgeUnavailable}
+}
+
+func retryAfterOf(header http.Header) time.Duration {
+	seconds, err := strconv.ParseUint(header.Get(retryAfterHeader), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 func bodyWithinBound(body io.Reader, maxBytes int) ([]byte, error) {
