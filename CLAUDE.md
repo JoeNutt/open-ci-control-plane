@@ -148,7 +148,7 @@ arranged as ports and adapters:
   allowlist), `ingest` (webhook signature check, GitHub Actions identity tokens) and
   `configuration` (the bounded JSON configuration file).
 - Outbound adapters: `forge/github` (pull requests, check runs, App JWT and installation
-  tokens), `forge/memory` (recorded fakes for tests), `engine/opa` (one embedded OPA instance
+  tokens), `engine/opa` (one embedded OPA instance
   per policy family; `engine/opa/structural` embeds the structural Rego rules), `policy`
   (the central catalog and per-repository bindings, validated against
   `schema/policy.*.v1.schema.json`), `coverage/lcov` and `coverage/memory`, `extract/golang`
