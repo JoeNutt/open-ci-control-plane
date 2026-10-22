@@ -32,12 +32,7 @@ func ParseRepositoryPaths(settings Settings) (RepositoryPaths, error) {
 func (paths RepositoryPaths) KnownPathsOf(
 	ctx context.Context, repository domain.GovernedRepository,
 ) (domain.KnownPaths, error) {
-	listed, err := exchanged[tree](ctx, paths.forge, exchange{
-		method:    http.MethodGet,
-		endpoint:  defaultBranchTreeEndpoint(repository),
-		succeeded: http.StatusOK,
-		notFound:  ErrNoSuchRepository,
-	})
+	listed, err := exchanged[tree](ctx, paths.forge, defaultBranchTreeReading(repository))
 	if err != nil {
 		return domain.KnownPaths{}, fmt.Errorf("read the default-branch tree of %s: %w", repository, err)
 	}
@@ -47,8 +42,13 @@ func (paths RepositoryPaths) KnownPathsOf(
 	return domain.NewKnownPaths(listed.repositoryPaths()), nil
 }
 
-func defaultBranchTreeEndpoint(repository domain.GovernedRepository) string {
-	return fmt.Sprintf("/repos/%s/%s/git/trees/HEAD?recursive=1", repository.Owner(), repository.Name())
+func defaultBranchTreeReading(repository domain.GovernedRepository) exchange {
+	return exchange{
+		method:    http.MethodGet,
+		endpoint:  fmt.Sprintf("/repos/%s/%s/git/trees/HEAD?recursive=1", repository.Owner(), repository.Name()),
+		succeeded: http.StatusOK,
+		notFound:  ErrNoSuchRepository,
+	}
 }
 
 type tree struct {
