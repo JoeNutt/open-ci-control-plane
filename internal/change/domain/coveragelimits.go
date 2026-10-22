@@ -15,22 +15,30 @@ var ErrDecompressedArtifactTooLarge = fmt.Errorf("%w: decompressed bytes", ErrCo
 
 var ErrTooManyFileEntries = fmt.Errorf("%w: file entries", ErrCoverageBoundExceeded)
 
+var ErrTooManySuites = fmt.Errorf("%w: suites per repository", ErrCoverageBoundExceeded)
+
 type CoverageLimits struct {
-	MaxCompressedBytes   int64
-	MaxDecompressedBytes int64
-	MaxFileEntries       int
+	MaxCompressedBytes     int64
+	MaxDecompressedBytes   int64
+	MaxFileEntries         int
+	MaxSuitesPerRepository int
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
 	return CoverageLimits{
-		MaxCompressedBytes:   64 << 20,
-		MaxDecompressedBytes: 256 << 20,
-		MaxFileEntries:       200_000,
+		MaxCompressedBytes:     64 << 20,
+		MaxDecompressedBytes:   256 << 20,
+		MaxFileEntries:         200_000,
+		MaxSuitesPerRepository: 5_000,
 	}
 }
 
 func (limits CoverageLimits) FileEntriesBreach(fileEntries int) error {
 	return breachOf(ErrTooManyFileEntries, int64(fileEntries), int64(limits.MaxFileEntries))
+}
+
+func (limits CoverageLimits) SuitesBreach(suites int) error {
+	return breachOf(ErrTooManySuites, int64(suites), int64(limits.MaxSuitesPerRepository))
 }
 
 func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {
