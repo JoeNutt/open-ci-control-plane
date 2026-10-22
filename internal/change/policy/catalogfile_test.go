@@ -10,8 +10,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-const liveCatalogPath = "testdata/catalog/clean-architecture.yaml"
-
 func TestParseCatalogFileReadsTheLiveCatalog(t *testing.T) {
 	parsed, err := policy.ParseCatalogFile(fixture(t, liveCatalogPath))
 	if err != nil {
@@ -48,7 +46,7 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrMalformedPolicyFile,
 		},
 		"a YAML anchor": {
-			written: liveCatalogWith(t, "name: clean-architecture", "name: &policy clean-architecture"),
+			written: liveCatalogWithAnchor(t),
 			reason:  policy.ErrAliasOrAnchor,
 		},
 		"a YAML alias": {
@@ -79,6 +77,12 @@ func TestParseCatalogFileRefusesAFileItCannotTrust(t *testing.T) {
 			}
 		})
 	}
+}
+
+func liveCatalogWithAnchor(t *testing.T) string {
+	t.Helper()
+
+	return liveCatalogWith(t, "name: clean-architecture", "name: &policy clean-architecture")
 }
 
 func liveCatalogWith(t *testing.T, written, replacement string) string {

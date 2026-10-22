@@ -19,7 +19,7 @@ func ParseRepositoryDirectory(stated string) (RepositoryDirectory, error) {
 	if stated == repositoryRoot {
 		return RepositoryDirectory{value: repositoryRoot}, nil
 	}
-	if len(stated) > DeclaredLimits().MaxPathBytes || !isSlashSeparatedNames(stated) {
+	if !isRepositoryPath(stated) {
 		return RepositoryDirectory{}, fmt.Errorf("%w: %d bytes", ErrMalformedRepositoryDirectory, len(stated))
 	}
 	return RepositoryDirectory{value: stated}, nil

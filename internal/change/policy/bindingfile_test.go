@@ -10,17 +10,15 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/policy"
 )
 
-const liveBindingPath = "testdata/bindings/JoeNutt/open-ci-control-plane.yaml"
-
 func TestParseBindingFileReadsTheLiveBinding(t *testing.T) {
 	parsed, err := policy.ParseBindingFile(fixture(t, liveBindingPath))
 	if err != nil {
 		t.Fatalf("parse binding file: %v", err)
 	}
-	if parsed.Repository().String() != "JoeNutt/open-ci-control-plane" {
+	if parsed.Repository().String() != liveRepository {
 		t.Errorf("repository is %q", parsed.Repository())
 	}
-	if parsed.Workflow().String() != "open-ci-tests.yml" {
+	if parsed.Workflow().String() != liveWorkflow {
 		t.Errorf("workflow is %q", parsed.Workflow())
 	}
 	if len(parsed.AlwaysRun()) != 1 {
@@ -54,19 +52,19 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			reason:  policy.ErrUnsupportedSchemaVersion,
 		},
 		"an unknown key": {
-			written: liveBindingWith(t, "  workflow: open-ci-tests.yml", "  workflow: open-ci-tests.yml\n  timeout: 5"),
+			written: liveBindingWithUnknownKey(t, "timeout"),
 			reason:  policy.ErrMalformedPolicyFile,
 		},
 		"a YAML alias": {
-			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: &driver [\"cmd/**\"]\n      extra: *driver"),
+			written: liveBindingWithAlias(t),
 			reason:  policy.ErrAliasOrAnchor,
 		},
 		"no workflow": {
-			written: liveBindingWith(t, "  workflow: open-ci-tests.yml\n", ""),
+			written: liveBindingWithoutWorkflow(t),
 			reason:  domain.ErrMissingWorkflow,
 		},
 		"one path bound to two groups": {
-			written: liveBindingWith(t, "driver: [\"cmd/**\"]", "driver: [\"cmd/**\", \"internal/change/rules/**\"]"),
+			written: liveBindingPlacingOnePathInTwoGroups(t),
 			reason:  domain.ErrPathInTwoGroups,
 		},
 	}
@@ -77,6 +75,30 @@ func TestParseBindingFileRefusesAFileItCannotTrust(t *testing.T) {
 			}
 		})
 	}
+}
+
+func liveBindingPlacingOnePathInTwoGroups(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveDriverPaths, `driver: ["cmd/**", "internal/change/rules/**"]`)
+}
+
+func liveBindingWithAlias(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveDriverPaths, `driver: &driver ["cmd/**"]`+"\n      extra: *driver")
+}
+
+func liveBindingWithoutWorkflow(t *testing.T) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveWorkflowLine+"\n", "")
+}
+
+func liveBindingWithUnknownKey(t *testing.T, key string) string {
+	t.Helper()
+
+	return liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  "+key+": 5")
 }
 
 func liveBindingWith(t *testing.T, written, replacement string) string {

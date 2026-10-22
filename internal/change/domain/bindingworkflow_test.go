@@ -11,7 +11,7 @@ import (
 )
 
 func TestParseWorkflowFileKeepsTheFileName(t *testing.T) {
-	for _, stated := range []string{"open-ci-tests.yml", "open-ci-tests.yaml"} {
+	for _, stated := range []string{thisRepositorysWorkflow, "open-ci-tests.yaml"} {
 		parsed, err := domain.ParseWorkflowFile(stated)
 		if err != nil {
 			t.Fatalf("parse workflow %q: %v", stated, err)
@@ -30,7 +30,7 @@ func TestParseWorkflowFileRefusesAMissingWorkflow(t *testing.T) {
 
 func TestParseWorkflowFileRefusesWhatIsNotAWorkflowFileName(t *testing.T) {
 	refused := map[string]string{
-		"a directory":         ".github/workflows/open-ci-tests.yml",
+		"a directory":         ".github/workflows/" + thisRepositorysWorkflow,
 		"not YAML":            "open-ci-tests.json",
 		"only an extension":   ".yml",
 		"a space":             "open ci.yml",
