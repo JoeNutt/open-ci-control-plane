@@ -80,18 +80,24 @@ func answered(ctx context.Context, forge connection, over exchange) (*http.Respo
 	}
 	response, err := forge.settings.Client.Do(request)
 	if err != nil {
-		path, _, _ := strings.Cut(over.endpoint, "?")
-		var failed *url.Error
-		if errors.As(err, &failed) {
-			err = failed.Err
-		}
-		return nil, fmt.Errorf("send %s %s: %w", over.method, path, err)
+		return nil, sendFailureOf(over, err)
 	}
 	if failure := failureIn(response, over); failure != nil {
 		_ = response.Body.Close()
 		return nil, failure
 	}
 	return response, nil
+}
+
+const querySeparator = "?"
+
+func sendFailureOf(over exchange, err error) error {
+	path, _, _ := strings.Cut(over.endpoint, querySeparator)
+	var failed *url.Error
+	if errors.As(err, &failed) {
+		err = failed.Err
+	}
+	return fmt.Errorf("send %s %s: %w", over.method, path, err)
 }
 
 func requestFor(
