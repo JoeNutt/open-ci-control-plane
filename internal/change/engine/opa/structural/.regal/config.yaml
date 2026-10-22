@@ -1,0 +1,11 @@
+rules:
+  idiomatic:
+    no-defined-entrypoint:
+      level: ignore
+  imports:
+    unresolved-reference:
+      level: error
+      except-paths:
+        - data.ci.policy
+        - data.ci.policy.*
+        - data.testdata.**

@@ -44,7 +44,7 @@ func TestFormattingAHolderNestedInAnUnexportedFieldDoesNotRevealItsCredential(t 
 	settings := wellFormedSettings()
 	nested := map[string]any{
 		"settings":   struct{ s github.Settings }{settings},
-		"credential": struct{ c github.Credential }{settings.Token},
+		"credential": struct{ c github.Credential }{forgeCredential},
 		"check runs": struct{ r github.CheckRuns }{checkRunsWith(t, settings)},
 		"source":     struct{ s github.ChangeSource }{sourceWith(t, settings)},
 	}
@@ -58,10 +58,7 @@ func mustNotRevealUnder(t *testing.T, name string, holder any, verbs []string) {
 	t.Helper()
 
 	for _, verb := range verbs {
-		printed := fmt.Sprintf(verb, holder)
-		if reveals(printed, forgeToken) {
-			t.Errorf("%s under %s revealed its credential: %s", name, verb, printed)
-		}
+		mustRevealNoneOf(t, name+" under "+verb, fmt.Sprintf(verb, holder), []string{forgeToken})
 	}
 }
 
