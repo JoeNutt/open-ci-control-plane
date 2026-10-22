@@ -18,6 +18,8 @@ import (
 
 const contentsCommit = "4b9c4930c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
 
+const middlewarePath = "internal/auth/middleware.go"
+
 const middlewareSource = "package auth\n\nimport \"net/http\"\n"
 
 type askedForContents struct {
@@ -100,7 +102,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
 
 	read, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+		context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 	if err != nil {
 		t.Fatalf("contents at: %v", err)
@@ -110,7 +112,7 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 	want := askedForContents{
 		method:        http.MethodGet,
-		escapedPath:   "/repos/acme/payments/contents/internal/auth/middleware.go",
+		escapedPath:   "/repos/acme/payments/contents/" + middlewarePath,
 		rawQuery:      "ref=" + contentsCommit,
 		authorization: "Bearer " + forgeToken,
 	}
@@ -154,7 +156,7 @@ func TestContentsAtReportsAFileTheForgeDoesNotHoldAtThatCommit(t *testing.T) {
 	server := answering(t, http.StatusNotFound, `{"message": "Not Found"}`)
 
 	_, err := contentsAt(t, server).ContentsAt(
-		context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+		context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 	if !errors.Is(err, domain.ErrNoSuchFile) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
@@ -235,7 +237,7 @@ func TestContentsAtRefusesContentLongerOrShorterThanTheSizeTheForgeStates(t *tes
 		server := answering(t, http.StatusOK, statedFileAnswer(stated, encoded))
 
 		_, err := contentsAt(t, server).ContentsAt(
-			context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+			context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 		if !errors.Is(err, github.ErrContentsSizeMismatch) {
 			t.Errorf("stated %d: error is %v, want %v", stated, err, github.ErrContentsSizeMismatch)
@@ -257,12 +259,12 @@ func TestContentsAtNamesTheFileInEveryRefusalButNeverTheCredentialOrTheContent(t
 
 	for name, server := range refusals {
 		_, err := contentsAt(t, server).ContentsAt(
-			context.Background(), fileAt(t, "acme/payments", "internal/auth/middleware.go"))
+			context.Background(), fileAt(t, "acme/payments", middlewarePath))
 
 		if err == nil {
 			t.Fatalf("%s: read without error", name)
 		}
-		if !strings.Contains(err.Error(), "internal/auth/middleware.go") {
+		if !strings.Contains(err.Error(), middlewarePath) {
 			t.Errorf("%s: error %q does not name the file", name, err)
 		}
 		mustRevealNoneOf(t, name, err.Error(), []string{forgeToken, middlewareSource, encoded, unencoded})
