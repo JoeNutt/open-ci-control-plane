@@ -43,9 +43,6 @@ func OpenLog(path string, limits domain.HistoryLimits, now func() time.Time) (*L
 
 func (history *Log) pruneExpired() error {
 	entries, isTorn, err := history.readEntries()
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -132,14 +129,14 @@ func (history *Log) VerifyReadable(context.Context) error {
 	defer history.guard.Unlock()
 
 	_, _, err := history.readEntries()
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
 	return err
 }
 
 func (history *Log) readEntries() (entries []Entry, isTorn bool, err error) {
 	held, err := history.boundedContents()
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}
