@@ -33,6 +33,17 @@ func TestAnUploadedFormHandsItsArtifactAndDeclaredLengthToTheArtifactParser(t *t
 	}
 }
 
+func TestAnUploadThatIsNotAMultipartFormIsRefused400NamingItsContentType(t *testing.T) {
+	upload := httptest.NewRequest(http.MethodPut, "/", bytes.NewBufferString(uploadedArtifact))
+	upload.Header.Set("Content-Type", "text/plain")
+
+	_, refused := uploadedFormOf(upload, &recordingArtifacts{})
+
+	if refused == nil || refused.status() != http.StatusBadRequest || refused.(fieldProblem).Field != "Content-Type" {
+		t.Errorf("refused %#v, want a 400 naming Content-Type", refused)
+	}
+}
+
 type formPart struct{ name, content string }
 
 func formUpload(t *testing.T, parts ...formPart) *http.Request {
