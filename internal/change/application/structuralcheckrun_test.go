@@ -18,12 +18,7 @@ const noPolicyLoaded = "no policy loaded"
 func TestAnUndefinedStructuralDecisionFailsReadingNoPolicyLoaded(t *testing.T) {
 	run := structuralCheckRunAfter(t, answeringEngine{decided: domain.UndecidedDecision(revisionForTest(t))})
 
-	if run.Conclusion != domain.ConclusionFailure {
-		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
-	}
-	if !strings.Contains(strings.ToLower(run.Title), noPolicyLoaded) {
-		t.Errorf("title %q does not read %q", run.Title, noPolicyLoaded)
-	}
+	requireFailureTitled(t, run, noPolicyLoaded)
 }
 
 func TestAStructuralPolicyDeclaringItselfOpenStillFailsWhenUndefined(t *testing.T) {
@@ -47,14 +42,26 @@ const policyFault = "policy fault"
 func TestAnEvaluationErrorFailsReportingAPolicyFaultAndNoRule(t *testing.T) {
 	run := structuralCheckRunAfter(t, faultingEngine{fault: errors.New("conflicting rule outputs")})
 
+	requireFailureTitled(t, run, policyFault)
+	if run.ViolationCount != 0 || len(run.Violations) != 0 {
+		t.Errorf("a policy fault names rules: %+v", run.Violations)
+	}
+}
+
+func TestAnEvaluationPastItsDeadlineFailsReportingAPolicyFault(t *testing.T) {
+	run := structuralCheckRunAfter(t, stallingEngine{})
+
+	requireFailureTitled(t, run, policyFault)
+}
+
+func requireFailureTitled(t *testing.T, run domain.CheckRun, phrase string) {
+	t.Helper()
+
 	if run.Conclusion != domain.ConclusionFailure {
 		t.Errorf("conclusion is %q, want %q", run.Conclusion, domain.ConclusionFailure)
 	}
-	if !strings.Contains(strings.ToLower(run.Title), policyFault) {
-		t.Errorf("title %q does not report a %s", run.Title, policyFault)
-	}
-	if run.ViolationCount != 0 || len(run.Violations) != 0 {
-		t.Errorf("a policy fault names rules: %+v", run.Violations)
+	if !strings.Contains(strings.ToLower(run.Title), phrase) {
+		t.Errorf("title %q does not read %q", run.Title, phrase)
 	}
 }
 
