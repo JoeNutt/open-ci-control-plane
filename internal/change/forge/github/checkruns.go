@@ -21,6 +21,8 @@ type CheckRuns struct {
 
 const FirstRetryPause = time.Second
 
+var ErrRetriesExhausted = errors.New("the forge stayed unavailable through every retry")
+
 func ParseCheckRuns(settings Settings) (CheckRuns, error) {
 	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
@@ -48,7 +50,11 @@ func (runs CheckRuns) PublishCheckRun(
 	if err != nil {
 		return err
 	}
-	if err := runs.publishWithinAttempts(ctx, pending); err != nil {
+	err = runs.publishWithinAttempts(ctx, pending)
+	if errors.Is(err, ErrForgeUnavailable) {
+		err = fmt.Errorf("%w: %w", ErrRetriesExhausted, err)
+	}
+	if err != nil {
 		return fmt.Errorf("publish %s: %w", pending, err)
 	}
 	return nil

@@ -37,8 +37,8 @@ func TestPublishCheckRunStopsAtTheOutboundAttemptLimit(t *testing.T) {
 	err := checkRunsWaitingOn(t, busy.server, &pauses{}).PublishCheckRun(
 		context.Background(), locatorOf(t, "acme/payments", 412), headCommit, securityRun())
 
-	if !errors.Is(err, github.ErrForgeUnavailable) {
-		t.Fatalf("error is %v, want %v", err, github.ErrForgeUnavailable)
+	if !errors.Is(err, github.ErrForgeUnavailable) || !errors.Is(err, github.ErrRetriesExhausted) {
+		t.Fatalf("error is %v, want %v and %v", err, github.ErrForgeUnavailable, github.ErrRetriesExhausted)
 	}
 	if busy.answered != domain.OutboundAttemptLimit {
 		t.Errorf("the forge was asked %d times, want %d", busy.answered, domain.OutboundAttemptLimit)
