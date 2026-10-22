@@ -5,6 +5,8 @@ package github
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +17,8 @@ import (
 )
 
 var _ domain.FileContents = FileContents{}
+
+var ErrNotAFile = errors.New("the forge answered for something that is not a file")
 
 type FileContents struct {
 	forge connection
@@ -44,8 +48,15 @@ func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCo
 		return nil, err
 	}
 	answer, err := exchanged[contentsAnswer](ctx, contents.forge, reading)
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) && typeErr.Value == "array" {
+		return nil, ErrNotAFile
+	}
 	if err != nil {
 		return nil, err
+	}
+	if answer.Type != "file" {
+		return nil, ErrNotAFile
 	}
 	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
 	if err != nil {
@@ -96,5 +107,6 @@ func escapedRepositoryPath(path string) (string, error) {
 }
 
 type contentsAnswer struct {
+	Type    string `json:"type"`
 	Content string `json:"content"`
 }

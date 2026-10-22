@@ -160,6 +160,25 @@ func TestContentsAtNamesTheCommitOnceWhenTheForgeCannotBeReached(t *testing.T) {
 	}
 }
 
+func TestContentsAtRefusesAnAnswerThatIsNotAFile(t *testing.T) {
+	answers := map[string]string{
+		"directory": `[{"type": "file", "name": "middleware.go", "path": "internal/auth/middleware.go"}]`,
+		"symlink":   `{"type": "symlink", "target": "../../secrets.go", "size": 16}`,
+		"submodule": `{"type": "submodule", "submodule_git_url": "https://example.test/vendor.git"}`,
+	}
+
+	for kind, answer := range answers {
+		server := answering(t, http.StatusOK, answer)
+
+		_, err := contentsAt(t, server).ContentsAt(
+			context.Background(), fileAt(t, "acme/payments", "internal/auth"))
+
+		if !errors.Is(err, github.ErrNotAFile) {
+			t.Errorf("%s: error is %v, want %v", kind, err, github.ErrNotAFile)
+		}
+	}
+}
+
 func TestContentsAtSendsQuerySyntaxInAPathAsPartOfThePath(t *testing.T) {
 	var asked askedForContents
 	server := recordingContents(t, &asked, fileAnswer(middlewareSource))
