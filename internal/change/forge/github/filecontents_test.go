@@ -5,6 +5,7 @@ package github_test
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -86,6 +87,25 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	}
 	if asked != want {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
+	}
+}
+
+func TestContentsAtRefusesAPathThatCouldResolveOutsideItsSegmentsWithoutAsking(t *testing.T) {
+	server := forge(t, func(writer http.ResponseWriter, request *http.Request) {
+		t.Errorf("the adapter asked for %s", request.URL.EscapedPath())
+		writer.WriteHeader(http.StatusNotFound)
+	})
+	hostile := []string{
+		"../secrets.go", "internal/../../secrets.go", "internal/..", "./main.go",
+		"internal/./main.go", "internal//main.go", "/etc/passwd", "internal/", "",
+	}
+
+	for _, path := range hostile {
+		_, err := contentsAt(t, server).ContentsAt(context.Background(), fileAt(t, "acme/payments", path))
+
+		if !errors.Is(err, domain.ErrPathOutsideRepository) {
+			t.Errorf("%q: error is %v, want %v", path, err, domain.ErrPathOutsideRepository)
+		}
 	}
 }
 

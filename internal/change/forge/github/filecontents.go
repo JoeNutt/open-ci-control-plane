@@ -37,6 +37,11 @@ func (contents FileContents) ContentsAt(
 }
 
 func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
+	for _, segment := range strings.Split(file.Path, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return nil, domain.ErrPathOutsideRepository
+		}
+	}
 	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, contentsEndpoint(file))
 	if err != nil {
 		return nil, err
