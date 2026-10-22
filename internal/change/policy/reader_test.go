@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -145,6 +146,22 @@ type repositoriesAsked struct {
 func (recording repositoriesAsked) ContentsAt(ctx context.Context, at domain.PolicyCommit, path domain.RepositoryPath) ([]byte, error) {
 	*recording.asked = append(*recording.asked, at.Repository())
 	return recording.contents.ContentsAt(ctx, at, path)
+}
+
+func TestReadRevisionReportsARefusedRevisionWithoutItsFileContent(t *testing.T) {
+	const contentMarker = "unreported_content_marker"
+	reader := readerOver(t,
+		policyRepositoryAt(t, firstPolicyCommit, liveFilesWithBinding(t, liveBindingWithUnknownKey(t, contentMarker))),
+		activePolicyLoggingTo(t, slog.DiscardHandler))
+
+	err := reader.ReadRevision(context.Background())
+
+	if !errors.Is(err, policy.ErrMalformedPolicyFile) {
+		t.Fatalf("a binding with an unknown key gave %v, want ErrMalformedPolicyFile", err)
+	}
+	if strings.Contains(err.Error(), contentMarker) {
+		t.Errorf("the refusal %q carries file content", err)
+	}
 }
 
 func TestParseReaderRefusesAReaderMissingAPart(t *testing.T) {
