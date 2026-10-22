@@ -46,8 +46,12 @@ func ParseBoundedPolicyFiles(files []PolicyFile) (BoundedPolicyFiles, error) {
 func (bounded BoundedPolicyFiles) Files() []PolicyFile { return slices.Clone(bounded.files) }
 
 func policyFileCountBreachIn(files []PolicyFile) error {
-	if len(files) > MaxPolicyFiles {
-		return fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, len(files), MaxPolicyFiles)
+	return policyFileCountBreachOf(len(files))
+}
+
+func policyFileCountBreachOf(count int) error {
+	if count > MaxPolicyFiles {
+		return fmt.Errorf("%w: %d exceeds %d", ErrTooManyPolicyFiles, count, MaxPolicyFiles)
 	}
 	return nil
 }
