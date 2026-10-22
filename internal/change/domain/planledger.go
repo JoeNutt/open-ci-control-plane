@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain
+
+import (
+	"context"
+	"errors"
+)
+
+var ErrNoPlanForHead = errors.New("no plan was dispatched for this head")
+
+type DispatchedPlan struct {
+	Locator PullRequestLocator
+	Plan    TestPlan
+}
+
+type PlanLedger interface {
+	DispatchedPlanFor(ctx context.Context, repository GovernedRepository, head CommitSHA) (DispatchedPlan, error)
+}
