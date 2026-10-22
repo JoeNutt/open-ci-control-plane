@@ -5,11 +5,8 @@ package github_test
 import (
 	"context"
 	"encoding/base64"
-	"maps"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"slices"
 	"strconv"
 	"testing"
 
@@ -24,7 +21,7 @@ const middlewareSource = "package auth\n\nimport \"net/http\"\n"
 type askedForContents struct {
 	method        string
 	escapedPath   string
-	query         url.Values
+	rawQuery      string
 	authorization string
 }
 
@@ -35,7 +32,7 @@ func recordingContents(t *testing.T, asked *askedForContents, body string) *http
 		*asked = askedForContents{
 			method:        request.Method,
 			escapedPath:   request.URL.EscapedPath(),
-			query:         request.URL.Query(),
+			rawQuery:      request.URL.RawQuery,
 			authorization: request.Header.Get("Authorization"),
 		}
 		write(t, writer, body)
@@ -51,7 +48,7 @@ func fileAnswer(contents string) string {
 func contentsAt(t *testing.T, server *httptest.Server) github.FileContents {
 	t.Helper()
 
-	contents, err := github.ParseFileContents(settingsAt(server), domain.DeclaredLimits().MaxSourceBytes)
+	contents, err := github.ParseFileContents(settingsAt(server))
 	if err != nil {
 		t.Fatalf("parse file contents: %v", err)
 	}
@@ -84,12 +81,10 @@ func TestContentsAtReadsTheFileAtTheCommitAsTheInstallation(t *testing.T) {
 	want := askedForContents{
 		method:        http.MethodGet,
 		escapedPath:   "/repos/acme/payments/contents/internal/auth/middleware.go",
-		query:         url.Values{"ref": {contentsCommit}},
+		rawQuery:      "ref=" + contentsCommit,
 		authorization: "Bearer " + forgeToken,
 	}
-	if asked.method != want.method || asked.escapedPath != want.escapedPath ||
-		asked.authorization != want.authorization ||
-		!maps.EqualFunc(asked.query, want.query, slices.Equal) {
+	if asked != want {
 		t.Errorf("the adapter asked %+v, want %+v", asked, want)
 	}
 }

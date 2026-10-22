@@ -10,33 +10,46 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+var _ domain.FileContents = FileContents{}
+
 type FileContents struct {
-	forge    connection
-	maxBytes int
+	forge connection
 }
 
-func ParseFileContents(settings Settings, maxBytes int) (FileContents, error) {
+func ParseFileContents(settings Settings) (FileContents, error) {
 	forge, err := parseCredentialsConnection(settings)
 	if err != nil {
 		return FileContents{}, err
 	}
-	return FileContents{forge: forge, maxBytes: maxBytes}, nil
-}
-
-type contentsAnswer struct {
-	Type     string `json:"type"`
-	Encoding string `json:"encoding"`
-	Size     int    `json:"size"`
-	Content  string `json:"content"`
+	return FileContents{forge: forge}, nil
 }
 
 func (contents FileContents) ContentsAt(
 	ctx context.Context, file domain.FileAtCommit,
 ) ([]byte, error) {
-	endpoint := fmt.Sprintf("/repos/%s/contents/%s?ref=%s", file.Repository, file.Path, file.Commit)
-	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, endpoint)
+	read, err := contents.decodedAt(ctx, file)
+	if err != nil {
+		return nil, fmt.Errorf("read %s in %s at %s: %w", file.Path, file.Repository, file.Commit, err)
+	}
+	return read, nil
+}
+
+func (contents FileContents) decodedAt(ctx context.Context, file domain.FileAtCommit) ([]byte, error) {
+	answer, err := jsonAt[contentsAnswer](ctx, contents.forge, contentsEndpoint(file))
 	if err != nil {
 		return nil, err
 	}
-	return base64.StdEncoding.DecodeString(answer.Content)
+	decoded, err := base64.StdEncoding.DecodeString(answer.Content)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	return decoded, nil
+}
+
+func contentsEndpoint(file domain.FileAtCommit) string {
+	return fmt.Sprintf("/repos/%s/contents/%s?ref=%s", file.Repository, file.Path, file.Commit)
+}
+
+type contentsAnswer struct {
+	Content string `json:"content"`
 }
