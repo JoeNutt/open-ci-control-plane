@@ -28,13 +28,23 @@ var fullMatrixTriggers = []struct {
 	trigger PlanTrigger
 	holds   func(plannedSelection) bool
 }{
-	{PlanTriggerNoMap, func(planned plannedSelection) bool { return !planned.selection.isAnyMapHeld }},
-	{PlanTriggerCIConfig, func(planned plannedSelection) bool { return len(planned.diff.Kinds.CIConfig) > 0 }},
-	{PlanTriggerLockfile, func(planned plannedSelection) bool { return len(planned.diff.Kinds.Lockfile) > 0 }},
+	{PlanTriggerNoMap, holdsNoMap},
+	{PlanTriggerCIConfig, editsCIConfig},
+	{PlanTriggerLockfile, editsLockfile},
 	{PlanTriggerMigration, addsMigration},
-	{PlanTriggerFileAdded, func(planned plannedSelection) bool { return slices.ContainsFunc(planned.diff.Files, isAdded) }},
-	{PlanTriggerUnmappedFile, func(planned plannedSelection) bool { return !planned.selection.isEveryFileMapped }},
+	{PlanTriggerFileAdded, addsFile},
+	{PlanTriggerUnmappedFile, changesUnmappedFile},
 }
+
+func holdsNoMap(planned plannedSelection) bool { return !planned.selection.isAnyMapHeld }
+
+func editsCIConfig(planned plannedSelection) bool { return len(planned.diff.Kinds.CIConfig) > 0 }
+
+func editsLockfile(planned plannedSelection) bool { return len(planned.diff.Kinds.Lockfile) > 0 }
+
+func addsFile(planned plannedSelection) bool { return slices.ContainsFunc(planned.diff.Files, isAdded) }
+
+func changesUnmappedFile(planned plannedSelection) bool { return !planned.selection.isEveryFileMapped }
 
 func addsMigration(planned plannedSelection) bool {
 	return slices.ContainsFunc(planned.diff.Files, func(file File) bool {
