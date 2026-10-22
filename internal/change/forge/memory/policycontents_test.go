@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -23,6 +24,15 @@ func TestPolicyContentsAnswersTheContentsRecordedForAFileAtAPolicyCommit(t *test
 	}
 	if !slices.Equal(answered, recorded) {
 		t.Fatalf("contents are %q, want %q", answered, recorded)
+	}
+}
+
+func TestPolicyContentsRefusesAFileItHoldsNoContentsFor(t *testing.T) {
+	_, err := memory.PolicyContents{}.ContentsAt(
+		context.Background(), recordedPolicyCommit(t), repositoryPathOf(t, "catalog/clean-architecture.yaml"))
+
+	if !errors.Is(err, domain.ErrNoSuchFile) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrNoSuchFile)
 	}
 }
 
