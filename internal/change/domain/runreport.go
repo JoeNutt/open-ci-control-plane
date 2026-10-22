@@ -6,7 +6,10 @@ const TestsCheckRunName = "open-ci/tests"
 
 type TestOutcome string
 
-const TestOutcomePass TestOutcome = "pass"
+const (
+	TestOutcomePass TestOutcome = "pass"
+	TestOutcomeFail TestOutcome = "fail"
+)
 
 type TestResult struct {
 	Suite   CoverageSuite
@@ -18,4 +21,13 @@ type RunReport struct {
 	Repository GovernedRepository
 	Head       CommitSHA
 	Results    []TestResult
+}
+
+func TestsConclusionOf(results []TestResult) Conclusion {
+	for _, result := range results {
+		if result.Outcome == TestOutcomeFail {
+			return ConclusionFailure
+		}
+	}
+	return ConclusionSuccess
 }

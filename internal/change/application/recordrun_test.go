@@ -74,3 +74,28 @@ func TestAReportWhoseEveryPlannedTestPassedPostsASuccessfulTestsCheckRun(t *test
 		t.Errorf("posted %+v (posted %t), want %s concluding success", run, isPosted, domain.TestsCheckRunName)
 	}
 }
+
+func TestAReportWithAFailedTestPostsAFailedTestsCheckRun(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	suite := plannedSuiteOf(t)
+	ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
+		head: {Locator: gatedLocator(t), Plan: domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}},
+	}}
+	published := &publishedCheckRuns{}
+
+	err := application.RecordRun{Ledger: ledger, Publisher: published}.Execute(context.Background(), domain.RunReport{
+		Repository: gatedLocator(t).GovernedRepository(),
+		Head:       head,
+		Results: []domain.TestResult{
+			{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass},
+			{Suite: suite, Name: "TestReadFromRefusesAliases", Outcome: domain.TestOutcomeFail},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("record run: %v", err)
+	}
+	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionFailure {
+		t.Errorf("a report with a failed test concluded %q, want failure", run.Conclusion)
+	}
+}
