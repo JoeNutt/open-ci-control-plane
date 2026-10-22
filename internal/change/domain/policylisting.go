@@ -15,6 +15,7 @@ type PolicyListing struct {
 
 var boundsOfAPolicyListing = []func([]ListedFile) error{
 	policyFileCountBreachIn,
+	malformedPolicyFilePathIn,
 	oversizedPolicyFileIn,
 }
 

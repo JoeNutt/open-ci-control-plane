@@ -33,6 +33,16 @@ func TestParsePolicyListingHoldsAFileListedAtTheByteBoundAndRefusesOneByteOver(t
 	}
 }
 
+func TestParsePolicyListingRefusesAPathOutsideTheRepository(t *testing.T) {
+	for _, path := range []string{"", "/catalog/x.yaml", "catalog/../../x.yaml", "catalog//x.yaml"} {
+		listed := listedPolicyFiles(1)
+		listed[0].Path = path
+		if _, err := domain.ParsePolicyListing(listed); !errors.Is(err, domain.ErrMalformedPolicyFilePath) {
+			t.Errorf("listed path %q gave %v, want ErrMalformedPolicyFilePath", path, err)
+		}
+	}
+}
+
 func listedPolicyFiles(count int) []domain.ListedFile {
 	listed := make([]domain.ListedFile, 0, count)
 	for _, file := range policyFiles(count) {
