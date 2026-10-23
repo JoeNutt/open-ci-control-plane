@@ -216,24 +216,8 @@ func suiteNamesOf(suites []domain.CoverageSuite) []string {
 }
 
 func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *testing.T) {
-	statement := thisRepositorysBinding()
-	statement.Selection = "shadow"
-	binding, err := domain.ParseBinding(statement)
-	if err != nil {
-		t.Fatalf("parse binding: %v", err)
-	}
+	plan := modedPlanOf(t, "shadow", "off")
 
-	plan, err := domain.PlanFor(domain.PlanSubject{
-		Document: domain.Document{
-			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
-			Diff: domain.Diff{Files: []domain.File{modified(ordersFile), modified(paymentsFile)}},
-		},
-		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
-	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}))
-
-	if err != nil {
-		t.Fatalf("plan: %v", err)
-	}
 	if !plan.FullMatrix || len(plan.Suites) != 0 {
 		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
 	}

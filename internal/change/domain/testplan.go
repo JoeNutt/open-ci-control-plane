@@ -109,11 +109,7 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
 	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection))
 	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
-		shadowed := plan.asShadow()
-		if subject.Binding.MinimisationMode() == TestModeShadow {
-			shadowed.Recorded.Minimised = shadowed.Recorded.Selected
-		}
-		return shadowed, nil
+		return plan.asShadow(subject.recordedSetsOf(plan.Suites)), nil
 	}
 	return plan, nil
 }
@@ -149,8 +145,18 @@ func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []Coverag
 
 const MaxPlanCharacters = 60000
 
-func (plan TestPlan) asShadow() TestPlan {
-	plan.Recorded = RecordedSets{Selected: plan.Suites}
+func (subject PlanSubject) recordedSetsOf(selected []CoverageSuite) RecordedSets {
+	recorded := RecordedSets{Selected: selected}
+	if subject.Binding.MinimisationMode() == TestModeShadow {
+		recorded.Minimised = minimisedOf(selected)
+	}
+	return recorded
+}
+
+func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
+
+func (plan TestPlan) asShadow(recorded RecordedSets) TestPlan {
+	plan.Recorded = recorded
 	plan.Suites = nil
 	plan.FullMatrix = true
 	return plan
