@@ -35,6 +35,7 @@ var (
 	errTruncatedRecord    = fmt.Errorf("%w: input ends inside a record", ErrMalformedArtifact)
 	errNoRecord           = fmt.Errorf("%w: input reports no file", ErrMalformedArtifact)
 	errOutsideTestSection = fmt.Errorf("%w: a file record precedes any TN section", ErrMalformedArtifact)
+	errUnnamedTest        = fmt.Errorf("%w: a TN section names no test", ErrMalformedArtifact)
 )
 
 type lineReading struct {
@@ -128,7 +129,7 @@ func (reading *recordReading) take(line string) error {
 
 func (reading *recordReading) openTestSection(name string) error {
 	if name == "" {
-		return fmt.Errorf("%w: empty test name", ErrMalformedArtifact)
+		return errUnnamedTest
 	}
 	reading.hasTestSection = true
 	return nil
