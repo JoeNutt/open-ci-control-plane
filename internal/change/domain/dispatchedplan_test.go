@@ -35,3 +35,37 @@ func TestADispatchedPlanKeepsWhatItsPlanRecordedAndAlwaysRuns(t *testing.T) {
 			dispatched.Recorded, dispatched.AlwaysRun, recorded, alwaysRun)
 	}
 }
+
+func TestOnlyATestThatFailedTwiceOutsideTheRecordedSelectionEscapedIt(t *testing.T) {
+	selected, outside, alwaysRun := suiteOf(t, "example.com/app/rules"), suiteOf(t, "example.com/app/payments"), suiteOf(t, "example.com/app/domain")
+	alwaysRunPath, err := domain.ParseGoImportPath(alwaysRun.String())
+	if err != nil {
+		t.Fatalf("parse import path: %v", err)
+	}
+	dispatched := domain.DispatchedPlan{
+		AlwaysRun: []domain.GoImportPath{alwaysRunPath},
+		Recorded:  domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{selected}},
+	}
+	escaped := domain.TestResult{Suite: outside, Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+	results := []domain.TestResult{
+		escaped,
+		{Suite: outside, Name: "TestCharge", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomePass},
+		{Suite: outside, Name: "TestVoid", Outcome: domain.TestOutcomePass},
+		{Suite: selected, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+		{Suite: alwaysRun, Name: "TestEffect", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+	}
+
+	if got := dispatched.SelectionEscapesIn(results); !slices.Equal(got, []domain.TestResult{escaped}) {
+		t.Errorf("escapes are %+v, want only %+v", got, escaped)
+	}
+}
+
+func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
+	t.Helper()
+
+	suite, err := domain.ParseCoverageSuite(stated)
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	return suite
+}

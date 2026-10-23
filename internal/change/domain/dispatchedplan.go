@@ -2,7 +2,10 @@
 
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 const (
 	testsPassedTitle      = "Every planned test passed"
@@ -60,4 +63,27 @@ func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
 		}
 	}
 	return ConclusionSuccess
+}
+
+func (dispatched DispatchedPlan) SelectionEscapesIn(results []TestResult) []TestResult {
+	var escaped []TestResult
+	for _, result := range results {
+		if result.Outcome != TestOutcomeFail || result.Rerun != TestOutcomeFail {
+			continue
+		}
+		if slices.Contains(dispatched.Recorded.Selected, result.Suite) {
+			continue
+		}
+		isAlwaysRun := false
+		for _, path := range dispatched.AlwaysRun {
+			if path.String() == result.Suite.String() {
+				isAlwaysRun = true
+			}
+		}
+		if isAlwaysRun {
+			continue
+		}
+		escaped = append(escaped, result)
+	}
+	return escaped
 }
