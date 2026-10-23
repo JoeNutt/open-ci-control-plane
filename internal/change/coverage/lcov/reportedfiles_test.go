@@ -54,7 +54,7 @@ func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
 }
 
 func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
-	err := refusalOf(t, record(effectPath, lineHit)+record(runnerPath, lineHit))
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), record(runnerPath, lineHit)))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -65,7 +65,7 @@ func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
 }
 
 func TestReportedFilesRefusesATruncatedArtifactWhole(t *testing.T) {
-	err := refusalOf(t, record(effectPath, lineHit)+lines("SF:"+gatePath, lineHit))
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), lines("SF:"+gatePath, lineHit)))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -88,11 +88,19 @@ func TestReportedFilesRefusesAnArtifactWithNoTestSectionWhole(t *testing.T) {
 	}
 }
 
+func TestReportedFilesRefusesARecordOutsideATestSectionWhole(t *testing.T) {
+	err := refusalOf(t, record(gatePath, lineHit)+testSection(effectTest, record(effectPath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
 func TestReportedFilesRefusesARecordOutOfOrder(t *testing.T) {
 	refused := map[string]string{
-		"line data before any record":    lineHit + "\n" + record(effectPath),
-		"a record opened inside another": lines("SF:"+effectPath) + record(gatePath),
-		"a record closed twice":          record(effectPath) + lines(recordClose),
+		"line data before any record":    testSection(effectTest, lines(lineHit), record(effectPath)),
+		"a record opened inside another": testSection(effectTest, lines("SF:"+effectPath), record(gatePath)),
+		"a record closed twice":          testSection(effectTest, record(effectPath), lines(recordClose)),
 	}
 
 	for form, artifact := range refused {
@@ -116,7 +124,7 @@ func TestReportedFilesRefusesAMalformedLine(t *testing.T) {
 
 	for form, line := range refused {
 		t.Run(form, func(t *testing.T) {
-			err := refusalOf(t, record(effectPath, line))
+			err := refusalOf(t, testSection(effectTest, record(effectPath, line)))
 
 			if !errors.Is(err, lcov.ErrMalformedArtifact) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)

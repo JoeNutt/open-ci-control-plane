@@ -132,6 +132,9 @@ func (reading *recordReading) openTestSection(string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
+	if !reading.hasTestSection {
+		return errNoTestSection
+	}
 	entriesWithThisOne := len(reading.reported) + 1
 	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
 		return breach
