@@ -1,0 +1,45 @@
+name: proof card 6 refusals
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  refusals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
+      SUITE: github.com/JoeNutt/open-ci-control-plane/internal/change/random
+    steps:
+      - name: Send artifacts the service must refuse
+        run: |
+          set -euo pipefail
+          mint() {
+            curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value
+          }
+          send() {
+            local name="$1" artifact="$2" want="$3" token answer
+            token="$(mint)"
+            echo "::add-mask::$token"
+            answer="$(curl -sS -o "$RUNNER_TEMP/$name.body" -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $token" -F format=lcov -F "artifact=@$artifact" \
+              "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/$SUITE")"
+            echo "PROOF $name answered $answer (want $want): $(head -c 400 "$RUNNER_TEMP/$name.body")"
+            [[ "$answer" == "$want" ]]
+          }
+          d="$RUNNER_TEMP"
+          printf 'SF:internal/change/random/random.go\nDA:1,1\nend_of_record\n' > "$d/no-tn.lcov"
+          awk 'BEGIN { for (i = 1; i <= 10001; i++) printf "TN:TestSection%d\nSF:internal/change/random/random.go\nDA:1,1\nend_of_record\n", i }' > "$d/sections.lcov"
+          awk 'BEGIN { print "TN:TestManyLines"; print "SF:internal/change/random/random.go"; for (i = 1; i <= 2000001; i++) printf "DA:%d,1\n", i; print "end_of_record" }' > "$d/lines.lcov"
+          head -c 68157440 /dev/zero | tr '\0' 'x' > "$d/oversize.lcov"
+          ls -l "$d"/*.lcov
+          send no-tn "$d/no-tn.lcov" 400
+          send sections "$d/sections.lcov" 413
+          send lines "$d/lines.lcov" 413
+          send oversize "$d/oversize.lcov" 413
