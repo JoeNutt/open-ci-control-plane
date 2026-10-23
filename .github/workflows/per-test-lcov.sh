@@ -24,18 +24,20 @@ main() {
   local package_directory
   package_directory="$(go list -f '{{.Dir}}' "$package")"
 
-  local tests="$scratch/tests" test
-  top_level_tests "$package_directory" >"$tests"
+  local test_list_file="$scratch/top-level-tests"
+  top_level_tests "$package_directory" >"$test_list_file"
+
+  local test
   while IFS= read -r test; do
     section_of "$package_directory" "$test" >>"$artifact"
-  done <"$tests"
+  done <"$test_list_file"
 }
 
 top_level_tests() {
   local package_directory="$1"
-  local listing="$scratch/listing"
-  run_test_binary "$package_directory" "$scratch/listing-counters" -test.list '.*' >"$listing"
-  grep -E "$top_level_test" "$listing" || [[ $? -eq 1 ]]
+  local listed_names_file="$scratch/listed-names"
+  run_test_binary "$package_directory" "$scratch/listing-counters" -test.list '.*' >"$listed_names_file"
+  grep -E "$top_level_test" "$listed_names_file" || [[ $? -eq 1 ]]
 }
 
 section_of() {
