@@ -78,3 +78,13 @@ func TestASkippedTestParsesAsSkipped(t *testing.T) {
 		t.Errorf("a skipped test parsed to %+v (%v), want outcome %q", parsed, err, domain.TestOutcomeSkip)
 	}
 }
+
+func TestAReportedTestIsRefusedUnlessItsNameIsAGoIdentifier(t *testing.T) {
+	for _, name := range []string{"", "Test Read", "TestReadFrom/aliases", "../TestReadFrom", "TestRéad", "1Test", "Test\nRead"} {
+		_, err := domain.ParseTestResult(reportedTestSuite, name, "pass")
+
+		if !errors.Is(err, domain.ErrMalformedTestResult) {
+			t.Errorf("name %q gave %v, want %v", name, err, domain.ErrMalformedTestResult)
+		}
+	}
+}

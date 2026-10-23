@@ -32,11 +32,30 @@ func ParseTestResult(suite, name, outcome string) (TestResult, error) {
 	if !slices.Contains(reportableOutcomes, TestOutcome(outcome)) {
 		return TestResult{}, fmt.Errorf("%w: outcome %q", ErrMalformedTestResult, outcome)
 	}
+	if !isGoIdentifier(name) {
+		return TestResult{}, fmt.Errorf("%w: name %q", ErrMalformedTestResult, name)
+	}
 	parsedSuite, err := ParseCoverageSuite(suite)
 	if err != nil {
 		return TestResult{}, err
 	}
 	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome)}, nil
+}
+
+func isGoIdentifier(name string) bool {
+	if name == "" || !isASCIILetter(name[0]) {
+		return false
+	}
+	for index := 1; index < len(name); index++ {
+		if !isASCIILetter(name[index]) && !(name[index] >= '0' && name[index] <= '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func isASCIILetter(character byte) bool {
+	return character == '_' || (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
 }
 
 type RunReport struct {
