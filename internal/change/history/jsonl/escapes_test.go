@@ -54,3 +54,24 @@ func TestAnEscapeLineNamingAModeThatIsNoModeIsRefused(t *testing.T) {
 		t.Errorf("an escape line with a mode that is no mode gave %v, want %v", err, domain.ErrUnknownShadowedMode)
 	}
 }
+
+func TestARecordedEscapeCarriesTheTimeItWasRecorded(t *testing.T) {
+	escapes := jsonl.NewEscapes(openedLog(t, filepath.Join(t.TempDir(), "history.jsonl")))
+	suite, err := domain.ParseCoverageSuite(ledgerSuite)
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	escape := domain.Escape{
+		Mode: domain.ShadowedSelection, PullRequest: dispatchedPlanOf(t).Locator,
+		Test: domain.TestResult{Suite: suite, Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+	}
+	if err := escapes.RecordEscape(context.Background(), escape); err != nil {
+		t.Fatalf("record escape: %v", err)
+	}
+
+	recorded, err := escapes.RecordedEscapes(context.Background())
+
+	if err != nil || len(recorded) != 1 || !recorded[0].At.Equal(recordedAt) {
+		t.Errorf("the escape carries %+v (%v), want the time it was recorded, %v", recorded, err, recordedAt)
+	}
+}

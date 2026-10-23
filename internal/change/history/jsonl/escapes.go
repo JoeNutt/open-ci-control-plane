@@ -65,6 +65,7 @@ func (escapes *Escapes) RecordedEscapes(_ context.Context) ([]domain.Escape, err
 		if err != nil {
 			return nil, fmt.Errorf("read shadow history entry %d: %w", number+1, err)
 		}
+		escape.At = entry.At
 		recorded = append(recorded, escape)
 	}
 	return recorded, nil

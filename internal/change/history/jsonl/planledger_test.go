@@ -268,3 +268,16 @@ func TestAShadowPlanWhoseResultsNeverArrivedIsCountedAGapFromTheLedger(t *testin
 		t.Errorf("a shadow run with no results counts %+v, want one run that is a gap", window)
 	}
 }
+
+func TestALedgerRunCarriesTheTimeOfItsLatestDispatch(t *testing.T) {
+	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
+	if err := ledger.RecordDispatch(context.Background(), dispatchedPlanOf(t)); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+
+	runs, err := ledger.ShadowedRuns(context.Background())
+
+	if err != nil || len(runs) != 1 || !runs[0].At.Equal(recordedAt) {
+		t.Errorf("the run carries %v (%v), want the dispatch's time %v", runs, err, recordedAt)
+	}
+}

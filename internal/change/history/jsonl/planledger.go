@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -263,7 +264,7 @@ func (ledger *PlanLedger) ShadowedRuns(_ context.Context) ([]domain.ShadowedRun,
 		if err := json.Unmarshal(entry.Body, &line); err != nil {
 			return nil, fmt.Errorf("read plan ledger entry %d: %w", number+1, err)
 		}
-		held.hold(line)
+		held.hold(line, entry.At)
 	}
 	return held.runs()
 }
@@ -275,15 +276,16 @@ type runKey struct {
 
 type heldRuns struct {
 	latest     map[runKey]ledgerLine
+	at         map[runKey]time.Time
 	order      []runKey
 	isReported map[runKey]bool
 }
 
 func newHeldRuns() *heldRuns {
-	return &heldRuns{latest: map[runKey]ledgerLine{}, isReported: map[runKey]bool{}}
+	return &heldRuns{latest: map[runKey]ledgerLine{}, at: map[runKey]time.Time{}, isReported: map[runKey]bool{}}
 }
 
-func (held *heldRuns) hold(line ledgerLine) {
+func (held *heldRuns) hold(line ledgerLine, at time.Time) {
 	key := runKey{repository: line.Repository, head: line.Head}
 	switch line.Kind {
 	case dispatchedKind:
@@ -291,6 +293,7 @@ func (held *heldRuns) hold(line ledgerLine) {
 			held.order = append(held.order, key)
 		}
 		held.latest[key] = line
+		held.at[key] = at
 	case reportedKind:
 		held.isReported[key] = true
 	}
@@ -307,7 +310,7 @@ func (held *heldRuns) runs() ([]domain.ShadowedRun, error) {
 		if err != nil {
 			return nil, err
 		}
-		runs = append(runs, domain.ShadowedRun{Plan: plan, IsReported: held.isReported[key]})
+		runs = append(runs, domain.ShadowedRun{At: held.at[key], Plan: plan, IsReported: held.isReported[key]})
 	}
 	return runs, nil
 }
