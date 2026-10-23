@@ -88,3 +88,13 @@ func TestAReportedTestIsRefusedUnlessItsNameIsAGoIdentifier(t *testing.T) {
 		}
 	}
 }
+
+func TestAReportedTestIsRefusedUnlessItsPackageIsASuite(t *testing.T) {
+	for _, suite := range []string{"", "../rules", "github.com/JoeNutt/open ci"} {
+		_, err := domain.ParseTestResult(suite, "TestReadFrom", "pass")
+
+		if !errors.Is(err, domain.ErrMalformedTestResult) {
+			t.Errorf("package %q gave %v, want %v", suite, err, domain.ErrMalformedTestResult)
+		}
+	}
+}
