@@ -34,3 +34,19 @@ func TestOnlyEscapesAgainstTheCountedModeAreCounted(t *testing.T) {
 		t.Errorf("minimisation counts %d escapes, want 1", window.Escapes)
 	}
 }
+
+func TestAModesWindowCountsOnlyTheRunsThatShadowedIt(t *testing.T) {
+	recorded := domain.RecordedSets{IsRecorded: true}
+	runs := []domain.ShadowedRun{
+		{Plan: domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}, Recorded: recorded}, IsReported: true},
+		{Plan: domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeOff}, Recorded: recorded}, IsReported: true},
+		{Plan: domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeEnforce, Minimisation: domain.TestModeOff}}, IsReported: true},
+	}
+
+	if window := domain.ShadowWindowOf(domain.ShadowedSelection, runs, nil); window.Runs != 2 || window.Gaps != 0 {
+		t.Errorf("selection counts %+v, want 2 runs and no gap", window)
+	}
+	if window := domain.ShadowWindowOf(domain.ShadowedMinimisation, runs, nil); window.Runs != 1 || window.Gaps != 0 {
+		t.Errorf("minimisation counts %+v, want 1 run and no gap", window)
+	}
+}

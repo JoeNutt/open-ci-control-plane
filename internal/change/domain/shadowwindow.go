@@ -16,6 +16,13 @@ type ShadowWindow struct {
 func ShadowWindowOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape) ShadowWindow {
 	var window ShadowWindow
 	for _, run := range runs {
+		shadowed := run.Plan.Modes.Selection
+		if mode == ShadowedMinimisation {
+			shadowed = run.Plan.Modes.Minimisation
+		}
+		if shadowed != TestModeShadow {
+			continue
+		}
 		window.Runs++
 		if !run.Plan.Recorded.IsRecorded || !run.IsReported {
 			window.Gaps++
