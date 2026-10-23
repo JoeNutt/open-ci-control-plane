@@ -55,7 +55,7 @@ func (dispatched DispatchedPlan) shadowedSets() []shadowedSet {
 		return nil
 	}
 	sets := []shadowedSet{{mode: ShadowedSelection, recorded: dispatched.Recorded.Selected}}
-	if dispatched.Modes.Minimisation == TestModeShadow {
+	if dispatched.Modes.isShadowing(ShadowedMinimisation) {
 		sets = append(sets, shadowedSet{mode: ShadowedMinimisation, recorded: dispatched.Recorded.Minimised})
 	}
 	return sets
