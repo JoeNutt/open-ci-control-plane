@@ -17,6 +17,7 @@ var ErrMalformedRuleDocument = errors.New("classification rule document is malfo
 
 func ReadFrom(stated io.Reader) (domain.ClassificationRules, error) {
 	reading := yaml.NewDecoder(stated)
+
 	reading.KnownFields(true)
 
 	var written map[domain.PathKind][]string
