@@ -47,3 +47,16 @@ func TestARunReportIsRefusedAboveMaxReportedTests(t *testing.T) {
 		}
 	}
 }
+
+const reportedTestSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
+
+func TestAReportedTestParsesToItsSuiteNameAndOutcome(t *testing.T) {
+	parsed, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "pass")
+
+	if err != nil {
+		t.Fatalf("parse test result: %v", err)
+	}
+	if parsed.Suite.String() != reportedTestSuite || parsed.Name != "TestReadFrom" || parsed.Outcome != domain.TestOutcomePass {
+		t.Errorf("parsed %+v, want TestReadFrom in %s passing", parsed, reportedTestSuite)
+	}
+}

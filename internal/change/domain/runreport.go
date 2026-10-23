@@ -23,6 +23,14 @@ type TestResult struct {
 	Outcome TestOutcome
 }
 
+func ParseTestResult(suite, name, outcome string) (TestResult, error) {
+	parsedSuite, err := ParseCoverageSuite(suite)
+	if err != nil {
+		return TestResult{}, err
+	}
+	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome)}, nil
+}
+
 type RunReport struct {
 	repository GovernedRepository
 	head       CommitSHA
