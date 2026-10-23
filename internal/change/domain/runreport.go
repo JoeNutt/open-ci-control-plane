@@ -27,9 +27,11 @@ type RunReport struct {
 
 const MaxReportedTests = 10000
 
+var ErrTooManyReportedTests = errors.New("the report names more tests than a report may hold")
+
 func ParseRunReport(repository GovernedRepository, head CommitSHA, results []TestResult) (RunReport, error) {
 	if len(results) > MaxReportedTests {
-		return RunReport{}, errors.New("too many tests")
+		return RunReport{}, ErrTooManyReportedTests
 	}
 	return RunReport{Repository: repository, Head: head, Results: results}, nil
 }

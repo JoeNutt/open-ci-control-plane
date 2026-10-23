@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -33,16 +34,16 @@ func TestARunReportIsRefusedAboveMaxReportedTests(t *testing.T) {
 	repository, head := reportedRepositoryAndHead(t)
 
 	for _, bounded := range []struct {
-		count     int
-		isRefused bool
+		count   int
+		refusal error
 	}{
-		{domain.MaxReportedTests, false},
-		{domain.MaxReportedTests + 1, true},
+		{domain.MaxReportedTests, nil},
+		{domain.MaxReportedTests + 1, domain.ErrTooManyReportedTests},
 	} {
 		_, err := domain.ParseRunReport(repository, head, make([]domain.TestResult, bounded.count))
 
-		if isRefused := err != nil; isRefused != bounded.isRefused {
-			t.Errorf("a report of %d tests: refused %t (%v), want %t", bounded.count, isRefused, err, bounded.isRefused)
+		if !errors.Is(err, bounded.refusal) {
+			t.Errorf("a report of %d tests gave %v, want %v", bounded.count, err, bounded.refusal)
 		}
 	}
 }
