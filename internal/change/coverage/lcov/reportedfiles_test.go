@@ -71,6 +71,24 @@ func TestReportedFilesReportsTheUnionOfItsTestsOncePerFile(t *testing.T) {
 	}
 }
 
+func TestReportedFilesReadsTheArtifactCIUploads(t *testing.T) {
+	artifact := testSection(effectTest, record(effectPath, "DA:7,1", "DA:8,4"), record(gatePath, "DA:3,1")) +
+		testSection("TestGate", record(gatePath, "DA:3,2", "DA:9,1"))
+
+	reported, err := reportedFilesIn(artifact)
+
+	if err != nil {
+		t.Fatalf("parse the artifact CI uploads: %v", err)
+	}
+	want := []domain.ReportedFile{
+		domain.NewReportedFile(repositoryPath(t, effectPath), true),
+		domain.NewReportedFile(repositoryPath(t, gatePath), true),
+	}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
 	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), record(runnerPath, lineHit)))
 
