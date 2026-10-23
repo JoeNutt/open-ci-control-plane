@@ -4,12 +4,15 @@ set -euo pipefail
 readonly top_level_test='^Test[[:alnum:]_]*$'
 readonly per_test_timeout=5m
 
-package="$1"
-artifact="$2"
+go_root="$(go env GOROOT)"
+readonly go_root
+
+readonly package="$1"
+readonly artifact="$2"
 scratch="$(mktemp -d)"
+readonly scratch
 trap 'rm -rf "$scratch"' EXIT
-test_binary="$scratch/package.test"
-package_directory=""
+readonly test_binary="$scratch/package.test"
 
 main() {
   : >"$artifact"
@@ -18,36 +21,52 @@ main() {
     echo "$package has no tests" >&2
     return 0
   fi
+  local package_directory
   package_directory="$(go list -f '{{.Dir}}' "$package")"
 
-  local tests="$scratch/tests" test
-  top_level_tests >"$tests"
+  local test_list_file="$scratch/top-level-tests"
+  top_level_tests "$package_directory" >"$test_list_file"
+
+  local test
   while IFS= read -r test; do
-    section_of "$test" >>"$artifact"
-  done <"$tests"
+    section_of "$package_directory" "$test" >>"$artifact"
+  done <"$test_list_file"
 }
 
 top_level_tests() {
-  local listing="$scratch/listing"
-  run_test_binary "$scratch/listing-counters" -test.list '.*' >"$listing"
-  grep -E "$top_level_test" "$listing" || [[ $? -eq 1 ]]
+  local package_directory="$1"
+  local listed_names_file="$scratch/listed-names"
+  run_test_binary "$package_directory" "$scratch/listing-counters" -test.list '.*' >"$listed_names_file"
+  refuse_unrunnable_names "$listed_names_file"
+  grep -E "$top_level_test" "$listed_names_file" || [[ $? -eq 1 ]]
+}
+
+refuse_unrunnable_names() {
+  local unrunnable
+  unrunnable="$(grep -vE "$top_level_test" "$1" | tr '\n' ' ' || [[ $? -eq 1 ]])"
+  if [[ -n "$unrunnable" ]]; then
+    echo "$package lists names this collection does not run: $unrunnable" >&2
+    return 1
+  fi
 }
 
 section_of() {
-  local test="$1"
+  local package_directory="$1"
+  local test="$2"
   local counters="$scratch/counters-$test"
   local profile="$scratch/$test.out"
   local unnamed_lcov="$scratch/$test.lcov"
 
-  run_test_binary "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
+  run_test_binary "$package_directory" "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
   go tool covdata textfmt -i="$counters" -o="$profile"
-  gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
+  GOROOT="$go_root" gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
   exercised_records_of "$unnamed_lcov" "$test"
 }
 
 run_test_binary() {
-  local counters="$1"
-  shift
+  local package_directory="$1"
+  local counters="$2"
+  shift 2
   mkdir -p "$counters"
   (cd "$package_directory" && GOCOVERDIR="$counters" "$test_binary" -test.gocoverdir="$counters" "$@" </dev/null)
 }
