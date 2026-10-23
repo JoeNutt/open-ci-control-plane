@@ -6,12 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 type PlanLedger struct {
-	log *Log
+	reporting sync.Mutex
+	log       *Log
 }
 
 func NewPlanLedger(log *Log) *PlanLedger {
@@ -39,6 +41,9 @@ func (ledger *PlanLedger) DispatchedPlanFor(
 }
 
 func (ledger *PlanLedger) RecordReport(_ context.Context, repository domain.GovernedRepository, head domain.CommitSHA) error {
+	ledger.reporting.Lock()
+	defer ledger.reporting.Unlock()
+
 	_, isReported, err := ledger.lineFor(ledgerKey{kind: reportedKind, repository: repository, head: head})
 	if err != nil {
 		return err

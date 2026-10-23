@@ -7,6 +7,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -106,5 +107,40 @@ func TestASecondReportForOneHeadIsRefusedEvenAfterARestart(t *testing.T) {
 
 	if !errors.Is(err, domain.ErrRunAlreadyReported) {
 		t.Errorf("a second report after a restart gave %v, want %v", err, domain.ErrRunAlreadyReported)
+	}
+}
+
+const concurrentReports = 32
+
+func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
+	dispatched := dispatchedPlanOf(t)
+	ledger := jsonl.NewPlanLedger(openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl")))
+	if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+	start := make(chan struct{})
+	outcomes := make(chan error, concurrentReports)
+	var reporting sync.WaitGroup
+	for range concurrentReports {
+		reporting.Go(func() {
+			<-start
+			outcomes <- ledger.RecordReport(context.Background(), dispatched.Locator.GovernedRepository(), dispatched.Head)
+		})
+	}
+
+	close(start)
+	reporting.Wait()
+	close(outcomes)
+
+	accepted := 0
+	for err := range outcomes {
+		if err == nil {
+			accepted++
+		} else if !errors.Is(err, domain.ErrRunAlreadyReported) {
+			t.Errorf("a concurrent report gave %v, want nil or %v", err, domain.ErrRunAlreadyReported)
+		}
+	}
+	if accepted != 1 {
+		t.Errorf("%d of %d concurrent reports for one head were accepted, want 1", accepted, concurrentReports)
 	}
 }
