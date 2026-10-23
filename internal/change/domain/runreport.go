@@ -2,7 +2,11 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"slices"
+)
 
 const TestsCheckRunName = "open-ci/tests"
 
@@ -20,9 +24,9 @@ type TestResult struct {
 }
 
 type RunReport struct {
-	Repository GovernedRepository
-	Head       CommitSHA
-	Results    []TestResult
+	repository GovernedRepository
+	head       CommitSHA
+	results    []TestResult
 }
 
 const MaxReportedTests = 10000
@@ -31,10 +35,16 @@ var ErrTooManyReportedTests = errors.New("the report names more tests than a rep
 
 func ParseRunReport(repository GovernedRepository, head CommitSHA, results []TestResult) (RunReport, error) {
 	if len(results) > MaxReportedTests {
-		return RunReport{}, ErrTooManyReportedTests
+		return RunReport{}, fmt.Errorf("%w: %d tests, at most %d", ErrTooManyReportedTests, len(results), MaxReportedTests)
 	}
-	return RunReport{Repository: repository, Head: head, Results: results}, nil
+	return RunReport{repository: repository, head: head, results: results}, nil
 }
+
+func (report RunReport) Repository() GovernedRepository { return report.repository }
+
+func (report RunReport) Head() CommitSHA { return report.head }
+
+func (report RunReport) Results() []TestResult { return slices.Clone(report.results) }
 
 func TestsConclusionOf(plan TestPlan, results []TestResult) Conclusion {
 	if len(results) == 0 {

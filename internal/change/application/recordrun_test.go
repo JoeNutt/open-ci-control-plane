@@ -58,7 +58,7 @@ func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.
 	useCase := application.RecordRun{Ledger: &plannedHeads{}, Publisher: published}
 	head := commitSHAOf(t, recordedHeadSHA)
 
-	err := useCase.Execute(context.Background(), domain.RunReport{Repository: gatedLocator(t).GovernedRepository(), Head: head})
+	err := useCase.Execute(context.Background(), runReportOf(t, head, nil))
 
 	if !errors.Is(err, domain.ErrNoPlanForHead) {
 		t.Errorf("a report for an unplanned head gave %v, want %v", err, domain.ErrNoPlanForHead)
@@ -66,6 +66,16 @@ func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.
 	if runs := published.PublishedOn(gatedLocator(t), head); len(runs) != 0 {
 		t.Errorf("posted %d check runs for an unplanned head", len(runs))
 	}
+}
+
+func runReportOf(t *testing.T, head domain.CommitSHA, results []domain.TestResult) domain.RunReport {
+	t.Helper()
+
+	report, err := domain.ParseRunReport(gatedLocator(t).GovernedRepository(), head, results)
+	if err != nil {
+		t.Fatalf("parse run report: %v", err)
+	}
+	return report
 }
 
 const reportedSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
@@ -107,9 +117,8 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 	} {
 		published := &publishedCheckRuns{}
 
-		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published}.Execute(context.Background(), domain.RunReport{
-			Repository: gatedLocator(t).GovernedRepository(), Head: head, Results: report.results,
-		})
+		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published}.Execute(
+			context.Background(), runReportOf(t, head, report.results))
 
 		if err != nil {
 			t.Fatalf("%s: record run: %v", report.description, err)
@@ -130,15 +139,11 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 		Ledger:    ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}),
 		Publisher: published,
 	}
-	first := domain.RunReport{
-		Repository: gatedLocator(t).GovernedRepository(), Head: head,
-		Results: []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}},
-	}
+	first := runReportOf(t, head, []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}})
 	if err := useCase.Execute(context.Background(), first); err != nil {
 		t.Fatalf("record the first run: %v", err)
 	}
-	second := first
-	second.Results = []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail}}
+	second := runReportOf(t, head, []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail}})
 
 	err := useCase.Execute(context.Background(), second)
 

@@ -25,7 +25,7 @@ func TestARunReportCarriesItsRepositoryHeadAndResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse run report: %v", err)
 	}
-	if report.Repository != repository || report.Head != head || !slices.Equal(report.Results, results) {
+	if report.Repository() != repository || report.Head() != head || !slices.Equal(report.Results(), results) {
 		t.Errorf("parsed %+v, want %s at %s with %+v", report, repository, head, results)
 	}
 }
