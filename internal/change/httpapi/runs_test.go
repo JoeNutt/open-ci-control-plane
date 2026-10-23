@@ -242,3 +242,30 @@ func TestEachRecordingRefusalIsAnsweredItsC13Status(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryRefusedReportIsLoggedOnceWithItsReasonAndNeverItsToken(t *testing.T) {
+	for name, refusing := range map[string]func(*runReports) *http.Request{
+		"refused at the route": func(*runReports) *http.Request {
+			return runReport(t, strings.Replace(passingReport, `"pass"`, `"passed"`, 1))
+		},
+		"refused by the recording": func(reporting *runReports) *http.Request {
+			reporting.refusal = fmt.Errorf("authorise the run: %w", application.ErrForeignRepository)
+			return runReport(t, passingReport)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			reporting := &runReports{}
+
+			reporting.answerTo(t, refusing(reporting))
+
+			lines := strings.Split(strings.TrimSpace(reporting.logged.String()), "\n")
+			var line map[string]any
+			if len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &line) != nil || line["msg"] != "run report refused" || line["reason"] == nil {
+				t.Errorf("logged %q, want one structured run report refusal with its reason", reporting.logged.String())
+			}
+			if strings.Contains(reporting.logged.String(), actionsToken) {
+				t.Errorf("a log line carries the token: %q", reporting.logged.String())
+			}
+		})
+	}
+}

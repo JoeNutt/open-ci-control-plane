@@ -43,7 +43,7 @@ func ParseRoutes(settings Settings) (http.Handler, error) {
 	routes := http.NewServeMux()
 	routes.Handle(eventsRoute, events{answering: answering, check: check, refusing: refusing})
 	routes.Handle(coverageRoute, coverageUploads{log: settings.Log, answering: answering, replacement: settings.Coverage, artifacts: settings.Artifacts})
-	routes.Handle(runsRoute, runReports{answering: answering, recording: settings.Runs})
+	routes.Handle(runsRoute, runReports{log: settings.Log, answering: answering, recording: settings.Runs})
 	return canonicalRepositoryPaths{routes: routes, answering: answering, log: settings.Log}, nil
 }
 

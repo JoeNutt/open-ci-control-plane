@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -20,39 +21,52 @@ type RunRecording interface {
 }
 
 type runReports struct {
+	log       *slog.Logger
 	answering answers
 	recording RunRecording
 }
 
 func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	receiving.answering.write(asked.Context(), answer, receiving.answerTo(answer, asked))
+	answered := receiving.answerTo(answer, asked)
+	if answered.reason != "" {
+		named := []slog.Attr{slog.String(reasonKey, answered.reason)}
+		if answered.cause != nil {
+			named = append(named, slog.String(causeKey, answered.cause.Error()))
+		}
+		receiving.log.LogAttrs(asked.Context(), answered.level, "run report refused", named...)
+	}
+	receiving.answering.write(asked.Context(), answer, answered.answer)
 }
 
-func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Request) answerBody {
+func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Request) coverageAnswer {
 	target, refused := runTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(headSegment))
 	if refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	if refused := reportLengthRefusalOf(asked.ContentLength); refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.MaxRunReportBytes)
 	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	if err != nil {
-		return unverifiedTokenProblem()
+		return refusedBeforeUse(unverifiedTokenProblem())
 	}
 	body, refused := reportBodyOf(asked.Body)
 	if refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	report, refused := body.reportFor(target)
 	if refused != nil {
-		return refused
+		return refusedBeforeUse(refused)
 	}
 	if err := receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report}); err != nil {
-		return runRefusalOf(err)
+		row, isMatched := refusalCausing(runRefusals, err)
+		if !isMatched {
+			return coverageAnswer{answer: failedRunProblem(), reason: failedRunCode, cause: err, level: slog.LevelError}
+		}
+		return coverageAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: err, level: row.level}
 	}
-	return runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}
+	return coverageAnswer{answer: runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}}
 }
 
 type reportBody struct {
