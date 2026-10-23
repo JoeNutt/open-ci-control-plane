@@ -100,3 +100,27 @@ func TestAnEscapeNamesItsModeThePullRequestTheTestAndTheChangedFiles(t *testing.
 		t.Errorf("escapes are %+v, want one against selection naming %s, %s and %s", escapes, locator, failed.Name, changed)
 	}
 }
+
+func TestAMinimisationEscapeIsJudgedAgainstTheMinimisedSetOnlyWhenMinimisationIsInShadow(t *testing.T) {
+	rules, payments := suiteOf(t, "example.com/app/rules"), suiteOf(t, "example.com/app/payments")
+	failed := domain.TestResult{Suite: payments, Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+	for minimisation, want := range map[domain.TestMode][]domain.ShadowedMode{
+		domain.TestModeShadow: {domain.ShadowedMinimisation},
+		domain.TestModeOff:    nil,
+	} {
+		dispatched := domain.DispatchedPlan{
+			Modes: domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: minimisation},
+			Recorded: domain.RecordedSets{IsRecorded: true,
+				Selected: []domain.CoverageSuite{rules, payments}, Minimised: []domain.CoverageSuite{rules}},
+		}
+
+		var modes []domain.ShadowedMode
+		for _, escape := range dispatched.EscapesIn([]domain.TestResult{failed}) {
+			modes = append(modes, escape.Mode)
+		}
+
+		if !slices.Equal(modes, want) {
+			t.Errorf("minimisation %s: escapes against %v, want %v", minimisation, modes, want)
+		}
+	}
+}

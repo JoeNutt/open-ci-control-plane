@@ -6,7 +6,10 @@ import "slices"
 
 type ShadowedMode string
 
-const ShadowedSelection ShadowedMode = "selection"
+const (
+	ShadowedSelection    ShadowedMode = "selection"
+	ShadowedMinimisation ShadowedMode = "minimisation"
+)
 
 type Escape struct {
 	Mode         ShadowedMode
@@ -21,6 +24,13 @@ func (dispatched DispatchedPlan) EscapesIn(results []TestResult) []Escape {
 		escapes = append(escapes, Escape{
 			Mode: ShadowedSelection, PullRequest: dispatched.Locator, Test: escaped, ChangedFiles: dispatched.ChangedFiles,
 		})
+	}
+	if dispatched.Modes.Minimisation == TestModeShadow && dispatched.Recorded.IsRecorded {
+		for _, escaped := range dispatched.escapesOutside(dispatched.Recorded.Minimised, results) {
+			escapes = append(escapes, Escape{
+				Mode: ShadowedMinimisation, PullRequest: dispatched.Locator, Test: escaped, ChangedFiles: dispatched.ChangedFiles,
+			})
+		}
 	}
 	return escapes
 }
