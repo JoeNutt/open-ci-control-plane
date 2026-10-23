@@ -58,6 +58,7 @@ type recordReading struct {
 	isCurrentExercised bool
 	isRecordOpen       bool
 	hasTestSection     bool
+	testSections       int
 	limits             domain.CoverageLimits
 }
 
@@ -130,6 +131,10 @@ func (reading *recordReading) take(line string) error {
 func (reading *recordReading) openTestSection(name string) error {
 	if name == "" {
 		return errUnnamedTest
+	}
+	reading.testSections++
+	if breach := reading.limits.TestSectionsBreach(reading.testSections); breach != nil {
+		return breach
 	}
 	reading.hasTestSection = true
 	return nil

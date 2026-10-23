@@ -17,10 +17,13 @@ var ErrTooManyFileEntries = fmt.Errorf("%w: file entries", ErrCoverageBoundExcee
 
 var ErrTooManySuites = fmt.Errorf("%w: suites per repository", ErrCoverageBoundExceeded)
 
+var ErrTooManyTestSections = fmt.Errorf("%w: TN sections", ErrCoverageBoundExceeded)
+
 type CoverageLimits struct {
 	MaxCompressedBytes     int64
 	MaxDecompressedBytes   int64
 	MaxFileEntries         int
+	MaxTestSections        int
 	MaxSuitesPerRepository int
 	MaxUploadsPerMinute    int
 }
@@ -30,6 +33,7 @@ func DeclaredCoverageLimits() CoverageLimits {
 		MaxCompressedBytes:     64 << 20,
 		MaxDecompressedBytes:   256 << 20,
 		MaxFileEntries:         200_000,
+		MaxTestSections:        10_000,
 		MaxSuitesPerRepository: 5_000,
 		MaxUploadsPerMinute:    60,
 	}
@@ -37,6 +41,10 @@ func DeclaredCoverageLimits() CoverageLimits {
 
 func (limits CoverageLimits) FileEntriesBreach(fileEntries int) error {
 	return breachOf(ErrTooManyFileEntries, int64(fileEntries), int64(limits.MaxFileEntries))
+}
+
+func (limits CoverageLimits) TestSectionsBreach(testSections int) error {
+	return breachOf(ErrTooManyTestSections, int64(testSections), int64(limits.MaxTestSections))
 }
 
 func (limits CoverageLimits) SuitesBreach(suites int) error {
