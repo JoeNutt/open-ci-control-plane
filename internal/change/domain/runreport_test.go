@@ -60,3 +60,13 @@ func TestAReportedTestParsesToItsSuiteNameAndOutcome(t *testing.T) {
 		t.Errorf("parsed %+v, want TestReadFrom in %s passing", parsed, reportedTestSuite)
 	}
 }
+
+func TestAReportedTestIsRefusedUnlessItsOutcomeIsKnown(t *testing.T) {
+	for _, outcome := range []string{"", "passed", "PASS", "error"} {
+		_, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", outcome)
+
+		if !errors.Is(err, domain.ErrMalformedTestResult) {
+			t.Errorf("outcome %q gave %v, want %v", outcome, err, domain.ErrMalformedTestResult)
+		}
+	}
+}
