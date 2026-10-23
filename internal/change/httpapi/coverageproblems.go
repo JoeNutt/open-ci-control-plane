@@ -37,16 +37,18 @@ const (
 	rateExceededCode              = "rate_exceeded"
 	rateExceededMessage           = "the repository has uploaded more coverage this minute than C-12 allows"
 	retryAfterHeader              = "Retry-After"
-	boundExceededMessage          = "the artifact exceeds an NFR-5 bound; nothing was stored"
+	boundExceededMessage          = "the artifact exceeds an NFR-5 or NFR-13 bound; nothing was stored"
 )
 
+var declaredCoverageLimits = domain.DeclaredCoverageLimits()
+
 var (
-	compressedArtifactLimit   = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
-	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", domain.DeclaredCoverageLimits().MaxDecompressedBytes)
-	fileEntriesLimit          = fmt.Sprintf("%d file entries", domain.DeclaredCoverageLimits().MaxFileEntries)
-	suitesLimit               = fmt.Sprintf("%d suites per repository", domain.DeclaredCoverageLimits().MaxSuitesPerRepository)
-	testSectionsLimit         = fmt.Sprintf("%d TN sections", domain.DeclaredCoverageLimits().MaxTestSections)
-	lineRecordsLimit          = fmt.Sprintf("%d DA records", domain.DeclaredCoverageLimits().MaxLineRecords)
+	compressedArtifactLimit   = fmt.Sprintf("%d compressed bytes", declaredCoverageLimits.MaxCompressedBytes)
+	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", declaredCoverageLimits.MaxDecompressedBytes)
+	fileEntriesLimit          = fmt.Sprintf("%d file entries", declaredCoverageLimits.MaxFileEntries)
+	suitesLimit               = fmt.Sprintf("%d suites per repository", declaredCoverageLimits.MaxSuitesPerRepository)
+	testSectionsLimit         = fmt.Sprintf("%d TN sections", declaredCoverageLimits.MaxTestSections)
+	lineRecordsLimit          = fmt.Sprintf("%d DA records", declaredCoverageLimits.MaxLineRecords)
 )
 
 func malformedPathProblem(segment string) refusal {
