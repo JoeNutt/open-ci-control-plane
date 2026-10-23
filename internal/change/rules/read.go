@@ -25,3 +25,4 @@ func ReadFrom(stated io.Reader) (domain.ClassificationRules, error) {
 	}
 	return domain.ParseClassificationRules(written)
 }
+
