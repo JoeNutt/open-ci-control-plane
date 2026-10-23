@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -216,5 +218,27 @@ func TestAReportOfMoreThanMaxReportedTestsIsAnswered413NamingTheBoundAndRecordsN
 	}
 	if len(reporting.received) != 0 {
 		t.Errorf("recorded %d reports over the test bound", len(reporting.received))
+	}
+}
+
+func TestEachRecordingRefusalIsAnsweredItsC13Status(t *testing.T) {
+	for _, refused := range []struct {
+		cause  error
+		status int
+	}{
+		{fmt.Errorf("verify the caller: %w", domain.ErrUnverifiedIdentityToken), http.StatusUnauthorized},
+		{fmt.Errorf("verify the caller: %w", domain.ErrIdentityIssuerUnavailable), http.StatusUnauthorized},
+		{fmt.Errorf("authorise the run: %w", application.ErrForeignRepository), http.StatusForbidden},
+		{fmt.Errorf("record the run: %w", domain.ErrNoPlanForHead), http.StatusNotFound},
+		{fmt.Errorf("record the run: %w", domain.ErrRunAlreadyReported), http.StatusConflict},
+		{errors.New("the plan ledger could not be read"), http.StatusInternalServerError},
+	} {
+		reporting := &runReports{refusal: refused.cause}
+
+		answered := reporting.answerTo(t, runReport(t, passingReport))
+
+		if answered.Code != refused.status {
+			t.Errorf("a recording refusing with %v was answered %d, want %d", refused.cause, answered.Code, refused.status)
+		}
 	}
 }

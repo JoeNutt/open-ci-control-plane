@@ -49,7 +49,9 @@ func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Req
 	if refused != nil {
 		return refused
 	}
-	_ = receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report})
+	if err := receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report}); err != nil {
+		return runRefusalOf(err)
+	}
 	return runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}
 }
 

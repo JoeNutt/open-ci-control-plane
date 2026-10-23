@@ -3,8 +3,12 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"slices"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
@@ -47,4 +51,46 @@ func reportLengthRefusalOf(declared int64) refusal {
 		return oversizedReportProblem()
 	}
 	return nil
+}
+
+type unplannedProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (unplannedProblem) status() int { return http.StatusNotFound }
+
+func (problem unplannedProblem) reason() string { return problem.Code }
+
+type reportedProblem struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (reportedProblem) status() int { return http.StatusConflict }
+
+func (problem reportedProblem) reason() string { return problem.Code }
+
+var runRefusals = []struct {
+	cause   error
+	refusal refusal
+}{
+	{domain.ErrUnverifiedIdentityToken, unverifiedTokenProblem()},
+	{domain.ErrIdentityIssuerUnavailable, unverifiedTokenProblem()},
+	{application.ErrForeignRepository, foreignRepositoryProblem()},
+	{domain.ErrNoPlanForHead, unplannedProblem{Code: "no_plan", Message: "no plan was dispatched for this head"}},
+	{domain.ErrRunAlreadyReported, reportedProblem{Code: "already_reported", Message: "this head's run was already reported"}},
+}
+
+func runRefusalOf(failure error) answerBody {
+	matching := slices.IndexFunc(runRefusals, func(row struct {
+		cause   error
+		refusal refusal
+	}) bool {
+		return errors.Is(failure, row.cause)
+	})
+	if matching < 0 {
+		return serverProblem{Code: "run_failed", Message: "the run could not be recorded"}
+	}
+	return runRefusals[matching].refusal
 }
