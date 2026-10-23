@@ -252,39 +252,59 @@ func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) 
 func (ledger *PlanLedger) ShadowedRuns(_ context.Context) ([]domain.ShadowedRun, error) {
 	entries, err := ledger.log.Entries()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read the plan ledger: %w", err)
 	}
-	latest := map[string]ledgerLine{}
-	var order []string
-	reported := map[string]bool{}
-	for _, entry := range entries {
+	held := newHeldRuns()
+	for number, entry := range entries {
 		var line ledgerLine
 		if err := json.Unmarshal(entry.Body, &line); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read plan ledger entry %d: %w", number+1, err)
 		}
-		key := line.Repository + "@" + line.Head
-		if line.Kind == dispatchedKind {
-			if _, seen := latest[key]; !seen {
-				order = append(order, key)
-			}
-			latest[key] = line
-		}
-		if line.Kind == reportedKind {
-			reported[key] = true
-		}
+		held.hold(line)
 	}
-	var runs []domain.ShadowedRun
-	for _, key := range order {
-		line := latest[key]
-		head, err := domain.ParseCommitSHA(line.Head)
+	return held.runs()
+}
+
+type runKey struct {
+	repository string
+	head       string
+}
+
+type heldRuns struct {
+	latest     map[runKey]ledgerLine
+	order      []runKey
+	isReported map[runKey]bool
+}
+
+func newHeldRuns() *heldRuns {
+	return &heldRuns{latest: map[runKey]ledgerLine{}, isReported: map[runKey]bool{}}
+}
+
+func (held *heldRuns) hold(line ledgerLine) {
+	key := runKey{repository: line.Repository, head: line.Head}
+	switch line.Kind {
+	case dispatchedKind:
+		if _, isSeen := held.latest[key]; !isSeen {
+			held.order = append(held.order, key)
+		}
+		held.latest[key] = line
+	case reportedKind:
+		held.isReported[key] = true
+	}
+}
+
+func (held *heldRuns) runs() ([]domain.ShadowedRun, error) {
+	runs := make([]domain.ShadowedRun, 0, len(held.order))
+	for _, key := range held.order {
+		head, err := domain.ParseCommitSHA(key.head)
+		if err != nil {
+			return nil, fmt.Errorf("read the plan ledger: %w", err)
+		}
+		plan, err := held.latest[key].dispatchedPlan(head)
 		if err != nil {
 			return nil, err
 		}
-		plan, err := line.dispatchedPlan(head)
-		if err != nil {
-			return nil, err
-		}
-		runs = append(runs, domain.ShadowedRun{Plan: plan, IsReported: reported[key]})
+		runs = append(runs, domain.ShadowedRun{Plan: plan, IsReported: held.isReported[key]})
 	}
 	return runs, nil
 }
