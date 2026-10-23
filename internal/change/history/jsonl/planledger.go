@@ -196,16 +196,9 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
-	var modes domain.PlanModes
-	if line.Modes != nil {
-		modes.Selection, err = domain.ParseTestMode(line.Modes.Selection)
-		if err != nil {
-			return domain.DispatchedPlan{}, err
-		}
-		modes.Minimisation, err = domain.ParseTestMode(line.Modes.Minimisation)
-		if err != nil {
-			return domain.DispatchedPlan{}, err
-		}
+	modes, err := line.Modes.planModes()
+	if err != nil {
+		return domain.DispatchedPlan{}, err
 	}
 	return domain.DispatchedPlan{
 		Locator: locator, Head: head, DecisionID: id, Suites: suites,
@@ -226,6 +219,21 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func (line *modesLine) planModes() (domain.PlanModes, error) {
+	if line == nil {
+		return domain.PlanModes{}, nil
+	}
+	selection, err := domain.ParseTestMode(line.Selection)
+	if err != nil {
+		return domain.PlanModes{}, err
+	}
+	minimisation, err := domain.ParseTestMode(line.Minimisation)
+	if err != nil {
+		return domain.PlanModes{}, err
+	}
+	return domain.PlanModes{Selection: selection, Minimisation: minimisation}, nil
 }
 
 func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) ([]Parsed, error) {
