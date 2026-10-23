@@ -57,8 +57,8 @@ type recordReading struct {
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
-	testSections       int
-	lineRecords        int
+	testSections       boundedCount
+	lineRecords        boundedCount
 	limits             domain.CoverageLimits
 }
 
@@ -77,11 +77,20 @@ func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 		return nil, err
 	}
 	decompressed := &boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach}
-	reading := recordReading{reported: emptyFileUnion(), limits: limits}
+	reading := readingWithin(limits)
 	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
 	return reading.completed()
+}
+
+func readingWithin(limits domain.CoverageLimits) recordReading {
+	return recordReading{
+		reported:     emptyFileUnion(),
+		testSections: boundedCount{breachOf: limits.TestSectionsBreach},
+		lineRecords:  boundedCount{breachOf: limits.LineRecordsBreach},
+		limits:       limits,
+	}
 }
 
 func plainBodyOf(body io.Reader) (io.Reader, error) {
@@ -132,16 +141,11 @@ func (reading *recordReading) openTestSection(name string) error {
 	if name == "" {
 		return errUnnamedTest
 	}
-	sectionsWithThisOne := reading.testSections + 1
-	if breach := reading.limits.TestSectionsBreach(sectionsWithThisOne); breach != nil {
-		return breach
-	}
-	reading.testSections = sectionsWithThisOne
-	return nil
+	return reading.testSections.countOneMore()
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if reading.testSections == 0 {
+	if reading.testSections.counted == 0 {
 		return errOutsideTestSection
 	}
 	parsed, err := domain.ParseRepositoryPath(path)
@@ -158,11 +162,9 @@ func (reading *recordReading) openRecord(path string) error {
 }
 
 func (reading *recordReading) countExecutions(lineData string) error {
-	lineRecordsWithThisOne := reading.lineRecords + 1
-	if breach := reading.limits.LineRecordsBreach(lineRecordsWithThisOne); breach != nil {
+	if breach := reading.lineRecords.countOneMore(); breach != nil {
 		return breach
 	}
-	reading.lineRecords = lineRecordsWithThisOne
 	fields := strings.Split(lineData, lineDataSeparator)
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
@@ -194,6 +196,20 @@ func (bounded *boundedReader) Read(buffer []byte) (int, error) {
 		return 0, breach
 	}
 	return count, err
+}
+
+type boundedCount struct {
+	counted  int
+	breachOf func(count int) error
+}
+
+func (bounded *boundedCount) countOneMore() error {
+	withThisOne := bounded.counted + 1
+	if breach := bounded.breachOf(withThisOne); breach != nil {
+		return breach
+	}
+	bounded.counted = withThisOne
+	return nil
 }
 
 func carryingNothing(*recordReading, string) error { return nil }
