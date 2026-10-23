@@ -13,6 +13,7 @@ type RecordRun struct {
 	Ledger    domain.PlanLedger
 	Publisher domain.CheckRunPublisher
 	Callers   domain.CallerRepositories
+	Escapes   domain.EscapeLog
 }
 
 type RunUpload struct {
@@ -40,6 +41,11 @@ func (useCase RecordRun) reportedPlanOf(ctx context.Context, report domain.RunRe
 	if !dispatched.IsReportedBy(report) {
 		return domain.DispatchedPlan{}, fmt.Errorf("%w: reported under %s, dispatched under %s",
 			domain.ErrNoPlanForHead, report.DecisionID(), dispatched.DecisionID)
+	}
+	for _, escape := range dispatched.EscapesIn(report.Results()) {
+		if err := useCase.Escapes.RecordEscape(ctx, escape); err != nil {
+			return domain.DispatchedPlan{}, err
+		}
 	}
 	if err := useCase.Ledger.RecordReport(ctx, report.Repository(), report.Head()); err != nil {
 		return domain.DispatchedPlan{}, err
