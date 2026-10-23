@@ -1,30 +1,74 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly top_level_test='^Test[[:alnum:]_]*$'
+readonly per_test_timeout=5m
+
 package="$1"
 artifact="$2"
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+test_binary="$scratch/package.test"
+package_directory=""
 
-binary="$work/package.test"
-go test -c -cover -covermode=atomic -coverpkg=./... -o "$binary" "$package"
-: >"$artifact"
-[[ -x "$binary" ]] || exit 0
+main() {
+  : >"$artifact"
+  go test -c -cover -covermode=atomic -coverpkg=./... -o "$test_binary" "$package"
+  if [[ ! -x "$test_binary" ]]; then
+    echo "$package has no tests" >&2
+    return 0
+  fi
+  package_directory="$(go list -f '{{.Dir}}' "$package")"
 
-directory="$(go list -f '{{.Dir}}' "$package")"
-mkdir -p "$work/listing"
-tests="$(cd "$directory" && "$binary" -test.gocoverdir="$work/listing" -test.list '.*' | grep -E '^Test[[:alnum:]_]*$' || true)"
+  local tests="$scratch/tests" test
+  top_level_tests >"$tests"
+  while IFS= read -r test; do
+    section_of "$test" >>"$artifact"
+  done <"$tests"
+}
 
-for test in $tests; do
-  counters="$work/counters-$test"
+top_level_tests() {
+  local listing="$scratch/listing"
+  run_test_binary "$scratch/listing-counters" -test.list '.*' >"$listing"
+  grep -E "$top_level_test" "$listing" || [[ $? -eq 1 ]]
+}
+
+section_of() {
+  local test="$1"
+  local counters="$scratch/counters-$test"
+  local profile="$scratch/$test.out"
+  local unnamed_lcov="$scratch/$test.lcov"
+
+  run_test_binary "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
+  go tool covdata textfmt -i="$counters" -o="$profile"
+  gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
+  exercised_records_of "$unnamed_lcov" "$test"
+}
+
+run_test_binary() {
+  local counters="$1"
+  shift
   mkdir -p "$counters"
-  (cd "$directory" && "$binary" -test.gocoverdir="$counters" -test.run "^${test}\$" >/dev/null)
-  go tool covdata textfmt -i="$counters" -o="$work/$test.out"
-  gcov2lcov -infile "$work/$test.out" -outfile "$work/$test.lcov"
-  awk -v test="$test" '
+  (cd "$package_directory" && GOCOVERDIR="$counters" "$test_binary" -test.gocoverdir="$counters" "$@" </dev/null)
+}
+
+exercised_records_of() {
+  awk -v test="$2" '
     /^TN:/ { next }
-    /^SF:/ { record = $0 "\n"; exercised = 0; next }
-    /^DA:/ { split(substr($0, 4), field, ","); if (field[2] > 0) { record = record $0 "\n"; exercised = 1 }; next }
-    /^end_of_record$/ { if (exercised) { if (!named) { printf "TN:%s\n", test; named = 1 }; printf "%s%s\n", record, $0 }; next }
-  ' "$work/$test.lcov" >>"$artifact"
-done
+    /^SF:/ { record = $0 "\n"; isExercised = 0; next }
+    /^DA:/ {
+      split(substr($0, length("DA:") + 1), lineData, ",")
+      if (lineData[2] > 0) { record = record $0 "\n"; isExercised = 1 }
+      next
+    }
+    /^end_of_record$/ {
+      if (!isExercised) { next }
+      if (!isNamed) { printf "TN:%s\n", test; isNamed = 1 }
+      printf "%s%s\n", record, $0
+      next
+    }
+    END { if (!isNamed) { printf "%s executed no line\n", test > "/dev/stderr" } }
+  ' "$1"
+}
+
+main

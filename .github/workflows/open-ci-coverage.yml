@@ -51,17 +51,18 @@ jobs:
       - name: Upload one suite's per-test coverage per package
         run: |
           set -euo pipefail
-          export GOROOT="$(go env GOROOT)"
+          GOROOT="$(go env GOROOT)"
+          export GOROOT
           token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
           echo "::add-mask::$token"
           for package in $(go list ./...); do
-            report="$RUNNER_TEMP/cover.lcov"
-            .github/workflows/per-test-lcov.sh "$package" "$report"
-            [[ -s "$report" ]] || { echo "no coverage for $package"; continue; }
+            artifact="$RUNNER_TEMP/per-test.lcov"
+            .github/workflows/per-test-lcov.sh "$package" "$artifact"
+            [[ -s "$artifact" ]] || { echo "no coverage for $package"; continue; }
             answer="$(curl -sS -o /dev/stderr -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $token" \
-              -F format=lcov -F "artifact=@$report" \
+              -F format=lcov -F "artifact=@$artifact" \
               "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/$package")"
             echo " <- $package: $answer"
             [[ "$answer" == 201 ]]
