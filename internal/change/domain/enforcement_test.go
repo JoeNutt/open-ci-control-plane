@@ -91,3 +91,12 @@ func TestAnEnforcedPlanWhoseSelectionIsUnprovenDropsToShadowNamingWhy(t *testing
 			plan, domain.PlanTriggerShadowUnproven)
 	}
 }
+
+func TestWhenSelectionDropsToShadowAnEnforcedMinimisationDropsWithItAndRecordsItsSet(t *testing.T) {
+	plan := modedPlanOf(t, "enforce", "enforce").GatedBy(
+		domain.Enforcement{Trigger: domain.PlanTriggerShadowUnproven}, domain.Enforcement{IsEnforced: true})
+
+	if plan.Modes.Minimisation != domain.TestModeShadow || len(plan.Recorded.Minimised) != 2 {
+		t.Errorf("minimisation is %s with minimised %v, want shadow with both suites recorded", plan.Modes.Minimisation, plan.Recorded.Minimised)
+	}
+}

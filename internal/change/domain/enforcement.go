@@ -54,6 +54,9 @@ func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
 		return plan
 	}
 	plan.Modes.Selection = TestModeShadow
+	if plan.Modes.Minimisation == TestModeEnforce {
+		plan.Modes.Minimisation = TestModeShadow
+	}
 	shadowed := plan.shadowed()
 	if shadowed.Trigger == PlanTriggerNone {
 		shadowed.Trigger = selection.Trigger
