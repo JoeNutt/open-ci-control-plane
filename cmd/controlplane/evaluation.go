@@ -28,6 +28,7 @@ type evaluating struct {
 	maps     *memory.CoverageMaps
 	history  *jsonl.Log
 	ledger   *jsonl.PlanLedger
+	escapes  *jsonl.Escapes
 	windows  application.CountShadowWindows
 	log      *slog.Logger
 }
