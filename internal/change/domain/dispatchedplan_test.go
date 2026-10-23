@@ -55,7 +55,7 @@ func TestOnlyATestThatFailedTwiceOutsideTheRecordedSelectionEscapedIt(t *testing
 		{Suite: alwaysRun, Name: "TestEffect", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
 	}
 
-	if got := dispatched.SelectionEscapesIn(results); !slices.Equal(got, []domain.TestResult{escaped}) {
+	if got := dispatched.EscapesIn(results); len(got) != 1 || got[0].Test != escaped {
 		t.Errorf("escapes are %+v, want only %+v", got, escaped)
 	}
 }
@@ -73,7 +73,7 @@ func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
 func TestAPlanThatRecordedNothingHasNoEscapes(t *testing.T) {
 	failed := domain.TestResult{Suite: suiteOf(t, "example.com/app/payments"), Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
 
-	if got := (domain.DispatchedPlan{}).SelectionEscapesIn([]domain.TestResult{failed}); len(got) != 0 {
+	if got := (domain.DispatchedPlan{}).EscapesIn([]domain.TestResult{failed}); len(got) != 0 {
 		t.Errorf("a plan that recorded nothing gave escapes %+v, want none", got)
 	}
 }
