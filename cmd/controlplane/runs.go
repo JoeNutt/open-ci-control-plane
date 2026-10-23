@@ -7,23 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/ingest"
 )
 
 func runRecordingFor(configured configuration.Configuration, evaluation evaluating) (application.RecordRun, error) {
-	issuer, err := domain.ParseHTTPSOrigin(actionsTokenIssuer)
-	if err != nil {
-		return application.RecordRun{}, err
-	}
-	callers, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
-		Issuer: issuer, Audience: configured.InstanceURL(), Client: forgeClientTrusting(evaluation.endpoint.trusted), Now: time.Now,
-	})
+	callers, err := actionsCallersFor(configured, evaluation.endpoint)
 	if err != nil {
 		return application.RecordRun{}, err
 	}
