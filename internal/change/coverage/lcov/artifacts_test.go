@@ -12,7 +12,7 @@ import (
 )
 
 func TestArtifactsReadAnLCOVBodyAsTheReportItDeclares(t *testing.T) {
-	body := record(effectPath, lineHit)
+	body := testSection(effectTest, record(effectPath, lineHit))
 
 	reported, err := lcov.Artifacts{}.ArtifactOf(int64(len(body)), strings.NewReader(body)).
 		ReportedFiles(domain.DeclaredCoverageLimits())

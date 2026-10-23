@@ -20,6 +20,7 @@ const (
 	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	coveredFile         = "internal/change/domain/effect.go"
 	untouchedFile       = "internal/change/domain/verdict.go"
+	coveringTest        = "TN:TestEffect\n"
 )
 
 func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
@@ -149,12 +150,12 @@ func TestReplaceCoverageKeepsServingTheMapATruncatedLCOVArtifactWouldReplace(t *
 	maps := newCoverageStore(domain.DeclaredCoverageLimits())
 	path := parsedPath(t)
 	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{parsedRepository(t)})
-	whole := "SF:" + coveredFile + "\nDA:7,3\nend_of_record\n"
+	whole := coveringTest + "SF:" + coveredFile + "\nDA:7,3\nend_of_record\n"
 	if _, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact(whole))); err != nil {
 		t.Fatalf("accept the whole artifact: %v", err)
 	}
 
-	_, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact("SF:"+coveredFile+"\nDA:7,0\n")))
+	_, err := useCase.Execute(t.Context(), uploadOf(t, lcovArtifact(coveringTest+"SF:"+coveredFile+"\nDA:7,0\n")))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
