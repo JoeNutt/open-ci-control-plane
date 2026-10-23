@@ -61,9 +61,14 @@ func TestAnUploadDeclaringMoreThanTheCompressedBoundIsAnswered413NamingItUnread(
 	upload := coverageUpload(t, "lcov", uploadedLCOV)
 	upload.Body, upload.ContentLength = unread, domain.DeclaredCoverageLimits().MaxCompressedBytes+1
 
+	compressedLimit, isStated := domain.DeclaredCoverageLimits().LimitOf(domain.ErrCompressedArtifactTooLarge)
+	if !isStated {
+		t.Fatal("the domain states no compressed bound")
+	}
+
 	answered := uploading.answerTo(t, upload)
 
-	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), "67108864 compressed bytes") {
+	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), compressedLimit) {
 		t.Errorf("answered %d %s, want %d naming the compressed bound", answered.Code, answered.Body.String(), http.StatusRequestEntityTooLarge)
 	}
 	if unread.isRead {

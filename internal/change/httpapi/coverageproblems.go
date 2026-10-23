@@ -40,16 +40,22 @@ const (
 	boundExceededMessage          = "the artifact exceeds an NFR-5 or NFR-13 bound; nothing was stored"
 )
 
-var declaredCoverageLimits = domain.DeclaredCoverageLimits()
-
 var (
-	compressedArtifactLimit   = fmt.Sprintf("%d compressed bytes", declaredCoverageLimits.MaxCompressedBytes)
-	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", declaredCoverageLimits.MaxDecompressedBytes)
-	fileEntriesLimit          = fmt.Sprintf("%d file entries", declaredCoverageLimits.MaxFileEntries)
-	suitesLimit               = fmt.Sprintf("%d suites per repository", declaredCoverageLimits.MaxSuitesPerRepository)
-	testSectionsLimit         = fmt.Sprintf("%d TN sections", declaredCoverageLimits.MaxTestSections)
-	lineRecordsLimit          = fmt.Sprintf("%d DA records", declaredCoverageLimits.MaxLineRecords)
+	compressedArtifactLimit   = statedLimitOf(domain.ErrCompressedArtifactTooLarge)
+	decompressedArtifactLimit = statedLimitOf(domain.ErrDecompressedArtifactTooLarge)
+	fileEntriesLimit          = statedLimitOf(domain.ErrTooManyFileEntries)
+	suitesLimit               = statedLimitOf(domain.ErrTooManySuites)
+	testSectionsLimit         = statedLimitOf(domain.ErrTooManyTestSections)
+	lineRecordsLimit          = statedLimitOf(domain.ErrTooManyLineRecords)
 )
+
+func statedLimitOf(bound error) string {
+	limit, isStated := domain.DeclaredCoverageLimits().LimitOf(bound)
+	if !isStated {
+		panic(fmt.Sprintf("unreachable: the domain states no limit for %v", bound))
+	}
+	return limit
+}
 
 func malformedPathProblem(segment string) refusal {
 	return fieldProblem{Code: malformedPathCode, Message: malformedPathMessage, Field: segment}
