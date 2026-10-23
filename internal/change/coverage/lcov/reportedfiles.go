@@ -34,7 +34,7 @@ var (
 	errUnreadableLineData = fmt.Errorf("%w: line data is not a line number and an execution count", ErrMalformedArtifact)
 	errTruncatedRecord    = fmt.Errorf("%w: input ends inside a record", ErrMalformedArtifact)
 	errNoRecord           = fmt.Errorf("%w: input reports no file", ErrMalformedArtifact)
-	errNoTestSection      = fmt.Errorf("%w: input names no test in a TN section", ErrMalformedArtifact)
+	errOutsideTestSection = fmt.Errorf("%w: a file record precedes any TN section", ErrMalformedArtifact)
 )
 
 type lineReading struct {
@@ -133,7 +133,7 @@ func (reading *recordReading) openTestSection(string) error {
 
 func (reading *recordReading) openRecord(path string) error {
 	if !reading.hasTestSection {
-		return errNoTestSection
+		return errOutsideTestSection
 	}
 	entriesWithThisOne := len(reading.reported) + 1
 	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
@@ -192,9 +192,6 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	}
 	if len(reading.reported) == 0 {
 		return nil, errNoRecord
-	}
-	if !reading.hasTestSection {
-		return nil, errNoTestSection
 	}
 	return reading.reported, nil
 }
