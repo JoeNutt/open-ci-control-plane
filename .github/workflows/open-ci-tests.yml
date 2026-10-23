@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  statuses: write
+  id-token: write
 
 jobs:
   tests:
@@ -21,6 +21,7 @@ jobs:
     env:
       PLAN: ${{ inputs.plan }}
       GH_TOKEN: ${{ github.token }}
+      CONTROL_PLANE: https://ci.joenutt.com
     steps:
       - name: Read the plan
         id: plan
@@ -28,6 +29,8 @@ jobs:
           set -euo pipefail
           head_sha="$(jq -er '.headSha' <<<"$PLAN")"
           [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "headSha is not a commit SHA" >&2; exit 1; }
+          decision_id="$(jq -er '.decisionId' <<<"$PLAN")"
+          [[ "$decision_id" =~ ^dec_[0-9a-f]{32}$ ]] || { echo "decisionId is not a decision ID" >&2; exit 1; }
           full_matrix="$(jq -er '.fullMatrix | if type == "boolean" then tostring else error("fullMatrix is not a boolean") end' <<<"$PLAN")"
           packages="$(jq -er '(.suites + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
           for package in $packages; do
@@ -35,6 +38,7 @@ jobs:
           done
           {
             echo "head_sha=$head_sha"
+            echo "decision_id=$decision_id"
             echo "full_matrix=$full_matrix"
             echo "packages=$packages"
           } >>"$GITHUB_OUTPUT"
@@ -96,21 +100,44 @@ jobs:
           PACKAGES: ${{ steps.plan.outputs.packages }}
         run: |
           set -euo pipefail
+          events="$RUNNER_TEMP/test-events.jsonl"
+          : >"$events"
           if [[ "$FULL_MATRIX" == "true" ]]; then
-            go test ./...
+            go test -json ./... >"$events"
           elif [[ -n "$PACKAGES" ]]; then
             read -ra planned <<<"$PACKAGES"
-            go test "${planned[@]}"
+            go test -json "${planned[@]}" >"$events"
           fi
 
-      - name: Post open-ci/tests on the planned head
+      - name: Report each top-level test to the control plane
         if: always() && steps.current.outputs.is_current == 'true'
         env:
           HEAD_SHA: ${{ steps.plan.outputs.head_sha }}
+          DECISION_ID: ${{ steps.plan.outputs.decision_id }}
           OUTCOME: ${{ steps.tests.outcome }}
         run: |
           set -euo pipefail
-          state=failure
-          if [[ "$OUTCOME" == "success" ]]; then state=success; fi
-          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
-            -f state="$state" -f context=open-ci/tests -f description="Planned suites: $OUTCOME"
+          events="$RUNNER_TEMP/test-events.jsonl"
+          report="$RUNNER_TEMP/run-report.json"
+          [[ -f "$events" ]] || { echo "the suites never ran, so there is nothing to report" >&2; exit 1; }
+          jq -sc --arg decision "$DECISION_ID" '{
+            decisionId: $decision,
+            tests: [ .[]
+              | select(.Test != null and (.Test | contains("/") | not))
+              | select(.Action == "pass" or .Action == "fail" or .Action == "skip")
+              | {package: .Package, name: .Test, outcome: .Action, seconds: (.Elapsed // 0)} ]
+          }' "$events" >"$report"
+          failed="$(jq '[.tests[] | select(.outcome == "fail")] | length' "$report")"
+          if [[ "$OUTCOME" != "success" && "$failed" -eq 0 ]]; then
+            echo "go test failed without failing a test (a build or package failure); reporting nothing, so open-ci/tests stays pending" >&2
+            exit 1
+          fi
+          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+          echo "::add-mask::$token"
+          answer="$(curl -sS -o /dev/stderr -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+            --data-binary "@$report" \
+            "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/runs/$HEAD_SHA")"
+          echo " <- run report for $HEAD_SHA: $answer"
+          [[ "$answer" == 201 ]]
