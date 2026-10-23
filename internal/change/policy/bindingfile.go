@@ -27,8 +27,10 @@ type importRootEntry struct {
 }
 
 type bindingTestsEntry struct {
-	Workflow  string   `yaml:"workflow"`
-	AlwaysRun []string `yaml:"always_run"`
+	Workflow     string   `yaml:"workflow"`
+	AlwaysRun    []string `yaml:"always_run"`
+	Selection    string   `yaml:"selection"`
+	Minimisation string   `yaml:"minimisation"`
 }
 
 func ParseBindingFile(content []byte) (domain.Binding, error) {
@@ -60,10 +62,12 @@ func bindingStatementOf(document bindingDocument) (domain.BindingStatement, erro
 		return domain.BindingStatement{}, err
 	}
 	return domain.BindingStatement{
-		Repository: document.Repository,
-		Workflow:   document.Tests.Workflow,
-		AlwaysRun:  document.Tests.AlwaysRun,
-		Policies:   policies,
+		Repository:   document.Repository,
+		Workflow:     document.Tests.Workflow,
+		AlwaysRun:    document.Tests.AlwaysRun,
+		Selection:    document.Tests.Selection,
+		Minimisation: document.Tests.Minimisation,
+		Policies:     policies,
 	}, nil
 }
 
