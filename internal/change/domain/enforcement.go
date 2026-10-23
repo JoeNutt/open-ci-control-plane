@@ -25,7 +25,13 @@ func EnforcementOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape, now 
 			isOldEnough = true
 		}
 	}
-	if !isOldEnough {
+	evidence := 0
+	for _, run := range runs {
+		if run.Plan.Modes.isShadowing(mode) && run.isEvidence() && run.At.After(now.Add(-ShadowWindowLength)) {
+			evidence++
+		}
+	}
+	if !isOldEnough || evidence < MinimumShadowRuns {
 		return Enforcement{Trigger: PlanTriggerShadowUnproven}
 	}
 	return Enforcement{IsEnforced: true}

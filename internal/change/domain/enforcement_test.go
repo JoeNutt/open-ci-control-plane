@@ -43,3 +43,25 @@ func TestAModeWhoseShadowHistoryIsYoungerThan30DaysIsNotEnforced(t *testing.T) {
 		t.Errorf("29 days of clean shadow history gave %+v, want not enforced with %q", verdict, domain.PlanTriggerShadowUnproven)
 	}
 }
+
+func TestAModeIsEnforcedOnlyWithQ1sMinimumOfEvidenceRunsInTheWindow(t *testing.T) {
+	old := domain.ShadowedRun{
+		At:         gatedAt.Add(-domain.ShadowWindowLength - 24*time.Hour),
+		Plan:       domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeShadow}, Recorded: domain.RecordedSets{IsRecorded: true}},
+		IsReported: true,
+	}
+	recent := gatedAt.Add(-10 * 24 * time.Hour)
+	gap := domain.ShadowedRun{At: recent, Plan: domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeShadow}}}
+	for name, bounded := range map[string]struct {
+		runs []domain.ShadowedRun
+		want domain.Enforcement
+	}{
+		"one under the minimum": {append(evidenceRuns(domain.MinimumShadowRuns-1, recent), old), domain.Enforcement{Trigger: domain.PlanTriggerShadowUnproven}},
+		"at the minimum":        {append(evidenceRuns(domain.MinimumShadowRuns, recent), old), domain.Enforcement{IsEnforced: true}},
+		"gaps make up the rest": {append(append(evidenceRuns(domain.MinimumShadowRuns-1, recent), gap), old), domain.Enforcement{Trigger: domain.PlanTriggerShadowUnproven}},
+	} {
+		if verdict := domain.EnforcementOf(domain.ShadowedSelection, bounded.runs, nil, gatedAt); verdict != bounded.want {
+			t.Errorf("%s: gave %+v, want %+v", name, verdict, bounded.want)
+		}
+	}
+}
