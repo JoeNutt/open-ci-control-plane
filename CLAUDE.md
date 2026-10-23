@@ -57,13 +57,17 @@ full rule is in `.claude/rules/tdd-cycle.md`, "One card at a time".
 | Applying a design pattern | `docs/knowledge-base/design-patterns/README.md`, then the one entry |
 | Adding a knowledge base entry | `docs/knowledge-base/FORMAT.md`. Five sections, Go examples only, wrong-code mandatory |
 | A bound, limit or timeout | §8. Bounds are numbered requirements, not implementation detail |
-| Test selection | §9's always-run set and confidence triggers before changing what gets skipped |
+| Test selection | §9's always-run set and confidence triggers before changing what gets skipped, then `docs/knowledge-base/test-selection/README.md` |
 
 Baseline specification, frozen: https://claude.ai/code/artifact/db03f5d3-b4e0-4fb0-8254-375c6cf0d08d.
 
-**Current release: v0.0.1**, specified at https://claude.ai/artifact/CjiuxFHroNTwjRNhpnpQ7U.
-It narrows the baseline, and its §20 decisions override it where they say so. Its §18 is
-the build order. Read it before taking a card.
+**Current release: v0.0.2**, GitHub milestone 9, specified at
+https://claude.ai/artifact/JoT3JYoqXSLExzsLERjrSN. Its requirements are the milestone's
+`requirement` issues, and where a spec and an issue disagree, the issue wins. v0.0.1 shipped,
+specified at https://claude.ai/artifact/CjiuxFHroNTwjRNhpnpQ7U.
+
+The release spec narrows the baseline, and its §20 decisions override it where they say so.
+Its §18 is the build order. Read it before taking a card.
 
 ## Invariants
 
@@ -126,8 +130,9 @@ in the dev shell. The shell sets `GOFLAGS=-mod=readonly` and `CGO_ENABLED=0`.
 
 The binary is `cmd/controlplane`. It takes exactly one argument, the path to a JSON
 configuration file (`internal/change/configuration`), logs JSON to stderr, and serves
-`POST /v1/forge/github/events`. Evaluation is not wired yet: the binary's gate is a stub that
-refuses every evaluation.
+`POST /v1/forge/github/events` and `PUT /v1/repositories/{owner}/{repo}/coverage/{suite...}`.
+`openapi.yaml` declares more paths than the binary serves. A webhook is answered at once, and
+the evaluation runs in the background under a bounded timeout (`cmd/controlplane/evaluation.go`).
 
 ## Code layout
 
@@ -142,14 +147,18 @@ arranged as ports and adapters:
   classification rules. `GateChange` evaluates the document per policy family, and for each
   decision both records it and publishes one check run. It does this under
   `context.WithoutCancel` and joins the failures, so one family's failure never stops
-  another's record or check run. `ReplaceCoverage` authorises a coverage upload against the
+  another's record or check run. On a structural pass it plans the test matrix with
+  `PlanTests` and dispatches the plan. A planning error dispatches the full matrix
+  (`domain.FailedPlanFor`), never a selection, and records the dispatched plan in the plan
+  ledger. `RecordRun` takes a run's report, refuses one for a head with no recorded plan or
+  one already reported, and concludes the `open-ci/tests` check run. `ReplaceCoverage` authorises a coverage upload against the
   caller's identity token, applies the `UploadRate` limit, and replaces one suite's coverage.
 - Inbound adapters: `httpapi` (routes, problem responses, replay protection, installation
   allowlist), `ingest` (webhook signature check, GitHub Actions identity tokens) and
   `configuration` (the bounded JSON configuration file).
-- Outbound adapters: `forge/github` (pull requests, check runs, App JWT and installation
-  tokens), `engine/opa` (one embedded OPA instance
-  per policy family; `engine/opa/structural` embeds the structural Rego rules), `policy`
+- Outbound adapters: `forge/github` (pull requests, check runs, plan dispatches, App JWT and
+  installation tokens), `history/jsonl` (the bounded shadow history log, and the plan ledger
+  kept beside it), `engine/opa` (one embedded OPA instance per policy family; `engine/opa/structural` embeds the structural Rego rules), `policy`
   (the central catalog and per-repository bindings, validated against
   `schema/policy.*.v1.schema.json`), `coverage/lcov` and `coverage/memory`, `extract/golang`
   (Go imports), `jsonlines` (decision records), `rules` (classification rules) and `random`
