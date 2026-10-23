@@ -3,6 +3,7 @@
 package lcov_test
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"errors"
@@ -196,6 +197,16 @@ func TestReportedFilesRefusesMoreLineRecordsThanTheBound(t *testing.T) {
 	_, err := artifactOfLineRecords(limits.MaxLineRecords + 1).ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrTooManyLineRecords, err)
+}
+
+func TestReportedFilesRefusesATestNameLongerThanALineBeforeReadingIt(t *testing.T) {
+	overlong := "Test" + strings.Repeat("A", bufio.MaxScanTokenSize)
+
+	_, err := artifactOf(testSection(overlong, record(effectPath, lineHit))).ReportedFiles(domain.DeclaredCoverageLimits())
+
+	if !errors.Is(err, bufio.ErrTooLong) || !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want the line refused as too long, got %v", err)
+	}
 }
 
 func assertBreachOf(t *testing.T, bound, err error) {
