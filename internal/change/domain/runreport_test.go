@@ -9,9 +9,14 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+func reportedRepositoryAndHead(t *testing.T) (domain.GovernedRepository, domain.CommitSHA) {
+	t.Helper()
+
+	return governedRepositoryOf(t, "JoeNutt/open-ci-control-plane"), mustParseCommitSHA(t, planHeadSHA)
+}
+
 func TestARunReportCarriesItsRepositoryHeadAndResults(t *testing.T) {
-	repository := governedRepositoryOf(t, "JoeNutt/open-ci-control-plane")
-	head := mustParseCommitSHA(t, planHeadSHA)
+	repository, head := reportedRepositoryAndHead(t)
 	results := []domain.TestResult{{Name: "TestReadFrom", Outcome: domain.TestOutcomePass}}
 
 	report, err := domain.ParseRunReport(repository, head, results)
@@ -25,8 +30,7 @@ func TestARunReportCarriesItsRepositoryHeadAndResults(t *testing.T) {
 }
 
 func TestARunReportIsRefusedAboveMaxReportedTests(t *testing.T) {
-	repository := governedRepositoryOf(t, "JoeNutt/open-ci-control-plane")
-	head := mustParseCommitSHA(t, planHeadSHA)
+	repository, head := reportedRepositoryAndHead(t)
 
 	for _, bounded := range []struct {
 		count     int
