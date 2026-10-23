@@ -45,3 +45,27 @@ func (modes PlanModes) isShadowing(mode ShadowedMode) bool {
 	testMode, isKnown := testModeOfShadowed[mode]
 	return isKnown && testMode(modes) == TestModeShadow
 }
+
+type ModeWindow struct {
+	Mode   ShadowedMode
+	Window ShadowWindow
+}
+
+func ShadowWindowsFor(repository GovernedRepository, runs []ShadowedRun, escapes []Escape) []ModeWindow {
+	var ownRuns []ShadowedRun
+	for _, run := range runs {
+		if run.Plan.Locator.GovernedRepository() == repository {
+			ownRuns = append(ownRuns, run)
+		}
+	}
+	var ownEscapes []Escape
+	for _, escape := range escapes {
+		if escape.PullRequest.GovernedRepository() == repository {
+			ownEscapes = append(ownEscapes, escape)
+		}
+	}
+	return []ModeWindow{
+		{Mode: ShadowedSelection, Window: ShadowWindowOf(ShadowedSelection, ownRuns, ownEscapes)},
+		{Mode: ShadowedMinimisation, Window: ShadowWindowOf(ShadowedMinimisation, ownRuns, ownEscapes)},
+	}
+}
