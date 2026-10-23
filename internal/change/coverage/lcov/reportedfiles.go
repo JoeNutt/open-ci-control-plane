@@ -139,13 +139,12 @@ func (reading *recordReading) openRecord(path string) error {
 	if !reading.hasTestSection {
 		return errOutsideTestSection
 	}
-	entriesWithThisOne := reading.reported.count() + 1
-	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
-		return breach
-	}
 	parsed, err := domain.ParseRepositoryPath(path)
 	if err != nil {
 		return err
+	}
+	if breach := reading.limits.FileEntriesBreach(reading.reported.countWith(parsed)); breach != nil {
+		return breach
 	}
 	reading.currentPath = parsed
 	reading.isCurrentExercised = false

@@ -25,3 +25,10 @@ func (union *fileUnion) include(file domain.ReportedFile) {
 }
 
 func (union fileUnion) count() int { return len(union.files) }
+
+func (union fileUnion) countWith(path domain.RepositoryPath) int {
+	if _, isSeen := union.positionOf[path]; isSeen {
+		return len(union.files)
+	}
+	return len(union.files) + 1
+}
