@@ -200,7 +200,7 @@ func TestReportedFilesRefusesMoreLineRecordsThanTheBound(t *testing.T) {
 }
 
 func TestReportedFilesRefusesATestNameLongerThanALineBeforeReadingIt(t *testing.T) {
-	overlong := "Test" + strings.Repeat("A", bufio.MaxScanTokenSize)
+	overlong := effectTest + strings.Repeat("A", bufio.MaxScanTokenSize)
 
 	_, err := artifactOf(testSection(overlong, record(effectPath, lineHit))).ReportedFiles(domain.DeclaredCoverageLimits())
 
