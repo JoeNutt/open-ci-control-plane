@@ -91,7 +91,7 @@ func TestAnEscapeTheRunRecordingLogsIsInTheShadowHistoryAfterARestart(t *testing
 	if err != nil {
 		t.Fatalf("reopen the shadow history: %v", err)
 	}
-	escapes, err := jsonl.NewEscapes(history).RecordedEscapes()
+	escapes, err := jsonl.NewEscapes(history).RecordedEscapes(context.Background())
 	if err != nil || len(escapes) != 1 || escapes[0].Test != escape.Test {
 		t.Errorf("after a restart the shadow history holds %+v (%v), want the escape of %s", escapes, err, escape.Test.Name)
 	}

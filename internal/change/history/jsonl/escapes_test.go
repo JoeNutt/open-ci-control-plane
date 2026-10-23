@@ -30,7 +30,7 @@ func TestAnEscapeSurvivesARestart(t *testing.T) {
 		t.Fatalf("record escape: %v", err)
 	}
 
-	escapes, err := jsonl.NewEscapes(openedLog(t, path)).RecordedEscapes()
+	escapes, err := jsonl.NewEscapes(openedLog(t, path)).RecordedEscapes(context.Background())
 	if err != nil {
 		t.Fatalf("read escapes: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestAnEscapeLineNamingAModeThatIsNoModeIsRefused(t *testing.T) {
 		t.Fatalf("append: %v", err)
 	}
 
-	_, err := jsonl.NewEscapes(history).RecordedEscapes()
+	_, err := jsonl.NewEscapes(history).RecordedEscapes(context.Background())
 
 	if !errors.Is(err, domain.ErrUnknownShadowedMode) {
 		t.Errorf("an escape line with a mode that is no mode gave %v, want %v", err, domain.ErrUnknownShadowedMode)
