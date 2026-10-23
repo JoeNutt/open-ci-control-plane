@@ -86,8 +86,9 @@ type TestPlan struct {
 }
 
 type RecordedSets struct {
-	Selected  []CoverageSuite
-	Minimised []CoverageSuite
+	IsRecorded bool
+	Selected   []CoverageSuite
+	Minimised  []CoverageSuite
 }
 
 type PlanSubject struct {
@@ -163,7 +164,7 @@ func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []Coverag
 const MaxPlanCharacters = 60000
 
 func (subject PlanSubject) recordedSetsOf(selected []CoverageSuite) RecordedSets {
-	recorded := RecordedSets{Selected: selected}
+	recorded := RecordedSets{IsRecorded: true, Selected: selected}
 	if subject.Binding.MinimisationMode() == TestModeShadow {
 		recorded.Minimised = minimisedOf(selected)
 	}

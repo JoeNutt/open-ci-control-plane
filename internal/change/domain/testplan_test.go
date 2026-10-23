@@ -218,6 +218,9 @@ func suiteNamesOf(suites []domain.CoverageSuite) []string {
 func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *testing.T) {
 	plan := modedPlanOf(t, "shadow", "off")
 
+	if !plan.Recorded.IsRecorded {
+		t.Error("a shadow plan says it recorded nothing")
+	}
 	if !plan.FullMatrix || len(plan.Suites) != 0 {
 		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
 	}
@@ -267,5 +270,27 @@ func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
 	if !plan.FullMatrix || len(plan.Suites) != 0 || len(plan.Recorded.Selected) != 0 {
 		t.Errorf("selection off planned full matrix %v, suites %v, recorded %v: want the full matrix and nothing recorded",
 			plan.FullMatrix, suiteNamesOf(plan.Suites), suiteNamesOf(plan.Recorded.Selected))
+	}
+}
+
+func TestAShadowPlanForcedToTheFullMatrixKeepsItsTriggerAndRecordsNothing(t *testing.T) {
+	statement := thisRepositorysBinding()
+	statement.Selection, statement.Minimisation = "shadow", "shadow"
+	binding, err := domain.ParseBinding(statement)
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	plan, err := domain.PlanFor(domain.PlanSubject{
+		Document: domain.Document{
+			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
+			Diff: domain.Diff{Files: []domain.File{modified(ordersFile)}, Kinds: domain.Kinds{CIConfig: []string{ordersFile}}},
+		},
+		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile}))
+
+	if err != nil || plan.Trigger != domain.PlanTriggerCIConfig || plan.Recorded.IsRecorded {
+		t.Errorf("a forced shadow plan has trigger %q and recorded %+v (%v), want %q and nothing recorded",
+			plan.Trigger, plan.Recorded, err, domain.PlanTriggerCIConfig)
 	}
 }
