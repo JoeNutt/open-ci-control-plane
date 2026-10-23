@@ -45,21 +45,12 @@ func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Req
 	if refused != nil {
 		return refused
 	}
-	id, err := domain.ParseDecisionID(body.DecisionID)
-	if err != nil {
-		return fieldProblem{Code: "malformed_report", Message: "x", Field: "decisionId"}
+	report, refused := body.reportFor(target)
+	if refused != nil {
+		return refused
 	}
-	var results []domain.TestResult
-	for _, test := range body.Tests {
-		result, err := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
-		if err != nil {
-			return fieldProblem{Code: "malformed_report", Message: "x", Field: "tests"}
-		}
-		results = append(results, result)
-	}
-	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
 	_ = receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report})
-	return runAccepted{HeadSHA: target.head.String(), Recorded: len(results)}
+	return runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}
 }
 
 type reportBody struct {
@@ -71,6 +62,23 @@ type reportTest struct {
 	Package string `json:"package"`
 	Name    string `json:"name"`
 	Outcome string `json:"outcome"`
+}
+
+func (body reportBody) reportFor(target runTarget) (domain.RunReport, refusal) {
+	id, err := domain.ParseDecisionID(body.DecisionID)
+	if err != nil {
+		return domain.RunReport{}, unparseableReportFieldProblem(decisionIDField)
+	}
+	results := make([]domain.TestResult, 0, len(body.Tests))
+	for _, test := range body.Tests {
+		result, err := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
+		if err != nil {
+			return domain.RunReport{}, unparseableReportFieldProblem(testsField)
+		}
+		results = append(results, result)
+	}
+	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
+	return report, nil
 }
 
 var errTrailingValue = errors.New("the body holds more than one JSON value")

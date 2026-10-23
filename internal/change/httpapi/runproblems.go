@@ -9,10 +9,14 @@ import (
 )
 
 const (
-	oversizedReportCode    = "report_too_large"
-	oversizedReportMessage = "the report is longer than the byte bound; nothing was recorded"
-	malformedReportCode    = "malformed_report"
-	malformedReportMessage = "the body is not one C-13 report object"
+	oversizedReportCode     = "report_too_large"
+	oversizedReportMessage  = "the report is longer than the byte bound; nothing was recorded"
+	malformedReportCode     = "malformed_report"
+	malformedReportMessage  = "the body is not one C-13 report object"
+	unparseableFieldCode    = "unparseable_field"
+	unparseableFieldMessage = "the field holds a value outside the set C-13 accepts"
+	decisionIDField         = "decisionId"
+	testsField              = "tests"
 )
 
 var reportBytesLimit = fmt.Sprintf("%d bytes", domain.MaxRunReportBytes)
@@ -23,6 +27,10 @@ func oversizedReportProblem() refusal {
 
 func malformedReportProblem() refusal {
 	return fieldProblem{Code: malformedReportCode, Message: malformedReportMessage, Field: payloadField}
+}
+
+func unparseableReportFieldProblem(field string) refusal {
+	return fieldProblem{Code: unparseableFieldCode, Message: unparseableFieldMessage, Field: field}
 }
 
 func reportLengthRefusalOf(declared int64) refusal {
