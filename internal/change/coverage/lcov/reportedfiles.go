@@ -58,6 +58,7 @@ type recordReading struct {
 	isCurrentExercised bool
 	isRecordOpen       bool
 	testSections       boundedCount
+	namedTests         map[domain.TopLevelTestName]bool
 	lineRecords        boundedCount
 	limits             domain.CoverageLimits
 }
@@ -88,6 +89,7 @@ func readingWithin(limits domain.CoverageLimits) recordReading {
 	return recordReading{
 		reported:     emptyFileUnion(),
 		testSections: boundedCount{breachOf: limits.TestSectionsBreach},
+		namedTests:   map[domain.TopLevelTestName]bool{},
 		lineRecords:  boundedCount{breachOf: limits.LineRecordsBreach},
 		limits:       limits,
 	}
@@ -138,9 +140,14 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openTestSection(name string) error {
-	if _, err := domain.ParseTopLevelTestName(name); err != nil {
+	parsed, err := domain.ParseTopLevelTestName(name)
+	if err != nil {
 		return fmt.Errorf("%w: %w", errNotATopLevelTest, err)
 	}
+	if reading.namedTests[parsed] {
+		return fmt.Errorf("%w: a test is named by two TN sections", ErrMalformedArtifact)
+	}
+	reading.namedTests[parsed] = true
 	return reading.testSections.countOneMore()
 }
 

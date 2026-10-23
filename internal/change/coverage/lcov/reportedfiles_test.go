@@ -153,6 +153,15 @@ func TestReportedFilesRefusesASectionNamingNoTopLevelTestWhole(t *testing.T) {
 	}
 }
 
+func TestReportedFilesRefusesATestNamedByTwoSectionsWhole(t *testing.T) {
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit))+
+		testSection(gateTest, record(gatePath, lineHit))+testSection(effectTest, record(gatePath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
 func TestReportedFilesRefusesARecordOutOfOrder(t *testing.T) {
 	refused := map[string]string{
 		"line data before any record":    testSection(effectTest, lines(lineHit), record(effectPath)),
