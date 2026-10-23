@@ -29,6 +29,9 @@ func (useCase RecordRun) Execute(ctx context.Context, upload RunUpload) error {
 	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head(), err)
 	}
+	if dispatched.DecisionID != report.DecisionID() {
+		return fmt.Errorf("record the run of %s: %w", report.Head(), domain.ErrNoPlanForHead)
+	}
 	if err := useCase.Ledger.RecordReport(ctx, report.Repository(), report.Head()); err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head(), err)
 	}

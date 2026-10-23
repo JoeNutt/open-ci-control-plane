@@ -37,6 +37,7 @@ func (ledger *plannedHeads) RecordDispatch(_ context.Context, dispatched domain.
 func ledgerHolding(t *testing.T, plan domain.TestPlan) *plannedHeads {
 	t.Helper()
 
+	plan.DecisionID = decisionIDOf(t, gatedDecisionID)
 	return &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
 		plan.Head: domain.DispatchedPlanOf(gatedLocator(t), plan),
 	}}
@@ -181,5 +182,26 @@ func TestAReportCarryingAnotherRepositorysTokenIsRefusedPostsNothingAndUsesNoRep
 	}
 	if ledger.reported[head] {
 		t.Error("a refused caller's report used up the head's one report")
+	}
+}
+
+func TestAReportUnderAnotherDecisionIsRefusedAsUnplannedAndUsesNoReport(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	ledger := ledgerHolding(t, domain.TestPlan{Head: head, DecisionID: decisionIDOf(t, gatedDecisionID)})
+	published := &publishedCheckRuns{}
+	useCase := application.RecordRun{Ledger: ledger, Publisher: published, Callers: tokensNaming{gatedLocator(t).GovernedRepository()}}
+	report, err := domain.ParseRunReport(gatedLocator(t).GovernedRepository(), head,
+		decisionIDOf(t, "dec_ffffffffffffffffffffffffffffffff"), nil)
+	if err != nil {
+		t.Fatalf("parse run report: %v", err)
+	}
+
+	err = useCase.Execute(context.Background(), application.RunUpload{Token: presentedToken(t), Report: report})
+
+	if !errors.Is(err, domain.ErrNoPlanForHead) {
+		t.Errorf("a report under another decision gave %v, want %v", err, domain.ErrNoPlanForHead)
+	}
+	if runs := published.PublishedOn(gatedLocator(t), head); len(runs) != 0 || ledger.reported[head] {
+		t.Errorf("a report under another decision posted %d check runs (report used: %t)", len(runs), ledger.reported[head])
 	}
 }
