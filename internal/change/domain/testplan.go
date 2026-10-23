@@ -82,6 +82,7 @@ type TestPlan struct {
 	FullMatrix     bool
 	Trigger        PlanTrigger
 	BundleRevision BundleRevision
+	Recorded       RecordedSets
 }
 
 type PlanSubject struct {
@@ -101,7 +102,17 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
-	return subject.planned(head, trigger, plannedSuitesOf(trigger, selection)), nil
+	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection))
+	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
+		plan.Recorded = RecordedSets{Selected: plan.Suites}
+		plan.Suites = nil
+		plan.FullMatrix = true
+	}
+	return plan, nil
+}
+
+type RecordedSets struct {
+	Selected []CoverageSuite
 }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {

@@ -188,7 +188,9 @@ func coverageByFiles(t *testing.T, fileBySuite map[string]string) domain.Reposit
 func planBinding(t *testing.T) domain.Binding {
 	t.Helper()
 
-	binding, err := domain.ParseBinding(thisRepositorysBinding())
+	statement := thisRepositorysBinding()
+	statement.Selection = "enforce"
+	binding, err := domain.ParseBinding(statement)
 	if err != nil {
 		t.Fatalf("parse binding: %v", err)
 	}
@@ -211,4 +213,31 @@ func suiteNamesOf(suites []domain.CoverageSuite) []string {
 		names = append(names, suite.String())
 	}
 	return names
+}
+
+func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *testing.T) {
+	statement := thisRepositorysBinding()
+	statement.Selection = "shadow"
+	binding, err := domain.ParseBinding(statement)
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	plan, err := domain.PlanFor(domain.PlanSubject{
+		Document: domain.Document{
+			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
+			Diff: domain.Diff{Files: []domain.File{modified(ordersFile), modified(paymentsFile)}},
+		},
+		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}))
+
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if !plan.FullMatrix || len(plan.Suites) != 0 {
+		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
+	}
+	if got := suiteNamesOf(plan.Recorded.Selected); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
+		t.Errorf("a shadow plan recorded %v as selected, want %v", got, []string{ordersSuite, paymentsSuite})
+	}
 }

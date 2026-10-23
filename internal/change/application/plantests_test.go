@@ -67,6 +67,7 @@ func uploadingRepositorysBinding(t *testing.T) domain.Binding {
 		Repository: uploadingRepository,
 		Workflow:   "open-ci-tests.yml",
 		AlwaysRun:  []string{uploadedSuite},
+		Selection:  "enforce",
 		Policies: []domain.BoundPolicyStatement{{
 			Use:         "clean-architecture",
 			ImportRoots: []domain.ImportRootStatement{{Prefix: "github.com/JoeNutt/open-ci-control-plane", Path: ""}},
