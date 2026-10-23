@@ -24,7 +24,7 @@ const (
 )
 
 func TestADispatchedPlanSurvivesARestart(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "plan-ledger.jsonl")
+	path := ledgerPath(t)
 	dispatched := dispatchedPlanOf(t)
 
 	if err := jsonl.NewPlanLedger(openedLog(t, path)).RecordDispatch(context.Background(), dispatched); err != nil {
@@ -40,6 +40,12 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) {
 		t.Errorf("after a restart the ledger holds %+v, want %+v", found, dispatched)
 	}
+}
+
+func ledgerPath(t *testing.T) string {
+	t.Helper()
+
+	return filepath.Join(t.TempDir(), "plan-ledger.jsonl")
 }
 
 func openedLog(t *testing.T, path string) *jsonl.Log {
@@ -75,7 +81,7 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 }
 
 func TestAnotherRepositorysPlanAtTheSameHeadIsNotFound(t *testing.T) {
-	ledger := jsonl.NewPlanLedger(openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl")))
+	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
 	dispatched := dispatchedPlanOf(t)
 	if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
 		t.Fatalf("record dispatch: %v", err)
@@ -93,7 +99,7 @@ func TestAnotherRepositorysPlanAtTheSameHeadIsNotFound(t *testing.T) {
 }
 
 func TestASecondReportForOneHeadIsRefusedEvenAfterARestart(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "plan-ledger.jsonl")
+	path := ledgerPath(t)
 	dispatched := dispatchedPlanOf(t)
 	repository := dispatched.Locator.GovernedRepository()
 	before := jsonl.NewPlanLedger(openedLog(t, path))
@@ -115,7 +121,7 @@ const concurrentReports = 32
 
 func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 	dispatched := dispatchedPlanOf(t)
-	ledger := jsonl.NewPlanLedger(openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl")))
+	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
 	if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
 		t.Fatalf("record dispatch: %v", err)
 	}
@@ -147,7 +153,7 @@ func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 }
 
 func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
-	history := openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl"))
+	history := openedLog(t, ledgerPath(t))
 	hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
 		ledgerHeadSHA + `","decisionId":"dec_not-a-decision","suites":[]}`
 	if err := history.Append(json.RawMessage(hostile)); err != nil {
