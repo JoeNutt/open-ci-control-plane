@@ -52,20 +52,30 @@ type ModeWindow struct {
 }
 
 func ShadowWindowsFor(repository GovernedRepository, runs []ShadowedRun, escapes []Escape) []ModeWindow {
-	var ownRuns []ShadowedRun
+	ownRuns, ownEscapes := runsOf(repository, runs), escapesOf(repository, escapes)
+	windows := make([]ModeWindow, 0, len(shadowedModes))
+	for _, mode := range shadowedModes {
+		windows = append(windows, ModeWindow{Mode: mode, Window: ShadowWindowOf(mode, ownRuns, ownEscapes)})
+	}
+	return windows
+}
+
+func runsOf(repository GovernedRepository, runs []ShadowedRun) []ShadowedRun {
+	var own []ShadowedRun
 	for _, run := range runs {
 		if run.Plan.Locator.GovernedRepository() == repository {
-			ownRuns = append(ownRuns, run)
+			own = append(own, run)
 		}
 	}
-	var ownEscapes []Escape
+	return own
+}
+
+func escapesOf(repository GovernedRepository, escapes []Escape) []Escape {
+	var own []Escape
 	for _, escape := range escapes {
 		if escape.PullRequest.GovernedRepository() == repository {
-			ownEscapes = append(ownEscapes, escape)
+			own = append(own, escape)
 		}
 	}
-	return []ModeWindow{
-		{Mode: ShadowedSelection, Window: ShadowWindowOf(ShadowedSelection, ownRuns, ownEscapes)},
-		{Mode: ShadowedMinimisation, Window: ShadowWindowOf(ShadowedMinimisation, ownRuns, ownEscapes)},
-	}
+	return own
 }
