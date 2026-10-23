@@ -55,6 +55,7 @@ func isGoIdentifier(name string) bool {
 type RunReport struct {
 	repository GovernedRepository
 	head       CommitSHA
+	decisionID DecisionID
 	results    []TestResult
 }
 
@@ -62,15 +63,17 @@ const MaxReportedTests = 10000
 
 var ErrTooManyReportedTests = errors.New("the report names more tests than a report may hold")
 
-func ParseRunReport(repository GovernedRepository, head CommitSHA, results []TestResult) (RunReport, error) {
+func ParseRunReport(repository GovernedRepository, head CommitSHA, decisionID DecisionID, results []TestResult) (RunReport, error) {
 	if len(results) > MaxReportedTests {
 		return RunReport{}, fmt.Errorf("%w: %d tests, at most %d", ErrTooManyReportedTests, len(results), MaxReportedTests)
 	}
-	return RunReport{repository: repository, head: head, results: results}, nil
+	return RunReport{repository: repository, head: head, decisionID: decisionID, results: results}, nil
 }
 
 func (report RunReport) Repository() GovernedRepository { return report.repository }
 
 func (report RunReport) Head() CommitSHA { return report.head }
+
+func (report RunReport) DecisionID() DecisionID { return report.decisionID }
 
 func (report RunReport) Results() []TestResult { return slices.Clone(report.results) }

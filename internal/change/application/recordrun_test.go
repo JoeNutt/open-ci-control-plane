@@ -71,7 +71,7 @@ func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.
 func runReportOf(t *testing.T, head domain.CommitSHA, results []domain.TestResult) domain.RunReport {
 	t.Helper()
 
-	report, err := domain.ParseRunReport(gatedLocator(t).GovernedRepository(), head, results)
+	report, err := domain.ParseRunReport(gatedLocator(t).GovernedRepository(), head, decisionIDOf(t, gatedDecisionID), results)
 	if err != nil {
 		t.Fatalf("parse run report: %v", err)
 	}
