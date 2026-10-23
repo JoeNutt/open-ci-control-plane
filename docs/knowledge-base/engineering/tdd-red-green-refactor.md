@@ -76,16 +76,14 @@ func CheckBounds(c Change, l Limits) (Change, error) {
 // Tests stay green throughout. Commit again.
 ```
 
-**The invariant: the cycle is not complete until a refactor verdict has been stated.** One of
-exactly two lines, every time:
+**The invariant: refactoring is always needed, and the cycle is not complete until it is
+done.** Code at green is unrefactored by construction, so every cycle ends with:
 
 - `Refactored: <what changed and why>`
-- `No refactor needed: checked <triggers>, none fired.`
 
-The second is legitimate and common. **Producing neither is not.** Run the trigger checklist
-*before* forming an opinion about the code — duplication, routine size, nesting, naming,
-magic values, conditionals over one value, misplaced logic, untrusted input. Most cycles fire
-nothing and cost one scan.
+Apply every engineering and security entry to the cycle's code — duplication, routine size,
+nesting, naming, magic values, conditionals over one value, misplaced logic, untrusted input —
+and change what they demand. There is no "nothing to refactor".
 
 ## How not to use it
 

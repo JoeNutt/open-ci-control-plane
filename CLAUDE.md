@@ -103,11 +103,10 @@ The second is an ordinary git hook, wired by `core.hooksPath`, so it binds human
 agents. Only the first has to be a Claude hook — it reads assistant output, which nothing else
 can see.
 
-The verdict wording is checked mechanically. Exactly one of:
+The verdict wording is checked mechanically. Refactoring is always needed, so there is one form:
 
 ```
 Refactored: <what changed and why>
-No refactor needed: checked <which questions>, none fired.
 ```
 
 ## Commands
