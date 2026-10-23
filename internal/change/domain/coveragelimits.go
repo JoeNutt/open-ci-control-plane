@@ -67,6 +67,24 @@ func (limits CoverageLimits) DecompressedBytesBreach(decompressedBytes int64) er
 	return breachOf(ErrDecompressedArtifactTooLarge, decompressedBytes, limits.MaxDecompressedBytes)
 }
 
+func (limits CoverageLimits) LimitOf(bound error) (string, bool) {
+	switch bound {
+	case ErrCompressedArtifactTooLarge:
+		return fmt.Sprintf("%d compressed bytes", limits.MaxCompressedBytes), true
+	case ErrDecompressedArtifactTooLarge:
+		return fmt.Sprintf("%d decompressed bytes", limits.MaxDecompressedBytes), true
+	case ErrTooManyFileEntries:
+		return fmt.Sprintf("%d file entries", limits.MaxFileEntries), true
+	case ErrTooManySuites:
+		return fmt.Sprintf("%d suites per repository", limits.MaxSuitesPerRepository), true
+	case ErrTooManyTestSections:
+		return fmt.Sprintf("%d TN sections", limits.MaxTestSections), true
+	case ErrTooManyLineRecords:
+		return fmt.Sprintf("%d DA records", limits.MaxLineRecords), true
+	}
+	return "", false
+}
+
 func breachOf(bound error, measured, allowed int64) error {
 	if measured > allowed {
 		return fmt.Errorf("%w: %d exceeds %d", bound, measured, allowed)
