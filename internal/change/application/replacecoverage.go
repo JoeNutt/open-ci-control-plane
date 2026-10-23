@@ -49,12 +49,21 @@ func (useCase ReplaceCoverage) Execute(ctx context.Context, upload CoverageUploa
 }
 
 func (useCase ReplaceCoverage) authorise(ctx context.Context, upload CoverageUpload) error {
-	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
-	if err != nil {
-		return fmt.Errorf("verify who uploads coverage for %s: %w", upload.Repository, err)
+	if err := callerIsRepository(ctx, useCase.Callers, upload.Token, upload.Repository); err != nil {
+		return fmt.Errorf("authorise coverage for %s: %w", upload.Repository, err)
 	}
-	if caller != upload.Repository {
-		return fmt.Errorf("%w: issued to %s, uploading for %s", ErrForeignRepository, caller, upload.Repository)
+	return nil
+}
+
+func callerIsRepository(
+	ctx context.Context, callers domain.CallerRepositories, token domain.IdentityToken, repository domain.GovernedRepository,
+) error {
+	caller, err := callers.RepositoryOf(ctx, token)
+	if err != nil {
+		return fmt.Errorf("verify the caller: %w", err)
+	}
+	if caller != repository {
+		return fmt.Errorf("%w: issued to %s, presented for %s", ErrForeignRepository, caller, repository)
 	}
 	return nil
 }

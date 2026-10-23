@@ -22,12 +22,8 @@ type RunUpload struct {
 
 func (useCase RecordRun) Execute(ctx context.Context, upload RunUpload) error {
 	report := upload.Report
-	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
-	if err != nil {
-		return err
-	}
-	if caller != report.Repository() {
-		return ErrForeignRepository
+	if err := callerIsRepository(ctx, useCase.Callers, upload.Token, report.Repository()); err != nil {
+		return fmt.Errorf("authorise the run of %s: %w", report.Head(), err)
 	}
 	dispatched, err := useCase.Ledger.DispatchedPlanFor(ctx, report.Repository(), report.Head())
 	if err != nil {
