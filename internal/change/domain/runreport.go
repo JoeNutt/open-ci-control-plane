@@ -61,6 +61,8 @@ type RunReport struct {
 
 const MaxReportedTests = 10000
 
+const MaxRunReportBytes int64 = 1 << 20
+
 var ErrTooManyReportedTests = errors.New("the report names more tests than a report may hold")
 
 func ParseRunReport(

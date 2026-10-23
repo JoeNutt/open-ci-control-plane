@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -26,6 +27,12 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 	target, refused := runTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(headSegment))
 	if refused != nil {
 		receiving.answering.write(asked.Context(), answer, refused)
+		return
+	}
+	if asked.ContentLength > domain.MaxRunReportBytes {
+		receiving.answering.write(asked.Context(), answer, limitProblem{
+			Code: "report_too_large", Message: "the report declares a length above the byte bound", Limit: fmt.Sprintf("%d bytes", domain.MaxRunReportBytes),
+		})
 		return
 	}
 	token, _ := bearerTokenIn(asked.Header.Get(authorizationHeader))

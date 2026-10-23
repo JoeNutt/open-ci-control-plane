@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
 const (
@@ -113,4 +114,20 @@ func mustParseURL(t *testing.T, path string) *url.URL {
 		t.Fatalf("parse %q: %v", path, err)
 	}
 	return parsed
+}
+
+func TestAReportDeclaringMoreThanTheByteBoundIsAnswered413NamingItUnread(t *testing.T) {
+	reporting := &runReports{}
+	unread := &unreadUpload{}
+	report := runReport(t, passingReport)
+	report.Body, report.ContentLength = unread, domain.MaxRunReportBytes+1
+
+	answered := reporting.answerTo(t, report)
+
+	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), "1048576 bytes") {
+		t.Errorf("answered %d %s, want %d naming the byte bound", answered.Code, answered.Body.String(), http.StatusRequestEntityTooLarge)
+	}
+	if unread.isRead || len(reporting.received) != 0 {
+		t.Errorf("read %t, recorded %d: want the body unread and nothing recorded", unread.isRead, len(reporting.received))
+	}
 }
