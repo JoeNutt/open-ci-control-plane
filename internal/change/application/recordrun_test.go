@@ -26,6 +26,14 @@ func (ledger *plannedHeads) DispatchedPlanFor(
 	return dispatched, nil
 }
 
+func ledgerHolding(t *testing.T, plan domain.TestPlan) *plannedHeads {
+	t.Helper()
+
+	return &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
+		plan.Head: {Locator: gatedLocator(t), Plan: plan},
+	}}
+}
+
 func (ledger *plannedHeads) RecordReport(_ context.Context, _ domain.GovernedRepository, head domain.CommitSHA) error {
 	if ledger.reported[head] {
 		return errors.New("already reported")
@@ -89,12 +97,9 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 		{"the full matrix reported nothing", domain.TestPlan{Head: head, FullMatrix: true},
 			nil, domain.ConclusionFailure},
 	} {
-		ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
-			head: {Locator: gatedLocator(t), Plan: report.plan},
-		}}
 		published := &publishedCheckRuns{}
 
-		err := application.RecordRun{Ledger: ledger, Publisher: published}.Execute(context.Background(), domain.RunReport{
+		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published}.Execute(context.Background(), domain.RunReport{
 			Repository: gatedLocator(t).GovernedRepository(), Head: head, Results: report.results,
 		})
 
@@ -112,11 +117,11 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 	head := commitSHAOf(t, recordedHeadSHA)
 	suite := plannedSuiteOf(t)
-	ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
-		head: {Locator: gatedLocator(t), Plan: domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}},
-	}}
 	published := &publishedCheckRuns{}
-	useCase := application.RecordRun{Ledger: ledger, Publisher: published}
+	useCase := application.RecordRun{
+		Ledger:    ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}),
+		Publisher: published,
+	}
 	first := domain.RunReport{
 		Repository: gatedLocator(t).GovernedRepository(), Head: head,
 		Results: []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}},
