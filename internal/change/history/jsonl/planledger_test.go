@@ -218,3 +218,36 @@ func TestTheLatestPlanDispatchedForAHeadIsTheOneFound(t *testing.T) {
 			found.DecisionID, err, later.DecisionID)
 	}
 }
+
+func TestTheLedgerListsOneRunPerHeadSayingWhetherItsResultsArrived(t *testing.T) {
+	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
+	reported := dispatchedPlanOf(t)
+	unreported := dispatchedPlanOf(t)
+	otherHead, err := domain.ParseCommitSHA("0a1b2c3d4e5f60718293a4b5c6d7e8f901234567")
+	if err != nil {
+		t.Fatalf("parse head: %v", err)
+	}
+	unreported.Head = otherHead
+	for _, dispatched := range []domain.DispatchedPlan{reported, reported, unreported} {
+		if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
+			t.Fatalf("record dispatch: %v", err)
+		}
+	}
+	if err := ledger.RecordReport(context.Background(), reported.Locator.GovernedRepository(), reported.Head); err != nil {
+		t.Fatalf("record report: %v", err)
+	}
+
+	runs, err := ledger.ShadowedRuns(context.Background())
+
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	isReportedByHead := map[domain.CommitSHA]bool{}
+	for _, run := range runs {
+		isReportedByHead[run.Plan.Head] = run.IsReported
+	}
+	if len(runs) != 2 || !isReportedByHead[reported.Head] || isReportedByHead[unreported.Head] {
+		t.Errorf("the ledger lists %d runs, reported by head %v; want 2, %s reported and %s not",
+			len(runs), isReportedByHead, reported.Head, unreported.Head)
+	}
+}

@@ -248,3 +248,43 @@ func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) 
 	}
 	return parsed, nil
 }
+
+func (ledger *PlanLedger) ShadowedRuns(_ context.Context) ([]domain.ShadowedRun, error) {
+	entries, err := ledger.log.Entries()
+	if err != nil {
+		return nil, err
+	}
+	latest := map[string]ledgerLine{}
+	var order []string
+	reported := map[string]bool{}
+	for _, entry := range entries {
+		var line ledgerLine
+		if err := json.Unmarshal(entry.Body, &line); err != nil {
+			return nil, err
+		}
+		key := line.Repository + "@" + line.Head
+		if line.Kind == dispatchedKind {
+			if _, seen := latest[key]; !seen {
+				order = append(order, key)
+			}
+			latest[key] = line
+		}
+		if line.Kind == reportedKind {
+			reported[key] = true
+		}
+	}
+	var runs []domain.ShadowedRun
+	for _, key := range order {
+		line := latest[key]
+		head, err := domain.ParseCommitSHA(line.Head)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := line.dispatchedPlan(head)
+		if err != nil {
+			return nil, err
+		}
+		runs = append(runs, domain.ShadowedRun{Plan: plan, IsReported: reported[key]})
+	}
+	return runs, nil
+}
