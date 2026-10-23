@@ -70,6 +70,14 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			stated: func(s *domain.BindingStatement) { s.Repository = "open-ci-control-plane" },
 			reason: domain.ErrMalformedRepository,
 		},
+		"a selection mode that is no mode": {
+			stated: func(s *domain.BindingStatement) { s.Selection = "on" },
+			reason: domain.ErrUnknownTestMode,
+		},
+		"a minimisation mode that is no mode": {
+			stated: func(s *domain.BindingStatement) { s.Minimisation = "Enforce" },
+			reason: domain.ErrUnknownTestMode,
+		},
 		"a missing workflow": {
 			stated: func(s *domain.BindingStatement) { s.Workflow = "" },
 			reason: domain.ErrMissingWorkflow,
