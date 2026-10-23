@@ -165,12 +165,12 @@ func (body unreadBody) Read([]byte) (int, error) {
 }
 
 func artifactOfRecords(count int) lcov.Artifact {
-	var records strings.Builder
-	records.WriteString(lines("TN:" + effectTest))
+	records := make([]string, 0, count)
 	for index := range count {
-		records.WriteString(record(fmt.Sprintf("internal/generated/file%d.go", index), lineHit))
+		records = append(records, record(fmt.Sprintf("internal/generated/file%d.go", index), lineHit))
 	}
-	return lcov.Artifact{DeclaredBytes: int64(records.Len()), Body: strings.NewReader(records.String())}
+	artifact := testSection(effectTest, records...)
+	return lcov.Artifact{DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
 }
 
 func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
@@ -188,7 +188,7 @@ func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
 }
 
 func paddedRecord(totalBytes int64) io.Reader {
-	head := "TN:" + effectTest + "\nSF:" + effectPath + "\n"
+	head := testSection(effectTest, lines("SF:"+effectPath))
 	tail := recordClose + "\n"
 	parts := []io.Reader{strings.NewReader(head)}
 	remaining := totalBytes - int64(len(head)+len(tail))
