@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -16,11 +17,11 @@ type CountShadowWindows struct {
 func (useCase CountShadowWindows) Execute(ctx context.Context, repository domain.GovernedRepository) ([]domain.ModeWindow, error) {
 	runs, err := useCase.Runs.ShadowedRuns(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("count the shadow windows of %s: read the runs: %w", repository, err)
 	}
 	escapes, err := useCase.Escapes.RecordedEscapes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("count the shadow windows of %s: read the escapes: %w", repository, err)
 	}
 	return domain.ShadowWindowsFor(repository, runs, escapes), nil
 }
