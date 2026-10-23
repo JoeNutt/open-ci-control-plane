@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 const TestsCheckRunName = "open-ci/tests"
@@ -42,20 +43,13 @@ func ParseTestResult(suite, name, outcome string) (TestResult, error) {
 	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome)}, nil
 }
 
-func isGoIdentifier(name string) bool {
-	if name == "" || !isASCIILetter(name[0]) {
-		return false
-	}
-	for index := 1; index < len(name); index++ {
-		if !isASCIILetter(name[index]) && !(name[index] >= '0' && name[index] <= '9') {
-			return false
-		}
-	}
-	return true
-}
+const (
+	identifierLetters    = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	identifierCharacters = identifierLetters + "0123456789"
+)
 
-func isASCIILetter(character byte) bool {
-	return character == '_' || (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
+func isGoIdentifier(name string) bool {
+	return name != "" && strings.IndexByte(identifierLetters, name[0]) >= 0 && strings.Trim(name, identifierCharacters) == ""
 }
 
 type RunReport struct {
