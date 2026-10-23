@@ -10,7 +10,7 @@ import (
 
 const (
 	oversizedReportCode    = "report_too_large"
-	oversizedReportMessage = "the report declares a length above the byte bound"
+	oversizedReportMessage = "the report is longer than the byte bound; nothing was recorded"
 )
 
 var reportBytesLimit = fmt.Sprintf("%d bytes", domain.MaxRunReportBytes)
