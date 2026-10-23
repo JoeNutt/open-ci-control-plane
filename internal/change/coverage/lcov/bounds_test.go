@@ -141,7 +141,7 @@ func TestReportedFilesAcceptsFileEntriesAtTheBound(t *testing.T) {
 func TestReportedFilesCountsAFileReportedByAnotherTestAsNoNewEntry(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	atTheBound := artifactOfRecords(limits.MaxFileEntries)
-	again := testSection("TestGenerated", record(generatedPath(0), lineHit))
+	again := testSection(generatedTest(0), record(generatedPath(0), lineHit))
 	artifact := lcov.Artifact{Body: io.MultiReader(atTheBound.Body, strings.NewReader(again))}
 
 	reported, err := artifact.ReportedFiles(limits)
@@ -210,9 +210,13 @@ func artifactOfRecords(count int) lcov.Artifact {
 func artifactOfTestSections(count int) lcov.Artifact {
 	var sections strings.Builder
 	for index := range count {
-		sections.WriteString(testSection(fmt.Sprintf("TestGenerated%d", index), record(effectPath, lineHit)))
+		sections.WriteString(testSection(generatedTest(index), record(effectPath, lineHit)))
 	}
 	return lcov.Artifact{DeclaredBytes: int64(sections.Len()), Body: strings.NewReader(sections.String())}
+}
+
+func generatedTest(index int) string {
+	return fmt.Sprintf("TestGenerated%d", index)
 }
 
 func generatedPath(index int) string {
