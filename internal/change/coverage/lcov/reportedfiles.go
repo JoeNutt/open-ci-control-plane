@@ -143,7 +143,7 @@ func (reading *recordReading) openRecord(path string) error {
 	if err != nil {
 		return err
 	}
-	if breach := reading.limits.FileEntriesBreach(reading.reported.countWith(parsed)); breach != nil {
+	if breach := reading.limits.FileEntriesBreach(reading.reported.entriesWith(parsed)); breach != nil {
 		return breach
 	}
 	reading.currentPath = parsed
@@ -192,7 +192,7 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
 		return nil, errTruncatedRecord
 	}
-	if reading.reported.count() == 0 {
+	if reading.reported.entries() == 0 {
 		return nil, errNoRecord
 	}
 	return reading.reported.files, nil

@@ -14,8 +14,8 @@ func emptyFileUnion() fileUnion {
 }
 
 func (union *fileUnion) include(file domain.ReportedFile) {
-	position, isSeen := union.positionOf[file.Path()]
-	if !isSeen {
+	position, isHeld := union.positionOf[file.Path()]
+	if !isHeld {
 		union.positionOf[file.Path()] = len(union.files)
 		union.files = append(union.files, file)
 		return
@@ -24,11 +24,16 @@ func (union *fileUnion) include(file domain.ReportedFile) {
 	union.files[position] = domain.NewReportedFile(file.Path(), isExercised)
 }
 
-func (union fileUnion) count() int { return len(union.files) }
-
-func (union fileUnion) countWith(path domain.RepositoryPath) int {
-	if _, isSeen := union.positionOf[path]; isSeen {
-		return len(union.files)
+func (union fileUnion) entriesWith(path domain.RepositoryPath) int {
+	if union.holds(path) {
+		return union.entries()
 	}
-	return len(union.files) + 1
+	return union.entries() + 1
+}
+
+func (union fileUnion) entries() int { return len(union.files) }
+
+func (union fileUnion) holds(path domain.RepositoryPath) bool {
+	_, isHeld := union.positionOf[path]
+	return isHeld
 }
