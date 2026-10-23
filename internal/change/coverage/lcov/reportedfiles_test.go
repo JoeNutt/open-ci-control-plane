@@ -19,10 +19,12 @@ const (
 	lineHit     = "DA:7,3"
 	lineMissed  = "DA:7,0"
 	recordClose = "end_of_record"
+	effectTest  = "TestEffect"
+	gateTest    = "TestGate"
 )
 
 func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
-	artifact := lines("TN:", "SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose)
+	artifact := testSection(effectTest, lines("SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose))
 
 	reported, err := reportedFilesIn(artifact)
 
@@ -36,7 +38,7 @@ func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
 }
 
 func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
-	artifact := record(effectPath, lineHit) + record(gatePath, lineMissed, "DA:8,0")
+	artifact := testSection(effectTest, record(effectPath, lineHit), record(gatePath, lineMissed, "DA:8,0"))
 
 	reported, err := reportedFilesIn(artifact)
 
@@ -52,8 +54,44 @@ func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
 	}
 }
 
+func TestReportedFilesReportsTheUnionOfItsTestsOncePerFile(t *testing.T) {
+	artifact := testSection(effectTest, record(effectPath, lineMissed), record(gatePath, lineMissed)) +
+		testSection(gateTest, record(effectPath, lineHit), record(gatePath, lineMissed))
+
+	reported, err := reportedFilesIn(artifact)
+
+	if err != nil {
+		t.Fatalf("parse two test sections: %v", err)
+	}
+	want := []domain.ReportedFile{
+		domain.NewReportedFile(repositoryPath(t, effectPath), true),
+		domain.NewReportedFile(repositoryPath(t, gatePath), false),
+	}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
+func TestReportedFilesReadsTheArtifactCIUploads(t *testing.T) {
+	artifact := testSection(effectTest, record(effectPath, "DA:7,1", "DA:8,4"), record(gatePath, "DA:3,1")) +
+		testSection(gateTest, record(gatePath, "DA:3,2", "DA:9,1"))
+
+	reported, err := reportedFilesIn(artifact)
+
+	if err != nil {
+		t.Fatalf("parse the artifact CI uploads: %v", err)
+	}
+	want := []domain.ReportedFile{
+		domain.NewReportedFile(repositoryPath(t, effectPath), true),
+		domain.NewReportedFile(repositoryPath(t, gatePath), true),
+	}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
-	err := refusalOf(t, record(effectPath, lineHit)+record(runnerPath, lineHit))
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), record(runnerPath, lineHit)))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -64,7 +102,7 @@ func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
 }
 
 func TestReportedFilesRefusesATruncatedArtifactWhole(t *testing.T) {
-	err := refusalOf(t, record(effectPath, lineHit)+lines("SF:"+gatePath, lineHit))
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), lines("SF:"+gatePath, lineHit)))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -79,11 +117,56 @@ func TestReportedFilesRefusesAnArtifactWithNoRecord(t *testing.T) {
 	}
 }
 
+func TestReportedFilesRefusesAnArtifactWithNoTestSectionWhole(t *testing.T) {
+	err := refusalOf(t, record(effectPath, lineHit))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesARecordOutsideATestSectionWhole(t *testing.T) {
+	err := refusalOf(t, record(gatePath, lineHit)+testSection(effectTest, record(effectPath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesATestSectionWithNoNameWhole(t *testing.T) {
+	err := refusalOf(t, testSection(effectTest, record(gatePath, lineHit))+testSection("", record(effectPath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesASectionNamingNoTopLevelTestWhole(t *testing.T) {
+	for _, name := range []string{"BenchmarkEffect", "test", "Testé", "Test-Effect", "Test Effect", "TestEffect/sub", "TestEffect\x00"} {
+		t.Run(name, func(t *testing.T) {
+			err := refusalOf(t, testSection(name, record(effectPath, lineHit)))
+
+			if !errors.Is(err, lcov.ErrMalformedArtifact) {
+				t.Fatalf("want ErrMalformedArtifact, got %v", err)
+			}
+		})
+	}
+}
+
+func TestReportedFilesRefusesATestNamedByTwoSectionsWhole(t *testing.T) {
+	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit))+
+		testSection(gateTest, record(gatePath, lineHit))+testSection(effectTest, record(gatePath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
 func TestReportedFilesRefusesARecordOutOfOrder(t *testing.T) {
 	refused := map[string]string{
-		"line data before any record":    lineHit + "\n" + record(effectPath),
-		"a record opened inside another": lines("SF:"+effectPath) + record(gatePath),
-		"a record closed twice":          record(effectPath) + lines(recordClose),
+		"line data before any record":    testSection(effectTest, lines(lineHit), record(effectPath)),
+		"a record opened inside another": testSection(effectTest, lines("SF:"+effectPath), record(gatePath)),
+		"a record closed twice":          testSection(effectTest, record(effectPath), lines(recordClose)),
 	}
 
 	for form, artifact := range refused {
@@ -107,7 +190,7 @@ func TestReportedFilesRefusesAMalformedLine(t *testing.T) {
 
 	for form, line := range refused {
 		t.Run(form, func(t *testing.T) {
-			err := refusalOf(t, record(effectPath, line))
+			err := refusalOf(t, testSection(effectTest, record(effectPath, line)))
 
 			if !errors.Is(err, lcov.ErrMalformedArtifact) {
 				t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -127,9 +210,16 @@ func refusalOf(t *testing.T, artifact string) error {
 }
 
 func reportedFilesIn(artifact string) ([]domain.ReportedFile, error) {
-	var report domain.CoverageReport = lcov.Artifact{
-		DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+	var report domain.CoverageReport = artifactOf(artifact)
 	return report.ReportedFiles(domain.DeclaredCoverageLimits())
+}
+
+func artifactOf(text string) lcov.Artifact {
+	return lcov.Artifact{DeclaredBytes: int64(len(text)), Body: strings.NewReader(text)}
+}
+
+func testSection(name string, records ...string) string {
+	return lines("TN:"+name) + strings.Join(records, "")
 }
 
 func record(path string, body ...string) string {

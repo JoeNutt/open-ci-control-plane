@@ -53,6 +53,8 @@ var coverageRefusals = []causedRefusal{
 	{cause: domain.ErrDecompressedArtifactTooLarge, refusal: boundProblem(decompressedArtifactLimit), level: slog.LevelWarn},
 	{cause: domain.ErrTooManyFileEntries, refusal: boundProblem(fileEntriesLimit), level: slog.LevelWarn},
 	{cause: domain.ErrTooManySuites, refusal: boundProblem(suitesLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManyTestSections, refusal: boundProblem(testSectionsLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManyLineRecords, refusal: boundProblem(lineRecordsLimit), level: slog.LevelWarn},
 }
 
 func coverageRefusalOf(failure error) loggedAnswer {

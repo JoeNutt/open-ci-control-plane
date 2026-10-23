@@ -47,13 +47,15 @@ func TestAFormMissingAPartIsAnswered400NamingIt(t *testing.T) {
 	}
 }
 
-func TestAnArtifactOverAnNFR5BoundIsAnswered413NamingThatBound(t *testing.T) {
+func TestAnArtifactOverAnNFR5OrNFR13BoundIsAnswered413NamingThatBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	for breach, bound := range map[error]string{
 		domain.ErrCompressedArtifactTooLarge:   fmt.Sprint(limits.MaxCompressedBytes),
 		domain.ErrDecompressedArtifactTooLarge: fmt.Sprint(limits.MaxDecompressedBytes),
 		domain.ErrTooManyFileEntries:           fmt.Sprint(limits.MaxFileEntries),
 		domain.ErrTooManySuites:                fmt.Sprint(limits.MaxSuitesPerRepository),
+		domain.ErrTooManyTestSections:          fmt.Sprint(limits.MaxTestSections),
+		domain.ErrTooManyLineRecords:           fmt.Sprint(limits.MaxLineRecords),
 	} {
 		refused := coverageRefusalOf(fmt.Errorf("refuse coverage: %w", breach))
 

@@ -37,15 +37,25 @@ const (
 	rateExceededCode              = "rate_exceeded"
 	rateExceededMessage           = "the repository has uploaded more coverage this minute than C-12 allows"
 	retryAfterHeader              = "Retry-After"
-	boundExceededMessage          = "the artifact exceeds an NFR-5 bound; nothing was stored"
+	boundExceededMessage          = "the artifact exceeds an NFR-5 or NFR-13 bound; nothing was stored"
 )
 
 var (
-	compressedArtifactLimit   = fmt.Sprintf("%d compressed bytes", domain.DeclaredCoverageLimits().MaxCompressedBytes)
-	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", domain.DeclaredCoverageLimits().MaxDecompressedBytes)
-	fileEntriesLimit          = fmt.Sprintf("%d file entries", domain.DeclaredCoverageLimits().MaxFileEntries)
-	suitesLimit               = fmt.Sprintf("%d suites per repository", domain.DeclaredCoverageLimits().MaxSuitesPerRepository)
+	compressedArtifactLimit   = statedLimitOf(domain.ErrCompressedArtifactTooLarge)
+	decompressedArtifactLimit = statedLimitOf(domain.ErrDecompressedArtifactTooLarge)
+	fileEntriesLimit          = statedLimitOf(domain.ErrTooManyFileEntries)
+	suitesLimit               = statedLimitOf(domain.ErrTooManySuites)
+	testSectionsLimit         = statedLimitOf(domain.ErrTooManyTestSections)
+	lineRecordsLimit          = statedLimitOf(domain.ErrTooManyLineRecords)
 )
+
+func statedLimitOf(bound error) string {
+	limit, isStated := domain.DeclaredCoverageLimits().LimitOf(bound)
+	if !isStated {
+		panic(fmt.Sprintf("unreachable: the domain states no limit for %v", bound))
+	}
+	return limit
+}
 
 func malformedPathProblem(segment string) refusal {
 	return fieldProblem{Code: malformedPathCode, Message: malformedPathMessage, Field: segment}

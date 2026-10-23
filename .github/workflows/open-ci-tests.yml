@@ -21,7 +21,7 @@ jobs:
     env:
       PLAN: ${{ inputs.plan }}
       GH_TOKEN: ${{ github.token }}
-      CONTROL_PLANE: https://ci.joenutt.com
+      CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
     steps:
       - name: Read the plan
         id: plan
@@ -81,18 +81,19 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Check out this workflow's own actions
+        if: steps.current.outputs.is_current == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: .open-ci-workflow-actions
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Install the tools the suite shells out to
         if: steps.current.outputs.is_current == 'true'
-        env:
-          OPA_VERSION: v1.21.2
-          OPA_SHA256: 830ab11f61ffec760b5e19db0d7ad02bf037e13f5ef4d665faeaf17632177527
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq cmark-gfm
-          curl -fsSL -o "$RUNNER_TEMP/opa" "https://github.com/open-policy-agent/opa/releases/download/$OPA_VERSION/opa_linux_amd64_static"
-          echo "$OPA_SHA256  $RUNNER_TEMP/opa" | sha256sum --check --strict
-          sudo install -m 0755 "$RUNNER_TEMP/opa" /usr/local/bin/opa
+        uses: ./.open-ci-workflow-actions/.github/actions/install-suite-tools
 
       - name: Run the planned suites
         id: tests

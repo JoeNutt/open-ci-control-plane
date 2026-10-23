@@ -180,9 +180,14 @@ paths:
                   type: string
                   format: binary
                   description: |
-                    The LCOV artifact, optionally gzipped. Its SF paths are repository-relative.
+                    The LCOV artifact for the package (the suite), optionally gzipped, with
+                    per-test coverage: one TN:<TestName> section per top-level test, each holding
+                    SF: and DA: records. Every SF record sits inside a section, and every section
+                    names a different top-level test: Test followed by ASCII letters, digits or
+                    underscores, on a line of at most 64 KiB. Its SF paths are repository-relative. The suite's map is the
+                    union of its tests: one entry per file, exercised when any test exercised it.
                     Limits (NFR-5): 256 MiB decompressed, 200,000 file entries, 5,000 suites per
-                    repository.
+                    repository. Limits (NFR-13): 10,000 TN sections, 2,000,000 DA records.
       responses:
         '201':
           description: Coverage map accepted and now serving plans.
@@ -193,7 +198,10 @@ paths:
           description: |
             A path segment C-12 does not admit, a body that is not multipart/form-data, a
             missing format or artifact part, a format other than lcov, or an artifact that
-            is not parseable as LCOV. The body names which.
+            is not parseable as LCOV: among them an artifact without TN sections, an SF
+            record outside a TN section, a TN section that names no top-level test, or a
+            test named by two sections. The body
+            names which; nothing is stored.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -204,7 +212,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '413':
-          description: An NFR-5 bound was exceeded, or the length is undeclared. The body names the bound; nothing stored.
+          description: An NFR-5 or NFR-13 bound was exceeded, or the length is undeclared. The body names the bound; nothing stored.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

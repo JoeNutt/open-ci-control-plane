@@ -3,6 +3,7 @@
 package lcov_test
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"errors"
@@ -26,7 +27,7 @@ func TestReportedFilesAcceptsADeclaredLengthAtTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{
 		DeclaredBytes: limits.MaxCompressedBytes,
-		Body:          strings.NewReader(record(effectPath, lineHit)),
+		Body:          strings.NewReader(testSection(effectTest, record(effectPath, lineHit))),
 	}
 
 	_, err := artifact.ReportedFiles(limits)
@@ -69,7 +70,7 @@ func TestReportedFilesRefusesABodyLongerThanTheBoundWhateverItDeclares(t *testin
 }
 
 func TestReportedFilesReadsAGzippedArtifact(t *testing.T) {
-	compressed := gzipped(t, strings.NewReader(record(effectPath, lineHit)))
+	compressed := gzipped(t, strings.NewReader(testSection(effectTest, record(effectPath, lineHit))))
 	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 
 	reported, err := artifact.ReportedFiles(domain.DeclaredCoverageLimits())
@@ -138,12 +139,74 @@ func TestReportedFilesAcceptsFileEntriesAtTheBound(t *testing.T) {
 	}
 }
 
+func TestReportedFilesCountsAFileReportedByAnotherTestAsNoNewEntry(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	atTheBound := artifactOfRecords(limits.MaxFileEntries)
+	again := testSection(generatedTest(0), record(generatedPath(0), lineHit))
+	artifact := lcov.Artifact{Body: io.MultiReader(atTheBound.Body, strings.NewReader(again))}
+
+	reported, err := artifact.ReportedFiles(limits)
+
+	if err != nil {
+		t.Fatalf("want a file reported again accepted at the bound, got %v", err)
+	}
+	if len(reported) != limits.MaxFileEntries {
+		t.Fatalf("reported %d entries, want %d", len(reported), limits.MaxFileEntries)
+	}
+}
+
 func TestReportedFilesRefusesMoreFileEntriesThanTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
 	_, err := artifactOfRecords(limits.MaxFileEntries + 1).ReportedFiles(limits)
 
 	assertBreachOf(t, domain.ErrTooManyFileEntries, err)
+}
+
+func TestReportedFilesAcceptsTestSectionsAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfTestSections(limits.MaxTestSections).ReportedFiles(limits)
+
+	if err != nil {
+		t.Fatalf("want sections at the bound accepted, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesMoreTestSectionsThanTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfTestSections(limits.MaxTestSections + 1).ReportedFiles(limits)
+
+	assertBreachOf(t, domain.ErrTooManyTestSections, err)
+}
+
+func TestReportedFilesAcceptsLineRecordsAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfLineRecords(limits.MaxLineRecords).ReportedFiles(limits)
+
+	if err != nil {
+		t.Fatalf("want DA records at the bound accepted, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesMoreLineRecordsThanTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfLineRecords(limits.MaxLineRecords + 1).ReportedFiles(limits)
+
+	assertBreachOf(t, domain.ErrTooManyLineRecords, err)
+}
+
+func TestReportedFilesRefusesATestNameLongerThanALineBeforeReadingIt(t *testing.T) {
+	overlong := effectTest + strings.Repeat("A", bufio.MaxScanTokenSize)
+
+	_, err := artifactOf(testSection(overlong, record(effectPath, lineHit))).ReportedFiles(domain.DeclaredCoverageLimits())
+
+	if !errors.Is(err, bufio.ErrTooLong) || !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want the line refused as too long, got %v", err)
+	}
 }
 
 func assertBreachOf(t *testing.T, bound, err error) {
@@ -165,11 +228,31 @@ func (body unreadBody) Read([]byte) (int, error) {
 }
 
 func artifactOfRecords(count int) lcov.Artifact {
-	var records strings.Builder
+	records := make([]string, 0, count)
 	for index := range count {
-		records.WriteString(record(fmt.Sprintf("internal/generated/file%d.go", index), lineHit))
+		records = append(records, record(generatedPath(index), lineHit))
 	}
-	return lcov.Artifact{DeclaredBytes: int64(records.Len()), Body: strings.NewReader(records.String())}
+	return artifactOf(testSection(effectTest, records...))
+}
+
+func artifactOfTestSections(count int) lcov.Artifact {
+	var sections strings.Builder
+	for index := range count {
+		sections.WriteString(testSection(generatedTest(index), record(effectPath, lineHit)))
+	}
+	return artifactOf(sections.String())
+}
+
+func artifactOfLineRecords(count int) lcov.Artifact {
+	return artifactOf(testSection(effectTest, record(effectPath, slices.Repeat([]string{lineHit}, count)...)))
+}
+
+func generatedTest(index int) string {
+	return fmt.Sprintf("TestGenerated%d", index)
+}
+
+func generatedPath(index int) string {
+	return fmt.Sprintf("internal/generated/file%d.go", index)
 }
 
 func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
@@ -187,7 +270,7 @@ func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
 }
 
 func paddedRecord(totalBytes int64) io.Reader {
-	head := "SF:" + effectPath + "\n"
+	head := testSection(effectTest, lines("SF:"+effectPath))
 	tail := recordClose + "\n"
 	parts := []io.Reader{strings.NewReader(head)}
 	remaining := totalBytes - int64(len(head)+len(tail))
