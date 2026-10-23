@@ -8,17 +8,21 @@ import (
 )
 
 type BindingStatement struct {
-	Repository string
-	Workflow   string
-	AlwaysRun  []string
-	Policies   []BoundPolicyStatement
+	Repository   string
+	Workflow     string
+	AlwaysRun    []string
+	Selection    string
+	Minimisation string
+	Policies     []BoundPolicyStatement
 }
 
 type Binding struct {
-	repository GovernedRepository
-	workflow   WorkflowFile
-	alwaysRun  []GoImportPath
-	policies   []BoundPolicy
+	repository   GovernedRepository
+	workflow     WorkflowFile
+	alwaysRun    []GoImportPath
+	selection    TestMode
+	minimisation TestMode
+	policies     []BoundPolicy
 }
 
 func ParseBinding(stated BindingStatement) (Binding, error) {
@@ -42,6 +46,10 @@ func (binding Binding) Workflow() WorkflowFile { return binding.workflow }
 
 func (binding Binding) AlwaysRun() []GoImportPath { return slices.Clone(binding.alwaysRun) }
 
+func (binding Binding) SelectionMode() TestMode { return binding.selection }
+
+func (binding Binding) MinimisationMode() TestMode { return binding.minimisation }
+
 func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
 
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
@@ -57,7 +65,25 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, err
 	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
+	selection, err := modeOf(stated.Selection, TestModeShadow)
+	if err != nil {
+		return Binding{}, fmt.Errorf("selection mode: %w", err)
+	}
+	minimisation, err := modeOf(stated.Minimisation, TestModeOff)
+	if err != nil {
+		return Binding{}, fmt.Errorf("minimisation mode: %w", err)
+	}
+	return Binding{
+		repository: repository, workflow: workflow, alwaysRun: alwaysRun,
+		selection: selection, minimisation: minimisation, policies: policies,
+	}, nil
+}
+
+func modeOf(stated string, unstated TestMode) (TestMode, error) {
+	if stated == "" {
+		return unstated, nil
+	}
+	return ParseTestMode(stated)
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {

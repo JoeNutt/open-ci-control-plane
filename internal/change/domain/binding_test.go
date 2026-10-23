@@ -70,6 +70,14 @@ func TestParseBindingRefusesABindingItCannotTrust(t *testing.T) {
 			stated: func(s *domain.BindingStatement) { s.Repository = "open-ci-control-plane" },
 			reason: domain.ErrMalformedRepository,
 		},
+		"a selection mode that is no mode": {
+			stated: func(s *domain.BindingStatement) { s.Selection = "on" },
+			reason: domain.ErrUnknownTestMode,
+		},
+		"a minimisation mode that is no mode": {
+			stated: func(s *domain.BindingStatement) { s.Minimisation = "Enforce" },
+			reason: domain.ErrUnknownTestMode,
+		},
 		"a missing workflow": {
 			stated: func(s *domain.BindingStatement) { s.Workflow = "" },
 			reason: domain.ErrMissingWorkflow,
@@ -147,5 +155,35 @@ func thisRepositorysBinding() domain.BindingStatement {
 				"adapter": {"internal/change/forge/**", "internal/change/policy/**"},
 			},
 		}},
+	}
+}
+
+func TestParseBindingKeepsItsSelectionModeAndStartsInShadowWhenItStatesNone(t *testing.T) {
+	for stated, want := range map[string]domain.TestMode{
+		"": domain.TestModeShadow, "off": domain.TestModeOff, "shadow": domain.TestModeShadow, "enforce": domain.TestModeEnforce,
+	} {
+		statement := thisRepositorysBinding()
+		statement.Selection = stated
+
+		binding, err := domain.ParseBinding(statement)
+
+		if err != nil || binding.SelectionMode() != want {
+			t.Errorf("selection %q gave mode %q (%v), want %q", stated, binding.SelectionMode(), err, want)
+		}
+	}
+}
+
+func TestParseBindingKeepsItsMinimisationModeAndLeavesItOffWhenItStatesNone(t *testing.T) {
+	for stated, want := range map[string]domain.TestMode{
+		"": domain.TestModeOff, "off": domain.TestModeOff, "shadow": domain.TestModeShadow, "enforce": domain.TestModeEnforce,
+	} {
+		statement := thisRepositorysBinding()
+		statement.Minimisation = stated
+
+		binding, err := domain.ParseBinding(statement)
+
+		if err != nil || binding.MinimisationMode() != want {
+			t.Errorf("minimisation %q gave mode %q (%v), want %q", stated, binding.MinimisationMode(), err, want)
+		}
 	}
 }

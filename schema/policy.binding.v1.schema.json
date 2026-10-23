@@ -5,6 +5,9 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "repository", "policies", "tests"],
+  "definitions": {
+    "testMode": { "enum": ["off", "shadow", "enforce"] }
+  },
   "properties": {
     "schema_version": { "type": "integer", "const": 1 },
     "repository": { "type": "string", "minLength": 1 },
@@ -47,7 +50,9 @@
         "always_run": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "selection": { "$ref": "#/definitions/testMode" },
+        "minimisation": { "$ref": "#/definitions/testMode" }
       }
     }
   }

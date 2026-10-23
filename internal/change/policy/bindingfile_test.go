@@ -54,6 +54,10 @@ func bindingsRefusedByTheirShape(t *testing.T) map[string]refusedFile {
 	t.Helper()
 
 	return map[string]refusedFile{
+		"a test mode that is no mode": {
+			written: liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  selection: on"),
+			reason:  domain.ErrUnknownTestMode,
+		},
 		"an import root with no path": {
 			written: liveBindingWith(t, liveRootPathLine+"\n", ""),
 			reason:  policy.ErrMissingKey,
@@ -99,4 +103,25 @@ func liveBindingWith(t *testing.T, written, replacement string) string {
 	t.Helper()
 
 	return fixtureWith(t, liveBindingPath, written, replacement)
+}
+
+func TestParseBindingFileReadsEachTestModeFromTheTestsBlock(t *testing.T) {
+	for name, stated := range map[string]struct {
+		written      string
+		selection    domain.TestMode
+		minimisation domain.TestMode
+	}{
+		"both stated": {
+			written:   liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  selection: enforce\n  minimisation: shadow"),
+			selection: domain.TestModeEnforce, minimisation: domain.TestModeShadow,
+		},
+		"neither stated": {written: string(fixture(t, liveBindingPath)), selection: domain.TestModeShadow, minimisation: domain.TestModeOff},
+	} {
+		parsed, err := policy.ParseBindingFile([]byte(stated.written))
+
+		if err != nil || parsed.SelectionMode() != stated.selection || parsed.MinimisationMode() != stated.minimisation {
+			t.Errorf("%s: modes %q and %q (%v), want %q and %q", name,
+				parsed.SelectionMode(), parsed.MinimisationMode(), err, stated.selection, stated.minimisation)
+		}
+	}
 }

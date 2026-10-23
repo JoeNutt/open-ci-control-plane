@@ -108,3 +108,11 @@ func faultsIn(t *testing.T, answered []byte) []string {
 	}
 	return described
 }
+
+func TestTheBindingSchemaAdmitsBothTestModes(t *testing.T) {
+	stated := liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  selection: enforce\n  minimisation: shadow")
+
+	if faults := schemaFaultsOf(t, stated, bindingSchemaPath); len(faults) != 0 {
+		t.Errorf("a binding stating both test modes does not match %s: %v", bindingSchemaPath, faults)
+	}
+}
