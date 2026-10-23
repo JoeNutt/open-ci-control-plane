@@ -104,12 +104,20 @@ func (ledger *PlanLedger) append(line ledgerLine) error {
 }
 
 type ledgerLine struct {
-	Kind        lineKind `json:"kind"`
-	Repository  string   `json:"repository"`
-	PullRequest int      `json:"pullRequest,omitempty"`
-	Head        string   `json:"head"`
-	DecisionID  string   `json:"decisionId,omitempty"`
-	Suites      []string `json:"suites,omitempty"`
+	Kind         lineKind      `json:"kind"`
+	Repository   string        `json:"repository"`
+	PullRequest  int           `json:"pullRequest,omitempty"`
+	Head         string        `json:"head"`
+	DecisionID   string        `json:"decisionId,omitempty"`
+	Suites       []string      `json:"suites,omitempty"`
+	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
+	Recorded     *recordedLine `json:"recorded,omitempty"`
+	ChangedFiles []string      `json:"changedFiles,omitempty"`
+}
+
+type recordedLine struct {
+	Selected  []string `json:"selected"`
+	Minimised []string `json:"minimised"`
 }
 
 func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
@@ -117,7 +125,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 	for _, suite := range dispatched.Suites {
 		suites = append(suites, suite.String())
 	}
-	return ledgerLine{
+	line := ledgerLine{
 		Kind:        dispatchedKind,
 		Repository:  dispatched.Locator.Repository(),
 		PullRequest: dispatched.Locator.Number(),
@@ -125,6 +133,22 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 		DecisionID:  dispatched.DecisionID.String(),
 		Suites:      suites,
 	}
+	for _, path := range dispatched.AlwaysRun {
+		line.AlwaysRun = append(line.AlwaysRun, path.String())
+	}
+	for _, path := range dispatched.ChangedFiles {
+		line.ChangedFiles = append(line.ChangedFiles, path.String())
+	}
+	if dispatched.Recorded.IsRecorded {
+		line.Recorded = &recordedLine{}
+		for _, suite := range dispatched.Recorded.Selected {
+			line.Recorded.Selected = append(line.Recorded.Selected, suite.String())
+		}
+		for _, suite := range dispatched.Recorded.Minimised {
+			line.Recorded.Minimised = append(line.Recorded.Minimised, suite.String())
+		}
+	}
+	return line
 }
 
 func (line ledgerLine) dispatchedPlan(head domain.CommitSHA) (domain.DispatchedPlan, error) {
@@ -140,7 +164,33 @@ func (line ledgerLine) dispatchedPlan(head domain.CommitSHA) (domain.DispatchedP
 	if err != nil {
 		return domain.DispatchedPlan{}, fmt.Errorf("read the plan dispatched for %s: %w", head, err)
 	}
-	return domain.DispatchedPlan{Locator: locator, Head: head, DecisionID: id, Suites: suites}, nil
+	dispatched := domain.DispatchedPlan{Locator: locator, Head: head, DecisionID: id, Suites: suites}
+	for _, stated := range line.AlwaysRun {
+		path, err := domain.ParseGoImportPath(stated)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+		dispatched.AlwaysRun = append(dispatched.AlwaysRun, path)
+	}
+	for _, stated := range line.ChangedFiles {
+		path, err := domain.ParseRepositoryPath(stated)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+		dispatched.ChangedFiles = append(dispatched.ChangedFiles, path)
+	}
+	if line.Recorded != nil {
+		selected, err := suitesOf(line.Recorded.Selected)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+		minimised, err := suitesOf(line.Recorded.Minimised)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+		dispatched.Recorded = domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}
+	}
+	return dispatched, nil
 }
 
 func suitesOf(stated []string) ([]domain.CoverageSuite, error) {
