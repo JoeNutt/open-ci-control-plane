@@ -220,6 +220,71 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /v1/repositories/{owner}/{repo}/runs/{headSha}:
+    put:
+      operationId: recordRun
+      tags: [analysis]
+      summary: Report a dispatched plan's test results (C-13)
+      description: |
+        CI reports each test of the run the control plane dispatched for this head. The
+        control plane then posts open-ci/tests as the App: success only when no
+        reported test failed and every planned suite reported. A skip is not a
+        failure. One report per head; the report is judged against the latest plan
+        dispatched for that head, under the decision it carries.
+
+        The token is verified before any byte of the body is read. Fields this card does
+        not read (seconds, rerunOutcome) are accepted and ignored.
+      security:
+        - workloadToken: []
+      parameters:
+        - { $ref: '#/components/parameters/Owner' }
+        - { $ref: '#/components/parameters/Repo' }
+        - { $ref: '#/components/parameters/HeadSha' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunReport' }
+      responses:
+        '201':
+          description: The report was recorded and open-ci/tests posted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunRecorded' }
+        '400':
+          description: |
+            A path segment C-13 does not admit, a body that is not one report object, or a
+            decision ID or test that does not parse. The body names which.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: The token's repository differs from the path's. Logged; nothing recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: No plan was dispatched for this head under the report's decision. Nothing posted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: This head's run was already reported. Nothing posted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413':
+          description: Over NFR-18's 1 MiB (1048576 bytes) or 10,000 tests. The body names the bound; nothing recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500':
+          description: The run could not be recorded for a reason C-13 does not classify. Logged with its cause.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /v1/bindings/{bindingId}:
     put:
       operationId: replaceBinding
@@ -689,6 +754,31 @@ components:
       properties:
         suite: { type: string, maxLength: 512 }
         fileEntryCount: { type: integer, format: int64 }
+
+    RunReport:
+      type: object
+      required: [decisionId, tests]
+      properties:
+        decisionId: { type: string, pattern: '^dec_[0-9a-f]{32}$' }
+        tests:
+          type: array
+          maxItems: 10000
+          items:
+            type: object
+            required: [package, name, outcome]
+            properties:
+              package: { type: string, maxLength: 512, description: The test's Go package, as a coverage suite }
+              name: { type: string, pattern: '^[A-Za-z_][A-Za-z0-9_]*$', description: A top-level test function (D-9) }
+              outcome: { type: string, enum: [pass, fail, skip] }
+              rerunOutcome: { type: string, enum: [pass, fail] }
+              seconds: { type: number, minimum: 0 }
+
+    RunRecorded:
+      type: object
+      required: [headSha, recorded]
+      properties:
+        headSha: { type: string, pattern: '^[0-9a-f]{40}$' }
+        recorded: { type: integer, format: int64 }
 
     Selector:
       type: object
