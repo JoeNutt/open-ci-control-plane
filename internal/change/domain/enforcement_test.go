@@ -9,12 +9,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const (
-	day               = 24 * time.Hour
-	shadowWindow      = 30 * day
-	minimumShadowRuns = 20
-)
-
 var gatedAt = time.Date(2026, 11, 30, 12, 0, 0, 0, time.UTC)
 
 func gatedLocatorIn(t *testing.T, repository string) domain.PullRequestLocator {
@@ -27,114 +21,28 @@ func gatedLocatorIn(t *testing.T, repository string) domain.PullRequestLocator {
 	return locator
 }
 
-func shadowRunAt(t *testing.T, at time.Time, isRecorded bool) domain.ShadowedRun {
+func hourlyCleanHistoryOf(t *testing.T, repository string) []domain.ShadowedRun {
 	t.Helper()
 
-	inShadow := domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
-	return domain.ShadowedRun{
-		At: at,
-		Plan: domain.DispatchedPlan{
-			Locator: gatedLocatorIn(t, thisRepository), Modes: inShadow, Recorded: domain.RecordedSets{IsRecorded: isRecorded},
-		},
-		IsReported: true,
+	inShadow := domain.DispatchedPlan{
+		Locator:  gatedLocatorIn(t, repository),
+		Modes:    domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
+		Recorded: domain.RecordedSets{IsRecorded: true},
 	}
-}
-
-func evidenceRuns(t *testing.T, count int, oldest time.Time) []domain.ShadowedRun {
-	t.Helper()
-
-	runs := make([]domain.ShadowedRun, 0, count)
-	for index := range count {
-		runs = append(runs, shadowRunAt(t, oldest.Add(time.Duration(index)*time.Hour), true))
+	var runs []domain.ShadowedRun
+	for at := gatedAt.AddDate(0, -2, 0); at.Before(gatedAt); at = at.Add(time.Hour) {
+		runs = append(runs, domain.ShadowedRun{At: at, Plan: inShadow, IsReported: true})
 	}
 	return runs
 }
 
-func provenRuns(t *testing.T) []domain.ShadowedRun {
+func anEscapeAnHourAgo(t *testing.T, mode domain.ShadowedMode, repository string) []domain.Escape {
 	t.Helper()
 
-	return append(evidenceRuns(t, minimumShadowRuns, gatedAt.Add(-10*day)), shadowRunAt(t, gatedAt.Add(-shadowWindow-day), false))
+	return []domain.Escape{{Mode: mode, PullRequest: gatedLocatorIn(t, repository), At: gatedAt.Add(-time.Hour)}}
 }
 
-func escapeOf(t *testing.T, mode domain.ShadowedMode, at time.Time) []domain.Escape {
-	t.Helper()
-
-	return []domain.Escape{{Mode: mode, PullRequest: gatedLocatorIn(t, thisRepository), At: at}}
-}
-
-func selectionGateOn(t *testing.T, runs []domain.ShadowedRun, escapes []domain.Escape) domain.PlanTrigger {
-	t.Helper()
-
-	plan := modedPlanOf(t, "enforce", "off").GatedOn(runs, escapes, gatedAt)
-	if plan.Modes.Selection == domain.TestModeEnforce {
-		return domain.PlanTriggerNone
-	}
-	return plan.Trigger
-}
-
-func TestASelectionWithAnEscapeInTheLast30DaysIsNotEnforcedAndNamesEscapeRecorded(t *testing.T) {
-	escapes := escapeOf(t, domain.ShadowedSelection, gatedAt.Add(-shadowWindow+day))
-
-	if trigger := selectionGateOn(t, provenRuns(t), escapes); trigger != domain.PlanTriggerEscapeRecorded {
-		t.Errorf("a selection with an escape 29 days ago gave %q, want %q", trigger, domain.PlanTriggerEscapeRecorded)
-	}
-}
-
-func TestASelectionWhoseShadowHistoryIsYoungerThan30DaysIsNotEnforced(t *testing.T) {
-	runs := evidenceRuns(t, minimumShadowRuns+5, gatedAt.Add(-shadowWindow+day))
-
-	if trigger := selectionGateOn(t, runs, nil); trigger != domain.PlanTriggerShadowUnproven {
-		t.Errorf("29 days of clean shadow history gave %q, want %q", trigger, domain.PlanTriggerShadowUnproven)
-	}
-}
-
-func TestASelectionIsEnforcedOnlyWithQ1sMinimumOfEvidenceRunsInTheWindow(t *testing.T) {
-	old := shadowRunAt(t, gatedAt.Add(-shadowWindow-day), true)
-	recent := gatedAt.Add(-10 * day)
-	gap := shadowRunAt(t, recent, false)
-	for name, bounded := range map[string]struct {
-		runs []domain.ShadowedRun
-		want domain.PlanTrigger
-	}{
-		"one under the minimum": {append(evidenceRuns(t, minimumShadowRuns-1, recent), old), domain.PlanTriggerShadowUnproven},
-		"at the minimum":        {append(evidenceRuns(t, minimumShadowRuns, recent), old), domain.PlanTriggerNone},
-		"gaps make up the rest": {append(append(evidenceRuns(t, minimumShadowRuns-1, recent), gap), old), domain.PlanTriggerShadowUnproven},
-	} {
-		if trigger := selectionGateOn(t, bounded.runs, nil); trigger != bounded.want {
-			t.Errorf("%s: gave %q, want %q", name, trigger, bounded.want)
-		}
-	}
-}
-
-func TestTheLatchHoldsOnlyForThisModesEscapesInsideTheWindow(t *testing.T) {
-	for name, escapes := range map[string][]domain.Escape{
-		"an escape older than the window":  escapeOf(t, domain.ShadowedSelection, gatedAt.Add(-shadowWindow-time.Hour)),
-		"an escape against the other mode": escapeOf(t, domain.ShadowedMinimisation, gatedAt.Add(-time.Hour)),
-	} {
-		if trigger := selectionGateOn(t, provenRuns(t), escapes); trigger != domain.PlanTriggerNone {
-			t.Errorf("%s latched selection with %q", name, trigger)
-		}
-	}
-}
-
-func TestAnotherRepositorysEvidenceAndEscapesDoNotGateThisOne(t *testing.T) {
-	elsewhere := gatedLocatorIn(t, "acme/payments")
-	runs := provenRuns(t)
-	for index := range runs {
-		runs[index].Plan.Locator = elsewhere
-	}
-	escapes := escapeOf(t, domain.ShadowedSelection, gatedAt.Add(-time.Hour))
-	escapes[0].PullRequest = elsewhere
-
-	if trigger := selectionGateOn(t, runs, nil); trigger != domain.PlanTriggerShadowUnproven {
-		t.Errorf("another repository's proven runs gave %q, want %q", trigger, domain.PlanTriggerShadowUnproven)
-	}
-	if trigger := selectionGateOn(t, provenRuns(t), escapes); trigger != domain.PlanTriggerNone {
-		t.Errorf("another repository's escape latched this one with %q", trigger)
-	}
-}
-
-func TestAnEnforcedPlanWhoseSelectionIsUnprovenDropsToShadowNamingWhy(t *testing.T) {
+func TestAnEnforcedSelectionWithNoShadowHistoryDropsToShadowNamingWhy(t *testing.T) {
 	plan := modedPlanOf(t, "enforce", "off").GatedOn(nil, nil, gatedAt)
 
 	if !plan.FullMatrix || len(plan.Suites) != 0 || plan.Trigger != domain.PlanTriggerShadowUnproven ||
@@ -144,10 +52,41 @@ func TestAnEnforcedPlanWhoseSelectionIsUnprovenDropsToShadowNamingWhy(t *testing
 	}
 }
 
-func TestWhenSelectionDropsToShadowAnEnforcedMinimisationDropsWithItAndRecordsItsSet(t *testing.T) {
-	escapes := escapeOf(t, domain.ShadowedSelection, gatedAt.Add(-time.Hour))
+func TestAnEnforcedSelectionWithALongCleanShadowHistoryRunsItsSelection(t *testing.T) {
+	plan := modedPlanOf(t, "enforce", "off").GatedOn(hourlyCleanHistoryOf(t, thisRepository), nil, gatedAt)
 
-	plan := modedPlanOf(t, "enforce", "enforce").GatedOn(provenRuns(t), escapes, gatedAt)
+	if plan.FullMatrix || len(plan.Suites) != 2 || plan.Modes.Selection != domain.TestModeEnforce {
+		t.Errorf("a proven enforced plan is %+v, want both selected suites run under enforce", plan)
+	}
+}
+
+func TestAnEscapeLatchesAnEnforcedSelectionBackToShadow(t *testing.T) {
+	escapes := anEscapeAnHourAgo(t, domain.ShadowedSelection, thisRepository)
+
+	plan := modedPlanOf(t, "enforce", "off").GatedOn(hourlyCleanHistoryOf(t, thisRepository), escapes, gatedAt)
+
+	if !plan.FullMatrix || plan.Trigger != domain.PlanTriggerEscapeRecorded || plan.Modes.Selection != domain.TestModeShadow {
+		t.Errorf("a latched plan is %+v, want the full matrix in shadow with %q", plan, domain.PlanTriggerEscapeRecorded)
+	}
+}
+
+func TestAnotherRepositorysHistoryNeitherProvesNorLatchesThisOne(t *testing.T) {
+	unproven := modedPlanOf(t, "enforce", "off").GatedOn(hourlyCleanHistoryOf(t, "acme/payments"), nil, gatedAt)
+	unlatched := modedPlanOf(t, "enforce", "off").GatedOn(
+		hourlyCleanHistoryOf(t, thisRepository), anEscapeAnHourAgo(t, domain.ShadowedSelection, "acme/payments"), gatedAt)
+
+	if unproven.Trigger != domain.PlanTriggerShadowUnproven {
+		t.Errorf("another repository's clean history gave %q, want %q", unproven.Trigger, domain.PlanTriggerShadowUnproven)
+	}
+	if unlatched.Modes.Selection != domain.TestModeEnforce {
+		t.Errorf("another repository's escape latched this one: %+v", unlatched)
+	}
+}
+
+func TestWhenSelectionDropsToShadowAnEnforcedMinimisationDropsWithItAndRecordsItsSet(t *testing.T) {
+	escapes := anEscapeAnHourAgo(t, domain.ShadowedSelection, thisRepository)
+
+	plan := modedPlanOf(t, "enforce", "enforce").GatedOn(hourlyCleanHistoryOf(t, thisRepository), escapes, gatedAt)
 
 	if plan.Modes.Minimisation != domain.TestModeShadow || len(plan.Recorded.Minimised) != 2 {
 		t.Errorf("minimisation is %s with minimised %v, want shadow with both suites recorded", plan.Modes.Minimisation, plan.Recorded.Minimised)
@@ -155,9 +94,9 @@ func TestWhenSelectionDropsToShadowAnEnforcedMinimisationDropsWithItAndRecordsIt
 }
 
 func TestAnUnprovenMinimisationUnderAnEnforcedSelectionShadowsAloneAndRecordsItsSet(t *testing.T) {
-	escapes := escapeOf(t, domain.ShadowedMinimisation, gatedAt.Add(-time.Hour))
+	escapes := anEscapeAnHourAgo(t, domain.ShadowedMinimisation, thisRepository)
 
-	plan := modedPlanOf(t, "enforce", "enforce").GatedOn(provenRuns(t), escapes, gatedAt)
+	plan := modedPlanOf(t, "enforce", "enforce").GatedOn(hourlyCleanHistoryOf(t, thisRepository), escapes, gatedAt)
 
 	if plan.FullMatrix || len(plan.Suites) != 2 || plan.Modes.Selection != domain.TestModeEnforce ||
 		plan.Modes.Minimisation != domain.TestModeShadow || len(plan.Recorded.Minimised) != 2 {

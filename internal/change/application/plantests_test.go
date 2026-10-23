@@ -60,11 +60,6 @@ func TestAnEnforcedPlanWhoseShadowRunsCannotBeReadIsRefused(t *testing.T) {
 	}
 }
 
-const (
-	shadowWindow      = 30 * 24 * time.Hour
-	minimumShadowRuns = 20
-)
-
 var plannedAt = time.Date(2026, time.November, 30, 12, 0, 0, 0, time.UTC)
 
 func plannerOverAnUpload(t *testing.T) application.PlanTests {
@@ -102,9 +97,9 @@ func provenRunsOf(t *testing.T, locator domain.PullRequestLocator) heldRuns {
 		Locator: locator, Recorded: domain.RecordedSets{IsRecorded: true},
 		Modes: domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
 	}
-	runs := heldRuns{{At: plannedAt.Add(-shadowWindow), Plan: inShadow, IsReported: true}}
-	for age := range minimumShadowRuns {
-		runs = append(runs, domain.ShadowedRun{At: plannedAt.Add(-time.Duration(age+1) * time.Hour), Plan: inShadow, IsReported: true})
+	var runs heldRuns
+	for at := plannedAt.AddDate(0, -2, 0); at.Before(plannedAt); at = at.Add(time.Hour) {
+		runs = append(runs, domain.ShadowedRun{At: at, Plan: inShadow, IsReported: true})
 	}
 	return runs
 }

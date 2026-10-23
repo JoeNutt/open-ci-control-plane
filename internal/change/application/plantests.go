@@ -37,13 +37,9 @@ func (useCase PlanTests) Execute(ctx context.Context, subject domain.PlanSubject
 }
 
 func (useCase PlanTests) gated(ctx context.Context, plan domain.TestPlan) (domain.TestPlan, error) {
-	runs, err := useCase.Runs.ShadowedRuns(ctx)
+	evidence, err := shadowEvidenceIn(ctx, useCase.Runs, useCase.Escapes)
 	if err != nil {
-		return domain.TestPlan{}, fmt.Errorf("gate the plan for %s: read the shadow runs: %w", plan.Repository, err)
+		return domain.TestPlan{}, fmt.Errorf("gate the plan for %s: %w", plan.Repository, err)
 	}
-	escapes, err := useCase.Escapes.RecordedEscapes(ctx)
-	if err != nil {
-		return domain.TestPlan{}, fmt.Errorf("gate the plan for %s: read the escapes: %w", plan.Repository, err)
-	}
-	return plan.GatedOn(runs, escapes, useCase.Now()), nil
+	return plan.GatedOn(evidence.runs, evidence.escapes, useCase.Now()), nil
 }
