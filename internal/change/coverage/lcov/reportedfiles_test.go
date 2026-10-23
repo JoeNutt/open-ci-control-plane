@@ -23,7 +23,7 @@ const (
 )
 
 func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
-	artifact := lines("TN:", "SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose)
+	artifact := testSection(effectTest, lines("SF:"+effectPath, lineHit, "LF:1", "LH:1", recordClose))
 
 	reported, err := reportedFilesIn(artifact)
 
@@ -90,6 +90,14 @@ func TestReportedFilesRefusesAnArtifactWithNoTestSectionWhole(t *testing.T) {
 
 func TestReportedFilesRefusesARecordOutsideATestSectionWhole(t *testing.T) {
 	err := refusalOf(t, record(gatePath, lineHit)+testSection(effectTest, record(effectPath, lineHit)))
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesATestSectionWithNoNameWhole(t *testing.T) {
+	err := refusalOf(t, testSection(effectTest, record(gatePath, lineHit))+testSection("", record(effectPath, lineHit)))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)

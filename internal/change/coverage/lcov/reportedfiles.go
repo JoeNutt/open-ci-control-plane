@@ -126,7 +126,10 @@ func (reading *recordReading) take(line string) error {
 	return known.step(reading, value)
 }
 
-func (reading *recordReading) openTestSection(string) error {
+func (reading *recordReading) openTestSection(name string) error {
+	if name == "" {
+		return fmt.Errorf("%w: empty test name", ErrMalformedArtifact)
+	}
 	reading.hasTestSection = true
 	return nil
 }
