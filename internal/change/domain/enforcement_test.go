@@ -65,3 +65,18 @@ func TestAModeIsEnforcedOnlyWithQ1sMinimumOfEvidenceRunsInTheWindow(t *testing.T
 		}
 	}
 }
+
+func TestTheLatchHoldsOnlyForThisModesEscapesInsideTheWindow(t *testing.T) {
+	proven := append(evidenceRuns(domain.MinimumShadowRuns, gatedAt.Add(-10*24*time.Hour)), domain.ShadowedRun{
+		At:   gatedAt.Add(-domain.ShadowWindowLength - 24*time.Hour),
+		Plan: domain.DispatchedPlan{Modes: domain.PlanModes{Selection: domain.TestModeShadow}},
+	})
+	for name, escape := range map[string]domain.Escape{
+		"an escape older than the window":  {Mode: domain.ShadowedSelection, At: gatedAt.Add(-domain.ShadowWindowLength - time.Hour)},
+		"an escape against the other mode": {Mode: domain.ShadowedMinimisation, At: gatedAt.Add(-time.Hour)},
+	} {
+		if verdict := domain.EnforcementOf(domain.ShadowedSelection, proven, []domain.Escape{escape}, gatedAt); !verdict.IsEnforced {
+			t.Errorf("%s latched selection: %+v", name, verdict)
+		}
+	}
+}
