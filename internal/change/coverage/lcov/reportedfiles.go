@@ -57,7 +57,6 @@ type recordReading struct {
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
-	hasTestSection     bool
 	testSections       int
 	limits             domain.CoverageLimits
 }
@@ -132,16 +131,16 @@ func (reading *recordReading) openTestSection(name string) error {
 	if name == "" {
 		return errUnnamedTest
 	}
-	reading.testSections++
-	if breach := reading.limits.TestSectionsBreach(reading.testSections); breach != nil {
+	sectionsWithThisOne := reading.testSections + 1
+	if breach := reading.limits.TestSectionsBreach(sectionsWithThisOne); breach != nil {
 		return breach
 	}
-	reading.hasTestSection = true
+	reading.testSections = sectionsWithThisOne
 	return nil
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if !reading.hasTestSection {
+	if reading.testSections == 0 {
 		return errOutsideTestSection
 	}
 	parsed, err := domain.ParseRepositoryPath(path)
