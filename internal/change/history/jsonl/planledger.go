@@ -32,7 +32,7 @@ func (ledger *PlanLedger) RecordDispatch(_ context.Context, dispatched domain.Di
 func (ledger *PlanLedger) DispatchedPlanFor(
 	_ context.Context, repository domain.GovernedRepository, head domain.CommitSHA,
 ) (domain.DispatchedPlan, error) {
-	line, isFound, err := ledger.lineFor(ledgerKey{kind: dispatchedKind, repository: repository, head: head})
+	line, isFound, err := ledger.latestLineFor(ledgerKey{kind: dispatchedKind, repository: repository, head: head})
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
@@ -46,7 +46,7 @@ func (ledger *PlanLedger) RecordReport(_ context.Context, repository domain.Gove
 	ledger.reporting.Lock()
 	defer ledger.reporting.Unlock()
 
-	_, isReported, err := ledger.lineFor(ledgerKey{kind: reportedKind, repository: repository, head: head})
+	_, isReported, err := ledger.latestLineFor(ledgerKey{kind: reportedKind, repository: repository, head: head})
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (key ledgerKey) isHeldBy(line ledgerLine) bool {
 	return line.Kind == key.kind && line.Repository == key.repository.String() && line.Head == key.head.String()
 }
 
-func (ledger *PlanLedger) lineFor(key ledgerKey) (ledgerLine, bool, error) {
+func (ledger *PlanLedger) latestLineFor(key ledgerKey) (ledgerLine, bool, error) {
 	entries, err := ledger.log.Entries()
 	if err != nil {
 		return ledgerLine{}, false, fmt.Errorf("read the plan ledger: %w", err)
