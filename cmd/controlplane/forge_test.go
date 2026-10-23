@@ -62,6 +62,7 @@ type recordingForge struct {
 	filesMovedTo string
 	grantFailure int
 	published    chan struct{}
+	installedAs  int64
 }
 
 func (recording *recordingForge) routes() http.Handler {
@@ -72,7 +73,12 @@ func (recording *recordingForge) routes() http.Handler {
 	routes.HandleFunc("GET /repos/{owner}/{name}/pulls/{number}/files", recording.files)
 	routes.HandleFunc("GET /repos/{owner}/{name}/commits/{sha}/check-runs", recording.checkRunListing)
 	routes.HandleFunc("POST /repos/{owner}/{name}/check-runs", recording.checkRunCreation)
+	routes.HandleFunc("GET /repos/{owner}/{name}/installation", recording.installation)
 	return routes
+}
+
+func (recording *recordingForge) installation(answer http.ResponseWriter, _ *http.Request) {
+	recording.write(answer, fmt.Sprintf(`{"id":%d}`, recording.installedAs))
 }
 
 func (recording *recordingForge) checkRunListing(answer http.ResponseWriter, asked *http.Request) {
@@ -161,7 +167,7 @@ func TestAnInstallationForgePublishesCheckRunsWithTheSameMintedToken(t *testing.
 	recording := &recordingForge{t: t}
 	installed := installationForgeAt(t, recording)
 
-	publishCheckRun(t, installed)
+	publishCheckRun(t, installed.checkRuns)
 
 	if want := []string{strconv.Itoa(installationID)}; !slices.Equal(recording.exchanged, want) {
 		t.Errorf("tokens were minted for installations %v, want %v", recording.exchanged, want)
@@ -175,14 +181,14 @@ func TestAnInstallationForgePublishesCheckRunsWithTheSameMintedToken(t *testing.
 func TestTheAppForgeCallsTheConfiguredForgeAsTheConfiguredApp(t *testing.T) {
 	recording := &recordingForge{t: t}
 
-	publishCheckRun(t, recordingAppForge(t, recording).forgeFor(t, installationID))
+	publishCheckRun(t, recordingAppForge(t, recording).forgeFor(t, installationID).checkRuns)
 
 	if want := []string{strconv.Itoa(appID)}; !slices.Equal(recording.listedForApp, want) {
 		t.Errorf("check runs were listed for Apps %v, want %v", recording.listedForApp, want)
 	}
 }
 
-func publishCheckRun(t *testing.T, installed installationForge) {
+func publishCheckRun(t *testing.T, publisher domain.CheckRunPublisher) {
 	t.Helper()
 	head, err := domain.ParseCommitSHA("b0b0000000000000000000000000000000000b0b")
 	if err != nil {
@@ -193,7 +199,7 @@ func publishCheckRun(t *testing.T, installed installationForge) {
 		t.Fatal(err)
 	}
 
-	err = installed.checkRuns.PublishCheckRun(context.Background(), recordedPullRequest(t), head, domain.CheckRun{
+	err = publisher.PublishCheckRun(context.Background(), recordedPullRequest(t), head, domain.CheckRun{
 		Name: "structural", Conclusion: domain.ConclusionNeutral, Title: "No policy loaded",
 		Headline: "No policy is loaded for this family.", DecisionID: id,
 	})
