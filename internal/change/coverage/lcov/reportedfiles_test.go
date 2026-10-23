@@ -20,6 +20,7 @@ const (
 	lineMissed  = "DA:7,0"
 	recordClose = "end_of_record"
 	effectTest  = "TestEffect"
+	gateTest    = "TestGate"
 )
 
 func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
@@ -55,7 +56,7 @@ func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
 
 func TestReportedFilesReportsTheUnionOfItsTestsOncePerFile(t *testing.T) {
 	artifact := testSection(effectTest, record(effectPath, lineMissed), record(gatePath, lineMissed)) +
-		testSection("TestGate", record(effectPath, lineHit), record(gatePath, lineMissed))
+		testSection(gateTest, record(effectPath, lineHit), record(gatePath, lineMissed))
 
 	reported, err := reportedFilesIn(artifact)
 
@@ -73,7 +74,7 @@ func TestReportedFilesReportsTheUnionOfItsTestsOncePerFile(t *testing.T) {
 
 func TestReportedFilesReadsTheArtifactCIUploads(t *testing.T) {
 	artifact := testSection(effectTest, record(effectPath, "DA:7,1", "DA:8,4"), record(gatePath, "DA:3,1")) +
-		testSection("TestGate", record(gatePath, "DA:3,2", "DA:9,1"))
+		testSection(gateTest, record(gatePath, "DA:3,2", "DA:9,1"))
 
 	reported, err := reportedFilesIn(artifact)
 
