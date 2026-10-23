@@ -47,7 +47,9 @@
         "always_run": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "selection": { "enum": ["off", "shadow", "enforce"] },
+        "minimisation": { "enum": ["off", "shadow", "enforce"] }
       }
     }
   }
