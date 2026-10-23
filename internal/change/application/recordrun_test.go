@@ -26,6 +26,14 @@ func (ledger *plannedHeads) DispatchedPlanFor(
 	return dispatched, nil
 }
 
+func (ledger *plannedHeads) RecordDispatch(_ context.Context, dispatched domain.DispatchedPlan) error {
+	if ledger.dispatched == nil {
+		ledger.dispatched = map[domain.CommitSHA]domain.DispatchedPlan{}
+	}
+	ledger.dispatched[dispatched.Plan.Head] = dispatched
+	return nil
+}
+
 func ledgerHolding(t *testing.T, plan domain.TestPlan) *plannedHeads {
 	t.Helper()
 

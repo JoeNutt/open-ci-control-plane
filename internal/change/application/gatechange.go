@@ -18,6 +18,7 @@ type GateChange struct {
 	Bindings   domain.BindingSource
 	Planner    PlanTests
 	Dispatcher domain.PlanDispatcher
+	Ledger     domain.PlanLedger
 }
 
 func (useCase GateChange) Execute(
@@ -43,7 +44,7 @@ func (useCase GateChange) Execute(
 			useCase.record(posting, decided, document, id),
 			useCase.publish(posting, locator, head, run))
 		if isStructuralPass(decided, run) {
-			failures = append(failures, useCase.planAndDispatch(posting, document, id, decided.Decision.Revision()))
+			failures = append(failures, useCase.planAndDispatch(posting, locator, document, id, decided.Decision.Revision()))
 		}
 	}
 	return errors.Join(failures...)
@@ -54,7 +55,7 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 }
 
 func (useCase GateChange) planAndDispatch(
-	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
+	ctx context.Context, locator domain.PullRequestLocator, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
 ) error {
 	subject, err := useCase.subjectOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
 	if err != nil {
@@ -67,7 +68,7 @@ func (useCase GateChange) planAndDispatch(
 			return errors.Join(planErr, err)
 		}
 	}
-	return errors.Join(planErr, useCase.dispatch(ctx, plan))
+	return errors.Join(planErr, useCase.dispatch(ctx, locator, plan))
 }
 
 func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubject) (domain.PlanSubject, error) {
@@ -82,11 +83,11 @@ func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubj
 	return subject, nil
 }
 
-func (useCase GateChange) dispatch(ctx context.Context, plan domain.TestPlan) error {
+func (useCase GateChange) dispatch(ctx context.Context, locator domain.PullRequestLocator, plan domain.TestPlan) error {
 	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
 		return fmt.Errorf("dispatch the plan for %s: %w", plan.Repository, err)
 	}
-	return nil
+	return useCase.Ledger.RecordDispatch(ctx, domain.DispatchedPlan{Locator: locator, Plan: plan})
 }
 
 func (useCase GateChange) refuseOverBound(

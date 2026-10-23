@@ -19,4 +19,5 @@ type DispatchedPlan struct {
 type PlanLedger interface {
 	DispatchedPlanFor(ctx context.Context, repository GovernedRepository, head CommitSHA) (DispatchedPlan, error)
 	RecordReport(ctx context.Context, repository GovernedRepository, head CommitSHA) error
+	RecordDispatch(ctx context.Context, dispatched DispatchedPlan) error
 }

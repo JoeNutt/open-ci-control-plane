@@ -50,6 +50,7 @@ func passingGateChange(t *testing.T, published *publishedCheckRuns, dispatched *
 		Bindings:   bindingForEveryRepository{},
 		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: readableHistory{}},
 		Dispatcher: dispatched,
+		Ledger:     &plannedHeads{},
 	}
 }
 
@@ -79,4 +80,23 @@ func (bindingForEveryRepository) BindingOf(_ context.Context, repository domain.
 			Paths:       map[string][]string{"domain": {"internal/domain/**"}},
 		}},
 	})
+}
+
+func TestADispatchedPlanIsInTheLedgerForItsHeadAndPullRequest(t *testing.T) {
+	ledger := &plannedHeads{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, &dispatchedPlans{})
+	useCase.Ledger = ledger
+
+	if err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID)); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	dispatched, err := ledger.DispatchedPlanFor(context.Background(), gatedLocator(t).GovernedRepository(), commitSHAOf(t, recordedHeadSHA))
+	if err != nil {
+		t.Fatalf("the dispatched plan is not in the ledger: %v", err)
+	}
+	if dispatched.Locator != gatedLocator(t) || dispatched.Plan.DecisionID != decisionIDOf(t, gatedDecisionID) {
+		t.Errorf("the ledger holds %+v under %s, want the plan for %+v under %s",
+			dispatched.Locator, dispatched.Plan.DecisionID, gatedLocator(t), gatedDecisionID)
+	}
 }

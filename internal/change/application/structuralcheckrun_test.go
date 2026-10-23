@@ -154,6 +154,7 @@ func gateChangeBuiltBy(t *testing.T, change gatedChange, engine domain.FamilyEng
 		Bindings:   bindingForEveryRepository{},
 		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: readableHistory{}},
 		Dispatcher: &dispatchedPlans{},
+		Ledger:     &plannedHeads{},
 	}
 
 	if err := useCase.Execute(context.Background(), change.locator, decisionIDOf(t, gatedDecisionID)); err != nil {
