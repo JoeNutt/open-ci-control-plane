@@ -23,3 +23,22 @@ func TestARunReportCarriesItsRepositoryHeadAndResults(t *testing.T) {
 		t.Errorf("parsed %+v, want %s at %s with %+v", report, repository, head, results)
 	}
 }
+
+func TestARunReportIsRefusedAboveMaxReportedTests(t *testing.T) {
+	repository := governedRepositoryOf(t, "JoeNutt/open-ci-control-plane")
+	head := mustParseCommitSHA(t, planHeadSHA)
+
+	for _, bounded := range []struct {
+		count     int
+		isRefused bool
+	}{
+		{domain.MaxReportedTests, false},
+		{domain.MaxReportedTests + 1, true},
+	} {
+		_, err := domain.ParseRunReport(repository, head, make([]domain.TestResult, bounded.count))
+
+		if isRefused := err != nil; isRefused != bounded.isRefused {
+			t.Errorf("a report of %d tests: refused %t (%v), want %t", bounded.count, isRefused, err, bounded.isRefused)
+		}
+	}
+}

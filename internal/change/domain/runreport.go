@@ -2,6 +2,8 @@
 
 package domain
 
+import "errors"
+
 const TestsCheckRunName = "open-ci/tests"
 
 type TestOutcome string
@@ -23,7 +25,12 @@ type RunReport struct {
 	Results    []TestResult
 }
 
+const MaxReportedTests = 10000
+
 func ParseRunReport(repository GovernedRepository, head CommitSHA, results []TestResult) (RunReport, error) {
+	if len(results) > MaxReportedTests {
+		return RunReport{}, errors.New("too many tests")
+	}
 	return RunReport{Repository: repository, Head: head, Results: results}, nil
 }
 
