@@ -20,7 +20,7 @@ func ShadowWindowOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape) Sha
 			continue
 		}
 		window.Runs++
-		if run.isGap() {
+		if !run.isEvidence() {
 			window.Gaps++
 		}
 	}
@@ -32,8 +32,8 @@ func ShadowWindowOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape) Sha
 	return window
 }
 
-func (run ShadowedRun) isGap() bool {
-	return !(run.Plan.Recorded.IsRecorded && run.IsReported)
+func (run ShadowedRun) isEvidence() bool {
+	return run.Plan.Recorded.IsRecorded && run.IsReported
 }
 
 var testModeOfShadowed = map[ShadowedMode]func(PlanModes) TestMode{
