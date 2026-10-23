@@ -25,54 +25,76 @@ type runReports struct {
 }
 
 func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
+	receiving.answering.write(asked.Context(), answer, receiving.answerTo(answer, asked))
+}
+
+func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Request) answerBody {
 	target, refused := runTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(headSegment))
 	if refused != nil {
-		receiving.answering.write(asked.Context(), answer, refused)
-		return
+		return refused
 	}
 	if refused := reportLengthRefusalOf(asked.ContentLength); refused != nil {
-		receiving.answering.write(asked.Context(), answer, refused)
-		return
+		return refused
 	}
 	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.MaxRunReportBytes)
 	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	if err != nil {
-		receiving.answering.write(asked.Context(), answer, unverifiedTokenProblem())
-		return
+		return unverifiedTokenProblem()
 	}
-	var wire struct {
-		DecisionID string `json:"decisionId"`
-		Tests      []struct {
-			Package string `json:"package"`
-			Name    string `json:"name"`
-			Outcome string `json:"outcome"`
-		} `json:"tests"`
+	body, refused := reportBodyOf(asked.Body)
+	if refused != nil {
+		return refused
 	}
-	decoder := json.NewDecoder(asked.Body)
-	err = decoder.Decode(&wire)
-	if err == nil {
-		if _, trailing := decoder.Token(); trailing != io.EOF {
-			err = errors.New("more than one JSON value")
-		}
-	}
-	if err != nil {
-		var overBound *http.MaxBytesError
-		if errors.As(err, &overBound) {
-			receiving.answering.write(asked.Context(), answer, oversizedReportProblem())
-			return
-		}
-		receiving.answering.write(asked.Context(), answer, fieldProblem{Code: "malformed_report", Message: "the body is not one C-13 report object", Field: "body"})
-		return
-	}
-	id, _ := domain.ParseDecisionID(wire.DecisionID)
+	id, _ := domain.ParseDecisionID(body.DecisionID)
 	var results []domain.TestResult
-	for _, test := range wire.Tests {
+	for _, test := range body.Tests {
 		result, _ := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
 		results = append(results, result)
 	}
 	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
 	_ = receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report})
-	receiving.answering.write(asked.Context(), answer, runAccepted{HeadSHA: target.head.String(), Recorded: len(results)})
+	return runAccepted{HeadSHA: target.head.String(), Recorded: len(results)}
+}
+
+type reportBody struct {
+	DecisionID string       `json:"decisionId"`
+	Tests      []reportTest `json:"tests"`
+}
+
+type reportTest struct {
+	Package string `json:"package"`
+	Name    string `json:"name"`
+	Outcome string `json:"outcome"`
+}
+
+var errTrailingValue = errors.New("the body holds more than one JSON value")
+
+func reportBodyOf(stated io.Reader) (reportBody, refusal) {
+	decoder := json.NewDecoder(stated)
+	var body reportBody
+	err := decoder.Decode(&body)
+	if err == nil {
+		err = endOf(decoder)
+	}
+	var overBound *http.MaxBytesError
+	if errors.As(err, &overBound) {
+		return reportBody{}, oversizedReportProblem()
+	}
+	if err != nil {
+		return reportBody{}, malformedReportProblem()
+	}
+	return body, nil
+}
+
+func endOf(decoder *json.Decoder) error {
+	_, err := decoder.Token()
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return errTrailingValue
 }
 
 const headSegment = "headSha"
