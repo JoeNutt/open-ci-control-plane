@@ -232,5 +232,5 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.reported.entries() == 0 {
 		return nil, errNoRecord
 	}
-	return reading.reported.files, nil
+	return reading.reported.reportedFiles(), nil
 }
