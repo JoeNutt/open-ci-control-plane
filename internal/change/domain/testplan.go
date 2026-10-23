@@ -85,6 +85,10 @@ type TestPlan struct {
 	Recorded       RecordedSets
 }
 
+type RecordedSets struct {
+	Selected []CoverageSuite
+}
+
 type PlanSubject struct {
 	Document   Document
 	Binding    Binding
@@ -104,15 +108,9 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
 	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection))
 	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
-		plan.Recorded = RecordedSets{Selected: plan.Suites}
-		plan.Suites = nil
-		plan.FullMatrix = true
+		return plan.asShadow(), nil
 	}
 	return plan, nil
-}
-
-type RecordedSets struct {
-	Selected []CoverageSuite
 }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
@@ -145,6 +143,13 @@ func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []Coverag
 }
 
 const MaxPlanCharacters = 60000
+
+func (plan TestPlan) asShadow() TestPlan {
+	plan.Recorded = RecordedSets{Selected: plan.Suites}
+	plan.Suites = nil
+	plan.FullMatrix = true
+	return plan
+}
 
 func (plan TestPlan) AsTooLarge() TestPlan {
 	plan.Suites = nil
