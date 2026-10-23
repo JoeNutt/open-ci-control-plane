@@ -10,9 +10,11 @@ import (
 	"log/slog"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/history/jsonl"
 )
 
 func TestAPlanTheEvaluationRecordsIsFoundAfterARestart(t *testing.T) {
@@ -61,4 +63,36 @@ func ledgeredPlanOf(t *testing.T) domain.DispatchedPlan {
 		t.Fatalf("parse decision ID: %v", err)
 	}
 	return domain.DispatchedPlan{Locator: recordedPullRequest(t), Head: head, DecisionID: id}
+}
+
+func TestAnEscapeTheRunRecordingLogsIsInTheShadowHistoryAfterARestart(t *testing.T) {
+	historyFile := filepath.Join(t.TempDir(), "history.jsonl")
+	configured := configurationWith(t, func(stated map[string]json.RawMessage) {
+		stated["historyFile"] = quoted(t, historyFile)
+	})
+	recording, err := runRecordingFor(configured, evaluationOf(t, configured))
+	if err != nil {
+		t.Fatalf("build the run recording: %v", err)
+	}
+	suite, err := domain.ParseCoverageSuite("github.com/JoeNutt/open-ci-control-plane/internal/change/rules")
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	escape := domain.Escape{
+		Mode: domain.ShadowedSelection, PullRequest: recordedPullRequest(t),
+		Test: domain.TestResult{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+	}
+
+	if err := recording.Escapes.RecordEscape(context.Background(), escape); err != nil {
+		t.Fatalf("record escape: %v", err)
+	}
+
+	history, err := jsonl.OpenLog(historyFile, domain.DeclaredHistoryLimits(), time.Now)
+	if err != nil {
+		t.Fatalf("reopen the shadow history: %v", err)
+	}
+	escapes, err := jsonl.NewEscapes(history).RecordedEscapes()
+	if err != nil || len(escapes) != 1 || escapes[0].Test != escape.Test {
+		t.Errorf("after a restart the shadow history holds %+v (%v), want the escape of %s", escapes, err, escape.Test.Name)
+	}
 }

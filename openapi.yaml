@@ -232,8 +232,11 @@ paths:
         failure. One report per head; the report is judged against the latest plan
         dispatched for that head, under the decision it carries.
 
-        The token is verified before any byte of the body is read. Fields this card does
-        not read (seconds, rerunOutcome) are accepted and ignored.
+        The token is verified before any byte of the body is read. In shadow, a failed
+        test's rerunOutcome (pass or fail; any other value is refused 400) decides
+        escapes: a test that failed its run and its rerun, outside a mode's recorded
+        set, is recorded as an escape against that mode (D-6). seconds is accepted and
+        not yet read.
       security:
         - workloadToken: []
       parameters:

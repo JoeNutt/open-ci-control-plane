@@ -208,3 +208,66 @@ func TestAReportUnderAnotherDecisionIsRefusedAsUnplannedAndUsesNoReport(t *testi
 		t.Errorf("a report under another decision posted %d check runs (report used: %t)", len(runs), ledger.reported[head])
 	}
 }
+
+type loggedEscapes struct{ escapes []domain.Escape }
+
+func (logged *loggedEscapes) RecordEscape(_ context.Context, escape domain.Escape) error {
+	logged.escapes = append(logged.escapes, escape)
+	return nil
+}
+
+func TestEachEscapeInAShadowRunIsRecordedAgainstItsMode(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	outside, err := domain.ParseCoverageSuite("github.com/JoeNutt/open-ci-control-plane/internal/change/domain")
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	ledger := ledgerHolding(t, domain.TestPlan{
+		Head: head, FullMatrix: true,
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{plannedSuiteOf(t)}},
+	})
+	logged := &loggedEscapes{}
+	useCase := application.RecordRun{
+		Ledger: ledger, Publisher: &publishedCheckRuns{}, Callers: tokensNaming{gatedLocator(t).GovernedRepository()}, Escapes: logged,
+	}
+	failed := domain.TestResult{Suite: outside, Name: "TestEffect", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+
+	err = useCase.Execute(context.Background(), application.RunUpload{Token: presentedToken(t), Report: runReportOf(t, head, []domain.TestResult{failed})})
+
+	if err != nil {
+		t.Fatalf("record run: %v", err)
+	}
+	if len(logged.escapes) != 1 || logged.escapes[0].Mode != domain.ShadowedSelection || logged.escapes[0].Test != failed {
+		t.Errorf("recorded escapes %+v, want one against selection for %s", logged.escapes, failed.Name)
+	}
+}
+
+type refusingEscapes struct{}
+
+func (refusingEscapes) RecordEscape(context.Context, domain.Escape) error {
+	return errors.New("the shadow history is full")
+}
+
+func TestAnEscapeThatCannotBeRecordedLeavesTheReportUnspentAndPostsNothing(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	outside, err := domain.ParseCoverageSuite("github.com/JoeNutt/open-ci-control-plane/internal/change/domain")
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	ledger := ledgerHolding(t, domain.TestPlan{
+		Head: head, FullMatrix: true,
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{plannedSuiteOf(t)}},
+	})
+	published := &publishedCheckRuns{}
+	useCase := application.RecordRun{
+		Ledger: ledger, Publisher: published, Callers: tokensNaming{gatedLocator(t).GovernedRepository()}, Escapes: refusingEscapes{},
+	}
+	failed := domain.TestResult{Suite: outside, Name: "TestEffect", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+
+	err = useCase.Execute(context.Background(), application.RunUpload{Token: presentedToken(t), Report: runReportOf(t, head, []domain.TestResult{failed})})
+
+	if err == nil || ledger.reported[head] || len(published.PublishedOn(gatedLocator(t), head)) != 0 {
+		t.Errorf("an unrecordable escape gave %v, report spent %t, posted %d: want an error, unspent, nothing posted",
+			err, ledger.reported[head], len(published.PublishedOn(gatedLocator(t), head)))
+	}
+}

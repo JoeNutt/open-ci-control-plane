@@ -41,7 +41,7 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 	if found.Locator != dispatched.Locator || found.Head != dispatched.Head ||
 		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) ||
 		!slices.Equal(found.AlwaysRun, dispatched.AlwaysRun) || !slices.Equal(found.ChangedFiles, dispatched.ChangedFiles) ||
-		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded ||
+		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded || found.Modes != dispatched.Modes ||
 		!slices.Equal(found.Recorded.Selected, dispatched.Recorded.Selected) ||
 		!slices.Equal(found.Recorded.Minimised, dispatched.Recorded.Minimised) {
 		t.Errorf("after a restart the ledger holds %+v, want %+v", found, dispatched)
@@ -96,6 +96,7 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 		AlwaysRun:    []domain.GoImportPath{alwaysRun},
 		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suite}, Minimised: []domain.CoverageSuite{suite}},
 		ChangedFiles: []domain.RepositoryPath{changed},
+		Modes:        domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
 	}
 }
 

@@ -68,6 +68,7 @@ type reportTest struct {
 	Package string `json:"package"`
 	Name    string `json:"name"`
 	Outcome string `json:"outcome"`
+	Rerun   string `json:"rerunOutcome"`
 }
 
 func (body reportBody) reportFor(target runTarget) (domain.RunReport, refusal) {
@@ -77,7 +78,9 @@ func (body reportBody) reportFor(target runTarget) (domain.RunReport, refusal) {
 	}
 	results := make([]domain.TestResult, 0, len(body.Tests))
 	for _, test := range body.Tests {
-		result, err := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
+		result, err := domain.ParseTestResult(domain.TestResultStatement{
+			Suite: test.Package, Name: test.Name, Outcome: test.Outcome, Rerun: test.Rerun,
+		})
 		if err != nil {
 			return domain.RunReport{}, unparseableReportFieldProblem(testsField)
 		}

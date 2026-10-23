@@ -18,12 +18,13 @@ type DispatchedPlan struct {
 	AlwaysRun    []GoImportPath
 	Recorded     RecordedSets
 	ChangedFiles []RepositoryPath
+	Modes        PlanModes
 }
 
 func DispatchedPlanOf(locator PullRequestLocator, plan TestPlan) DispatchedPlan {
 	return DispatchedPlan{
 		Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites,
-		AlwaysRun: plan.AlwaysRun, Recorded: plan.Recorded, ChangedFiles: plan.ChangedFiles,
+		AlwaysRun: plan.AlwaysRun, Recorded: plan.Recorded, ChangedFiles: plan.ChangedFiles, Modes: plan.Modes,
 	}
 }
 

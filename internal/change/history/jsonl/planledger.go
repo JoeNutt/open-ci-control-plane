@@ -64,6 +64,7 @@ type lineKind string
 const (
 	dispatchedKind lineKind = "dispatched"
 	reportedKind   lineKind = "reported"
+	escapeKind     lineKind = "escape"
 )
 
 type ledgerKey struct {
@@ -113,6 +114,12 @@ type ledgerLine struct {
 	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
 	Recorded     *recordedLine `json:"recorded,omitempty"`
 	ChangedFiles []string      `json:"changedFiles,omitempty"`
+	Modes        *modesLine    `json:"modes,omitempty"`
+}
+
+type modesLine struct {
+	Selection    string `json:"selection"`
+	Minimisation string `json:"minimisation"`
 }
 
 type recordedLine struct {
@@ -131,6 +138,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 		AlwaysRun:    namesOf(dispatched.AlwaysRun),
 		Recorded:     recordedLineOf(dispatched.Recorded),
 		ChangedFiles: namesOf(dispatched.ChangedFiles),
+		Modes:        modesLineOf(dispatched.Modes),
 	}
 }
 
@@ -139,6 +147,13 @@ func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
 		return nil
 	}
 	return &recordedLine{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+}
+
+func modesLineOf(modes domain.PlanModes) *modesLine {
+	if modes == (domain.PlanModes{}) {
+		return nil
+	}
+	return &modesLine{Selection: modes.Selection.String(), Minimisation: modes.Minimisation.String()}
 }
 
 func namesOf[Named fmt.Stringer](values []Named) []string {
@@ -182,9 +197,13 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
+	modes, err := line.Modes.planModes()
+	if err != nil {
+		return domain.DispatchedPlan{}, err
+	}
 	return domain.DispatchedPlan{
 		Locator: locator, Head: head, DecisionID: id, Suites: suites,
-		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed,
+		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed, Modes: modes,
 	}, nil
 }
 
@@ -201,6 +220,21 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func (line *modesLine) planModes() (domain.PlanModes, error) {
+	if line == nil {
+		return domain.PlanModes{}, nil
+	}
+	selection, err := domain.ParseTestMode(line.Selection)
+	if err != nil {
+		return domain.PlanModes{}, err
+	}
+	minimisation, err := domain.ParseTestMode(line.Minimisation)
+	if err != nil {
+		return domain.PlanModes{}, err
+	}
+	return domain.PlanModes{Selection: selection, Minimisation: minimisation}, nil
 }
 
 func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) ([]Parsed, error) {
