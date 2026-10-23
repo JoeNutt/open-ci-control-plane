@@ -20,26 +20,30 @@ type Escape struct {
 
 func (dispatched DispatchedPlan) EscapesIn(results []TestResult) []Escape {
 	var escapes []Escape
-	for _, escaped := range dispatched.selectionEscapesIn(results) {
-		escapes = append(escapes, Escape{
-			Mode: ShadowedSelection, PullRequest: dispatched.Locator, Test: escaped, ChangedFiles: dispatched.ChangedFiles,
-		})
-	}
-	if dispatched.Modes.Minimisation == TestModeShadow && dispatched.Recorded.IsRecorded {
-		for _, escaped := range dispatched.escapesOutside(dispatched.Recorded.Minimised, results) {
+	for _, shadowed := range dispatched.shadowedSets() {
+		for _, escaped := range dispatched.escapesOutside(shadowed.recorded, results) {
 			escapes = append(escapes, Escape{
-				Mode: ShadowedMinimisation, PullRequest: dispatched.Locator, Test: escaped, ChangedFiles: dispatched.ChangedFiles,
+				Mode: shadowed.mode, PullRequest: dispatched.Locator, Test: escaped, ChangedFiles: dispatched.ChangedFiles,
 			})
 		}
 	}
 	return escapes
 }
 
-func (dispatched DispatchedPlan) selectionEscapesIn(results []TestResult) []TestResult {
+type shadowedSet struct {
+	mode     ShadowedMode
+	recorded []CoverageSuite
+}
+
+func (dispatched DispatchedPlan) shadowedSets() []shadowedSet {
 	if !dispatched.Recorded.IsRecorded {
 		return nil
 	}
-	return dispatched.escapesOutside(dispatched.Recorded.Selected, results)
+	sets := []shadowedSet{{mode: ShadowedSelection, recorded: dispatched.Recorded.Selected}}
+	if dispatched.Modes.Minimisation == TestModeShadow {
+		sets = append(sets, shadowedSet{mode: ShadowedMinimisation, recorded: dispatched.Recorded.Minimised})
+	}
+	return sets
 }
 
 func (dispatched DispatchedPlan) escapesOutside(recorded []CoverageSuite, results []TestResult) []TestResult {
