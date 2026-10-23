@@ -7,24 +7,24 @@ import (
 	"time"
 )
 
-const ShadowWindowLength = 30 * 24 * time.Hour
+const shadowWindowLength = 30 * 24 * time.Hour
 
-const MinimumShadowRuns = 20
+const minimumShadowRuns = 20
 
-type Enforcement struct {
-	IsEnforced bool
-	Trigger    PlanTrigger
+type enforcement struct {
+	isEnforced bool
+	trigger    PlanTrigger
 }
 
-func EnforcementOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape, now time.Time) Enforcement {
-	windowStart := now.Add(-ShadowWindowLength)
+func enforcementOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape, now time.Time) enforcement {
+	windowStart := now.Add(-shadowWindowLength)
 	if hasEscapeSince(mode, escapes, windowStart) {
-		return Enforcement{Trigger: PlanTriggerEscapeRecorded}
+		return enforcement{trigger: PlanTriggerEscapeRecorded}
 	}
-	if !reachesBack(mode, runs, windowStart) || evidenceSince(mode, runs, windowStart) < MinimumShadowRuns {
-		return Enforcement{Trigger: PlanTriggerShadowUnproven}
+	if !reachesBack(mode, runs, windowStart) || evidenceSince(mode, runs, windowStart) < minimumShadowRuns {
+		return enforcement{trigger: PlanTriggerShadowUnproven}
 	}
-	return Enforcement{IsEnforced: true}
+	return enforcement{isEnforced: true}
 }
 
 func hasEscapeSince(mode ShadowedMode, escapes []Escape, windowStart time.Time) bool {
@@ -55,16 +55,16 @@ func (plan TestPlan) IsEnforcing() bool {
 
 func (plan TestPlan) GatedOn(runs []ShadowedRun, escapes []Escape, now time.Time) TestPlan {
 	ownRuns, ownEscapes := runsOf(plan.Repository, runs), escapesOf(plan.Repository, escapes)
-	return plan.GatedBy(
-		EnforcementOf(ShadowedSelection, ownRuns, ownEscapes, now),
-		EnforcementOf(ShadowedMinimisation, ownRuns, ownEscapes, now))
+	return plan.gatedBy(
+		enforcementOf(ShadowedSelection, ownRuns, ownEscapes, now),
+		enforcementOf(ShadowedMinimisation, ownRuns, ownEscapes, now))
 }
 
-func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
+func (plan TestPlan) gatedBy(selection, minimisation enforcement) TestPlan {
 	if plan.Modes.Selection != TestModeEnforce {
 		return plan
 	}
-	if selection.IsEnforced {
+	if selection.isEnforced {
 		return plan.minimisationGatedBy(minimisation)
 	}
 	plan.Modes.Selection = TestModeShadow
@@ -73,13 +73,13 @@ func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
 	}
 	shadowed := plan.shadowed()
 	if shadowed.Trigger == PlanTriggerNone {
-		shadowed.Trigger = selection.Trigger
+		shadowed.Trigger = selection.trigger
 	}
 	return shadowed
 }
 
-func (plan TestPlan) minimisationGatedBy(minimisation Enforcement) TestPlan {
-	if plan.Modes.Minimisation != TestModeEnforce || minimisation.IsEnforced || plan.FullMatrix {
+func (plan TestPlan) minimisationGatedBy(minimisation enforcement) TestPlan {
+	if plan.Modes.Minimisation != TestModeEnforce || minimisation.isEnforced || plan.FullMatrix {
 		return plan
 	}
 	plan.Modes.Minimisation = TestModeShadow
