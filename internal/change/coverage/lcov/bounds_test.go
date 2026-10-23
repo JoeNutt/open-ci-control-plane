@@ -162,6 +162,16 @@ func TestReportedFilesRefusesMoreFileEntriesThanTheBound(t *testing.T) {
 	assertBreachOf(t, domain.ErrTooManyFileEntries, err)
 }
 
+func TestReportedFilesAcceptsTestSectionsAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfTestSections(limits.MaxTestSections).ReportedFiles(limits)
+
+	if err != nil {
+		t.Fatalf("want sections at the bound accepted, got %v", err)
+	}
+}
+
 func TestReportedFilesRefusesMoreTestSectionsThanTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
