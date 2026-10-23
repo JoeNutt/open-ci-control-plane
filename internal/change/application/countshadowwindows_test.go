@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -34,5 +35,20 @@ func TestTheWindowsAreCountedFromTheRunsAndEscapesTheStoresHold(t *testing.T) {
 	want := domain.ShadowWindowsFor(gatedLocator(t).GovernedRepository(), runs, escapes)
 	if err != nil || !slices.Equal(windows, want) || windows[0].Window.Gaps != 1 || windows[0].Window.Escapes != 1 {
 		t.Errorf("counted %+v (%v), want %+v with one gap and one escape against selection", windows, err, want)
+	}
+}
+
+type unreadableRuns struct{}
+
+func (unreadableRuns) ShadowedRuns(context.Context) ([]domain.ShadowedRun, error) {
+	return nil, domain.ErrHistoryFull
+}
+
+func TestAWindowWhoseRunsCannotBeReadIsRefusedNeverCountedEmpty(t *testing.T) {
+	windows, err := application.CountShadowWindows{Runs: unreadableRuns{}, Escapes: heldEscapes{}}.Execute(
+		context.Background(), gatedLocator(t).GovernedRepository())
+
+	if !errors.Is(err, domain.ErrHistoryFull) || windows != nil {
+		t.Errorf("an unreadable ledger counted %+v (%v), want no windows and %v", windows, err, domain.ErrHistoryFull)
 	}
 }
