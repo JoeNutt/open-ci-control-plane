@@ -12,7 +12,7 @@ import (
 var gatedAt = time.Date(2026, 11, 30, 12, 0, 0, 0, time.UTC)
 
 func TestAModeWithAnEscapeInTheLast30DaysIsNotEnforcedAndNamesEscapeRecorded(t *testing.T) {
-	escapes := []domain.Escape{{Mode: domain.ShadowedSelection, At: gatedAt.Add(-29 * 24 * time.Hour)}}
+	escapes := []domain.Escape{{Mode: domain.ShadowedSelection, At: gatedAt.Add(-domain.ShadowWindowLength + 24*time.Hour)}}
 
 	verdict := domain.EnforcementOf(domain.ShadowedSelection, nil, escapes, gatedAt)
 

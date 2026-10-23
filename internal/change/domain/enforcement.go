@@ -4,6 +4,8 @@ package domain
 
 import "time"
 
+const ShadowWindowLength = 30 * 24 * time.Hour
+
 type Enforcement struct {
 	IsEnforced bool
 	Trigger    PlanTrigger
@@ -11,7 +13,7 @@ type Enforcement struct {
 
 func EnforcementOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape, now time.Time) Enforcement {
 	for _, escape := range escapes {
-		if escape.Mode == mode && escape.At.After(now.Add(-30*24*time.Hour)) {
+		if escape.Mode == mode && escape.At.After(now.Add(-ShadowWindowLength)) {
 			return Enforcement{Trigger: PlanTriggerEscapeRecorded}
 		}
 	}
