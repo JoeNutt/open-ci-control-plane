@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -32,6 +33,7 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}
+	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.MaxRunReportBytes)
 	token, _ := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	var wire struct {
 		DecisionID string `json:"decisionId"`
@@ -41,7 +43,13 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 			Outcome string `json:"outcome"`
 		} `json:"tests"`
 	}
-	_ = json.NewDecoder(asked.Body).Decode(&wire)
+	if err := json.NewDecoder(asked.Body).Decode(&wire); err != nil {
+		var overBound *http.MaxBytesError
+		if errors.As(err, &overBound) {
+			receiving.answering.write(asked.Context(), answer, oversizedReportProblem())
+			return
+		}
+	}
 	id, _ := domain.ParseDecisionID(wire.DecisionID)
 	var results []domain.TestResult
 	for _, test := range wire.Tests {

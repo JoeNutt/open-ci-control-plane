@@ -131,3 +131,16 @@ func TestAReportDeclaringMoreThanTheByteBoundIsAnswered413NamingItUnread(t *test
 		t.Errorf("read %t, recorded %d: want the body unread and nothing recorded", unread.isRead, len(reporting.received))
 	}
 }
+
+func TestAReportWhoseBodyRunsPastTheByteBoundIsAnswered413AndRecordsNothing(t *testing.T) {
+	reporting := &runReports{}
+	padded := `{"padding":"` + strings.Repeat("x", int(domain.MaxRunReportBytes)) + `",` + passingReport[1:]
+	report := runReport(t, padded)
+	report.ContentLength = -1
+
+	answered := reporting.answerTo(t, report)
+
+	if answered.Code != http.StatusRequestEntityTooLarge || len(reporting.received) != 0 {
+		t.Errorf("answered %d, recorded %d: want %d, nothing recorded", answered.Code, len(reporting.received), http.StatusRequestEntityTooLarge)
+	}
+}
