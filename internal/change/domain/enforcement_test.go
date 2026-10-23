@@ -100,3 +100,13 @@ func TestWhenSelectionDropsToShadowAnEnforcedMinimisationDropsWithItAndRecordsIt
 		t.Errorf("minimisation is %s with minimised %v, want shadow with both suites recorded", plan.Modes.Minimisation, plan.Recorded.Minimised)
 	}
 }
+
+func TestAnUnprovenMinimisationUnderAnEnforcedSelectionShadowsAloneAndRecordsItsSet(t *testing.T) {
+	plan := modedPlanOf(t, "enforce", "enforce").GatedBy(
+		domain.Enforcement{IsEnforced: true}, domain.Enforcement{Trigger: domain.PlanTriggerShadowUnproven})
+
+	if plan.FullMatrix || len(plan.Suites) != 2 || plan.Modes.Selection != domain.TestModeEnforce ||
+		plan.Modes.Minimisation != domain.TestModeShadow || len(plan.Recorded.Minimised) != 2 {
+		t.Errorf("the plan is %+v, want the selection run, minimisation in shadow with both suites recorded as minimised", plan)
+	}
+}

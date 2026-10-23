@@ -50,8 +50,11 @@ func evidenceSince(mode ShadowedMode, runs []ShadowedRun, windowStart time.Time)
 }
 
 func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
-	if plan.Modes.Selection != TestModeEnforce || selection.IsEnforced {
+	if plan.Modes.Selection != TestModeEnforce {
 		return plan
+	}
+	if selection.IsEnforced {
+		return plan.minimisationGatedBy(minimisation)
 	}
 	plan.Modes.Selection = TestModeShadow
 	if plan.Modes.Minimisation == TestModeEnforce {
@@ -62,4 +65,13 @@ func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
 		shadowed.Trigger = selection.Trigger
 	}
 	return shadowed
+}
+
+func (plan TestPlan) minimisationGatedBy(minimisation Enforcement) TestPlan {
+	if plan.Modes.Minimisation != TestModeEnforce || minimisation.IsEnforced || plan.FullMatrix {
+		return plan
+	}
+	plan.Modes.Minimisation = TestModeShadow
+	plan.Recorded = plan.recordedSets()
+	return plan
 }
