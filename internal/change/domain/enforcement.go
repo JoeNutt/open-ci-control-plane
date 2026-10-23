@@ -49,6 +49,17 @@ func evidenceSince(mode ShadowedMode, runs []ShadowedRun, windowStart time.Time)
 	return evidence
 }
 
+func (plan TestPlan) IsEnforcing() bool {
+	return plan.Modes.Selection == TestModeEnforce || plan.Modes.Minimisation == TestModeEnforce
+}
+
+func (plan TestPlan) GatedOn(runs []ShadowedRun, escapes []Escape, now time.Time) TestPlan {
+	ownRuns, ownEscapes := runsOf(plan.Repository, runs), escapesOf(plan.Repository, escapes)
+	return plan.GatedBy(
+		EnforcementOf(ShadowedSelection, ownRuns, ownEscapes, now),
+		EnforcementOf(ShadowedMinimisation, ownRuns, ownEscapes, now))
+}
+
 func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
 	if plan.Modes.Selection != TestModeEnforce {
 		return plan

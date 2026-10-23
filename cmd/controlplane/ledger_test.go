@@ -115,3 +115,23 @@ func TestTheEvaluationCountsWindowsFromItsOwnLedgerAndShadowHistory(t *testing.T
 		t.Errorf("the evaluation counted %+v (%v), want one selection run that is a gap", windows, err)
 	}
 }
+
+func TestTheEvaluationGatesEnforcedPlansOnItsOwnLedgerAndShadowHistory(t *testing.T) {
+	configured := configurationWith(t, func(stated map[string]json.RawMessage) {
+		stated["historyFile"] = quoted(t, filepath.Join(t.TempDir(), "history.jsonl"))
+	})
+	evaluation := evaluationOf(t, configured)
+	if err := evaluation.ledger.RecordDispatch(context.Background(), ledgeredPlanOf(t)); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+	planner := evaluation.planner
+	if planner.Runs == nil || planner.Escapes == nil || planner.Now == nil {
+		t.Fatalf("the planner is %+v, want it to read the shadow runs, the escapes and the clock", planner)
+	}
+
+	runs, err := planner.Runs.ShadowedRuns(context.Background())
+
+	if err != nil || len(runs) != 1 {
+		t.Errorf("the planner reads %+v (%v), want the one run the evaluation's ledger holds", runs, err)
+	}
+}
