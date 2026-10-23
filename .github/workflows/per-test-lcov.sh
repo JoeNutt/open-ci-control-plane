@@ -7,12 +7,12 @@ readonly per_test_timeout=5m
 go_root="$(go env GOROOT)"
 readonly go_root
 
-package="$1"
-artifact="$2"
+readonly package="$1"
+readonly artifact="$2"
 scratch="$(mktemp -d)"
+readonly scratch
 trap 'rm -rf "$scratch"' EXIT
-test_binary="$scratch/package.test"
-package_directory=""
+readonly test_binary="$scratch/package.test"
 
 main() {
   : >"$artifact"
@@ -21,36 +21,40 @@ main() {
     echo "$package has no tests" >&2
     return 0
   fi
+  local package_directory
   package_directory="$(go list -f '{{.Dir}}' "$package")"
 
   local tests="$scratch/tests" test
-  top_level_tests >"$tests"
+  top_level_tests "$package_directory" >"$tests"
   while IFS= read -r test; do
-    section_of "$test" >>"$artifact"
+    section_of "$package_directory" "$test" >>"$artifact"
   done <"$tests"
 }
 
 top_level_tests() {
+  local package_directory="$1"
   local listing="$scratch/listing"
-  run_test_binary "$scratch/listing-counters" -test.list '.*' >"$listing"
+  run_test_binary "$package_directory" "$scratch/listing-counters" -test.list '.*' >"$listing"
   grep -E "$top_level_test" "$listing" || [[ $? -eq 1 ]]
 }
 
 section_of() {
-  local test="$1"
+  local package_directory="$1"
+  local test="$2"
   local counters="$scratch/counters-$test"
   local profile="$scratch/$test.out"
   local unnamed_lcov="$scratch/$test.lcov"
 
-  run_test_binary "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
+  run_test_binary "$package_directory" "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
   go tool covdata textfmt -i="$counters" -o="$profile"
   GOROOT="$go_root" gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
   exercised_records_of "$unnamed_lcov" "$test"
 }
 
 run_test_binary() {
-  local counters="$1"
-  shift
+  local package_directory="$1"
+  local counters="$2"
+  shift 2
   mkdir -p "$counters"
   (cd "$package_directory" && GOCOVERDIR="$counters" "$test_binary" -test.gocoverdir="$counters" "$@" </dev/null)
 }
