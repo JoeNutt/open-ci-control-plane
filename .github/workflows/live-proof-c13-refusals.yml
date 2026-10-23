@@ -1,0 +1,44 @@
+name: live proof — C-13 refusals
+
+on: pull_request
+
+permissions:
+  contents: read
+  checks: read
+  id-token: write
+
+jobs:
+  refusals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CONTROL_PLANE: https://ci.joenutt.com
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Present a real Actions identity token to C-13
+        run: |
+          set -euo pipefail
+          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+          echo "::add-mask::$token"
+          report='{"decisionId":"dec_0123456789abcdef0123456789abcdef","tests":[{"package":"github.com/JoeNutt/open-ci-control-plane/internal/change/domain","name":"TestProof","outcome":"pass"}]}'
+          put() {
+            curl -sS -o /dev/stderr -w '%{http_code}' -X PUT -H "Authorization: Bearer $token" \
+              -H "Content-Type: application/json" --data "$2" "$CONTROL_PLANE/v1/repositories/$1"
+          }
+          foreign="$(put "JoeNutt/open-ci-policy/runs/$HEAD_SHA" "$report")"
+          echo " <- another repository's path: $foreign"
+          unplanned="$(put "$GITHUB_REPOSITORY/runs/0000000000000000000000000000000000000001" "$report")"
+          echo " <- a head with no plan: $unplanned"
+          for _ in $(seq 1 90); do
+            summary="$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
+              --jq '[.check_runs[] | select(.name == "open-ci/tests" and .app.slug == "open-ci-control-plane" and .status == "completed")][0].output.summary // ""')"
+            [[ -n "$summary" ]] && break
+            sleep 20
+          done
+          decision="$(grep -oE 'dec_[0-9a-f]{32}' <<<"$summary" | head -1)"
+          [[ -n "$decision" ]] || { echo "the App never posted open-ci/tests" >&2; exit 1; }
+          second="$(put "$GITHUB_REPOSITORY/runs/$HEAD_SHA" "${report/dec_0123456789abcdef0123456789abcdef/$decision}")"
+          echo " <- a second report for this head under $decision: $second"
+          [[ "$foreign" == 403 && "$unplanned" == 404 && "$second" == 409 ]]
