@@ -66,24 +66,24 @@ func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
 }
 
 func (dispatched DispatchedPlan) SelectionEscapesIn(results []TestResult) []TestResult {
+	return dispatched.escapesOutside(dispatched.Recorded.Selected, results)
+}
+
+func (dispatched DispatchedPlan) escapesOutside(recorded []CoverageSuite, results []TestResult) []TestResult {
 	var escaped []TestResult
 	for _, result := range results {
-		if result.Outcome != TestOutcomeFail || result.Rerun != TestOutcomeFail {
-			continue
+		if result.failedTwice() && !dispatched.wouldHaveRun(recorded, result.Suite) {
+			escaped = append(escaped, result)
 		}
-		if slices.Contains(dispatched.Recorded.Selected, result.Suite) {
-			continue
-		}
-		isAlwaysRun := false
-		for _, path := range dispatched.AlwaysRun {
-			if path.String() == result.Suite.String() {
-				isAlwaysRun = true
-			}
-		}
-		if isAlwaysRun {
-			continue
-		}
-		escaped = append(escaped, result)
 	}
 	return escaped
+}
+
+func (dispatched DispatchedPlan) wouldHaveRun(recorded []CoverageSuite, suite CoverageSuite) bool {
+	return slices.Contains(recorded, suite) ||
+		slices.ContainsFunc(dispatched.AlwaysRun, func(path GoImportPath) bool { return path.String() == suite.String() })
+}
+
+func (result TestResult) failedTwice() bool {
+	return result.Outcome == TestOutcomeFail && result.Rerun == TestOutcomeFail
 }
