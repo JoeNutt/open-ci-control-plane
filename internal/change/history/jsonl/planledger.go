@@ -81,16 +81,18 @@ func (ledger *PlanLedger) lineFor(key ledgerKey) (ledgerLine, bool, error) {
 	if err != nil {
 		return ledgerLine{}, false, fmt.Errorf("read the plan ledger: %w", err)
 	}
+	var latest ledgerLine
+	isFound := false
 	for number, entry := range entries {
 		var line ledgerLine
 		if err := json.Unmarshal(entry.Body, &line); err != nil {
 			return ledgerLine{}, false, fmt.Errorf("read plan ledger entry %d: %w", number+1, err)
 		}
 		if key.isHeldBy(line) {
-			return line, true, nil
+			latest, isFound = line, true
 		}
 	}
-	return ledgerLine{}, false, nil
+	return latest, isFound, nil
 }
 
 func (ledger *PlanLedger) append(line ledgerLine) error {
