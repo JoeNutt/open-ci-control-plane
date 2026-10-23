@@ -12,14 +12,23 @@ import (
 type RecordRun struct {
 	Ledger    domain.PlanLedger
 	Publisher domain.CheckRunPublisher
+	Callers   domain.CallerRepositories
 }
 
 type RunUpload struct {
+	Token  domain.IdentityToken
 	Report domain.RunReport
 }
 
 func (useCase RecordRun) Execute(ctx context.Context, upload RunUpload) error {
 	report := upload.Report
+	caller, err := useCase.Callers.RepositoryOf(ctx, upload.Token)
+	if err != nil {
+		return err
+	}
+	if caller != report.Repository() {
+		return ErrForeignRepository
+	}
 	dispatched, err := useCase.Ledger.DispatchedPlanFor(ctx, report.Repository(), report.Head())
 	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head(), err)

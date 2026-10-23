@@ -55,7 +55,7 @@ func (ledger *plannedHeads) RecordReport(_ context.Context, _ domain.GovernedRep
 
 func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.T) {
 	published := &publishedCheckRuns{}
-	useCase := application.RecordRun{Ledger: &plannedHeads{}, Publisher: published}
+	useCase := application.RecordRun{Ledger: &plannedHeads{}, Publisher: published, Callers: tokensNaming{gatedLocator(t).GovernedRepository()}}
 	head := commitSHAOf(t, recordedHeadSHA)
 
 	err := useCase.Execute(context.Background(), application.RunUpload{Report: runReportOf(t, head, nil)})
@@ -120,7 +120,7 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 	} {
 		published := &publishedCheckRuns{}
 
-		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published}.Execute(
+		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published, Callers: tokensNaming{gatedLocator(t).GovernedRepository()}}.Execute(
 			context.Background(), application.RunUpload{Report: runReportOf(t, head, report.results)})
 
 		if err != nil {
@@ -141,6 +141,7 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 	useCase := application.RecordRun{
 		Ledger:    ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}),
 		Publisher: published,
+		Callers:   tokensNaming{gatedLocator(t).GovernedRepository()},
 	}
 	first := runReportOf(t, head, []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}})
 	if err := useCase.Execute(context.Background(), application.RunUpload{Report: first}); err != nil {
@@ -155,5 +156,30 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 	}
 	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionSuccess {
 		t.Errorf("a refused second report changed the check run to %q", run.Conclusion)
+	}
+}
+
+func TestAReportCarryingAnotherRepositorysTokenIsRefusedPostsNothingAndUsesNoReport(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	ledger := ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{plannedSuiteOf(t)}})
+	published := &publishedCheckRuns{}
+	stranger, err := domain.ParseGovernedRepository("JoeNutt/another-repository")
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	useCase := application.RecordRun{Ledger: ledger, Publisher: published, Callers: tokensNaming{stranger}}
+
+	err = useCase.Execute(context.Background(), application.RunUpload{
+		Token: presentedToken(t), Report: runReportOf(t, head, nil),
+	})
+
+	if !errors.Is(err, application.ErrForeignRepository) {
+		t.Errorf("a report with another repository's token gave %v, want %v", err, application.ErrForeignRepository)
+	}
+	if runs := published.PublishedOn(gatedLocator(t), head); len(runs) != 0 {
+		t.Errorf("posted %d check runs for a refused caller", len(runs))
+	}
+	if ledger.reported[head] {
+		t.Error("a refused caller's report used up the head's one report")
 	}
 }
