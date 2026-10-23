@@ -77,3 +77,26 @@ func TestAPlanThatRecordedNothingHasNoEscapes(t *testing.T) {
 		t.Errorf("a plan that recorded nothing gave escapes %+v, want none", got)
 	}
 }
+
+func TestAnEscapeNamesItsModeThePullRequestTheTestAndTheChangedFiles(t *testing.T) {
+	locator, err := domain.ParsePullRequestLocator("JoeNutt/open-ci-control-plane", 7)
+	if err != nil {
+		t.Fatalf("parse locator: %v", err)
+	}
+	changed, err := domain.ParseRepositoryPath("internal/change/rules/rules.go")
+	if err != nil {
+		t.Fatalf("parse path: %v", err)
+	}
+	dispatched := domain.DispatchedPlan{
+		Locator: locator, ChangedFiles: []domain.RepositoryPath{changed},
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suiteOf(t, "example.com/app/rules")}},
+	}
+	failed := domain.TestResult{Suite: suiteOf(t, "example.com/app/payments"), Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+
+	escapes := dispatched.EscapesIn([]domain.TestResult{failed})
+
+	if len(escapes) != 1 || escapes[0].Mode != domain.ShadowedSelection || escapes[0].PullRequest != locator ||
+		escapes[0].Test != failed || !slices.Equal(escapes[0].ChangedFiles, []domain.RepositoryPath{changed}) {
+		t.Errorf("escapes are %+v, want one against selection naming %s, %s and %s", escapes, locator, failed.Name, changed)
+	}
+}
