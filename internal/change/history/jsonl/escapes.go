@@ -68,6 +68,10 @@ func (escapes *Escapes) RecordedEscapes() ([]domain.Escape, error) {
 }
 
 func (line escapeLine) escape() (domain.Escape, error) {
+	mode, err := domain.ParseShadowedMode(line.Mode)
+	if err != nil {
+		return domain.Escape{}, err
+	}
 	locator, err := domain.ParsePullRequestLocator(line.Repository, line.PullRequest)
 	if err != nil {
 		return domain.Escape{}, err
@@ -80,5 +84,5 @@ func (line escapeLine) escape() (domain.Escape, error) {
 	if err != nil {
 		return domain.Escape{}, err
 	}
-	return domain.Escape{Mode: domain.ShadowedMode(line.Mode), PullRequest: locator, Test: test, ChangedFiles: changed}, nil
+	return domain.Escape{Mode: mode, PullRequest: locator, Test: test, ChangedFiles: changed}, nil
 }

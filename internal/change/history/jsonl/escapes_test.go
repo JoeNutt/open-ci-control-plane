@@ -4,6 +4,8 @@ package jsonl_test
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -35,5 +37,20 @@ func TestAnEscapeSurvivesARestart(t *testing.T) {
 	if len(escapes) != 1 || escapes[0].Mode != escape.Mode || escapes[0].PullRequest != escape.PullRequest ||
 		escapes[0].Test != escape.Test || !slices.Equal(escapes[0].ChangedFiles, escape.ChangedFiles) {
 		t.Errorf("after a restart the escapes are %+v, want %+v", escapes, escape)
+	}
+}
+
+func TestAnEscapeLineNamingAModeThatIsNoModeIsRefused(t *testing.T) {
+	history := openedLog(t, filepath.Join(t.TempDir(), "history.jsonl"))
+	hostile := `{"kind":"escape","mode":"everything","repository":"` + ledgerRepository + `","pullRequest":7,` +
+		`"suite":"` + ledgerSuite + `","test":"TestRefund","outcome":"fail","rerun":"fail","changedFiles":[]}`
+	if err := history.Append(json.RawMessage(hostile)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	_, err := jsonl.NewEscapes(history).RecordedEscapes()
+
+	if !errors.Is(err, domain.ErrUnknownShadowedMode) {
+		t.Errorf("an escape line with a mode that is no mode gave %v, want %v", err, domain.ErrUnknownShadowedMode)
 	}
 }
