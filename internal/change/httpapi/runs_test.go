@@ -94,7 +94,6 @@ func TestAReportToAMalformedPathIsAnswered400AndReachesNoRecording(t *testing.T)
 		t.Run(name, func(t *testing.T) {
 			reporting := &runReports{}
 			report := runReport(t, passingReport)
-			report.URL.Path, report.URL.RawPath = "", ""
 			report.URL = mustParseURL(t, path)
 
 			answered := reporting.answerTo(t, report)

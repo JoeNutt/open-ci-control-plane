@@ -23,14 +23,9 @@ type runReports struct {
 }
 
 func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	repository, err := domain.ParseGovernedRepositorySegments(asked.PathValue(ownerSegment), asked.PathValue(repoSegment))
-	if err != nil {
-		receiving.answering.write(asked.Context(), answer, malformedPathProblem(repositorySegments))
-		return
-	}
-	head, err := domain.ParseCommitSHA(asked.PathValue("headSha"))
-	if err != nil {
-		receiving.answering.write(asked.Context(), answer, malformedPathProblem("headSha"))
+	target, refused := runTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(headSegment))
+	if refused != nil {
+		receiving.answering.write(asked.Context(), answer, refused)
 		return
 	}
 	token, _ := bearerTokenIn(asked.Header.Get(authorizationHeader))
@@ -49,9 +44,28 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 		result, _ := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
 		results = append(results, result)
 	}
-	report, _ := domain.ParseRunReport(repository, head, id, results)
+	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
 	_ = receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report})
-	receiving.answering.write(asked.Context(), answer, runAccepted{HeadSHA: head.String(), Recorded: len(results)})
+	receiving.answering.write(asked.Context(), answer, runAccepted{HeadSHA: target.head.String(), Recorded: len(results)})
+}
+
+const headSegment = "headSha"
+
+type runTarget struct {
+	repository domain.GovernedRepository
+	head       domain.CommitSHA
+}
+
+func runTargetOf(owner, repo, head string) (runTarget, refusal) {
+	repository, err := domain.ParseGovernedRepositorySegments(owner, repo)
+	if err != nil {
+		return runTarget{}, malformedPathProblem(repositorySegments)
+	}
+	parsedHead, err := domain.ParseCommitSHA(head)
+	if err != nil {
+		return runTarget{}, malformedPathProblem(headSegment)
+	}
+	return runTarget{repository: repository, head: parsedHead}, nil
 }
 
 type runAccepted struct {
