@@ -104,53 +104,113 @@ func (ledger *PlanLedger) append(line ledgerLine) error {
 }
 
 type ledgerLine struct {
-	Kind        lineKind `json:"kind"`
-	Repository  string   `json:"repository"`
-	PullRequest int      `json:"pullRequest,omitempty"`
-	Head        string   `json:"head"`
-	DecisionID  string   `json:"decisionId,omitempty"`
-	Suites      []string `json:"suites,omitempty"`
+	Kind         lineKind      `json:"kind"`
+	Repository   string        `json:"repository"`
+	PullRequest  int           `json:"pullRequest,omitempty"`
+	Head         string        `json:"head"`
+	DecisionID   string        `json:"decisionId,omitempty"`
+	Suites       []string      `json:"suites,omitempty"`
+	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
+	Recorded     *recordedLine `json:"recorded,omitempty"`
+	ChangedFiles []string      `json:"changedFiles,omitempty"`
+}
+
+type recordedLine struct {
+	Selected  []string `json:"selected"`
+	Minimised []string `json:"minimised"`
 }
 
 func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
-	suites := make([]string, 0, len(dispatched.Suites))
-	for _, suite := range dispatched.Suites {
-		suites = append(suites, suite.String())
-	}
 	return ledgerLine{
-		Kind:        dispatchedKind,
-		Repository:  dispatched.Locator.Repository(),
-		PullRequest: dispatched.Locator.Number(),
-		Head:        dispatched.Head.String(),
-		DecisionID:  dispatched.DecisionID.String(),
-		Suites:      suites,
+		Kind:         dispatchedKind,
+		Repository:   dispatched.Locator.Repository(),
+		PullRequest:  dispatched.Locator.Number(),
+		Head:         dispatched.Head.String(),
+		DecisionID:   dispatched.DecisionID.String(),
+		Suites:       namesOf(dispatched.Suites),
+		AlwaysRun:    namesOf(dispatched.AlwaysRun),
+		Recorded:     recordedLineOf(dispatched.Recorded),
+		ChangedFiles: namesOf(dispatched.ChangedFiles),
 	}
+}
+
+func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
+	if !recorded.IsRecorded {
+		return nil
+	}
+	return &recordedLine{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+}
+
+func namesOf[Named fmt.Stringer](values []Named) []string {
+	names := make([]string, 0, len(values))
+	for _, value := range values {
+		names = append(names, value.String())
+	}
+	return names
 }
 
 func (line ledgerLine) dispatchedPlan(head domain.CommitSHA) (domain.DispatchedPlan, error) {
-	locator, err := domain.ParsePullRequestLocator(line.Repository, line.PullRequest)
+	dispatched, err := line.parsedPlan(head)
 	if err != nil {
 		return domain.DispatchedPlan{}, fmt.Errorf("read the plan dispatched for %s: %w", head, err)
+	}
+	return dispatched, nil
+}
+
+func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan, error) {
+	locator, err := domain.ParsePullRequestLocator(line.Repository, line.PullRequest)
+	if err != nil {
+		return domain.DispatchedPlan{}, err
 	}
 	id, err := domain.ParseDecisionID(line.DecisionID)
 	if err != nil {
-		return domain.DispatchedPlan{}, fmt.Errorf("read the plan dispatched for %s: %w", head, err)
+		return domain.DispatchedPlan{}, err
 	}
-	suites, err := suitesOf(line.Suites)
+	suites, err := parsedAll(line.Suites, domain.ParseCoverageSuite)
 	if err != nil {
-		return domain.DispatchedPlan{}, fmt.Errorf("read the plan dispatched for %s: %w", head, err)
+		return domain.DispatchedPlan{}, err
 	}
-	return domain.DispatchedPlan{Locator: locator, Head: head, DecisionID: id, Suites: suites}, nil
+	alwaysRun, err := parsedAll(line.AlwaysRun, domain.ParseGoImportPath)
+	if err != nil {
+		return domain.DispatchedPlan{}, err
+	}
+	changed, err := parsedAll(line.ChangedFiles, domain.ParseRepositoryPath)
+	if err != nil {
+		return domain.DispatchedPlan{}, err
+	}
+	recorded, err := line.Recorded.recordedSets()
+	if err != nil {
+		return domain.DispatchedPlan{}, err
+	}
+	return domain.DispatchedPlan{
+		Locator: locator, Head: head, DecisionID: id, Suites: suites,
+		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed,
+	}, nil
 }
 
-func suitesOf(stated []string) ([]domain.CoverageSuite, error) {
-	suites := make([]domain.CoverageSuite, 0, len(stated))
-	for _, name := range stated {
-		suite, err := domain.ParseCoverageSuite(name)
+func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
+	if line == nil {
+		return domain.RecordedSets{}, nil
+	}
+	selected, err := parsedAll(line.Selected, domain.ParseCoverageSuite)
+	if err != nil {
+		return domain.RecordedSets{}, err
+	}
+	minimised, err := parsedAll(line.Minimised, domain.ParseCoverageSuite)
+	if err != nil {
+		return domain.RecordedSets{}, err
+	}
+	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) ([]Parsed, error) {
+	parsed := make([]Parsed, 0, len(stated))
+	for _, value := range stated {
+		one, err := parse(value)
 		if err != nil {
 			return nil, err
 		}
-		suites = append(suites, suite)
+		parsed = append(parsed, one)
 	}
-	return suites, nil
+	return parsed, nil
 }

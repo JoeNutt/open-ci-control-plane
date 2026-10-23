@@ -11,14 +11,20 @@ const (
 )
 
 type DispatchedPlan struct {
-	Locator    PullRequestLocator
-	Head       CommitSHA
-	DecisionID DecisionID
-	Suites     []CoverageSuite
+	Locator      PullRequestLocator
+	Head         CommitSHA
+	DecisionID   DecisionID
+	Suites       []CoverageSuite
+	AlwaysRun    []GoImportPath
+	Recorded     RecordedSets
+	ChangedFiles []RepositoryPath
 }
 
 func DispatchedPlanOf(locator PullRequestLocator, plan TestPlan) DispatchedPlan {
-	return DispatchedPlan{Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites}
+	return DispatchedPlan{
+		Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites,
+		AlwaysRun: plan.AlwaysRun, Recorded: plan.Recorded, ChangedFiles: plan.ChangedFiles,
+	}
 }
 
 func (dispatched DispatchedPlan) IsReportedBy(report RunReport) bool {

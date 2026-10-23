@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	ledgerRepository = "JoeNutt/open-ci-control-plane"
-	ledgerHeadSHA    = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
-	ledgerDecisionID = "dec_0123456789abcdef0123456789abcdef"
-	ledgerSuite      = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
+	ledgerRepository  = "JoeNutt/open-ci-control-plane"
+	ledgerHeadSHA     = "9f1cabc0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6"
+	ledgerDecisionID  = "dec_0123456789abcdef0123456789abcdef"
+	ledgerSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
+	ledgerAlwaysRun   = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	ledgerChangedFile = "internal/change/rules/rules.go"
 )
 
 func TestADispatchedPlanSurvivesARestart(t *testing.T) {
@@ -37,7 +39,11 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 		t.Fatalf("after a restart the dispatched plan is not found: %v", err)
 	}
 	if found.Locator != dispatched.Locator || found.Head != dispatched.Head ||
-		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) {
+		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) ||
+		!slices.Equal(found.AlwaysRun, dispatched.AlwaysRun) || !slices.Equal(found.ChangedFiles, dispatched.ChangedFiles) ||
+		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded ||
+		!slices.Equal(found.Recorded.Selected, dispatched.Recorded.Selected) ||
+		!slices.Equal(found.Recorded.Minimised, dispatched.Recorded.Minimised) {
 		t.Errorf("after a restart the ledger holds %+v, want %+v", found, dispatched)
 	}
 }
@@ -77,7 +83,20 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 	if err != nil {
 		t.Fatalf("parse suite: %v", err)
 	}
-	return domain.DispatchedPlan{Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite}}
+	alwaysRun, err := domain.ParseGoImportPath(ledgerAlwaysRun)
+	if err != nil {
+		t.Fatalf("parse always-run suite: %v", err)
+	}
+	changed, err := domain.ParseRepositoryPath(ledgerChangedFile)
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	return domain.DispatchedPlan{
+		Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite},
+		AlwaysRun:    []domain.GoImportPath{alwaysRun},
+		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suite}, Minimised: []domain.CoverageSuite{suite}},
+		ChangedFiles: []domain.RepositoryPath{changed},
+	}
 }
 
 func TestAnotherRepositorysPlanAtTheSameHeadIsNotFound(t *testing.T) {

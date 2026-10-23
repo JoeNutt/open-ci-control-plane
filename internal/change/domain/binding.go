@@ -50,6 +50,10 @@ func (binding Binding) SelectionMode() TestMode { return binding.selection }
 
 func (binding Binding) MinimisationMode() TestMode { return binding.minimisation }
 
+func (binding Binding) modes() PlanModes {
+	return PlanModes{Selection: binding.selection, Minimisation: binding.minimisation}
+}
+
 func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
 
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {

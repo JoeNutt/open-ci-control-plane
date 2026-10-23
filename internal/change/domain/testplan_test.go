@@ -188,7 +188,9 @@ func coverageByFiles(t *testing.T, fileBySuite map[string]string) domain.Reposit
 func planBinding(t *testing.T) domain.Binding {
 	t.Helper()
 
-	binding, err := domain.ParseBinding(thisRepositorysBinding())
+	statement := thisRepositorysBinding()
+	statement.Selection = "enforce"
+	binding, err := domain.ParseBinding(statement)
 	if err != nil {
 		t.Fatalf("parse binding: %v", err)
 	}
@@ -211,4 +213,112 @@ func suiteNamesOf(suites []domain.CoverageSuite) []string {
 		names = append(names, suite.String())
 	}
 	return names
+}
+
+func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "off")
+
+	if !plan.Recorded.IsRecorded {
+		t.Error("a shadow plan says it recorded nothing")
+	}
+	if !plan.FullMatrix || len(plan.Suites) != 0 {
+		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
+	}
+	if got := suiteNamesOf(plan.Recorded.Selected); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
+		t.Errorf("a shadow plan recorded %v as selected, want %v", got, []string{ordersSuite, paymentsSuite})
+	}
+}
+
+func TestAShadowPlanRecordsTheMinimisedSetOnlyWhenMinimisationIsInShadow(t *testing.T) {
+	for minimisation, want := range map[string][]string{
+		"shadow": {ordersSuite, paymentsSuite},
+		"off":    {},
+	} {
+		plan := modedPlanOf(t, "shadow", minimisation)
+
+		if got := suiteNamesOf(plan.Recorded.Minimised); !slices.Equal(got, want) {
+			t.Errorf("minimisation %s recorded %v as minimised, want %v", minimisation, got, want)
+		}
+	}
+}
+
+func modedPlanOf(t *testing.T, selection, minimisation string) domain.TestPlan {
+	t.Helper()
+
+	statement := thisRepositorysBinding()
+	statement.Selection, statement.Minimisation = selection, minimisation
+	binding, err := domain.ParseBinding(statement)
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+	plan, err := domain.PlanFor(domain.PlanSubject{
+		Document: domain.Document{
+			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
+			Diff: domain.Diff{Files: []domain.File{modified(ordersFile), modified(paymentsFile)}},
+		},
+		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}))
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	return plan
+}
+
+func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
+	plan := modedPlanOf(t, "off", "off")
+
+	if !plan.FullMatrix || len(plan.Suites) != 0 || len(plan.Recorded.Selected) != 0 {
+		t.Errorf("selection off planned full matrix %v, suites %v, recorded %v: want the full matrix and nothing recorded",
+			plan.FullMatrix, suiteNamesOf(plan.Suites), suiteNamesOf(plan.Recorded.Selected))
+	}
+}
+
+func TestAShadowPlanForcedToTheFullMatrixKeepsItsTriggerAndRecordsNothing(t *testing.T) {
+	statement := thisRepositorysBinding()
+	statement.Selection, statement.Minimisation = "shadow", "shadow"
+	binding, err := domain.ParseBinding(statement)
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	plan, err := domain.PlanFor(domain.PlanSubject{
+		Document: domain.Document{
+			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
+			Diff: domain.Diff{Files: []domain.File{modified(ordersFile)}, Kinds: domain.Kinds{CIConfig: []string{ordersFile}}},
+		},
+		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile}))
+
+	if err != nil || plan.Trigger != domain.PlanTriggerCIConfig || plan.Recorded.IsRecorded {
+		t.Errorf("a forced shadow plan has trigger %q and recorded %+v (%v), want %q and nothing recorded",
+			plan.Trigger, plan.Recorded, err, domain.PlanTriggerCIConfig)
+	}
+}
+
+func TestAPlanCarriesTheBindingsSelectionAndMinimisationModes(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "shadow")
+
+	if plan.Modes.Selection != domain.TestModeShadow || plan.Modes.Minimisation != domain.TestModeShadow {
+		t.Errorf("the plan carries modes %+v, want shadow for both", plan.Modes)
+	}
+}
+
+func TestAPlanReplacedAsTooLargeRecordsNothing(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "shadow").AsTooLarge()
+
+	if plan.Recorded.IsRecorded || len(plan.Recorded.Selected)+len(plan.Recorded.Minimised) != 0 {
+		t.Errorf("a plan replaced as too large still records %+v", plan.Recorded)
+	}
+}
+
+func TestAPlanCarriesThePathsItsChangeTouched(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "off")
+
+	var paths []string
+	for _, changed := range plan.ChangedFiles {
+		paths = append(paths, changed.String())
+	}
+	if !slices.Equal(paths, []string{ordersFile, paymentsFile}) {
+		t.Errorf("the plan carries changed files %v, want %v", paths, []string{ordersFile, paymentsFile})
+	}
 }

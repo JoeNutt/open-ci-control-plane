@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -28,16 +29,28 @@ const (
 )
 
 type wirePlan struct {
-	SchemaVersion   int      `json:"schema_version"`
-	DecisionID      string   `json:"decisionId"`
-	Repository      string   `json:"repository"`
-	HeadSHA         string   `json:"headSha"`
-	Suites          []string `json:"suites"`
-	AlwaysRunSuites []string `json:"alwaysRunSuites"`
-	FullMatrix      bool     `json:"fullMatrix"`
-	TriggerReason   string   `json:"triggerReason"`
-	Shadow          bool     `json:"shadow"`
-	BundleRevision  string   `json:"bundleRevision"`
+	SchemaVersion   int           `json:"schema_version"`
+	DecisionID      string        `json:"decisionId"`
+	Repository      string        `json:"repository"`
+	HeadSHA         string        `json:"headSha"`
+	Suites          []string      `json:"suites"`
+	AlwaysRunSuites []string      `json:"alwaysRunSuites"`
+	FullMatrix      bool          `json:"fullMatrix"`
+	TriggerReason   string        `json:"triggerReason"`
+	Shadow          bool          `json:"shadow"`
+	BundleRevision  string        `json:"bundleRevision"`
+	Mode            wireMode      `json:"mode"`
+	Recorded        *wireRecorded `json:"recorded,omitempty"`
+}
+
+type wireRecorded struct {
+	Selected  []string `json:"selected"`
+	Minimised []string `json:"minimised"`
+}
+
+type wireMode struct {
+	Selection    string `json:"selection"`
+	Minimisation string `json:"minimisation"`
 }
 
 type wireDispatch struct {
@@ -134,6 +147,7 @@ func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
 		SchemaVersion: 1, DecisionID: plan.DecisionID.String(), Repository: plan.Repository.String(),
 		HeadSHA: plan.Head.String(), Suites: []string{}, AlwaysRunSuites: []string{},
 		FullMatrix: plan.FullMatrix, TriggerReason: string(plan.Trigger), BundleRevision: plan.BundleRevision.String(),
+		Mode: wireMode{Selection: plan.Modes.Selection.String(), Minimisation: plan.Modes.Minimisation.String()},
 	}
 	for _, suite := range plan.Suites {
 		sent.Suites = append(sent.Suites, suite.String())
@@ -285,5 +299,26 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 		DecisionID: decisionID, Repository: repository, Head: headCommit, Workflow: workflow,
 		Suites: []domain.CoverageSuite{suite}, AlwaysRun: []domain.GoImportPath{always},
 		Trigger: domain.PlanTriggerNone, BundleRevision: revision,
+	}
+}
+
+func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
+	held := newDispatchForge(t)
+	plan := selectedPlan(t)
+	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: plan.Suites, Minimised: plan.Suites}
+	plan.Suites, plan.FullMatrix = nil, true
+	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
+
+	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+		t.Fatalf("dispatch plan: %v", err)
+	}
+
+	var sent wirePlan
+	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+		t.Fatalf("decode the plan: %v", err)
+	}
+	if !sent.Shadow || sent.Mode.Selection != "shadow" || sent.Mode.Minimisation != "shadow" || sent.Recorded == nil ||
+		!slices.Equal(sent.Recorded.Selected, []string{dispatchedSuite}) || !slices.Equal(sent.Recorded.Minimised, []string{dispatchedSuite}) {
+		t.Errorf("dispatched %+v, want shadow with both modes and both recorded sets", sent)
 	}
 }
