@@ -2,17 +2,29 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"slices"
+)
 
-type TestMode struct {
-	value string
-}
+type TestMode string
+
+const (
+	TestModeOff     TestMode = "off"
+	TestModeShadow  TestMode = "shadow"
+	TestModeEnforce TestMode = "enforce"
+)
+
+var testModes = []TestMode{TestModeOff, TestModeShadow, TestModeEnforce}
+
+var ErrUnknownTestMode = errors.New("the mode is not off, shadow or enforce")
 
 func ParseTestMode(stated string) (TestMode, error) {
-	if stated != "off" && stated != "shadow" && stated != "enforce" {
-		return TestMode{}, errors.New("not a test mode")
+	if !slices.Contains(testModes, TestMode(stated)) {
+		return "", fmt.Errorf("%w: %q", ErrUnknownTestMode, stated)
 	}
-	return TestMode{value: stated}, nil
+	return TestMode(stated), nil
 }
 
-func (mode TestMode) String() string { return mode.value }
+func (mode TestMode) String() string { return string(mode) }
