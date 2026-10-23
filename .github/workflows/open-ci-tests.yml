@@ -32,6 +32,7 @@ jobs:
           decision_id="$(jq -er '.decisionId' <<<"$PLAN")"
           [[ "$decision_id" =~ ^dec_[0-9a-f]{32}$ ]] || { echo "decisionId is not a decision ID" >&2; exit 1; }
           full_matrix="$(jq -er '.fullMatrix | if type == "boolean" then tostring else error("fullMatrix is not a boolean") end' <<<"$PLAN")"
+          shadow="$(jq -er '.shadow | if type == "boolean" then tostring else error("shadow is not a boolean") end' <<<"$PLAN")"
           packages="$(jq -er '(.suites + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
           for package in $packages; do
             [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ ]] || { echo "a suite is not a Go import path" >&2; exit 1; }
@@ -40,6 +41,7 @@ jobs:
             echo "head_sha=$head_sha"
             echo "decision_id=$decision_id"
             echo "full_matrix=$full_matrix"
+            echo "shadow=$shadow"
             echo "packages=$packages"
           } >>"$GITHUB_OUTPUT"
 
@@ -109,6 +111,22 @@ jobs:
             go test -json "${planned[@]}" >"$events"
           fi
 
+      - name: Rerun each failed top-level test once, in shadow
+        if: always() && steps.current.outputs.is_current == 'true' && steps.plan.outputs.shadow == 'true'
+        run: |
+          set -euo pipefail
+          events="$RUNNER_TEMP/test-events.jsonl"
+          reruns="$RUNNER_TEMP/rerun-events.jsonl"
+          : >"$reruns"
+          [[ -f "$events" ]] || exit 0
+          jq -r 'select(.Action == "fail" and .Test != null and (.Test | contains("/") | not)) | "\(.Package) \(.Test)"' "$events" \
+            | sort -u \
+            | awk '{names[$1] = (names[$1] == "" ? $2 : names[$1] "|" $2)} END {for (p in names) print p, names[p]}' \
+            | while read -r package names; do
+                [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ && "$names" =~ ^[A-Za-z_][A-Za-z0-9_|]*$ ]] || { echo "a failed test is not a Go identifier" >&2; exit 1; }
+                go test -json -count=1 -run "^($names)\$" "$package" >>"$reruns" || true
+              done
+
       - name: Report each top-level test to the control plane
         if: always() && steps.current.outputs.is_current == 'true'
         env:
@@ -120,12 +138,20 @@ jobs:
           events="$RUNNER_TEMP/test-events.jsonl"
           report="$RUNNER_TEMP/run-report.json"
           [[ -f "$events" ]] || { echo "the suites never ran, so there is nothing to report" >&2; exit 1; }
-          jq -sc --arg decision "$DECISION_ID" '{
+          reruns="$RUNNER_TEMP/rerun-events.jsonl"
+          [[ -f "$reruns" ]] || : >"$reruns"
+          jq -sc '[ .[]
+            | select(.Test != null and (.Test | contains("/") | not))
+            | select(.Action == "pass" or .Action == "fail")
+            | {key: (.Package + " " + .Test), value: .Action} ] | from_entries' "$reruns" >"$RUNNER_TEMP/reruns.json"
+          jq -sc --arg decision "$DECISION_ID" --slurpfile reruns "$RUNNER_TEMP/reruns.json" '{
             decisionId: $decision,
             tests: [ .[]
               | select(.Test != null and (.Test | contains("/") | not))
               | select(.Action == "pass" or .Action == "fail" or .Action == "skip")
-              | {package: .Package, name: .Test, outcome: .Action, seconds: (.Elapsed // 0)} ]
+              | {package: .Package, name: .Test, outcome: .Action, seconds: (.Elapsed // 0)}
+              | . + (if .outcome == "fail" and $reruns[0][.package + " " + .name] != null
+                     then {rerunOutcome: $reruns[0][.package + " " + .name]} else {} end) ]
           }' "$events" >"$report"
           failed="$(jq '[.tests[] | select(.outcome == "fail")] | length' "$report")"
           if [[ "$OUTCOME" != "success" && "$failed" -eq 0 ]]; then
