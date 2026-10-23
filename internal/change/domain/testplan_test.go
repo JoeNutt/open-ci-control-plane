@@ -302,3 +302,11 @@ func TestAPlanCarriesTheBindingsSelectionAndMinimisationModes(t *testing.T) {
 		t.Errorf("the plan carries modes %+v, want shadow for both", plan.Modes)
 	}
 }
+
+func TestAPlanReplacedAsTooLargeRecordsNothing(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "shadow").AsTooLarge()
+
+	if plan.Recorded.IsRecorded || len(plan.Recorded.Selected)+len(plan.Recorded.Minimised) != 0 {
+		t.Errorf("a plan replaced as too large still records %+v", plan.Recorded)
+	}
+}
