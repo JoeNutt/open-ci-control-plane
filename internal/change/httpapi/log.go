@@ -12,4 +12,5 @@ const (
 	fieldKey             = "field"
 	causeKey             = "cause"
 	refusedCoverage      = "coverage refused"
+	refusedRunReport     = "run report refused"
 )

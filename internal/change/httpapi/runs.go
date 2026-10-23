@@ -28,17 +28,11 @@ type runReports struct {
 
 func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	answered := receiving.answerTo(answer, asked)
-	if answered.reason != "" {
-		named := []slog.Attr{slog.String(reasonKey, answered.reason)}
-		if answered.cause != nil {
-			named = append(named, slog.String(causeKey, answered.cause.Error()))
-		}
-		receiving.log.LogAttrs(asked.Context(), answered.level, "run report refused", named...)
-	}
+	answered.logTo(asked.Context(), receiving.log, refusedRunReport)
 	receiving.answering.write(asked.Context(), answer, answered.answer)
 }
 
-func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Request) coverageAnswer {
+func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Request) loggedAnswer {
 	target, refused := runTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(headSegment))
 	if refused != nil {
 		return refusedBeforeUse(refused)
@@ -60,13 +54,9 @@ func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Req
 		return refusedBeforeUse(refused)
 	}
 	if err := receiving.recording.Execute(asked.Context(), application.RunUpload{Token: token, Report: report}); err != nil {
-		row, isMatched := refusalCausing(runRefusals, err)
-		if !isMatched {
-			return coverageAnswer{answer: failedRunProblem(), reason: failedRunCode, cause: err, level: slog.LevelError}
-		}
-		return coverageAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: err, level: row.level}
+		return runRefusalOf(err)
 	}
-	return coverageAnswer{answer: runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}}
+	return loggedAnswer{answer: runAccepted{HeadSHA: target.head.String(), Recorded: len(report.Results())}}
 }
 
 type reportBody struct {

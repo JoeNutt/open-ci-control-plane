@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"slices"
@@ -11,15 +12,26 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-type coverageAnswer struct {
+type loggedAnswer struct {
 	answer answerBody
 	reason string
 	cause  error
 	level  slog.Level
 }
 
-func refusedBeforeUse(refused refusal) coverageAnswer {
-	return coverageAnswer{answer: refused, reason: refused.reason(), level: slog.LevelWarn}
+func (answered loggedAnswer) logTo(ctx context.Context, log *slog.Logger, message string) {
+	if answered.reason == "" {
+		return
+	}
+	named := []slog.Attr{slog.String(reasonKey, answered.reason)}
+	if answered.cause != nil {
+		named = append(named, slog.String(causeKey, answered.cause.Error()))
+	}
+	log.LogAttrs(ctx, answered.level, message, named...)
+}
+
+func refusedBeforeUse(refused refusal) loggedAnswer {
+	return loggedAnswer{answer: refused, reason: refused.reason(), level: slog.LevelWarn}
 }
 
 type causedRefusal struct {
@@ -43,16 +55,16 @@ var coverageRefusals = []causedRefusal{
 	{cause: domain.ErrTooManySuites, refusal: boundProblem(suitesLimit), level: slog.LevelWarn},
 }
 
-func coverageRefusalOf(failure error) coverageAnswer {
+func coverageRefusalOf(failure error) loggedAnswer {
 	var overRate application.UploadRateRefusal
 	if errors.As(failure, &overRate) {
-		return coverageAnswer{answer: rateProblemAfter(overRate.RetryAfter), reason: rateExceededCode, cause: failure, level: slog.LevelWarn}
+		return loggedAnswer{answer: rateProblemAfter(overRate.RetryAfter), reason: rateExceededCode, cause: failure, level: slog.LevelWarn}
 	}
 	row, isMatched := refusalCausing(coverageRefusals, failure)
 	if !isMatched {
-		return coverageAnswer{answer: failedCoverageProblem(), reason: failedCoverageCode, cause: failure, level: slog.LevelError}
+		return loggedAnswer{answer: failedCoverageProblem(), reason: failedCoverageCode, cause: failure, level: slog.LevelError}
 	}
-	return coverageAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: failure, level: row.level}
+	return loggedAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: failure, level: row.level}
 }
 
 func refusalCausing(rows []causedRefusal, failure error) (causedRefusal, bool) {

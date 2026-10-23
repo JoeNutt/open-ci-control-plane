@@ -96,10 +96,10 @@ var runRefusals = []causedRefusal{
 	{cause: domain.ErrRunAlreadyReported, refusal: reportedRunProblem(), level: slog.LevelWarn},
 }
 
-func runRefusalOf(failure error) answerBody {
+func runRefusalOf(failure error) loggedAnswer {
 	row, isMatched := refusalCausing(runRefusals, failure)
 	if !isMatched {
-		return failedRunProblem()
+		return loggedAnswer{answer: failedRunProblem(), reason: failedRunCode, cause: failure, level: slog.LevelError}
 	}
-	return row.refusal
+	return loggedAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: failure, level: row.level}
 }
