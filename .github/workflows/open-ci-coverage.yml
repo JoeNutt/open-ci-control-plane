@@ -49,13 +49,13 @@ jobs:
           set -euo pipefail
           GOROOT="$(go env GOROOT)"
           export GOROOT
-          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
-          echo "::add-mask::$token"
           for package in $(go list ./...); do
             artifact="$RUNNER_TEMP/per-test.lcov"
             .github/workflows/per-test-lcov.sh "$package" "$artifact"
             [[ -s "$artifact" ]] || { echo "no coverage for $package"; continue; }
+            token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+            echo "::add-mask::$token"
             answer="$(curl -sS -o /dev/stderr -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $token" \
               -F format=lcov -F "artifact=@$artifact" \
