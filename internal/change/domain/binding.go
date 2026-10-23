@@ -8,19 +8,21 @@ import (
 )
 
 type BindingStatement struct {
-	Repository string
-	Workflow   string
-	AlwaysRun  []string
-	Selection  string
-	Policies   []BoundPolicyStatement
+	Repository   string
+	Workflow     string
+	AlwaysRun    []string
+	Selection    string
+	Minimisation string
+	Policies     []BoundPolicyStatement
 }
 
 type Binding struct {
-	repository GovernedRepository
-	workflow   WorkflowFile
-	alwaysRun  []GoImportPath
-	selection  TestMode
-	policies   []BoundPolicy
+	repository   GovernedRepository
+	workflow     WorkflowFile
+	alwaysRun    []GoImportPath
+	selection    TestMode
+	minimisation TestMode
+	policies     []BoundPolicy
 }
 
 func ParseBinding(stated BindingStatement) (Binding, error) {
@@ -46,6 +48,8 @@ func (binding Binding) AlwaysRun() []GoImportPath { return slices.Clone(binding.
 
 func (binding Binding) SelectionMode() TestMode { return binding.selection }
 
+func (binding Binding) MinimisationMode() TestMode { return binding.minimisation }
+
 func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
 
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
@@ -65,7 +69,14 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, fmt.Errorf("selection mode: %w", err)
 	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, selection: selection, policies: policies}, nil
+	minimisation, err := modeOf(stated.Minimisation, TestModeOff)
+	if err != nil {
+		return Binding{}, fmt.Errorf("minimisation mode: %w", err)
+	}
+	return Binding{
+		repository: repository, workflow: workflow, alwaysRun: alwaysRun,
+		selection: selection, minimisation: minimisation, policies: policies,
+	}, nil
 }
 
 func modeOf(stated string, unstated TestMode) (TestMode, error) {

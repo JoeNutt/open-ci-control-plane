@@ -164,3 +164,18 @@ func TestParseBindingKeepsItsSelectionModeAndStartsInShadowWhenItStatesNone(t *t
 		}
 	}
 }
+
+func TestParseBindingKeepsItsMinimisationModeAndLeavesItOffWhenItStatesNone(t *testing.T) {
+	for stated, want := range map[string]domain.TestMode{
+		"": domain.TestModeOff, "off": domain.TestModeOff, "shadow": domain.TestModeShadow, "enforce": domain.TestModeEnforce,
+	} {
+		statement := thisRepositorysBinding()
+		statement.Minimisation = stated
+
+		binding, err := domain.ParseBinding(statement)
+
+		if err != nil || binding.MinimisationMode() != want {
+			t.Errorf("minimisation %q gave mode %q (%v), want %q", stated, binding.MinimisationMode(), err, want)
+		}
+	}
+}
