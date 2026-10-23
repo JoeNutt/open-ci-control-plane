@@ -96,3 +96,22 @@ func TestAnEscapeTheRunRecordingLogsIsInTheShadowHistoryAfterARestart(t *testing
 		t.Errorf("after a restart the shadow history holds %+v (%v), want the escape of %s", escapes, err, escape.Test.Name)
 	}
 }
+
+func TestTheEvaluationCountsWindowsFromItsOwnLedgerAndShadowHistory(t *testing.T) {
+	configured := configurationWith(t, func(stated map[string]json.RawMessage) {
+		stated["historyFile"] = quoted(t, filepath.Join(t.TempDir(), "history.jsonl"))
+	})
+	evaluation := evaluationOf(t, configured)
+	dispatched := ledgeredPlanOf(t)
+	dispatched.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeOff}
+	dispatched.Recorded = domain.RecordedSets{IsRecorded: true}
+	if err := evaluation.ledger.RecordDispatch(context.Background(), dispatched); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+
+	windows, err := evaluation.windows.Execute(context.Background(), dispatched.Locator.GovernedRepository())
+
+	if err != nil || len(windows) == 0 || windows[0].Window.Runs != 1 || windows[0].Window.Gaps != 1 {
+		t.Errorf("the evaluation counted %+v (%v), want one selection run that is a gap", windows, err)
+	}
+}
