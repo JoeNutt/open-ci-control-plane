@@ -5,9 +5,12 @@ package jsonl
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var _ domain.EscapeLog = (*Escapes)(nil)
 
 type Escapes struct {
 	log *Log
@@ -18,7 +21,7 @@ func NewEscapes(log *Log) *Escapes {
 }
 
 type escapeLine struct {
-	Kind         string   `json:"kind"`
+	Kind         lineKind `json:"kind"`
 	Mode         string   `json:"mode"`
 	Repository   string   `json:"repository"`
 	PullRequest  int      `json:"pullRequest"`
@@ -31,12 +34,12 @@ type escapeLine struct {
 
 func (escapes *Escapes) RecordEscape(_ context.Context, escape domain.Escape) error {
 	body, err := json.Marshal(escapeLine{
-		Kind: "escape", Mode: string(escape.Mode), Repository: escape.PullRequest.Repository(), PullRequest: escape.PullRequest.Number(),
+		Kind: escapeKind, Mode: string(escape.Mode), Repository: escape.PullRequest.Repository(), PullRequest: escape.PullRequest.Number(),
 		Suite: escape.Test.Suite.String(), Test: escape.Test.Name, Outcome: string(escape.Test.Outcome), Rerun: string(escape.Test.Rerun),
 		ChangedFiles: namesOf(escape.ChangedFiles),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("encode the %s escape of %s: %w", escape.Mode, escape.Test.Name, err)
 	}
 	return escapes.log.Append(body)
 }
@@ -44,30 +47,38 @@ func (escapes *Escapes) RecordEscape(_ context.Context, escape domain.Escape) er
 func (escapes *Escapes) RecordedEscapes() ([]domain.Escape, error) {
 	entries, err := escapes.log.Entries()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read the shadow history: %w", err)
 	}
 	var recorded []domain.Escape
-	for _, entry := range entries {
+	for number, entry := range entries {
 		var line escapeLine
 		if err := json.Unmarshal(entry.Body, &line); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read shadow history entry %d: %w", number+1, err)
 		}
-		if line.Kind != "escape" {
+		if line.Kind != escapeKind {
 			continue
 		}
-		locator, err := domain.ParsePullRequestLocator(line.Repository, line.PullRequest)
+		escape, err := line.escape()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read shadow history entry %d: %w", number+1, err)
 		}
-		test, err := domain.ParseTestResult(domain.TestResultStatement{Suite: line.Suite, Name: line.Test, Outcome: line.Outcome, Rerun: line.Rerun})
-		if err != nil {
-			return nil, err
-		}
-		changed, err := parsedAll(line.ChangedFiles, domain.ParseRepositoryPath)
-		if err != nil {
-			return nil, err
-		}
-		recorded = append(recorded, domain.Escape{Mode: domain.ShadowedMode(line.Mode), PullRequest: locator, Test: test, ChangedFiles: changed})
+		recorded = append(recorded, escape)
 	}
 	return recorded, nil
+}
+
+func (line escapeLine) escape() (domain.Escape, error) {
+	locator, err := domain.ParsePullRequestLocator(line.Repository, line.PullRequest)
+	if err != nil {
+		return domain.Escape{}, err
+	}
+	test, err := domain.ParseTestResult(domain.TestResultStatement{Suite: line.Suite, Name: line.Test, Outcome: line.Outcome, Rerun: line.Rerun})
+	if err != nil {
+		return domain.Escape{}, err
+	}
+	changed, err := parsedAll(line.ChangedFiles, domain.ParseRepositoryPath)
+	if err != nil {
+		return domain.Escape{}, err
+	}
+	return domain.Escape{Mode: domain.ShadowedMode(line.Mode), PullRequest: locator, Test: test, ChangedFiles: changed}, nil
 }

@@ -64,6 +64,7 @@ type lineKind string
 const (
 	dispatchedKind lineKind = "dispatched"
 	reportedKind   lineKind = "reported"
+	escapeKind     lineKind = "escape"
 )
 
 type ledgerKey struct {
