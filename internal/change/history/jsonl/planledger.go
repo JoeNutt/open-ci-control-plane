@@ -38,14 +38,36 @@ func (ledger *PlanLedger) DispatchedPlanFor(
 		if err := json.Unmarshal(entry.Body, &line); err != nil {
 			return domain.DispatchedPlan{}, fmt.Errorf("read plan ledger entry %d: %w", number+1, err)
 		}
-		if line.Repository == repository.String() && line.Head == head.String() {
+		if line.Kind == "dispatched" && line.Repository == repository.String() && line.Head == head.String() {
 			return line.dispatchedPlan(head)
 		}
 	}
 	return domain.DispatchedPlan{}, domain.ErrNoPlanForHead
 }
 
+func (ledger *PlanLedger) RecordReport(_ context.Context, repository domain.GovernedRepository, head domain.CommitSHA) error {
+	entries, err := ledger.log.Entries()
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		var line dispatchedLine
+		if err := json.Unmarshal(entry.Body, &line); err != nil {
+			return err
+		}
+		if line.Kind == "reported" && line.Repository == repository.String() && line.Head == head.String() {
+			return domain.ErrRunAlreadyReported
+		}
+	}
+	body, err := json.Marshal(dispatchedLine{Kind: "reported", Repository: repository.String(), Head: head.String()})
+	if err != nil {
+		return err
+	}
+	return ledger.log.Append(body)
+}
+
 type dispatchedLine struct {
+	Kind        string   `json:"kind"`
 	Repository  string   `json:"repository"`
 	PullRequest int      `json:"pullRequest"`
 	Head        string   `json:"head"`
@@ -59,6 +81,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) dispatchedLine {
 		suites = append(suites, suite.String())
 	}
 	return dispatchedLine{
+		Kind:        "dispatched",
 		Repository:  dispatched.Locator.Repository(),
 		PullRequest: dispatched.Locator.Number(),
 		Head:        dispatched.Head.String(),

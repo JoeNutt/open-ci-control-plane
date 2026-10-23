@@ -89,3 +89,22 @@ func TestAnotherRepositorysPlanAtTheSameHeadIsNotFound(t *testing.T) {
 		t.Errorf("another repository's lookup at %s gave %v, want %v", dispatched.Head, err, domain.ErrNoPlanForHead)
 	}
 }
+
+func TestASecondReportForOneHeadIsRefusedEvenAfterARestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan-ledger.jsonl")
+	dispatched := dispatchedPlanOf(t)
+	repository := dispatched.Locator.GovernedRepository()
+	before := jsonl.NewPlanLedger(openedLog(t, path))
+	if err := before.RecordDispatch(context.Background(), dispatched); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+	if err := before.RecordReport(context.Background(), repository, dispatched.Head); err != nil {
+		t.Fatalf("the first report was refused: %v", err)
+	}
+
+	err := jsonl.NewPlanLedger(openedLog(t, path)).RecordReport(context.Background(), repository, dispatched.Head)
+
+	if !errors.Is(err, domain.ErrRunAlreadyReported) {
+		t.Errorf("a second report after a restart gave %v, want %v", err, domain.ErrRunAlreadyReported)
+	}
+}
