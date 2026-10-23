@@ -3,10 +3,9 @@
 package httpapi
 
 import (
-	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
-	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -23,6 +22,12 @@ const (
 	testsField              = "tests"
 	tooManyTestsCode        = "too_many_tests"
 	tooManyTestsMessage     = "the report names more tests than NFR-18 allows; nothing was recorded"
+	unplannedRunCode        = "no_plan"
+	unplannedRunMessage     = "no plan was dispatched for this head under this decision"
+	reportedRunCode         = "already_reported"
+	reportedRunMessage      = "this head's run was already reported; nothing was changed"
+	failedRunCode           = "run_failed"
+	failedRunMessage        = "the run could not be recorded"
 )
 
 var (
@@ -71,26 +76,30 @@ func (reportedProblem) status() int { return http.StatusConflict }
 
 func (problem reportedProblem) reason() string { return problem.Code }
 
-var runRefusals = []struct {
-	cause   error
-	refusal refusal
-}{
-	{domain.ErrUnverifiedIdentityToken, unverifiedTokenProblem()},
-	{domain.ErrIdentityIssuerUnavailable, unverifiedTokenProblem()},
-	{application.ErrForeignRepository, foreignRepositoryProblem()},
-	{domain.ErrNoPlanForHead, unplannedProblem{Code: "no_plan", Message: "no plan was dispatched for this head"}},
-	{domain.ErrRunAlreadyReported, reportedProblem{Code: "already_reported", Message: "this head's run was already reported"}},
+func unplannedRunProblem() refusal {
+	return unplannedProblem{Code: unplannedRunCode, Message: unplannedRunMessage}
+}
+
+func reportedRunProblem() refusal {
+	return reportedProblem{Code: reportedRunCode, Message: reportedRunMessage}
+}
+
+func failedRunProblem() serverProblem {
+	return serverProblem{Code: failedRunCode, Message: failedRunMessage}
+}
+
+var runRefusals = []causedRefusal{
+	{cause: domain.ErrUnverifiedIdentityToken, refusal: unverifiedTokenProblem(), level: slog.LevelWarn},
+	{cause: domain.ErrIdentityIssuerUnavailable, refusal: unverifiedTokenProblem(), level: slog.LevelError},
+	{cause: application.ErrForeignRepository, refusal: foreignRepositoryProblem(), level: slog.LevelWarn},
+	{cause: domain.ErrNoPlanForHead, refusal: unplannedRunProblem(), level: slog.LevelWarn},
+	{cause: domain.ErrRunAlreadyReported, refusal: reportedRunProblem(), level: slog.LevelWarn},
 }
 
 func runRefusalOf(failure error) answerBody {
-	matching := slices.IndexFunc(runRefusals, func(row struct {
-		cause   error
-		refusal refusal
-	}) bool {
-		return errors.Is(failure, row.cause)
-	})
-	if matching < 0 {
-		return serverProblem{Code: "run_failed", Message: "the run could not be recorded"}
+	row, isMatched := refusalCausing(runRefusals, failure)
+	if !isMatched {
+		return failedRunProblem()
 	}
-	return runRefusals[matching].refusal
+	return row.refusal
 }

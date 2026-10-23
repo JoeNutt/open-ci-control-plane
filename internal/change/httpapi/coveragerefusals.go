@@ -48,10 +48,17 @@ func coverageRefusalOf(failure error) coverageAnswer {
 	if errors.As(failure, &overRate) {
 		return coverageAnswer{answer: rateProblemAfter(overRate.RetryAfter), reason: rateExceededCode, cause: failure, level: slog.LevelWarn}
 	}
-	matching := slices.IndexFunc(coverageRefusals, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
-	if matching < 0 {
+	row, isMatched := refusalCausing(coverageRefusals, failure)
+	if !isMatched {
 		return coverageAnswer{answer: failedCoverageProblem(), reason: failedCoverageCode, cause: failure, level: slog.LevelError}
 	}
-	row := coverageRefusals[matching]
 	return coverageAnswer{answer: row.refusal, reason: row.refusal.reason(), cause: failure, level: row.level}
+}
+
+func refusalCausing(rows []causedRefusal, failure error) (causedRefusal, bool) {
+	matching := slices.IndexFunc(rows, func(row causedRefusal) bool { return errors.Is(failure, row.cause) })
+	if matching < 0 {
+		return causedRefusal{}, false
+	}
+	return rows[matching], true
 }
