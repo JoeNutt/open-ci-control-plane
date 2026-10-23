@@ -80,3 +80,14 @@ func TestTheLatchHoldsOnlyForThisModesEscapesInsideTheWindow(t *testing.T) {
 		}
 	}
 }
+
+func TestAnEnforcedPlanWhoseSelectionIsUnprovenDropsToShadowNamingWhy(t *testing.T) {
+	plan := modedPlanOf(t, "enforce", "off").GatedBy(
+		domain.Enforcement{Trigger: domain.PlanTriggerShadowUnproven}, domain.Enforcement{IsEnforced: true})
+
+	if !plan.FullMatrix || len(plan.Suites) != 0 || plan.Trigger != domain.PlanTriggerShadowUnproven ||
+		plan.Modes.Selection != domain.TestModeShadow || !plan.Recorded.IsRecorded || len(plan.Recorded.Selected) != 2 {
+		t.Errorf("an unproven enforced plan is %+v, want the full matrix in shadow with %q and both selected suites recorded",
+			plan, domain.PlanTriggerShadowUnproven)
+	}
+}

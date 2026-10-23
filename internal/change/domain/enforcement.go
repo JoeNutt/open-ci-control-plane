@@ -48,3 +48,15 @@ func evidenceSince(mode ShadowedMode, runs []ShadowedRun, windowStart time.Time)
 	}
 	return evidence
 }
+
+func (plan TestPlan) GatedBy(selection, minimisation Enforcement) TestPlan {
+	if plan.Modes.Selection != TestModeEnforce || selection.IsEnforced {
+		return plan
+	}
+	plan.Modes.Selection = TestModeShadow
+	shadowed := plan.shadowed()
+	if shadowed.Trigger == PlanTriggerNone {
+		shadowed.Trigger = selection.Trigger
+	}
+	return shadowed
+}
