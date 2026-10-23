@@ -15,6 +15,7 @@ type TestOutcome string
 const (
 	TestOutcomePass TestOutcome = "pass"
 	TestOutcomeFail TestOutcome = "fail"
+	TestOutcomeSkip TestOutcome = "skip"
 )
 
 type TestResult struct {
@@ -23,7 +24,7 @@ type TestResult struct {
 	Outcome TestOutcome
 }
 
-var reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail}
+var reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail, TestOutcomeSkip}
 
 var ErrMalformedTestResult = errors.New("the reported test is not one this service accepts")
 

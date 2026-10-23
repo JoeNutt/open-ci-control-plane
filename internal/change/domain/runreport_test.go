@@ -70,3 +70,11 @@ func TestAReportedTestIsRefusedUnlessItsOutcomeIsKnown(t *testing.T) {
 		}
 	}
 }
+
+func TestASkippedTestParsesAsSkipped(t *testing.T) {
+	parsed, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "skip")
+
+	if err != nil || parsed.Outcome != domain.TestOutcomeSkip {
+		t.Errorf("a skipped test parsed to %+v (%v), want outcome %q", parsed, err, domain.TestOutcomeSkip)
+	}
+}
