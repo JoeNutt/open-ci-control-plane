@@ -114,29 +114,39 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
-	return subject.shapedByMode(subject.planned(head, trigger, plannedSuitesOf(trigger, selection))), nil
+	return subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode(), nil
 }
 
-var planShapedByMode = map[TestMode]func(PlanSubject, TestPlan) TestPlan{
-	TestModeOff:     func(_ PlanSubject, plan TestPlan) TestPlan { return plan.asUnselected() },
-	TestModeShadow:  PlanSubject.shadowed,
-	TestModeEnforce: func(_ PlanSubject, plan TestPlan) TestPlan { return plan },
+var planShapedByMode = map[TestMode]func(TestPlan) TestPlan{
+	TestModeOff:     TestPlan.asUnselected,
+	TestModeShadow:  TestPlan.shadowed,
+	TestModeEnforce: func(plan TestPlan) TestPlan { return plan },
 }
 
-func (subject PlanSubject) shapedByMode(plan TestPlan) TestPlan {
-	shaping, isKnown := planShapedByMode[subject.Binding.SelectionMode()]
+func (plan TestPlan) shapedByMode() TestPlan {
+	shaping, isKnown := planShapedByMode[plan.Modes.Selection]
 	if !isKnown {
 		return plan.asUnselected()
 	}
-	return shaping(subject, plan)
+	return shaping(plan)
 }
 
-func (subject PlanSubject) shadowed(plan TestPlan) TestPlan {
+func (plan TestPlan) shadowed() TestPlan {
 	if plan.FullMatrix {
 		return plan
 	}
-	return plan.asShadow(subject.recordedSetsOf(plan.Suites))
+	return plan.asShadow(plan.recordedSets())
 }
+
+func (plan TestPlan) recordedSets() RecordedSets {
+	recorded := RecordedSets{IsRecorded: true, Selected: plan.Suites}
+	if plan.Modes.Minimisation == TestModeShadow {
+		recorded.Minimised = minimisedOf(plan.Suites)
+	}
+	return recorded
+}
+
+func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
 	head, err := ParseCommitSHA(subject.Document.PR.HeadSHA)
@@ -157,7 +167,7 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
 		BundleRevision: subject.Revision,
-		Modes:          PlanModes{Selection: subject.Binding.SelectionMode(), Minimisation: subject.Binding.MinimisationMode()},
+		Modes:          subject.Binding.modes(),
 	}
 }
 
@@ -169,16 +179,6 @@ func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []Coverag
 }
 
 const MaxPlanCharacters = 60000
-
-func (subject PlanSubject) recordedSetsOf(selected []CoverageSuite) RecordedSets {
-	recorded := RecordedSets{IsRecorded: true, Selected: selected}
-	if subject.Binding.MinimisationMode() == TestModeShadow {
-		recorded.Minimised = minimisedOf(selected)
-	}
-	return recorded
-}
-
-func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
 
 func (plan TestPlan) asShadow(recorded RecordedSets) TestPlan {
 	plan = plan.asUnselected()
