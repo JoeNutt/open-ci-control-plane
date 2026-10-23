@@ -61,14 +61,18 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, err
 	}
-	selection := TestModeShadow
-	if stated.Selection != "" {
-		selection, err = ParseTestMode(stated.Selection)
-		if err != nil {
-			return Binding{}, err
-		}
+	selection, err := modeOf(stated.Selection, TestModeShadow)
+	if err != nil {
+		return Binding{}, fmt.Errorf("selection mode: %w", err)
 	}
 	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, selection: selection, policies: policies}, nil
+}
+
+func modeOf(stated string, unstated TestMode) (TestMode, error) {
+	if stated == "" {
+		return unstated, nil
+	}
+	return ParseTestMode(stated)
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {
