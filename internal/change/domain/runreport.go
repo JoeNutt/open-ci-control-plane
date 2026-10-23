@@ -23,13 +23,17 @@ type TestResult struct {
 	Suite   CoverageSuite
 	Name    string
 	Outcome TestOutcome
+	Rerun   TestOutcome
 }
 
 var reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail, TestOutcomeSkip}
 
 var ErrMalformedTestResult = errors.New("the reported test is not one this service accepts")
 
-func ParseTestResult(suite, name, outcome string) (TestResult, error) {
+func ParseTestResult(suite, name, outcome, rerun string) (TestResult, error) {
+	if rerun != "" && rerun != "pass" && rerun != "fail" {
+		return TestResult{}, ErrMalformedTestResult
+	}
 	if !slices.Contains(reportableOutcomes, TestOutcome(outcome)) {
 		return TestResult{}, fmt.Errorf("%w: outcome %q", ErrMalformedTestResult, outcome)
 	}
@@ -40,7 +44,7 @@ func ParseTestResult(suite, name, outcome string) (TestResult, error) {
 	if err != nil {
 		return TestResult{}, fmt.Errorf("%w: %w", ErrMalformedTestResult, err)
 	}
-	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome)}, nil
+	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome), Rerun: TestOutcome(rerun)}, nil
 }
 
 const (
