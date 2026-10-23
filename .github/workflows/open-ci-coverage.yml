@@ -47,8 +47,6 @@ jobs:
       - name: Upload one suite's per-test coverage per package
         run: |
           set -euo pipefail
-          GOROOT="$(go env GOROOT)"
-          export GOROOT
 
           minted_identity_token() {
             curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \

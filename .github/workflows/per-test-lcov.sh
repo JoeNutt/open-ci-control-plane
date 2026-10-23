@@ -4,6 +4,9 @@ set -euo pipefail
 readonly top_level_test='^Test[[:alnum:]_]*$'
 readonly per_test_timeout=5m
 
+go_root="$(go env GOROOT)"
+readonly go_root
+
 package="$1"
 artifact="$2"
 scratch="$(mktemp -d)"
@@ -41,7 +44,7 @@ section_of() {
 
   run_test_binary "$counters" -test.run "^${test}\$" -test.timeout "$per_test_timeout" >/dev/null
   go tool covdata textfmt -i="$counters" -o="$profile"
-  gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
+  GOROOT="$go_root" gcov2lcov -infile "$profile" -outfile "$unnamed_lcov"
   exercised_records_of "$unnamed_lcov" "$test"
 }
 
