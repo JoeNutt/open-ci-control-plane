@@ -66,7 +66,7 @@ func TestAnArtifactOverAnNFR5OrNFR13BoundIsAnswered413NamingThatBound(t *testing
 	}
 }
 
-func TestAnUploadOverTheRateIsAnswered429WithRetryAfterInSeconds(t *testing.T) {
+func TestAnUploadRateRefusalIsAnswered429WithItsRetryAfterInSeconds(t *testing.T) {
 	refused := coverageRefusalOf(fmt.Errorf("admit: %w", application.UploadRateRefusal{RetryAfter: 7 * time.Second}))
 	answered := httptest.NewRecorder()
 
