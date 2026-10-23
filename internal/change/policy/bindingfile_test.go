@@ -54,6 +54,10 @@ func bindingsRefusedByTheirShape(t *testing.T) map[string]refusedFile {
 	t.Helper()
 
 	return map[string]refusedFile{
+		"a test mode that is no mode": {
+			written: liveBindingWith(t, liveWorkflowLine, liveWorkflowLine+"\n  selection: on"),
+			reason:  domain.ErrUnknownTestMode,
+		},
 		"an import root with no path": {
 			written: liveBindingWith(t, liveRootPathLine+"\n", ""),
 			reason:  policy.ErrMissingKey,
