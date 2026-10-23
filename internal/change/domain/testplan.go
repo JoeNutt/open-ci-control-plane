@@ -83,6 +83,12 @@ type TestPlan struct {
 	Trigger        PlanTrigger
 	BundleRevision BundleRevision
 	Recorded       RecordedSets
+	Modes          PlanModes
+}
+
+type PlanModes struct {
+	Selection    TestMode
+	Minimisation TestMode
 }
 
 type RecordedSets struct {
@@ -151,6 +157,7 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
 		BundleRevision: subject.Revision,
+		Modes:          PlanModes{Selection: subject.Binding.SelectionMode(), Minimisation: subject.Binding.MinimisationMode()},
 	}
 }
 

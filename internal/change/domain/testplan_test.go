@@ -294,3 +294,11 @@ func TestAShadowPlanForcedToTheFullMatrixKeepsItsTriggerAndRecordsNothing(t *tes
 			plan.Trigger, plan.Recorded, err, domain.PlanTriggerCIConfig)
 	}
 }
+
+func TestAPlanCarriesTheBindingsSelectionAndMinimisationModes(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "shadow")
+
+	if plan.Modes.Selection != domain.TestModeShadow || plan.Modes.Minimisation != domain.TestModeShadow {
+		t.Errorf("the plan carries modes %+v, want shadow for both", plan.Modes)
+	}
+}
