@@ -23,3 +23,14 @@ func TestARunWithNoPlanOrNoResultsIsAGapNeverZeroEscapes(t *testing.T) {
 		t.Errorf("the window counts %+v, want 3 runs, 2 gaps and 0 escapes", window)
 	}
 }
+
+func TestOnlyEscapesAgainstTheCountedModeAreCounted(t *testing.T) {
+	escapes := []domain.Escape{{Mode: domain.ShadowedSelection}, {Mode: domain.ShadowedMinimisation}, {Mode: domain.ShadowedSelection}}
+
+	if window := domain.ShadowWindowOf(domain.ShadowedSelection, nil, escapes); window.Escapes != 2 {
+		t.Errorf("selection counts %d escapes, want 2", window.Escapes)
+	}
+	if window := domain.ShadowWindowOf(domain.ShadowedMinimisation, nil, escapes); window.Escapes != 1 {
+		t.Errorf("minimisation counts %d escapes, want 1", window.Escapes)
+	}
+}

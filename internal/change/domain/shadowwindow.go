@@ -21,5 +21,10 @@ func ShadowWindowOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape) Sha
 			window.Gaps++
 		}
 	}
+	for _, escape := range escapes {
+		if escape.Mode == mode {
+			window.Escapes++
+		}
+	}
 	return window
 }
