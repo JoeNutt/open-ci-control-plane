@@ -144,3 +144,24 @@ func TestAReportWhoseBodyRunsPastTheByteBoundIsAnswered413AndRecordsNothing(t *t
 		t.Errorf("answered %d, recorded %d: want %d, nothing recorded", answered.Code, len(reporting.received), http.StatusRequestEntityTooLarge)
 	}
 }
+
+func TestAReportWithoutOneBearerTokenIsAnswered401Unread(t *testing.T) {
+	for form, authorization := range map[string]string{
+		"no header": "", "another scheme": "Basic " + actionsToken, "an empty token": "Bearer ",
+	} {
+		t.Run(form, func(t *testing.T) {
+			reporting := &runReports{}
+			unread := &unreadUpload{}
+			report := runReport(t, passingReport)
+			report.Header.Set("Authorization", authorization)
+			report.Body = unread
+
+			answered := reporting.answerTo(t, report)
+
+			if answered.Code != http.StatusUnauthorized || unread.isRead || len(reporting.received) != 0 {
+				t.Errorf("answered %d, read %t, recorded %d: want %d, unread, nothing recorded",
+					answered.Code, unread.isRead, len(reporting.received), http.StatusUnauthorized)
+			}
+		})
+	}
+}

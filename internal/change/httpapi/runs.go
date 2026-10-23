@@ -34,7 +34,11 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 		return
 	}
 	asked.Body = http.MaxBytesReader(answer, asked.Body, domain.MaxRunReportBytes)
-	token, _ := bearerTokenIn(asked.Header.Get(authorizationHeader))
+	token, err := bearerTokenIn(asked.Header.Get(authorizationHeader))
+	if err != nil {
+		receiving.answering.write(asked.Context(), answer, unverifiedTokenProblem())
+		return
+	}
 	var wire struct {
 		DecisionID string `json:"decisionId"`
 		Tests      []struct {
