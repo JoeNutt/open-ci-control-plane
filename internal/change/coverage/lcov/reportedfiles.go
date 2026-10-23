@@ -141,6 +141,10 @@ func (reading *recordReading) openTestSection(name string) error {
 	if name == "" {
 		return errUnnamedTest
 	}
+	rest, isTest := strings.CutPrefix(name, "Test")
+	if !isTest || strings.Trim(rest, "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") != "" {
+		return errUnnamedTest
+	}
 	return reading.testSections.countOneMore()
 }
 
