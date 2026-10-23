@@ -17,9 +17,14 @@ const (
 	unparseableFieldMessage = "the field holds a value outside the set C-13 accepts"
 	decisionIDField         = "decisionId"
 	testsField              = "tests"
+	tooManyTestsCode        = "too_many_tests"
+	tooManyTestsMessage     = "the report names more tests than NFR-18 allows; nothing was recorded"
 )
 
-var reportBytesLimit = fmt.Sprintf("%d bytes", domain.MaxRunReportBytes)
+var (
+	reportBytesLimit = fmt.Sprintf("%d bytes", domain.MaxRunReportBytes)
+	reportTestsLimit = fmt.Sprintf("%d tests", domain.MaxReportedTests)
+)
 
 func oversizedReportProblem() refusal {
 	return limitProblem{Code: oversizedReportCode, Message: oversizedReportMessage, Limit: reportBytesLimit}
@@ -31,6 +36,10 @@ func malformedReportProblem() refusal {
 
 func unparseableReportFieldProblem(field string) refusal {
 	return fieldProblem{Code: unparseableFieldCode, Message: unparseableFieldMessage, Field: field}
+}
+
+func tooManyTestsProblem() refusal {
+	return limitProblem{Code: tooManyTestsCode, Message: tooManyTestsMessage, Limit: reportTestsLimit}
 }
 
 func reportLengthRefusalOf(declared int64) refusal {
