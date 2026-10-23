@@ -29,21 +29,23 @@ const (
 )
 
 type wirePlan struct {
-	SchemaVersion   int      `json:"schema_version"`
-	DecisionID      string   `json:"decisionId"`
-	Repository      string   `json:"repository"`
-	HeadSHA         string   `json:"headSha"`
-	Suites          []string `json:"suites"`
-	AlwaysRunSuites []string `json:"alwaysRunSuites"`
-	FullMatrix      bool     `json:"fullMatrix"`
-	TriggerReason   string   `json:"triggerReason"`
-	Shadow          bool     `json:"shadow"`
-	BundleRevision  string   `json:"bundleRevision"`
-	Mode            wireMode `json:"mode"`
-	Recorded        *struct {
-		Selected  []string `json:"selected"`
-		Minimised []string `json:"minimised"`
-	} `json:"recorded,omitempty"`
+	SchemaVersion   int           `json:"schema_version"`
+	DecisionID      string        `json:"decisionId"`
+	Repository      string        `json:"repository"`
+	HeadSHA         string        `json:"headSha"`
+	Suites          []string      `json:"suites"`
+	AlwaysRunSuites []string      `json:"alwaysRunSuites"`
+	FullMatrix      bool          `json:"fullMatrix"`
+	TriggerReason   string        `json:"triggerReason"`
+	Shadow          bool          `json:"shadow"`
+	BundleRevision  string        `json:"bundleRevision"`
+	Mode            wireMode      `json:"mode"`
+	Recorded        *wireRecorded `json:"recorded,omitempty"`
+}
+
+type wireRecorded struct {
+	Selected  []string `json:"selected"`
+	Minimised []string `json:"minimised"`
 }
 
 type wireMode struct {
@@ -311,17 +313,7 @@ func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
 		t.Fatalf("dispatch plan: %v", err)
 	}
 
-	var sent struct {
-		Shadow bool `json:"shadow"`
-		Mode   struct {
-			Selection    string `json:"selection"`
-			Minimisation string `json:"minimisation"`
-		} `json:"mode"`
-		Recorded *struct {
-			Selected  []string `json:"selected"`
-			Minimised []string `json:"minimised"`
-		} `json:"recorded"`
-	}
+	var sent wirePlan
 	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
 		t.Fatalf("decode the plan: %v", err)
 	}
