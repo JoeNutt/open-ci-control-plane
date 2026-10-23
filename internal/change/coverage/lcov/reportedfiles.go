@@ -53,13 +53,12 @@ var readingByTag = map[string]lineReading{
 }
 
 type recordReading struct {
-	reported           []domain.ReportedFile
+	reported           fileUnion
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
 	hasTestSection     bool
 	limits             domain.CoverageLimits
-	positionOf         map[domain.RepositoryPath]int
 }
 
 type Artifact struct {
@@ -77,7 +76,7 @@ func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 		return nil, err
 	}
 	decompressed := &boundedReader{source: plain, breachOf: limits.DecompressedBytesBreach}
-	reading := recordReading{limits: limits}
+	reading := recordReading{reported: emptyFileUnion(), limits: limits}
 	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
@@ -140,7 +139,7 @@ func (reading *recordReading) openRecord(path string) error {
 	if !reading.hasTestSection {
 		return errOutsideTestSection
 	}
-	entriesWithThisOne := len(reading.reported) + 1
+	entriesWithThisOne := reading.reported.count() + 1
 	if breach := reading.limits.FileEntriesBreach(entriesWithThisOne); breach != nil {
 		return breach
 	}
@@ -168,17 +167,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 }
 
 func (reading *recordReading) closeRecord(string) error {
-	if reading.positionOf == nil {
-		reading.positionOf = map[domain.RepositoryPath]int{}
-	}
-	if position, seen := reading.positionOf[reading.currentPath]; seen {
-		earlier := reading.reported[position]
-		reading.reported[position] = domain.NewReportedFile(reading.currentPath, earlier.IsExercised() || reading.isCurrentExercised)
-	} else {
-		reading.positionOf[reading.currentPath] = len(reading.reported)
-		reading.reported = append(reading.reported,
-			domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
-	}
+	reading.reported.include(domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
 	reading.isRecordOpen = false
 	return nil
 }
@@ -204,8 +193,8 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
 		return nil, errTruncatedRecord
 	}
-	if len(reading.reported) == 0 {
+	if reading.reported.count() == 0 {
 		return nil, errNoRecord
 	}
-	return reading.reported, nil
+	return reading.reported.files, nil
 }
