@@ -66,6 +66,9 @@ func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
 }
 
 func (dispatched DispatchedPlan) SelectionEscapesIn(results []TestResult) []TestResult {
+	if !dispatched.Recorded.IsRecorded {
+		return nil
+	}
 	return dispatched.escapesOutside(dispatched.Recorded.Selected, results)
 }
 

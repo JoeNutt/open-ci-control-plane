@@ -69,3 +69,11 @@ func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
 	}
 	return suite
 }
+
+func TestAPlanThatRecordedNothingHasNoEscapes(t *testing.T) {
+	failed := domain.TestResult{Suite: suiteOf(t, "example.com/app/payments"), Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+
+	if got := (domain.DispatchedPlan{}).SelectionEscapesIn([]domain.TestResult{failed}); len(got) != 0 {
+		t.Errorf("a plan that recorded nothing gave escapes %+v, want none", got)
+	}
+}
