@@ -63,7 +63,9 @@ const MaxReportedTests = 10000
 
 var ErrTooManyReportedTests = errors.New("the report names more tests than a report may hold")
 
-func ParseRunReport(repository GovernedRepository, head CommitSHA, decisionID DecisionID, results []TestResult) (RunReport, error) {
+func ParseRunReport(
+	repository GovernedRepository, head CommitSHA, decisionID DecisionID, results []TestResult,
+) (RunReport, error) {
 	if len(results) > MaxReportedTests {
 		return RunReport{}, fmt.Errorf("%w: %d tests, at most %d", ErrTooManyReportedTests, len(results), MaxReportedTests)
 	}
