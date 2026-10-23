@@ -4,12 +4,15 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
+
+var ErrRepositoryNotInstalled = errors.New("the App is not installed on the repository")
 
 type RepositoryInstallations struct {
 	asApp connection
@@ -38,7 +41,7 @@ func (installations RepositoryInstallations) InstallationOf(ctx context.Context,
 		method:    http.MethodGet,
 		endpoint:  repositoryEndpoint(repository) + installationPath,
 		succeeded: http.StatusOK,
-		notFound:  ErrNoSuchInstallation,
+		notFound:  ErrRepositoryNotInstalled,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("look up the App installation of %s: %w", repository, err)

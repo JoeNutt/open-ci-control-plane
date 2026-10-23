@@ -3,6 +3,7 @@
 package github_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -41,5 +42,24 @@ func TestARepositorysInstallationIsLookedUpAsTheApp(t *testing.T) {
 
 	if err != nil || installation != forgeInstallationID {
 		t.Errorf("looked up installation %d (%v), want %d", installation, err, forgeInstallationID)
+	}
+}
+
+func TestARepositoryTheAppIsNotInstalledOnIsRefusedNeverGivenAnInstallation(t *testing.T) {
+	server := httptest.NewTLSServer(http.NotFoundHandler())
+	t.Cleanup(server.Close)
+	repository, err := domain.ParseGovernedRepository(installedRepository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+	installations, err := github.ParseRepositoryInstallations(settingsAt(server), forgeAppKey(t), clockAt(lookedUpAt).Now)
+	if err != nil {
+		t.Fatalf("parse repository installations: %v", err)
+	}
+
+	installation, err := installations.InstallationOf(t.Context(), repository)
+
+	if !errors.Is(err, github.ErrRepositoryNotInstalled) || installation != 0 {
+		t.Errorf("an uninstalled repository gave installation %d (%v), want %v", installation, err, github.ErrRepositoryNotInstalled)
 	}
 }
