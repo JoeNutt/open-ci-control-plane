@@ -45,6 +45,8 @@ var (
 	decompressedArtifactLimit = fmt.Sprintf("%d decompressed bytes", domain.DeclaredCoverageLimits().MaxDecompressedBytes)
 	fileEntriesLimit          = fmt.Sprintf("%d file entries", domain.DeclaredCoverageLimits().MaxFileEntries)
 	suitesLimit               = fmt.Sprintf("%d suites per repository", domain.DeclaredCoverageLimits().MaxSuitesPerRepository)
+	testSectionsLimit         = fmt.Sprintf("%d TN sections", domain.DeclaredCoverageLimits().MaxTestSections)
+	lineRecordsLimit          = fmt.Sprintf("%d DA records", domain.DeclaredCoverageLimits().MaxLineRecords)
 )
 
 func malformedPathProblem(segment string) refusal {
