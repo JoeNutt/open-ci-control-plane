@@ -14,7 +14,12 @@ type RecordRun struct {
 	Publisher domain.CheckRunPublisher
 }
 
-func (useCase RecordRun) Execute(ctx context.Context, report domain.RunReport) error {
+type RunUpload struct {
+	Report domain.RunReport
+}
+
+func (useCase RecordRun) Execute(ctx context.Context, upload RunUpload) error {
+	report := upload.Report
 	dispatched, err := useCase.Ledger.DispatchedPlanFor(ctx, report.Repository(), report.Head())
 	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head(), err)

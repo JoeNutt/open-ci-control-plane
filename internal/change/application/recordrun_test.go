@@ -58,7 +58,7 @@ func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.
 	useCase := application.RecordRun{Ledger: &plannedHeads{}, Publisher: published}
 	head := commitSHAOf(t, recordedHeadSHA)
 
-	err := useCase.Execute(context.Background(), runReportOf(t, head, nil))
+	err := useCase.Execute(context.Background(), application.RunUpload{Report: runReportOf(t, head, nil)})
 
 	if !errors.Is(err, domain.ErrNoPlanForHead) {
 		t.Errorf("a report for an unplanned head gave %v, want %v", err, domain.ErrNoPlanForHead)
@@ -121,7 +121,7 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 		published := &publishedCheckRuns{}
 
 		err := application.RecordRun{Ledger: ledgerHolding(t, report.plan), Publisher: published}.Execute(
-			context.Background(), runReportOf(t, head, report.results))
+			context.Background(), application.RunUpload{Report: runReportOf(t, head, report.results)})
 
 		if err != nil {
 			t.Fatalf("%s: record run: %v", report.description, err)
@@ -143,12 +143,12 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 		Publisher: published,
 	}
 	first := runReportOf(t, head, []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}})
-	if err := useCase.Execute(context.Background(), first); err != nil {
+	if err := useCase.Execute(context.Background(), application.RunUpload{Report: first}); err != nil {
 		t.Fatalf("record the first run: %v", err)
 	}
 	second := runReportOf(t, head, []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail}})
 
-	err := useCase.Execute(context.Background(), second)
+	err := useCase.Execute(context.Background(), application.RunUpload{Report: second})
 
 	if !errors.Is(err, domain.ErrRunAlreadyReported) {
 		t.Errorf("a second report for one head gave %v, want %v", err, domain.ErrRunAlreadyReported)
