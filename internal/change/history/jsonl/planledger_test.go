@@ -4,6 +4,7 @@ package jsonl_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -69,4 +70,22 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 		t.Fatalf("parse suite: %v", err)
 	}
 	return domain.DispatchedPlan{Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite}}
+}
+
+func TestAnotherRepositorysPlanAtTheSameHeadIsNotFound(t *testing.T) {
+	ledger := jsonl.NewPlanLedger(openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl")))
+	dispatched := dispatchedPlanOf(t)
+	if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
+		t.Fatalf("record dispatch: %v", err)
+	}
+	stranger, err := domain.ParseGovernedRepository("JoeNutt/another-repository")
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+
+	_, err = ledger.DispatchedPlanFor(context.Background(), stranger, dispatched.Head)
+
+	if !errors.Is(err, domain.ErrNoPlanForHead) {
+		t.Errorf("another repository's lookup at %s gave %v, want %v", dispatched.Head, err, domain.ErrNoPlanForHead)
+	}
 }
