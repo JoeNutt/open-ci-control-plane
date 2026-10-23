@@ -19,4 +19,11 @@ const (
 	policyRepositoryKey  = "policyRepository"
 	familiesKey          = "families"
 	installationsKey     = "installations"
+	shadowWindowCounted  = "shadow window counted"
+	shadowWindowRefused  = "shadow window not counted"
+	repositoryKey        = "repository"
+	modeKey              = "mode"
+	runsKey              = "runs"
+	gapsKey              = "gaps"
+	escapesKey           = "escapes"
 )

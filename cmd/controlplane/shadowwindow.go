@@ -10,14 +10,17 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func logShadowWindows(ctx context.Context, log *slog.Logger, counting application.CountShadowWindows, repository domain.GovernedRepository) {
+func logShadowWindows(
+	ctx context.Context, log *slog.Logger, counting application.CountShadowWindows, repository domain.GovernedRepository,
+) {
 	windows, err := counting.Execute(ctx, repository)
 	if err != nil {
-		log.Error("shadow window not counted", slog.String("reason", err.Error()))
+		log.Error(shadowWindowRefused, slog.String(repositoryKey, repository.String()), slog.String(reasonKey, err.Error()))
 		return
 	}
 	for _, counted := range windows {
-		log.Info("shadow window counted", slog.String("repository", repository.String()), slog.String("mode", string(counted.Mode)),
-			slog.Int("runs", counted.Window.Runs), slog.Int("gaps", counted.Window.Gaps), slog.Int("escapes", counted.Window.Escapes))
+		log.Info(shadowWindowCounted,
+			slog.String(repositoryKey, repository.String()), slog.String(modeKey, string(counted.Mode)),
+			slog.Int(runsKey, counted.Window.Runs), slog.Int(gapsKey, counted.Window.Gaps), slog.Int(escapesKey, counted.Window.Escapes))
 	}
 }
