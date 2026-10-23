@@ -107,15 +107,28 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
-	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection))
-	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
-		return plan.asShadow(subject.recordedSetsOf(plan.Suites)), nil
+	return subject.shapedByMode(subject.planned(head, trigger, plannedSuitesOf(trigger, selection))), nil
+}
+
+var planShapedByMode = map[TestMode]func(PlanSubject, TestPlan) TestPlan{
+	TestModeOff:     func(_ PlanSubject, plan TestPlan) TestPlan { return plan.asUnselected() },
+	TestModeShadow:  PlanSubject.shadowed,
+	TestModeEnforce: func(_ PlanSubject, plan TestPlan) TestPlan { return plan },
+}
+
+func (subject PlanSubject) shapedByMode(plan TestPlan) TestPlan {
+	shaping, isKnown := planShapedByMode[subject.Binding.SelectionMode()]
+	if !isKnown {
+		return plan.asUnselected()
 	}
-	if subject.Binding.SelectionMode() == TestModeOff {
-		plan.Suites = nil
-		plan.FullMatrix = true
+	return shaping(subject, plan)
+}
+
+func (subject PlanSubject) shadowed(plan TestPlan) TestPlan {
+	if plan.FullMatrix {
+		return plan
 	}
-	return plan, nil
+	return plan.asShadow(subject.recordedSetsOf(plan.Suites))
 }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
@@ -160,7 +173,12 @@ func (subject PlanSubject) recordedSetsOf(selected []CoverageSuite) RecordedSets
 func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
 
 func (plan TestPlan) asShadow(recorded RecordedSets) TestPlan {
+	plan = plan.asUnselected()
 	plan.Recorded = recorded
+	return plan
+}
+
+func (plan TestPlan) asUnselected() TestPlan {
 	plan.Suites = nil
 	plan.FullMatrix = true
 	return plan
