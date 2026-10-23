@@ -35,7 +35,7 @@ var (
 	errTruncatedRecord    = fmt.Errorf("%w: input ends inside a record", ErrMalformedArtifact)
 	errNoRecord           = fmt.Errorf("%w: input reports no file", ErrMalformedArtifact)
 	errOutsideTestSection = fmt.Errorf("%w: a file record precedes any TN section", ErrMalformedArtifact)
-	errUnnamedTest        = fmt.Errorf("%w: a TN section names no test", ErrMalformedArtifact)
+	errNotATopLevelTest   = fmt.Errorf("%w: a TN section names no top-level test", ErrMalformedArtifact)
 )
 
 type lineReading struct {
@@ -138,12 +138,8 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openTestSection(name string) error {
-	if name == "" {
-		return errUnnamedTest
-	}
-	rest, isTest := strings.CutPrefix(name, "Test")
-	if !isTest || strings.Trim(rest, "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") != "" {
-		return errUnnamedTest
+	if _, err := domain.ParseTopLevelTestName(name); err != nil {
+		return fmt.Errorf("%w: %w", errNotATopLevelTest, err)
 	}
 	return reading.testSections.countOneMore()
 }
