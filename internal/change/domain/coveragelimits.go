@@ -5,21 +5,31 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"slices"
+)
+
+const (
+	compressedBytesLabel   = "compressed bytes"
+	decompressedBytesLabel = "decompressed bytes"
+	fileEntriesLabel       = "file entries"
+	suitesLabel            = "suites per repository"
+	testSectionsLabel      = "TN sections"
+	lineRecordsLabel       = "DA records"
 )
 
 var ErrCoverageBoundExceeded = errors.New("coverage artifact exceeds a bound")
 
-var ErrCompressedArtifactTooLarge = fmt.Errorf("%w: compressed bytes", ErrCoverageBoundExceeded)
+var ErrCompressedArtifactTooLarge = boundNamed(compressedBytesLabel)
 
-var ErrDecompressedArtifactTooLarge = fmt.Errorf("%w: decompressed bytes", ErrCoverageBoundExceeded)
+var ErrDecompressedArtifactTooLarge = boundNamed(decompressedBytesLabel)
 
-var ErrTooManyFileEntries = fmt.Errorf("%w: file entries", ErrCoverageBoundExceeded)
+var ErrTooManyFileEntries = boundNamed(fileEntriesLabel)
 
-var ErrTooManySuites = fmt.Errorf("%w: suites per repository", ErrCoverageBoundExceeded)
+var ErrTooManySuites = boundNamed(suitesLabel)
 
-var ErrTooManyTestSections = fmt.Errorf("%w: TN sections", ErrCoverageBoundExceeded)
+var ErrTooManyTestSections = boundNamed(testSectionsLabel)
 
-var ErrTooManyLineRecords = fmt.Errorf("%w: DA records", ErrCoverageBoundExceeded)
+var ErrTooManyLineRecords = boundNamed(lineRecordsLabel)
 
 type CoverageLimits struct {
 	MaxCompressedBytes     int64
@@ -29,6 +39,31 @@ type CoverageLimits struct {
 	MaxLineRecords         int
 	MaxSuitesPerRepository int
 	MaxUploadsPerMinute    int
+}
+
+type coverageBound struct {
+	exceeded  error
+	label     string
+	allowedIn func(CoverageLimits) int64
+}
+
+var (
+	compressedBytesBound = coverageBound{ErrCompressedArtifactTooLarge, compressedBytesLabel,
+		func(limits CoverageLimits) int64 { return limits.MaxCompressedBytes }}
+	decompressedBytesBound = coverageBound{ErrDecompressedArtifactTooLarge, decompressedBytesLabel,
+		func(limits CoverageLimits) int64 { return limits.MaxDecompressedBytes }}
+	fileEntriesBound = coverageBound{ErrTooManyFileEntries, fileEntriesLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxFileEntries) }}
+	suitesBound = coverageBound{ErrTooManySuites, suitesLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxSuitesPerRepository) }}
+	testSectionsBound = coverageBound{ErrTooManyTestSections, testSectionsLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxTestSections) }}
+	lineRecordsBound = coverageBound{ErrTooManyLineRecords, lineRecordsLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxLineRecords) }}
+)
+
+var coverageBounds = []coverageBound{
+	compressedBytesBound, decompressedBytesBound, fileEntriesBound, suitesBound, testSectionsBound, lineRecordsBound,
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
@@ -44,50 +79,49 @@ func DeclaredCoverageLimits() CoverageLimits {
 }
 
 func (limits CoverageLimits) FileEntriesBreach(fileEntries int) error {
-	return breachOf(ErrTooManyFileEntries, int64(fileEntries), int64(limits.MaxFileEntries))
+	return fileEntriesBound.breachIn(limits, int64(fileEntries))
 }
 
 func (limits CoverageLimits) TestSectionsBreach(testSections int) error {
-	return breachOf(ErrTooManyTestSections, int64(testSections), int64(limits.MaxTestSections))
+	return testSectionsBound.breachIn(limits, int64(testSections))
 }
 
 func (limits CoverageLimits) LineRecordsBreach(lineRecords int) error {
-	return breachOf(ErrTooManyLineRecords, int64(lineRecords), int64(limits.MaxLineRecords))
+	return lineRecordsBound.breachIn(limits, int64(lineRecords))
 }
 
 func (limits CoverageLimits) SuitesBreach(suites int) error {
-	return breachOf(ErrTooManySuites, int64(suites), int64(limits.MaxSuitesPerRepository))
+	return suitesBound.breachIn(limits, int64(suites))
 }
 
 func (limits CoverageLimits) CompressedBytesBreach(compressedBytes int64) error {
-	return breachOf(ErrCompressedArtifactTooLarge, compressedBytes, limits.MaxCompressedBytes)
+	return compressedBytesBound.breachIn(limits, compressedBytes)
 }
 
 func (limits CoverageLimits) DecompressedBytesBreach(decompressedBytes int64) error {
-	return breachOf(ErrDecompressedArtifactTooLarge, decompressedBytes, limits.MaxDecompressedBytes)
+	return decompressedBytesBound.breachIn(limits, decompressedBytes)
 }
 
 func (limits CoverageLimits) LimitOf(bound error) (string, bool) {
-	switch bound {
-	case ErrCompressedArtifactTooLarge:
-		return fmt.Sprintf("%d compressed bytes", limits.MaxCompressedBytes), true
-	case ErrDecompressedArtifactTooLarge:
-		return fmt.Sprintf("%d decompressed bytes", limits.MaxDecompressedBytes), true
-	case ErrTooManyFileEntries:
-		return fmt.Sprintf("%d file entries", limits.MaxFileEntries), true
-	case ErrTooManySuites:
-		return fmt.Sprintf("%d suites per repository", limits.MaxSuitesPerRepository), true
-	case ErrTooManyTestSections:
-		return fmt.Sprintf("%d TN sections", limits.MaxTestSections), true
-	case ErrTooManyLineRecords:
-		return fmt.Sprintf("%d DA records", limits.MaxLineRecords), true
+	stated := slices.IndexFunc(coverageBounds, func(each coverageBound) bool { return each.exceeded == bound })
+	if stated < 0 {
+		return "", false
 	}
-	return "", false
+	return coverageBounds[stated].limitIn(limits), true
 }
 
-func breachOf(bound error, measured, allowed int64) error {
+func (bound coverageBound) breachIn(limits CoverageLimits, measured int64) error {
+	allowed := bound.allowedIn(limits)
 	if measured > allowed {
-		return fmt.Errorf("%w: %d exceeds %d", bound, measured, allowed)
+		return fmt.Errorf("%w: %d exceeds %d", bound.exceeded, measured, allowed)
 	}
 	return nil
+}
+
+func (bound coverageBound) limitIn(limits CoverageLimits) string {
+	return fmt.Sprintf("%d %s", bound.allowedIn(limits), bound.label)
+}
+
+func boundNamed(label string) error {
+	return fmt.Errorf("%w: %s", ErrCoverageBoundExceeded, label)
 }
