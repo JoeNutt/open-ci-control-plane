@@ -113,6 +113,12 @@ type ledgerLine struct {
 	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
 	Recorded     *recordedLine `json:"recorded,omitempty"`
 	ChangedFiles []string      `json:"changedFiles,omitempty"`
+	Modes        *modesLine    `json:"modes,omitempty"`
+}
+
+type modesLine struct {
+	Selection    string `json:"selection"`
+	Minimisation string `json:"minimisation"`
 }
 
 type recordedLine struct {
@@ -131,6 +137,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 		AlwaysRun:    namesOf(dispatched.AlwaysRun),
 		Recorded:     recordedLineOf(dispatched.Recorded),
 		ChangedFiles: namesOf(dispatched.ChangedFiles),
+		Modes:        modesLineOf(dispatched.Modes),
 	}
 }
 
@@ -139,6 +146,13 @@ func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
 		return nil
 	}
 	return &recordedLine{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+}
+
+func modesLineOf(modes domain.PlanModes) *modesLine {
+	if modes == (domain.PlanModes{}) {
+		return nil
+	}
+	return &modesLine{Selection: modes.Selection.String(), Minimisation: modes.Minimisation.String()}
 }
 
 func namesOf[Named fmt.Stringer](values []Named) []string {
@@ -182,9 +196,20 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
+	var modes domain.PlanModes
+	if line.Modes != nil {
+		modes.Selection, err = domain.ParseTestMode(line.Modes.Selection)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+		modes.Minimisation, err = domain.ParseTestMode(line.Modes.Minimisation)
+		if err != nil {
+			return domain.DispatchedPlan{}, err
+		}
+	}
 	return domain.DispatchedPlan{
 		Locator: locator, Head: head, DecisionID: id, Suites: suites,
-		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed,
+		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed, Modes: modes,
 	}, nil
 }
 
