@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -77,7 +78,10 @@ func (body reportBody) reportFor(target runTarget) (domain.RunReport, refusal) {
 		}
 		results = append(results, result)
 	}
-	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
+	report, err := domain.ParseRunReport(target.repository, target.head, id, results)
+	if err != nil {
+		return domain.RunReport{}, limitProblem{Code: "too_many_tests", Message: "x", Limit: fmt.Sprintf("%d tests", domain.MaxReportedTests)}
+	}
 	return report, nil
 }
 

@@ -203,3 +203,18 @@ func TestAReportWhoseContentDoesNotParseIsAnswered400AndRecordsNothing(t *testin
 		})
 	}
 }
+
+func TestAReportOfMoreThanMaxReportedTestsIsAnswered413NamingTheBoundAndRecordsNothing(t *testing.T) {
+	reporting := &runReports{}
+	test := `{"package":"a.io/b","name":"T","outcome":"pass"}`
+	tests := strings.TrimSuffix(strings.Repeat(test+",", domain.MaxReportedTests+1), ",")
+
+	answered := reporting.answerTo(t, runReport(t, `{"decisionId":"`+reportedDecisionID+`","tests":[`+tests+`]}`))
+
+	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), "10000 tests") {
+		t.Errorf("answered %d %s, want %d naming the test bound", answered.Code, answered.Body.String(), http.StatusRequestEntityTooLarge)
+	}
+	if len(reporting.received) != 0 {
+		t.Errorf("recorded %d reports over the test bound", len(reporting.received))
+	}
+}
