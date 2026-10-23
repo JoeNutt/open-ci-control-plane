@@ -49,12 +49,15 @@ jobs:
           set -euo pipefail
           GOROOT="$(go env GOROOT)"
           export GOROOT
-          for package in $(go list ./...); do
-            artifact="$RUNNER_TEMP/per-test.lcov"
-            .github/workflows/per-test-lcov.sh "$package" "$artifact"
-            [[ -s "$artifact" ]] || { echo "no coverage for $package"; continue; }
-            token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+
+          minted_identity_token() {
+            curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value
+          }
+
+          upload_suite() {
+            local package="$1" artifact="$2" token answer
+            token="$(minted_identity_token)"
             echo "::add-mask::$token"
             answer="$(curl -sS -o /dev/stderr -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $token" \
@@ -62,4 +65,11 @@ jobs:
               "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/$package")"
             echo " <- $package: $answer"
             [[ "$answer" == 201 ]]
+          }
+
+          artifact="$RUNNER_TEMP/per-test.lcov"
+          for package in $(go list ./...); do
+            .github/workflows/per-test-lcov.sh "$package" "$artifact"
+            [[ -s "$artifact" ]] || { echo "no coverage for $package"; continue; }
+            upload_suite "$package" "$artifact"
           done
