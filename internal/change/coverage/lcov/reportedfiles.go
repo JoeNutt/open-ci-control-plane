@@ -58,6 +58,7 @@ type recordReading struct {
 	isCurrentExercised bool
 	isRecordOpen       bool
 	testSections       int
+	lineRecords        int
 	limits             domain.CoverageLimits
 }
 
@@ -157,6 +158,11 @@ func (reading *recordReading) openRecord(path string) error {
 }
 
 func (reading *recordReading) countExecutions(lineData string) error {
+	lineRecordsWithThisOne := reading.lineRecords + 1
+	if breach := reading.limits.LineRecordsBreach(lineRecordsWithThisOne); breach != nil {
+		return breach
+	}
+	reading.lineRecords = lineRecordsWithThisOne
 	fields := strings.Split(lineData, lineDataSeparator)
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData

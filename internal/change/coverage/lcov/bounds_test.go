@@ -180,6 +180,14 @@ func TestReportedFilesRefusesMoreTestSectionsThanTheBound(t *testing.T) {
 	assertBreachOf(t, domain.ErrTooManyTestSections, err)
 }
 
+func TestReportedFilesRefusesMoreLineRecordsThanTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfLineRecords(limits.MaxLineRecords + 1).ReportedFiles(limits)
+
+	assertBreachOf(t, domain.ErrTooManyLineRecords, err)
+}
+
 func assertBreachOf(t *testing.T, bound, err error) {
 	t.Helper()
 
@@ -213,6 +221,11 @@ func artifactOfTestSections(count int) lcov.Artifact {
 		sections.WriteString(testSection(generatedTest(index), record(effectPath, lineHit)))
 	}
 	return lcov.Artifact{DeclaredBytes: int64(sections.Len()), Body: strings.NewReader(sections.String())}
+}
+
+func artifactOfLineRecords(count int) lcov.Artifact {
+	artifact := testSection(effectTest, record(effectPath, slices.Repeat([]string{lineHit}, count)...))
+	return lcov.Artifact{DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
 }
 
 func generatedTest(index int) string {
