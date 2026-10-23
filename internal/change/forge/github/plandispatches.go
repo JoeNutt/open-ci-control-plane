@@ -31,16 +31,28 @@ func ParsePlanDispatches(settings Settings) (PlanDispatches, error) {
 }
 
 type planPayload struct {
-	SchemaVersion   int      `json:"schema_version"`
-	DecisionID      string   `json:"decisionId"`
-	Repository      string   `json:"repository"`
-	HeadSHA         string   `json:"headSha"`
-	Suites          []string `json:"suites"`
-	AlwaysRunSuites []string `json:"alwaysRunSuites"`
-	FullMatrix      bool     `json:"fullMatrix"`
-	TriggerReason   string   `json:"triggerReason"`
-	Shadow          bool     `json:"shadow"`
-	BundleRevision  string   `json:"bundleRevision"`
+	SchemaVersion   int              `json:"schema_version"`
+	DecisionID      string           `json:"decisionId"`
+	Repository      string           `json:"repository"`
+	HeadSHA         string           `json:"headSha"`
+	Suites          []string         `json:"suites"`
+	AlwaysRunSuites []string         `json:"alwaysRunSuites"`
+	FullMatrix      bool             `json:"fullMatrix"`
+	TriggerReason   string           `json:"triggerReason"`
+	Shadow          bool             `json:"shadow"`
+	BundleRevision  string           `json:"bundleRevision"`
+	Mode            planModePayload  `json:"mode"`
+	Recorded        *recordedPayload `json:"recorded,omitempty"`
+}
+
+type planModePayload struct {
+	Selection    string `json:"selection"`
+	Minimisation string `json:"minimisation"`
+}
+
+type recordedPayload struct {
+	Selected  []string `json:"selected"`
+	Minimised []string `json:"minimised"`
 }
 
 type dispatchInputs struct {
@@ -91,7 +103,17 @@ func payloadOf(plan domain.TestPlan) planPayload {
 		FullMatrix:      plan.FullMatrix,
 		TriggerReason:   string(plan.Trigger),
 		BundleRevision:  plan.BundleRevision.String(),
+		Shadow:          plan.Modes.Selection == domain.TestModeShadow,
+		Mode:            planModePayload{Selection: plan.Modes.Selection.String(), Minimisation: plan.Modes.Minimisation.String()},
+		Recorded:        recordedOf(plan.Recorded),
 	}
+}
+
+func recordedOf(recorded domain.RecordedSets) *recordedPayload {
+	if !recorded.IsRecorded {
+		return nil
+	}
+	return &recordedPayload{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
 }
 
 func namesOf[Named fmt.Stringer](suites []Named) []string {
