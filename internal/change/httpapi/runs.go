@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -47,12 +48,21 @@ func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Re
 			Outcome string `json:"outcome"`
 		} `json:"tests"`
 	}
-	if err := json.NewDecoder(asked.Body).Decode(&wire); err != nil {
+	decoder := json.NewDecoder(asked.Body)
+	err = decoder.Decode(&wire)
+	if err == nil {
+		if _, trailing := decoder.Token(); trailing != io.EOF {
+			err = errors.New("more than one JSON value")
+		}
+	}
+	if err != nil {
 		var overBound *http.MaxBytesError
 		if errors.As(err, &overBound) {
 			receiving.answering.write(asked.Context(), answer, oversizedReportProblem())
 			return
 		}
+		receiving.answering.write(asked.Context(), answer, fieldProblem{Code: "malformed_report", Message: "the body is not one C-13 report object", Field: "body"})
+		return
 	}
 	id, _ := domain.ParseDecisionID(wire.DecisionID)
 	var results []domain.TestResult

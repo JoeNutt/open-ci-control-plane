@@ -165,3 +165,22 @@ func TestAReportWithoutOneBearerTokenIsAnswered401Unread(t *testing.T) {
 		})
 	}
 }
+
+func TestAReportThatIsNotTheC13ShapeIsAnswered400AndRecordsNothing(t *testing.T) {
+	for name, body := range map[string]string{
+		"not JSON":                `decisionId=` + reportedDecisionID,
+		"an array":                `[` + passingReport + `]`,
+		"two objects":             passingReport + passingReport,
+		"tests that are a string": `{"decisionId":"` + reportedDecisionID + `","tests":"TestReadFrom"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			reporting := &runReports{}
+
+			answered := reporting.answerTo(t, runReport(t, body))
+
+			if answered.Code != http.StatusBadRequest || len(reporting.received) != 0 {
+				t.Errorf("answered %d, recorded %d: want %d, nothing recorded", answered.Code, len(reporting.received), http.StatusBadRequest)
+			}
+		})
+	}
+}
