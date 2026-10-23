@@ -310,3 +310,15 @@ func TestAPlanReplacedAsTooLargeRecordsNothing(t *testing.T) {
 		t.Errorf("a plan replaced as too large still records %+v", plan.Recorded)
 	}
 }
+
+func TestAPlanCarriesThePathsItsChangeTouched(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "off")
+
+	var paths []string
+	for _, changed := range plan.ChangedFiles {
+		paths = append(paths, changed.String())
+	}
+	if !slices.Equal(paths, []string{ordersFile, paymentsFile}) {
+		t.Errorf("the plan carries changed files %v, want %v", paths, []string{ordersFile, paymentsFile})
+	}
+}

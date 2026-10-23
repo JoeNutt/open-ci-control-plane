@@ -84,6 +84,7 @@ type TestPlan struct {
 	BundleRevision BundleRevision
 	Recorded       RecordedSets
 	Modes          PlanModes
+	ChangedFiles   []RepositoryPath
 }
 
 type PlanModes struct {
@@ -114,7 +115,15 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
-	return subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode(), nil
+	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode()
+	for _, file := range subject.Document.Diff.Files {
+		changed, err := ParseRepositoryPath(file.Path)
+		if err != nil {
+			return TestPlan{}, err
+		}
+		plan.ChangedFiles = append(plan.ChangedFiles, changed)
+	}
+	return plan, nil
 }
 
 var planShapedByMode = map[TestMode]func(TestPlan) TestPlan{
