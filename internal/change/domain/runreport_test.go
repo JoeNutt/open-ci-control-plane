@@ -63,7 +63,7 @@ func TestARunReportIsRefusedAboveMaxReportedTests(t *testing.T) {
 const reportedTestSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 
 func TestAReportedTestParsesToItsSuiteNameAndOutcome(t *testing.T) {
-	parsed, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "pass", "")
+	parsed, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: "TestReadFrom", Outcome: "pass", Rerun: ""})
 
 	if err != nil {
 		t.Fatalf("parse test result: %v", err)
@@ -75,7 +75,7 @@ func TestAReportedTestParsesToItsSuiteNameAndOutcome(t *testing.T) {
 
 func TestAReportedTestIsRefusedUnlessItsOutcomeIsKnown(t *testing.T) {
 	for _, outcome := range []string{"", "passed", "PASS", "error"} {
-		_, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", outcome, "")
+		_, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: "TestReadFrom", Outcome: outcome, Rerun: ""})
 
 		if !errors.Is(err, domain.ErrMalformedTestResult) {
 			t.Errorf("outcome %q gave %v, want %v", outcome, err, domain.ErrMalformedTestResult)
@@ -84,7 +84,7 @@ func TestAReportedTestIsRefusedUnlessItsOutcomeIsKnown(t *testing.T) {
 }
 
 func TestASkippedTestParsesAsSkipped(t *testing.T) {
-	parsed, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "skip", "")
+	parsed, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: "TestReadFrom", Outcome: "skip", Rerun: ""})
 
 	if err != nil || parsed.Outcome != domain.TestOutcomeSkip {
 		t.Errorf("a skipped test parsed to %+v (%v), want outcome %q", parsed, err, domain.TestOutcomeSkip)
@@ -93,7 +93,7 @@ func TestASkippedTestParsesAsSkipped(t *testing.T) {
 
 func TestAReportedTestIsRefusedUnlessItsNameIsAGoIdentifier(t *testing.T) {
 	for _, name := range []string{"", "Test Read", "TestReadFrom/aliases", "../TestReadFrom", "TestRéad", "1Test", "Test\nRead"} {
-		_, err := domain.ParseTestResult(reportedTestSuite, name, "pass", "")
+		_, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: name, Outcome: "pass", Rerun: ""})
 
 		if !errors.Is(err, domain.ErrMalformedTestResult) {
 			t.Errorf("name %q gave %v, want %v", name, err, domain.ErrMalformedTestResult)
@@ -103,7 +103,7 @@ func TestAReportedTestIsRefusedUnlessItsNameIsAGoIdentifier(t *testing.T) {
 
 func TestAReportedTestIsRefusedUnlessItsPackageIsASuite(t *testing.T) {
 	for _, suite := range []string{"", "../rules", "github.com/JoeNutt/open ci"} {
-		_, err := domain.ParseTestResult(suite, "TestReadFrom", "pass", "")
+		_, err := domain.ParseTestResult(domain.TestResultStatement{Suite: suite, Name: "TestReadFrom", Outcome: "pass", Rerun: ""})
 
 		if !errors.Is(err, domain.ErrMalformedTestResult) {
 			t.Errorf("package %q gave %v, want %v", suite, err, domain.ErrMalformedTestResult)
@@ -113,13 +113,13 @@ func TestAReportedTestIsRefusedUnlessItsPackageIsASuite(t *testing.T) {
 
 func TestAReportedTestCarriesItsRerunOutcomeWhenItWasRerun(t *testing.T) {
 	for rerun, want := range map[string]domain.TestOutcome{"": "", "pass": domain.TestOutcomePass, "fail": domain.TestOutcomeFail} {
-		parsed, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "fail", rerun)
+		parsed, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: "TestReadFrom", Outcome: "fail", Rerun: rerun})
 
 		if err != nil || parsed.Rerun != want {
 			t.Errorf("rerun %q parsed to %q (%v), want %q", rerun, parsed.Rerun, err, want)
 		}
 	}
-	if _, err := domain.ParseTestResult(reportedTestSuite, "TestReadFrom", "fail", "skip"); !errors.Is(err, domain.ErrMalformedTestResult) {
+	if _, err := domain.ParseTestResult(domain.TestResultStatement{Suite: reportedTestSuite, Name: "TestReadFrom", Outcome: "fail", Rerun: "skip"}); !errors.Is(err, domain.ErrMalformedTestResult) {
 		t.Errorf("a rerun that skipped gave %v, want %v", err, domain.ErrMalformedTestResult)
 	}
 }

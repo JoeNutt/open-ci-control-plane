@@ -26,25 +26,35 @@ type TestResult struct {
 	Rerun   TestOutcome
 }
 
-var reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail, TestOutcomeSkip}
+var (
+	reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail, TestOutcomeSkip}
+	rerunOutcomes      = []TestOutcome{"", TestOutcomePass, TestOutcomeFail}
+)
 
 var ErrMalformedTestResult = errors.New("the reported test is not one this service accepts")
 
-func ParseTestResult(suite, name, outcome, rerun string) (TestResult, error) {
-	if rerun != "" && rerun != "pass" && rerun != "fail" {
-		return TestResult{}, ErrMalformedTestResult
+type TestResultStatement struct {
+	Suite   string
+	Name    string
+	Outcome string
+	Rerun   string
+}
+
+func ParseTestResult(stated TestResultStatement) (TestResult, error) {
+	if !slices.Contains(reportableOutcomes, TestOutcome(stated.Outcome)) {
+		return TestResult{}, fmt.Errorf("%w: outcome %q", ErrMalformedTestResult, stated.Outcome)
 	}
-	if !slices.Contains(reportableOutcomes, TestOutcome(outcome)) {
-		return TestResult{}, fmt.Errorf("%w: outcome %q", ErrMalformedTestResult, outcome)
+	if !slices.Contains(rerunOutcomes, TestOutcome(stated.Rerun)) {
+		return TestResult{}, fmt.Errorf("%w: rerun outcome %q", ErrMalformedTestResult, stated.Rerun)
 	}
-	if !isGoIdentifier(name) {
-		return TestResult{}, fmt.Errorf("%w: name %q", ErrMalformedTestResult, name)
+	if !isGoIdentifier(stated.Name) {
+		return TestResult{}, fmt.Errorf("%w: name %q", ErrMalformedTestResult, stated.Name)
 	}
-	parsedSuite, err := ParseCoverageSuite(suite)
+	suite, err := ParseCoverageSuite(stated.Suite)
 	if err != nil {
 		return TestResult{}, fmt.Errorf("%w: %w", ErrMalformedTestResult, err)
 	}
-	return TestResult{Suite: parsedSuite, Name: name, Outcome: TestOutcome(outcome), Rerun: TestOutcome(rerun)}, nil
+	return TestResult{Suite: suite, Name: stated.Name, Outcome: TestOutcome(stated.Outcome), Rerun: TestOutcome(stated.Rerun)}, nil
 }
 
 const (
