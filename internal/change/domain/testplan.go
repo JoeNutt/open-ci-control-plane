@@ -10,15 +10,17 @@ import (
 type PlanTrigger string
 
 const (
-	PlanTriggerNone         PlanTrigger = "none"
-	PlanTriggerUnmappedFile PlanTrigger = "unmapped_file"
-	PlanTriggerNoMap        PlanTrigger = "no_map"
-	PlanTriggerFileAdded    PlanTrigger = "file_added"
-	PlanTriggerLockfile     PlanTrigger = "lockfile"
-	PlanTriggerMigration    PlanTrigger = "migration"
-	PlanTriggerCIConfig     PlanTrigger = "ci_config"
-	PlanTriggerPlanTooLarge PlanTrigger = "plan_too_large"
-	PlanTriggerPlanFailed   PlanTrigger = "plan_failed"
+	PlanTriggerNone           PlanTrigger = "none"
+	PlanTriggerUnmappedFile   PlanTrigger = "unmapped_file"
+	PlanTriggerNoMap          PlanTrigger = "no_map"
+	PlanTriggerFileAdded      PlanTrigger = "file_added"
+	PlanTriggerLockfile       PlanTrigger = "lockfile"
+	PlanTriggerMigration      PlanTrigger = "migration"
+	PlanTriggerCIConfig       PlanTrigger = "ci_config"
+	PlanTriggerPlanTooLarge   PlanTrigger = "plan_too_large"
+	PlanTriggerPlanFailed     PlanTrigger = "plan_failed"
+	PlanTriggerEscapeRecorded PlanTrigger = "escape_recorded"
+	PlanTriggerShadowUnproven PlanTrigger = "shadow_unproven"
 )
 
 const MaxPlanSuites = 512

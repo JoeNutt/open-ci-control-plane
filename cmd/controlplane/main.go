@@ -172,10 +172,12 @@ func evaluatingOf(
 		return evaluating{}, err
 	}
 	escapes := jsonl.NewEscapes(history)
+	maps := memory.NewCoverageMaps(domain.DeclaredCoverageLimits())
 	return evaluating{
 		app: app, endpoint: endpoint, rules: rules, recorder: recorder, active: active,
-		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, ledger: ledger, escapes: escapes, log: log,
+		maps: maps, history: history, ledger: ledger, escapes: escapes, log: log,
 		windows: application.CountShadowWindows{Runs: ledger, Escapes: escapes},
+		planner: application.PlanTests{Maps: maps, History: history, Runs: ledger, Escapes: escapes, Now: time.Now},
 	}, nil
 }
 

@@ -30,6 +30,7 @@ type evaluating struct {
 	ledger   *jsonl.PlanLedger
 	escapes  *jsonl.Escapes
 	windows  application.CountShadowWindows
+	planner  application.PlanTests
 	log      *slog.Logger
 }
 
@@ -80,7 +81,7 @@ func (evaluation installationEvaluation) evaluated(
 		Publisher:  forge.checkRuns,
 		Recorder:   evaluation.evaluating.recorder,
 		Bindings:   evaluation.evaluating.active,
-		Planner:    application.PlanTests{Maps: evaluation.evaluating.maps, History: evaluation.evaluating.history},
+		Planner:    evaluation.evaluating.planner,
 		Dispatcher: forge.dispatches,
 		Ledger:     evaluation.evaluating.ledger,
 	}.Execute(ctx, locator, id)

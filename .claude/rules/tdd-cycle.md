@@ -121,14 +121,11 @@ is out. Bringing one into scope means reopening it deliberately.
 ## Every cycle ends with a refactor verdict, in that cycle's commit
 
 Once per cycle, in the commit message, attached to the diff it describes. Not once per turn:
-a single verdict covering several cycles is a verdict about none of them. State one of:
+a single verdict covering several cycles is a verdict about none of them. Refactoring is always
+needed, so state:
 
 ```
 Refactored: <what changed, and which entry demanded it>
-```
-
-```
-No refactor needed: checked <all five, each naming the entry read and what it says>, none fired.
 ```
 
 **Cite the entry and what it says. A verdict naming only a topic is not a check.** "boundaries

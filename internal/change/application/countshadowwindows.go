@@ -15,13 +15,9 @@ type CountShadowWindows struct {
 }
 
 func (useCase CountShadowWindows) Execute(ctx context.Context, repository domain.GovernedRepository) ([]domain.ModeWindow, error) {
-	runs, err := useCase.Runs.ShadowedRuns(ctx)
+	evidence, err := shadowEvidenceIn(ctx, useCase.Runs, useCase.Escapes)
 	if err != nil {
-		return nil, fmt.Errorf("count the shadow windows of %s: read the runs: %w", repository, err)
+		return nil, fmt.Errorf("count the shadow windows of %s: %w", repository, err)
 	}
-	escapes, err := useCase.Escapes.RecordedEscapes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("count the shadow windows of %s: read the escapes: %w", repository, err)
-	}
-	return domain.ShadowWindowsFor(repository, runs, escapes), nil
+	return domain.ShadowWindowsFor(repository, evidence.runs, evidence.escapes), nil
 }
