@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -82,4 +83,35 @@ func runReport(t *testing.T, body string) *http.Request {
 	report.Header.Set("Authorization", "Bearer "+actionsToken)
 	report.Header.Set("Content-Type", "application/json")
 	return report
+}
+
+func TestAReportToAMalformedPathIsAnswered400AndReachesNoRecording(t *testing.T) {
+	for name, path := range map[string]string{
+		"a head that is not a commit": "/v1/repositories/" + gatedRepository + "/runs/not-a-sha",
+		"an uppercase head":           "/v1/repositories/" + gatedRepository + "/runs/" + strings.ToUpper(reportedHeadSHA),
+		"an owner outside its set":    "/v1/repositories/Joe%20Nutt/open-ci-control-plane/runs/" + reportedHeadSHA,
+	} {
+		t.Run(name, func(t *testing.T) {
+			reporting := &runReports{}
+			report := runReport(t, passingReport)
+			report.URL.Path, report.URL.RawPath = "", ""
+			report.URL = mustParseURL(t, path)
+
+			answered := reporting.answerTo(t, report)
+
+			if answered.Code != http.StatusBadRequest || len(reporting.received) != 0 {
+				t.Errorf("answered %d, recorded %d: want %d, nothing recorded", answered.Code, len(reporting.received), http.StatusBadRequest)
+			}
+		})
+	}
+}
+
+func mustParseURL(t *testing.T, path string) *url.URL {
+	t.Helper()
+
+	parsed, err := url.Parse(path)
+	if err != nil {
+		t.Fatalf("parse %q: %v", path, err)
+	}
+	return parsed
 }

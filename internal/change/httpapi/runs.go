@@ -23,8 +23,16 @@ type runReports struct {
 }
 
 func (receiving runReports) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
-	repository, _ := domain.ParseGovernedRepositorySegments(asked.PathValue(ownerSegment), asked.PathValue(repoSegment))
-	head, _ := domain.ParseCommitSHA(asked.PathValue("headSha"))
+	repository, err := domain.ParseGovernedRepositorySegments(asked.PathValue(ownerSegment), asked.PathValue(repoSegment))
+	if err != nil {
+		receiving.answering.write(asked.Context(), answer, malformedPathProblem(repositorySegments))
+		return
+	}
+	head, err := domain.ParseCommitSHA(asked.PathValue("headSha"))
+	if err != nil {
+		receiving.answering.write(asked.Context(), answer, malformedPathProblem("headSha"))
+		return
+	}
 	token, _ := bearerTokenIn(asked.Header.Get(authorizationHeader))
 	var wire struct {
 		DecisionID string `json:"decisionId"`
