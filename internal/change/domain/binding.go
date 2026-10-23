@@ -11,6 +11,7 @@ type BindingStatement struct {
 	Repository string
 	Workflow   string
 	AlwaysRun  []string
+	Selection  string
 	Policies   []BoundPolicyStatement
 }
 
@@ -18,6 +19,7 @@ type Binding struct {
 	repository GovernedRepository
 	workflow   WorkflowFile
 	alwaysRun  []GoImportPath
+	selection  TestMode
 	policies   []BoundPolicy
 }
 
@@ -42,6 +44,8 @@ func (binding Binding) Workflow() WorkflowFile { return binding.workflow }
 
 func (binding Binding) AlwaysRun() []GoImportPath { return slices.Clone(binding.alwaysRun) }
 
+func (binding Binding) SelectionMode() TestMode { return binding.selection }
+
 func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
 
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
@@ -57,7 +61,14 @@ func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Bi
 	if err != nil {
 		return Binding{}, err
 	}
-	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, policies: policies}, nil
+	selection := TestModeShadow
+	if stated.Selection != "" {
+		selection, err = ParseTestMode(stated.Selection)
+		if err != nil {
+			return Binding{}, err
+		}
+	}
+	return Binding{repository: repository, workflow: workflow, alwaysRun: alwaysRun, selection: selection, policies: policies}, nil
 }
 
 func goImportPathsOf(stated []string) ([]GoImportPath, error) {

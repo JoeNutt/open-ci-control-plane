@@ -149,3 +149,18 @@ func thisRepositorysBinding() domain.BindingStatement {
 		}},
 	}
 }
+
+func TestParseBindingKeepsItsSelectionModeAndStartsInShadowWhenItStatesNone(t *testing.T) {
+	for stated, want := range map[string]domain.TestMode{
+		"": domain.TestModeShadow, "off": domain.TestModeOff, "shadow": domain.TestModeShadow, "enforce": domain.TestModeEnforce,
+	} {
+		statement := thisRepositorysBinding()
+		statement.Selection = stated
+
+		binding, err := domain.ParseBinding(statement)
+
+		if err != nil || binding.SelectionMode() != want {
+			t.Errorf("selection %q gave mode %q (%v), want %q", stated, binding.SelectionMode(), err, want)
+		}
+	}
+}
