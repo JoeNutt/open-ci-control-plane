@@ -4,7 +4,9 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
@@ -13,8 +15,8 @@ type RepositoryInstallations struct {
 	asApp connection
 }
 
-func ParseRepositoryInstallations(settings Settings, app Installation) (RepositoryInstallations, error) {
-	issuer, err := parseAppJWTIssuer(settings, app)
+func ParseRepositoryInstallations(settings Settings, key AppKey, clock func() time.Time) (RepositoryInstallations, error) {
+	issuer, err := parseAppJWTIssuer(settings, key, clock)
 	if err != nil {
 		return RepositoryInstallations{}, err
 	}
@@ -25,6 +27,8 @@ func ParseRepositoryInstallations(settings Settings, app Installation) (Reposito
 	return RepositoryInstallations{asApp: asApp}, nil
 }
 
+const installationPath = "/installation"
+
 type installationPayload struct {
 	ID int64 `json:"id"`
 }
@@ -32,12 +36,12 @@ type installationPayload struct {
 func (installations RepositoryInstallations) InstallationOf(ctx context.Context, repository domain.GovernedRepository) (int64, error) {
 	installed, err := exchanged[installationPayload](ctx, installations.asApp, exchange{
 		method:    http.MethodGet,
-		endpoint:  repositoryEndpoint(repository) + "/installation",
+		endpoint:  repositoryEndpoint(repository) + installationPath,
 		succeeded: http.StatusOK,
 		notFound:  ErrNoSuchInstallation,
 	})
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("look up the App installation of %s: %w", repository, err)
 	}
 	return installed.ID, nil
 }

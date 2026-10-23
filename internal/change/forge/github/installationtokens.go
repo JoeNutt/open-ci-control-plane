@@ -32,7 +32,7 @@ type InstallationTokens struct {
 }
 
 func ParseInstallationTokens(settings Settings, installation Installation) (*InstallationTokens, error) {
-	issuer, err := parseAppJWTIssuer(settings, installation)
+	issuer, err := parseAppJWTIssuer(settings, installation.Key, installation.Clock)
 	if err != nil {
 		return nil, err
 	}

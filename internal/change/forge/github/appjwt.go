@@ -41,18 +41,18 @@ type appJWTIssuer struct {
 	clock func() time.Time
 }
 
-func parseAppJWTIssuer(settings Settings, installation Installation) (appJWTIssuer, error) {
+func parseAppJWTIssuer(settings Settings, key AppKey, clock func() time.Time) (appJWTIssuer, error) {
 	app, err := parseAppID(settings.AppID)
 	if err != nil {
 		return appJWTIssuer{}, err
 	}
-	if !installation.Key.isPresent() {
+	if !key.isPresent() {
 		return appJWTIssuer{}, ErrNoAppKey
 	}
-	if installation.Clock == nil {
+	if clock == nil {
 		return appJWTIssuer{}, ErrNoClock
 	}
-	return appJWTIssuer{key: installation.Key, app: app, clock: installation.Clock}, nil
+	return appJWTIssuer{key: key, app: app, clock: clock}, nil
 }
 
 func (issuer appJWTIssuer) authorization(context.Context) (Credential, error) {

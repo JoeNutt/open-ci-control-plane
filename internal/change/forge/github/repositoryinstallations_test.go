@@ -32,9 +32,7 @@ func TestARepositorysInstallationIsLookedUpAsTheApp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse repository: %v", err)
 	}
-	installations, err := github.ParseRepositoryInstallations(settingsAt(server), github.Installation{
-		Key: forgeAppKey(t), Clock: clockAt(lookedUpAt).Now,
-	})
+	installations, err := github.ParseRepositoryInstallations(settingsAt(server), forgeAppKey(t), clockAt(lookedUpAt).Now)
 	if err != nil {
 		t.Fatalf("parse repository installations: %v", err)
 	}
