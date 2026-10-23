@@ -132,6 +132,9 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 			t.Errorf("%s: posted %+v (posted %t), want %s concluding %s",
 				report.description, run, isPosted, domain.TestsCheckRunName, report.conclusion)
 		}
+		if run.Title == "" || run.Headline == "" {
+			t.Errorf("%s: posted %+v with no title or headline, which the forge refuses", report.description, run)
+		}
 	}
 }
 

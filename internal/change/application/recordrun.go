@@ -29,9 +29,7 @@ func (useCase RecordRun) Execute(ctx context.Context, upload RunUpload) error {
 	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head(), err)
 	}
-	return useCase.Publisher.PublishCheckRun(ctx, dispatched.Locator, report.Head(), domain.CheckRun{
-		Name: domain.TestsCheckRunName, Conclusion: dispatched.ConclusionOf(report.Results()), DecisionID: dispatched.DecisionID,
-	})
+	return useCase.Publisher.PublishCheckRun(ctx, dispatched.Locator, report.Head(), dispatched.TestsCheckRunOf(report.Results()))
 }
 
 func (useCase RecordRun) reportedPlanOf(ctx context.Context, report domain.RunReport) (domain.DispatchedPlan, error) {

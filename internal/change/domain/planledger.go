@@ -5,6 +5,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 var ErrNoPlanForHead = errors.New("no plan was dispatched for this head")
@@ -24,6 +25,18 @@ func DispatchedPlanOf(locator PullRequestLocator, plan TestPlan) DispatchedPlan 
 
 func (dispatched DispatchedPlan) IsReportedBy(report RunReport) bool {
 	return dispatched.DecisionID == report.DecisionID()
+}
+
+func (dispatched DispatchedPlan) TestsCheckRunOf(results []TestResult) CheckRun {
+	conclusion := dispatched.ConclusionOf(results)
+	title := "A planned test failed or did not report"
+	if conclusion == ConclusionSuccess {
+		title = "Every planned test passed"
+	}
+	return CheckRun{
+		Name: TestsCheckRunName, Conclusion: conclusion, Title: title,
+		Headline: fmt.Sprintf("%d tests reported.", len(results)), DecisionID: dispatched.DecisionID,
+	}
 }
 
 func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
