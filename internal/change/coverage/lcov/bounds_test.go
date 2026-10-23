@@ -221,8 +221,7 @@ func artifactOfRecords(count int) lcov.Artifact {
 	for index := range count {
 		records = append(records, record(generatedPath(index), lineHit))
 	}
-	artifact := testSection(effectTest, records...)
-	return lcov.Artifact{DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+	return artifactOf(testSection(effectTest, records...))
 }
 
 func artifactOfTestSections(count int) lcov.Artifact {
@@ -230,12 +229,11 @@ func artifactOfTestSections(count int) lcov.Artifact {
 	for index := range count {
 		sections.WriteString(testSection(generatedTest(index), record(effectPath, lineHit)))
 	}
-	return lcov.Artifact{DeclaredBytes: int64(sections.Len()), Body: strings.NewReader(sections.String())}
+	return artifactOf(sections.String())
 }
 
 func artifactOfLineRecords(count int) lcov.Artifact {
-	artifact := testSection(effectTest, record(effectPath, slices.Repeat([]string{lineHit}, count)...))
-	return lcov.Artifact{DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+	return artifactOf(testSection(effectTest, record(effectPath, slices.Repeat([]string{lineHit}, count)...)))
 }
 
 func generatedTest(index int) string {

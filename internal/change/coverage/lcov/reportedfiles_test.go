@@ -170,9 +170,12 @@ func refusalOf(t *testing.T, artifact string) error {
 }
 
 func reportedFilesIn(artifact string) ([]domain.ReportedFile, error) {
-	var report domain.CoverageReport = lcov.Artifact{
-		DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
+	var report domain.CoverageReport = artifactOf(artifact)
 	return report.ReportedFiles(domain.DeclaredCoverageLimits())
+}
+
+func artifactOf(text string) lcov.Artifact {
+	return lcov.Artifact{DeclaredBytes: int64(len(text)), Body: strings.NewReader(text)}
 }
 
 func testSection(name string, records ...string) string {
