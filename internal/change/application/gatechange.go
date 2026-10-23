@@ -18,6 +18,7 @@ type GateChange struct {
 	Bindings   domain.BindingSource
 	Planner    PlanTests
 	Dispatcher domain.PlanDispatcher
+	Ledger     domain.PlanLedger
 }
 
 func (useCase GateChange) Execute(
@@ -43,7 +44,8 @@ func (useCase GateChange) Execute(
 			useCase.record(posting, decided, document, id),
 			useCase.publish(posting, locator, head, run))
 		if isStructuralPass(decided, run) {
-			failures = append(failures, useCase.planAndDispatch(posting, document, id, decided.Decision.Revision()))
+			subject := domain.PlanSubject{Document: document, DecisionID: id, Revision: decided.Decision.Revision()}
+			failures = append(failures, useCase.planAndDispatch(posting, locator, subject))
 		}
 	}
 	return errors.Join(failures...)
@@ -54,20 +56,21 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 }
 
 func (useCase GateChange) planAndDispatch(
-	ctx context.Context, document domain.Document, id domain.DecisionID, revision domain.BundleRevision,
+	ctx context.Context, locator domain.PullRequestLocator, unbound domain.PlanSubject,
 ) error {
-	subject, err := useCase.subjectOf(ctx, domain.PlanSubject{Document: document, DecisionID: id, Revision: revision})
+	repository := unbound.Document.PR.Repository
+	subject, err := useCase.subjectOf(ctx, unbound)
 	if err != nil {
-		return fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, err)
+		return fmt.Errorf("plan the tests of %s: %w", repository, err)
 	}
 	plan, planErr := useCase.Planner.Execute(ctx, subject)
 	if planErr != nil {
-		planErr = fmt.Errorf("plan the tests of %s: %w", document.PR.Repository, planErr)
+		planErr = fmt.Errorf("plan the tests of %s: %w", repository, planErr)
 		if plan, err = domain.FailedPlanFor(subject); err != nil {
 			return errors.Join(planErr, err)
 		}
 	}
-	return errors.Join(planErr, useCase.dispatch(ctx, plan))
+	return errors.Join(planErr, useCase.dispatch(ctx, locator, plan))
 }
 
 func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubject) (domain.PlanSubject, error) {
@@ -82,9 +85,12 @@ func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubj
 	return subject, nil
 }
 
-func (useCase GateChange) dispatch(ctx context.Context, plan domain.TestPlan) error {
+func (useCase GateChange) dispatch(ctx context.Context, locator domain.PullRequestLocator, plan domain.TestPlan) error {
 	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
 		return fmt.Errorf("dispatch the plan for %s: %w", plan.Repository, err)
+	}
+	if err := useCase.Ledger.RecordDispatch(ctx, domain.DispatchedPlanOf(locator, plan)); err != nil {
+		return fmt.Errorf("record the plan dispatched for %s: %w", plan.Repository, err)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
@@ -160,10 +161,24 @@ func evaluatingOf(
 	if err != nil {
 		return evaluating{}, fmt.Errorf("open the shadow history: %w", err)
 	}
+	ledger, err := planLedgerBeside(configured.HistoryFile())
+	if err != nil {
+		return evaluating{}, err
+	}
 	return evaluating{
 		app: app, endpoint: endpoint, rules: rules, recorder: recorder, active: active,
-		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, log: log,
+		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, ledger: ledger, log: log,
 	}, nil
+}
+
+const planLedgerFile = "plan-ledger.jsonl"
+
+func planLedgerBeside(historyFile string) (*jsonl.PlanLedger, error) {
+	ledgerLog, err := jsonl.OpenLog(filepath.Join(filepath.Dir(historyFile), planLedgerFile), domain.DeclaredHistoryLimits(), time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("open the plan ledger: %w", err)
+	}
+	return jsonl.NewPlanLedger(ledgerLog), nil
 }
 
 func rulesIn(content []byte) (domain.ClassificationRules, error) {

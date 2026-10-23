@@ -27,6 +27,7 @@ type evaluating struct {
 	active   *policy.ActivePolicy
 	maps     *memory.CoverageMaps
 	history  *jsonl.Log
+	ledger   *jsonl.PlanLedger
 	log      *slog.Logger
 }
 
@@ -79,5 +80,6 @@ func (evaluation installationEvaluation) evaluated(
 		Bindings:   evaluation.evaluating.active,
 		Planner:    application.PlanTests{Maps: evaluation.evaluating.maps, History: evaluation.evaluating.history},
 		Dispatcher: forge.dispatches,
+		Ledger:     evaluation.evaluating.ledger,
 	}.Execute(ctx, locator, id)
 }

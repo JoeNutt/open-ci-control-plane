@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
@@ -50,6 +51,7 @@ func passingGateChange(t *testing.T, published *publishedCheckRuns, dispatched *
 		Bindings:   bindingForEveryRepository{},
 		Planner:    application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: readableHistory{}},
 		Dispatcher: dispatched,
+		Ledger:     &plannedHeads{},
 	}
 }
 
@@ -79,4 +81,39 @@ func (bindingForEveryRepository) BindingOf(_ context.Context, repository domain.
 			Paths:       map[string][]string{"domain": {"internal/domain/**"}},
 		}},
 	})
+}
+
+func TestADispatchedPlanIsInTheLedgerForItsHeadAndPullRequest(t *testing.T) {
+	ledger := &plannedHeads{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, &dispatchedPlans{})
+	useCase.Ledger = ledger
+
+	if err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID)); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	dispatched, err := ledger.DispatchedPlanFor(context.Background(), gatedLocator(t).GovernedRepository(), commitSHAOf(t, recordedHeadSHA))
+	if err != nil {
+		t.Fatalf("the dispatched plan is not in the ledger: %v", err)
+	}
+	if dispatched.Locator != gatedLocator(t) || dispatched.DecisionID != decisionIDOf(t, gatedDecisionID) {
+		t.Errorf("the ledger holds %+v under %s, want the plan for %+v under %s",
+			dispatched.Locator, dispatched.DecisionID, gatedLocator(t), gatedDecisionID)
+	}
+}
+
+func TestARefusedDispatchPutsNothingInTheLedger(t *testing.T) {
+	ledger := &plannedHeads{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, &dispatchedPlans{})
+	useCase.Dispatcher = refusingDispatcher{}
+	useCase.Ledger = ledger
+
+	if err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID)); err == nil {
+		t.Fatal("a refused dispatch was reported as success")
+	}
+
+	_, err := ledger.DispatchedPlanFor(context.Background(), gatedLocator(t).GovernedRepository(), commitSHAOf(t, recordedHeadSHA))
+	if !errors.Is(err, domain.ErrNoPlanForHead) {
+		t.Errorf("after a refused dispatch the ledger gave %v, want %v", err, domain.ErrNoPlanForHead)
+	}
 }
