@@ -68,7 +68,8 @@ jobs:
           }
 
           artifact="$RUNNER_TEMP/per-test.lcov"
-          for package in $(go list ./...); do
+          packages="$(go list ./...)"
+          for package in $packages; do
             .github/workflows/per-test-lcov.sh "$package" "$artifact"
             [[ -s "$artifact" ]] || { echo "no coverage for $package"; continue; }
             upload_suite "$package" "$artifact"
