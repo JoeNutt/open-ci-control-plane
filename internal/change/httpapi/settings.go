@@ -25,6 +25,7 @@ type Settings struct {
 	Clock       func() time.Time
 	Coverage    CoverageReplacement
 	Artifacts   CoverageArtifacts
+	Runs        RunRecording
 }
 
 type requiredPart struct {
