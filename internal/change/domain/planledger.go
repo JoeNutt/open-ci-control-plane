@@ -22,6 +22,10 @@ func DispatchedPlanOf(locator PullRequestLocator, plan TestPlan) DispatchedPlan 
 	return DispatchedPlan{Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites}
 }
 
+func (dispatched DispatchedPlan) IsReportedBy(report RunReport) bool {
+	return dispatched.DecisionID == report.DecisionID()
+}
+
 func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
 	if len(results) == 0 {
 		return ConclusionFailure
