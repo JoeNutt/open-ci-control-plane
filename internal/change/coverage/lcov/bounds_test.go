@@ -26,7 +26,7 @@ func TestReportedFilesAcceptsADeclaredLengthAtTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 	artifact := lcov.Artifact{
 		DeclaredBytes: limits.MaxCompressedBytes,
-		Body:          strings.NewReader(record(effectPath, lineHit)),
+		Body:          strings.NewReader(testSection(effectTest, record(effectPath, lineHit))),
 	}
 
 	_, err := artifact.ReportedFiles(limits)
@@ -69,7 +69,7 @@ func TestReportedFilesRefusesABodyLongerThanTheBoundWhateverItDeclares(t *testin
 }
 
 func TestReportedFilesReadsAGzippedArtifact(t *testing.T) {
-	compressed := gzipped(t, strings.NewReader(record(effectPath, lineHit)))
+	compressed := gzipped(t, strings.NewReader(testSection(effectTest, record(effectPath, lineHit))))
 	artifact := lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 
 	reported, err := artifact.ReportedFiles(domain.DeclaredCoverageLimits())
@@ -166,6 +166,7 @@ func (body unreadBody) Read([]byte) (int, error) {
 
 func artifactOfRecords(count int) lcov.Artifact {
 	var records strings.Builder
+	records.WriteString(lines("TN:" + effectTest))
 	for index := range count {
 		records.WriteString(record(fmt.Sprintf("internal/generated/file%d.go", index), lineHit))
 	}
@@ -187,7 +188,7 @@ func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
 }
 
 func paddedRecord(totalBytes int64) io.Reader {
-	head := "SF:" + effectPath + "\n"
+	head := "TN:" + effectTest + "\nSF:" + effectPath + "\n"
 	tail := recordClose + "\n"
 	parts := []io.Reader{strings.NewReader(head)}
 	remaining := totalBytes - int64(len(head)+len(tail))

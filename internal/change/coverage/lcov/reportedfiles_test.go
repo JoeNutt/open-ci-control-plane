@@ -19,6 +19,7 @@ const (
 	lineHit     = "DA:7,3"
 	lineMissed  = "DA:7,0"
 	recordClose = "end_of_record"
+	effectTest  = "TestEffect"
 )
 
 func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
@@ -36,7 +37,7 @@ func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
 }
 
 func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
-	artifact := record(effectPath, lineHit) + record(gatePath, lineMissed, "DA:8,0")
+	artifact := testSection(effectTest, record(effectPath, lineHit), record(gatePath, lineMissed, "DA:8,0"))
 
 	reported, err := reportedFilesIn(artifact)
 
@@ -73,6 +74,14 @@ func TestReportedFilesRefusesATruncatedArtifactWhole(t *testing.T) {
 
 func TestReportedFilesRefusesAnArtifactWithNoRecord(t *testing.T) {
 	err := refusalOf(t, "")
+
+	if !errors.Is(err, lcov.ErrMalformedArtifact) {
+		t.Fatalf("want ErrMalformedArtifact, got %v", err)
+	}
+}
+
+func TestReportedFilesRefusesAnArtifactWithNoTestSectionWhole(t *testing.T) {
+	err := refusalOf(t, record(effectPath, lineHit))
 
 	if !errors.Is(err, lcov.ErrMalformedArtifact) {
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
@@ -130,6 +139,10 @@ func reportedFilesIn(artifact string) ([]domain.ReportedFile, error) {
 	var report domain.CoverageReport = lcov.Artifact{
 		DeclaredBytes: int64(len(artifact)), Body: strings.NewReader(artifact)}
 	return report.ReportedFiles(domain.DeclaredCoverageLimits())
+}
+
+func testSection(name string, records ...string) string {
+	return lines("TN:"+name) + strings.Join(records, "")
 }
 
 func record(path string, body ...string) string {

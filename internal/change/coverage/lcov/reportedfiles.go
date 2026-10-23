@@ -42,7 +42,7 @@ type lineReading struct {
 }
 
 var readingByTag = map[string]lineReading{
-	"TN":        {isInsideRecord: false, step: carryingNothing},
+	"TN":        {isInsideRecord: false, step: (*recordReading).openTestSection},
 	"SF":        {isInsideRecord: false, step: (*recordReading).openRecord},
 	"DA":        {isInsideRecord: true, step: (*recordReading).countExecutions},
 	"LF":        {isInsideRecord: true, step: carryingNothing},
@@ -55,6 +55,7 @@ type recordReading struct {
 	currentPath        domain.RepositoryPath
 	isCurrentExercised bool
 	isRecordOpen       bool
+	hasTestSection     bool
 	limits             domain.CoverageLimits
 }
 
@@ -176,12 +177,20 @@ func (bounded *boundedReader) Read(buffer []byte) (int, error) {
 
 func carryingNothing(*recordReading, string) error { return nil }
 
+func (reading *recordReading) openTestSection(string) error {
+	reading.hasTestSection = true
+	return nil
+}
+
 func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.isRecordOpen {
 		return nil, errTruncatedRecord
 	}
 	if len(reading.reported) == 0 {
 		return nil, errNoRecord
+	}
+	if !reading.hasTestSection {
+		return nil, fmt.Errorf("%w: no TN section", ErrMalformedArtifact)
 	}
 	return reading.reported, nil
 }
