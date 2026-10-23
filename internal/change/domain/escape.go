@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
 type ShadowedMode string
@@ -27,6 +28,7 @@ func ParseShadowedMode(stated string) (ShadowedMode, error) {
 }
 
 type Escape struct {
+	At           time.Time
 	Mode         ShadowedMode
 	PullRequest  PullRequestLocator
 	Test         TestResult
