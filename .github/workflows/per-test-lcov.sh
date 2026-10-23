@@ -37,6 +37,12 @@ top_level_tests() {
   local package_directory="$1"
   local listed_names_file="$scratch/listed-names"
   run_test_binary "$package_directory" "$scratch/listing-counters" -test.list '.*' >"$listed_names_file"
+  local unhandled
+  unhandled="$(grep -vE "$top_level_test" "$listed_names_file" || [[ $? -eq 1 ]])"
+  if [[ -n "$unhandled" ]]; then
+    echo "$package lists names this collection does not run: $unhandled" >&2
+    return 1
+  fi
   grep -E "$top_level_test" "$listed_names_file" || [[ $? -eq 1 ]]
 }
 
