@@ -17,7 +17,7 @@ type FamilyEngine interface {
 
 const EvaluationDeadline = 250 * time.Millisecond
 
-var ErrEngineFault = errors.New("policy engine failed to evaluate")
+var ErrEngineFault error
 
 var ErrEmptyGate = errors.New("gate is configured with no policy family")
 
