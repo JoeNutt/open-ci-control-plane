@@ -25,6 +25,7 @@ type Settings struct {
 	Clock       func() time.Time
 	Coverage    CoverageReplacement
 	Artifacts   CoverageArtifacts
+	Runs        RunRecording
 }
 
 type requiredPart struct {
@@ -38,6 +39,7 @@ var requiredParts = []requiredPart{
 	{name: "a clock", isMissing: func(settings Settings) bool { return settings.Clock == nil }},
 	{name: "a coverage replacement", isMissing: func(settings Settings) bool { return settings.Coverage == nil }},
 	{name: "an artifact parser", isMissing: func(settings Settings) bool { return settings.Artifacts == nil }},
+	{name: "a run recording", isMissing: func(settings Settings) bool { return settings.Runs == nil }},
 }
 
 func isMissingFrom(settings Settings) func(requiredPart) bool {

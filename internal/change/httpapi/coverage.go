@@ -26,21 +26,11 @@ type coverageUploads struct {
 
 func (receiving coverageUploads) ServeHTTP(answer http.ResponseWriter, asked *http.Request) {
 	answered := receiving.answerTo(answer, asked)
-	if answered.reason != "" {
-		receiving.record(asked.Context(), answered)
-	}
+	answered.logTo(asked.Context(), receiving.log, refusedCoverage)
 	receiving.answering.write(asked.Context(), answer, answered.answer)
 }
 
-func (receiving coverageUploads) record(ctx context.Context, refused coverageAnswer) {
-	named := []slog.Attr{slog.String(reasonKey, refused.reason)}
-	if refused.cause != nil {
-		named = append(named, slog.String(causeKey, refused.cause.Error()))
-	}
-	receiving.log.LogAttrs(ctx, refused.level, refusedCoverage, named...)
-}
-
-func (receiving coverageUploads) answerTo(answer http.ResponseWriter, asked *http.Request) coverageAnswer {
+func (receiving coverageUploads) answerTo(answer http.ResponseWriter, asked *http.Request) loggedAnswer {
 	target, refused := coverageTargetOf(asked.PathValue(ownerSegment), asked.PathValue(repoSegment), asked.PathValue(suiteSegment))
 	if refused != nil {
 		return refusedBeforeUse(refused)
@@ -63,7 +53,7 @@ func (receiving coverageUploads) answerTo(answer http.ResponseWriter, asked *htt
 	if err != nil {
 		return coverageRefusalOf(err)
 	}
-	return coverageAnswer{answer: coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}}
+	return loggedAnswer{answer: coverageAccepted{Suite: replaced.Suite.String(), FileEntryCount: replaced.FileEntryCount}}
 }
 
 type coverageAccepted struct {

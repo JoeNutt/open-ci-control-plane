@@ -23,18 +23,11 @@ const (
 func coverageReplacementFor(
 	configured configuration.Configuration, evaluation evaluating,
 ) (application.ReplaceCoverage, error) {
-	app, endpoint := evaluation.app, evaluation.endpoint
-	issuer, err := domain.ParseHTTPSOrigin(actionsTokenIssuer)
+	callers, err := actionsCallersFor(configured, evaluation.endpoint)
 	if err != nil {
 		return application.ReplaceCoverage{}, err
 	}
-	callers, err := ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
-		Issuer: issuer, Audience: configured.InstanceURL(), Client: forgeClientTrusting(endpoint.trusted), Now: time.Now,
-	})
-	if err != nil {
-		return application.ReplaceCoverage{}, err
-	}
-	paths, err := app.repositoryPathsFor(configured.InstallationIDs())
+	paths, err := evaluation.app.repositoryPathsFor(configured.InstallationIDs())
 	if err != nil {
 		return application.ReplaceCoverage{}, err
 	}
@@ -46,6 +39,16 @@ func coverageReplacementFor(
 	return application.ReplaceCoverage{
 		Maps: evaluation.maps, Paths: paths, Callers: callers, Rate: rate,
 	}, nil
+}
+
+func actionsCallersFor(configured configuration.Configuration, endpoint forgeEndpoint) (domain.CallerRepositories, error) {
+	issuer, err := domain.ParseHTTPSOrigin(actionsTokenIssuer)
+	if err != nil {
+		return nil, err
+	}
+	return ingest.ParseActionsTokens(ingest.ActionsTokenSettings{
+		Issuer: issuer, Audience: configured.InstanceURL(), Client: forgeClientTrusting(endpoint.trusted), Now: time.Now,
+	})
 }
 
 func (app appForge) repositoryPathsFor(installations []int64) (installationsRepositoryPaths, error) {

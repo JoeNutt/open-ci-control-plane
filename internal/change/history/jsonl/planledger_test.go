@@ -174,3 +174,27 @@ func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
 		t.Errorf("a ledger line with a malformed decision ID gave %v, want %v", err, domain.ErrMalformedDecisionID)
 	}
 }
+
+func TestTheLatestPlanDispatchedForAHeadIsTheOneFound(t *testing.T) {
+	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
+	earlier := dispatchedPlanOf(t)
+	later := earlier
+	later.Suites = nil
+	id, err := domain.ParseDecisionID("dec_ffffffffffffffffffffffffffffffff")
+	if err != nil {
+		t.Fatalf("parse decision ID: %v", err)
+	}
+	later.DecisionID = id
+	for _, dispatched := range []domain.DispatchedPlan{earlier, later} {
+		if err := ledger.RecordDispatch(context.Background(), dispatched); err != nil {
+			t.Fatalf("record dispatch: %v", err)
+		}
+	}
+
+	found, err := ledger.DispatchedPlanFor(context.Background(), earlier.Locator.GovernedRepository(), earlier.Head)
+
+	if err != nil || found.DecisionID != later.DecisionID {
+		t.Errorf("a head dispatched twice gave the plan under %s (%v), want the later one under %s",
+			found.DecisionID, err, later.DecisionID)
+	}
+}

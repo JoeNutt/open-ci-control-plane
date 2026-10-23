@@ -21,6 +21,7 @@ func TestParseRoutesRefusesSettingsMissingAPart(t *testing.T) {
 		},
 		"no decision ID source": func(settings *httpapi.Settings) { settings.DecisionIDs = nil },
 		"no clock":              func(settings *httpapi.Settings) { settings.Clock = nil },
+		"no run recording":      func(settings *httpapi.Settings) { settings.Runs = nil },
 	}
 	for form, without := range incomplete {
 		t.Run(form, func(t *testing.T) {
