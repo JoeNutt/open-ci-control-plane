@@ -274,15 +274,19 @@ type runKey struct {
 	head       string
 }
 
+type heldDispatch struct {
+	line ledgerLine
+	at   time.Time
+}
+
 type heldRuns struct {
-	latest     map[runKey]ledgerLine
-	at         map[runKey]time.Time
+	latest     map[runKey]heldDispatch
 	order      []runKey
 	isReported map[runKey]bool
 }
 
 func newHeldRuns() *heldRuns {
-	return &heldRuns{latest: map[runKey]ledgerLine{}, at: map[runKey]time.Time{}, isReported: map[runKey]bool{}}
+	return &heldRuns{latest: map[runKey]heldDispatch{}, isReported: map[runKey]bool{}}
 }
 
 func (held *heldRuns) hold(line ledgerLine, at time.Time) {
@@ -292,8 +296,7 @@ func (held *heldRuns) hold(line ledgerLine, at time.Time) {
 		if _, isSeen := held.latest[key]; !isSeen {
 			held.order = append(held.order, key)
 		}
-		held.latest[key] = line
-		held.at[key] = at
+		held.latest[key] = heldDispatch{line: line, at: at}
 	case reportedKind:
 		held.isReported[key] = true
 	}
@@ -306,11 +309,12 @@ func (held *heldRuns) runs() ([]domain.ShadowedRun, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read the plan ledger: %w", err)
 		}
-		plan, err := held.latest[key].dispatchedPlan(head)
+		latest := held.latest[key]
+		plan, err := latest.line.dispatchedPlan(head)
 		if err != nil {
 			return nil, err
 		}
-		runs = append(runs, domain.ShadowedRun{At: held.at[key], Plan: plan, IsReported: held.isReported[key]})
+		runs = append(runs, domain.ShadowedRun{At: latest.at, Plan: plan, IsReported: held.isReported[key]})
 	}
 	return runs, nil
 }
