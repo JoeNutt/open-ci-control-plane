@@ -4,6 +4,7 @@ package jsonl_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"slices"
@@ -142,5 +143,28 @@ func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 	}
 	if accepted != 1 {
 		t.Errorf("%d of %d concurrent reports for one head were accepted, want 1", accepted, concurrentReports)
+	}
+}
+
+func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
+	history := openedLog(t, filepath.Join(t.TempDir(), "plan-ledger.jsonl"))
+	hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
+		ledgerHeadSHA + `","decisionId":"dec_not-a-decision","suites":[]}`
+	if err := history.Append(json.RawMessage(hostile)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	head, err := domain.ParseCommitSHA(ledgerHeadSHA)
+	if err != nil {
+		t.Fatalf("parse head: %v", err)
+	}
+	repository, err := domain.ParseGovernedRepository(ledgerRepository)
+	if err != nil {
+		t.Fatalf("parse repository: %v", err)
+	}
+
+	_, err = jsonl.NewPlanLedger(history).DispatchedPlanFor(context.Background(), repository, head)
+
+	if !errors.Is(err, domain.ErrMalformedDecisionID) {
+		t.Errorf("a ledger line with a malformed decision ID gave %v, want %v", err, domain.ErrMalformedDecisionID)
 	}
 }
