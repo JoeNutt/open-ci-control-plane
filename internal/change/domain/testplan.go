@@ -20,6 +20,7 @@ const (
 	PlanTriggerPlanTooLarge   PlanTrigger = "plan_too_large"
 	PlanTriggerPlanFailed     PlanTrigger = "plan_failed"
 	PlanTriggerEscapeRecorded PlanTrigger = "escape_recorded"
+	PlanTriggerShadowUnproven PlanTrigger = "shadow_unproven"
 )
 
 const MaxPlanSuites = 512

@@ -6,6 +6,8 @@ import "time"
 
 const ShadowWindowLength = 30 * 24 * time.Hour
 
+const MinimumShadowRuns = 20
+
 type Enforcement struct {
 	IsEnforced bool
 	Trigger    PlanTrigger
@@ -16,6 +18,15 @@ func EnforcementOf(mode ShadowedMode, runs []ShadowedRun, escapes []Escape, now 
 		if escape.Mode == mode && escape.At.After(now.Add(-ShadowWindowLength)) {
 			return Enforcement{Trigger: PlanTriggerEscapeRecorded}
 		}
+	}
+	isOldEnough := false
+	for _, run := range runs {
+		if run.Plan.Modes.isShadowing(mode) && !run.At.After(now.Add(-ShadowWindowLength)) {
+			isOldEnough = true
+		}
+	}
+	if !isOldEnough {
+		return Enforcement{Trigger: PlanTriggerShadowUnproven}
 	}
 	return Enforcement{IsEnforced: true}
 }

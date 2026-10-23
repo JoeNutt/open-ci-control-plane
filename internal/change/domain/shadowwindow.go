@@ -2,7 +2,10 @@
 
 package domain
 
+import "time"
+
 type ShadowedRun struct {
+	At         time.Time
 	Plan       DispatchedPlan
 	IsReported bool
 }
