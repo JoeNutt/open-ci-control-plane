@@ -115,15 +115,25 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
-	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode()
-	for _, file := range subject.Document.Diff.Files {
-		changed, err := ParseRepositoryPath(file.Path)
-		if err != nil {
-			return TestPlan{}, err
-		}
-		plan.ChangedFiles = append(plan.ChangedFiles, changed)
+	changed, err := changedPathsOf(subject.Document.Diff.Files)
+	if err != nil {
+		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
+	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode()
+	plan.ChangedFiles = changed
 	return plan, nil
+}
+
+func changedPathsOf(files []File) ([]RepositoryPath, error) {
+	paths := make([]RepositoryPath, 0, len(files))
+	for _, file := range files {
+		path, err := ParseRepositoryPath(file.Path)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	return paths, nil
 }
 
 var planShapedByMode = map[TestMode]func(TestPlan) TestPlan{
