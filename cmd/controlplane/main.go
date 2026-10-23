@@ -95,7 +95,12 @@ func runAgainst(ctx context.Context, arguments []string, logs io.Writer, endpoin
 		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
 		return exitRefused
 	}
-	server, err := serverFor(configured, servedRoutes{gates: gatesFor(configured.InstallationIDs(), evaluation), coverage: coverage}, log)
+	runs, err := runRecordingFor(configured, evaluation)
+	if err != nil {
+		log.Error(refusedConfiguration, slog.String(reasonKey, err.Error()))
+		return exitRefused
+	}
+	server, err := serverFor(configured, servedRoutes{gates: gatesFor(configured.InstallationIDs(), evaluation), coverage: coverage, runs: runs}, log)
 	if err != nil {
 		log.Error(refusedListener, slog.String(reasonKey, err.Error()))
 		return exitRefused
@@ -188,6 +193,7 @@ func rulesIn(content []byte) (domain.ClassificationRules, error) {
 type servedRoutes struct {
 	gates    map[int64]httpapi.ChangeGate
 	coverage httpapi.CoverageReplacement
+	runs     httpapi.RunRecording
 }
 
 func serverFor(configured configuration.Configuration, served servedRoutes, log *slog.Logger) (*http.Server, error) {
@@ -199,6 +205,7 @@ func serverFor(configured configuration.Configuration, served servedRoutes, log 
 		Clock:       time.Now,
 		Coverage:    served.coverage,
 		Artifacts:   lcov.Artifacts{},
+		Runs:        served.runs,
 	})
 	if err != nil {
 		return nil, err

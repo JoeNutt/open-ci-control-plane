@@ -423,6 +423,7 @@ func listenerSettings(log *slog.Logger, gate *recordingGate) httpapi.Settings {
 		Clock:       time.Now,
 		Coverage:    unexercisedCoverage{},
 		Artifacts:   lcov.Artifacts{},
+		Runs:        &runReports{},
 	}
 }
 
