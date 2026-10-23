@@ -13,6 +13,7 @@ import (
 
 type plannedHeads struct {
 	dispatched map[domain.CommitSHA]domain.DispatchedPlan
+	reported   map[domain.CommitSHA]bool
 }
 
 func (ledger *plannedHeads) DispatchedPlanFor(
@@ -23,6 +24,17 @@ func (ledger *plannedHeads) DispatchedPlanFor(
 		return domain.DispatchedPlan{}, domain.ErrNoPlanForHead
 	}
 	return dispatched, nil
+}
+
+func (ledger *plannedHeads) RecordReport(_ context.Context, _ domain.GovernedRepository, head domain.CommitSHA) error {
+	if ledger.reported[head] {
+		return errors.New("already reported")
+	}
+	if ledger.reported == nil {
+		ledger.reported = map[domain.CommitSHA]bool{}
+	}
+	ledger.reported[head] = true
+	return nil
 }
 
 func TestAReportForAHeadWithNoDispatchedPlanIsRefusedAndPostsNothing(t *testing.T) {
@@ -94,5 +106,33 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 			t.Errorf("%s: posted %+v (posted %t), want %s concluding %s",
 				report.description, run, isPosted, domain.TestsCheckRunName, report.conclusion)
 		}
+	}
+}
+
+func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
+	head := commitSHAOf(t, recordedHeadSHA)
+	suite := plannedSuiteOf(t)
+	ledger := &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
+		head: {Locator: gatedLocator(t), Plan: domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}},
+	}}
+	published := &publishedCheckRuns{}
+	useCase := application.RecordRun{Ledger: ledger, Publisher: published}
+	first := domain.RunReport{
+		Repository: gatedLocator(t).GovernedRepository(), Head: head,
+		Results: []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}},
+	}
+	if err := useCase.Execute(context.Background(), first); err != nil {
+		t.Fatalf("record the first run: %v", err)
+	}
+	second := first
+	second.Results = []domain.TestResult{{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail}}
+
+	err := useCase.Execute(context.Background(), second)
+
+	if err == nil {
+		t.Error("a second report for one head was accepted")
+	}
+	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionSuccess {
+		t.Errorf("a refused second report changed the check run to %q", run.Conclusion)
 	}
 }

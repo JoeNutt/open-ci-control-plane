@@ -19,6 +19,9 @@ func (useCase RecordRun) Execute(ctx context.Context, report domain.RunReport) e
 	if err != nil {
 		return fmt.Errorf("record the run of %s: %w", report.Head, err)
 	}
+	if err := useCase.Ledger.RecordReport(ctx, report.Repository, report.Head); err != nil {
+		return fmt.Errorf("record the run of %s: %w", report.Head, err)
+	}
 	return useCase.Publisher.PublishCheckRun(ctx, dispatched.Locator, report.Head, domain.CheckRun{
 		Name: domain.TestsCheckRunName, Conclusion: domain.TestsConclusionOf(dispatched.Plan, report.Results), DecisionID: dispatched.Plan.DecisionID,
 	})
