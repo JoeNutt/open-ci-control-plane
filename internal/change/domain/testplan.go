@@ -86,7 +86,8 @@ type TestPlan struct {
 }
 
 type RecordedSets struct {
-	Selected []CoverageSuite
+	Selected  []CoverageSuite
+	Minimised []CoverageSuite
 }
 
 type PlanSubject struct {
@@ -108,7 +109,11 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
 	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection))
 	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
-		return plan.asShadow(), nil
+		shadowed := plan.asShadow()
+		if subject.Binding.MinimisationMode() == TestModeShadow {
+			shadowed.Recorded.Minimised = shadowed.Recorded.Selected
+		}
+		return shadowed, nil
 	}
 	return plan, nil
 }

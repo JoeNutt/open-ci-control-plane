@@ -241,3 +241,38 @@ func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *test
 		t.Errorf("a shadow plan recorded %v as selected, want %v", got, []string{ordersSuite, paymentsSuite})
 	}
 }
+
+func TestAShadowPlanRecordsTheMinimisedSetOnlyWhenMinimisationIsInShadow(t *testing.T) {
+	for minimisation, want := range map[string][]string{
+		"shadow": {ordersSuite, paymentsSuite},
+		"off":    {},
+	} {
+		plan := modedPlanOf(t, "shadow", minimisation)
+
+		if got := suiteNamesOf(plan.Recorded.Minimised); !slices.Equal(got, want) {
+			t.Errorf("minimisation %s recorded %v as minimised, want %v", minimisation, got, want)
+		}
+	}
+}
+
+func modedPlanOf(t *testing.T, selection, minimisation string) domain.TestPlan {
+	t.Helper()
+
+	statement := thisRepositorysBinding()
+	statement.Selection, statement.Minimisation = selection, minimisation
+	binding, err := domain.ParseBinding(statement)
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+	plan, err := domain.PlanFor(domain.PlanSubject{
+		Document: domain.Document{
+			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
+			Diff: domain.Diff{Files: []domain.File{modified(ordersFile), modified(paymentsFile)}},
+		},
+		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}))
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	return plan
+}
