@@ -23,11 +23,13 @@ type TestResult struct {
 	Outcome TestOutcome
 }
 
+var reportableOutcomes = []TestOutcome{TestOutcomePass, TestOutcomeFail}
+
 var ErrMalformedTestResult = errors.New("the reported test is not one this service accepts")
 
 func ParseTestResult(suite, name, outcome string) (TestResult, error) {
-	if outcome != "pass" && outcome != "fail" {
-		return TestResult{}, ErrMalformedTestResult
+	if !slices.Contains(reportableOutcomes, TestOutcome(outcome)) {
+		return TestResult{}, fmt.Errorf("%w: outcome %q", ErrMalformedTestResult, outcome)
 	}
 	parsedSuite, err := ParseCoverageSuite(suite)
 	if err != nil {
