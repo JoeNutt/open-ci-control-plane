@@ -36,7 +36,7 @@ func ledgerHolding(t *testing.T, plan domain.TestPlan) *plannedHeads {
 
 func (ledger *plannedHeads) RecordReport(_ context.Context, _ domain.GovernedRepository, head domain.CommitSHA) error {
 	if ledger.reported[head] {
-		return errors.New("already reported")
+		return domain.ErrRunAlreadyReported
 	}
 	if ledger.reported == nil {
 		ledger.reported = map[domain.CommitSHA]bool{}
@@ -134,8 +134,8 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 
 	err := useCase.Execute(context.Background(), second)
 
-	if err == nil {
-		t.Error("a second report for one head was accepted")
+	if !errors.Is(err, domain.ErrRunAlreadyReported) {
+		t.Errorf("a second report for one head gave %v, want %v", err, domain.ErrRunAlreadyReported)
 	}
 	if run := published.PublishedOn(gatedLocator(t), head)[domain.TestsCheckRunName]; run.Conclusion != domain.ConclusionSuccess {
 		t.Errorf("a refused second report changed the check run to %q", run.Conclusion)

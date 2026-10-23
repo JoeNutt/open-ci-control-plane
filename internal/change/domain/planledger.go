@@ -9,6 +9,8 @@ import (
 
 var ErrNoPlanForHead = errors.New("no plan was dispatched for this head")
 
+var ErrRunAlreadyReported = errors.New("this head's run was already reported")
+
 type DispatchedPlan struct {
 	Locator PullRequestLocator
 	Plan    TestPlan
