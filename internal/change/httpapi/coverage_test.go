@@ -24,12 +24,12 @@ import (
 )
 
 const (
-	uploadedSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	coveredFile   = "internal/change/domain/effect.go"
-	uploadedTest  = "TN:TestEffect\n"
-	uploadedLCOV  = uploadedTest + "SF:" + coveredFile + "\nDA:1,1\nend_of_record\n"
-	actionsToken  = "eyJhbGciOiJSUzI1NiJ9.the-workflows-token.c2lnbmF0dXJl"
-	coveragePath  = "/v1/repositories/" + gatedRepository + "/coverage/" + uploadedSuite
+	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	coveredFile         = "internal/change/domain/effect.go"
+	uploadedTestSection = "TN:TestEffect\n"
+	uploadedLCOV        = uploadedTestSection + "SF:" + coveredFile + "\nDA:1,1\nend_of_record\n"
+	actionsToken        = "eyJhbGciOiJSUzI1NiJ9.the-workflows-token.c2lnbmF0dXJl"
+	coveragePath        = "/v1/repositories/" + gatedRepository + "/coverage/" + uploadedSuite
 )
 
 func TestAValidUploadIsAnswered201WithTheSuiteAndItsFileEntryCountAndIsServed(t *testing.T) {
@@ -61,9 +61,14 @@ func TestAnUploadDeclaringMoreThanTheCompressedBoundIsAnswered413NamingItUnread(
 	upload := coverageUpload(t, "lcov", uploadedLCOV)
 	upload.Body, upload.ContentLength = unread, domain.DeclaredCoverageLimits().MaxCompressedBytes+1
 
+	compressedLimit, isStated := domain.DeclaredCoverageLimits().LimitOf(domain.ErrCompressedArtifactTooLarge)
+	if !isStated {
+		t.Fatal("the domain states no compressed bound")
+	}
+
 	answered := uploading.answerTo(t, upload)
 
-	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), "67108864 compressed bytes") {
+	if answered.Code != http.StatusRequestEntityTooLarge || !strings.Contains(answered.Body.String(), compressedLimit) {
 		t.Errorf("answered %d %s, want %d naming the compressed bound", answered.Code, answered.Body.String(), http.StatusRequestEntityTooLarge)
 	}
 	if unread.isRead {
@@ -168,7 +173,7 @@ func TestAnUploadWhoseArtifactIsNotLCOVIsAnswered400NamingArtifactAndKeepsThePre
 		t.Fatalf("the first upload was answered %d", answered.Code)
 	}
 
-	answered := uploading.answerTo(t, coverageUpload(t, "lcov", uploadedTest+"SF:"+coveredFile+"\nDA:1,1\n"))
+	answered := uploading.answerTo(t, coverageUpload(t, "lcov", uploadedTestSection+"SF:"+coveredFile+"\nDA:1,1\n"))
 
 	if answered.Code != http.StatusBadRequest || !strings.Contains(answered.Body.String(), `"field":"artifact"`) {
 		t.Errorf("answered %d %s, want %d naming artifact", answered.Code, answered.Body.String(), http.StatusBadRequest)
@@ -182,7 +187,7 @@ func TestAnUploadNamingAnAbsoluteOrUnknownPathIsAnswered422AndStoresNothing(t *t
 	for _, path := range []string{"/home/runner/work/effect.go", "internal/change/domain/missing.go"} {
 		uploading := newCoverageUploads(t)
 
-		answered := uploading.answerTo(t, coverageUpload(t, "lcov", uploadedTest+"SF:"+path+"\nDA:1,1\nend_of_record\n"))
+		answered := uploading.answerTo(t, coverageUpload(t, "lcov", uploadedTestSection+"SF:"+path+"\nDA:1,1\nend_of_record\n"))
 
 		if answered.Code != http.StatusUnprocessableEntity || uploading.isStored(t) {
 			t.Errorf("%s: answered %d, stored %t: want %d, nothing stored", path, answered.Code, uploading.isStored(t), http.StatusUnprocessableEntity)

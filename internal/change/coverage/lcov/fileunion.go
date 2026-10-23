@@ -24,6 +24,8 @@ func (union *fileUnion) include(file domain.ReportedFile) {
 	union.files[position] = domain.NewReportedFile(file.Path(), isExercised)
 }
 
+func (union fileUnion) reportedFiles() []domain.ReportedFile { return union.files }
+
 func (union fileUnion) entriesWith(path domain.RepositoryPath) int {
 	if union.holds(path) {
 		return union.entries()

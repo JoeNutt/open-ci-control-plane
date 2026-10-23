@@ -35,7 +35,8 @@ var (
 	errTruncatedRecord    = fmt.Errorf("%w: input ends inside a record", ErrMalformedArtifact)
 	errNoRecord           = fmt.Errorf("%w: input reports no file", ErrMalformedArtifact)
 	errOutsideTestSection = fmt.Errorf("%w: a file record precedes any TN section", ErrMalformedArtifact)
-	errUnnamedTest        = fmt.Errorf("%w: a TN section names no test", ErrMalformedArtifact)
+	errNotATopLevelTest   = fmt.Errorf("%w: a TN section names no top-level test", ErrMalformedArtifact)
+	errTestNamedTwice     = fmt.Errorf("%w: a test is named by two TN sections", ErrMalformedArtifact)
 )
 
 type lineReading struct {
@@ -58,6 +59,7 @@ type recordReading struct {
 	isCurrentExercised bool
 	isRecordOpen       bool
 	testSections       boundedCount
+	testNames          map[domain.TopLevelTestName]bool
 	lineRecords        boundedCount
 	limits             domain.CoverageLimits
 }
@@ -88,6 +90,7 @@ func readingWithin(limits domain.CoverageLimits) recordReading {
 	return recordReading{
 		reported:     emptyFileUnion(),
 		testSections: boundedCount{breachOf: limits.TestSectionsBreach},
+		testNames:    map[domain.TopLevelTestName]bool{},
 		lineRecords:  boundedCount{breachOf: limits.LineRecordsBreach},
 		limits:       limits,
 	}
@@ -138,10 +141,18 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openTestSection(name string) error {
-	if name == "" {
-		return errUnnamedTest
+	if breach := reading.testSections.countOneMore(); breach != nil {
+		return breach
 	}
-	return reading.testSections.countOneMore()
+	parsed, err := domain.ParseTopLevelTestName(name)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errNotATopLevelTest, err)
+	}
+	if reading.testNames[parsed] {
+		return errTestNamedTwice
+	}
+	reading.testNames[parsed] = true
+	return nil
 }
 
 func (reading *recordReading) openRecord(path string) error {
@@ -221,5 +232,5 @@ func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
 	if reading.reported.entries() == 0 {
 		return nil, errNoRecord
 	}
-	return reading.reported.files, nil
+	return reading.reported.reportedFiles(), nil
 }
