@@ -2,7 +2,11 @@
 
 package domain
 
-import "slices"
+import (
+	"errors"
+	"fmt"
+	"slices"
+)
 
 type ShadowedMode string
 
@@ -10,6 +14,17 @@ const (
 	ShadowedSelection    ShadowedMode = "selection"
 	ShadowedMinimisation ShadowedMode = "minimisation"
 )
+
+var shadowedModes = []ShadowedMode{ShadowedSelection, ShadowedMinimisation}
+
+var ErrUnknownShadowedMode = errors.New("the mode is not selection or minimisation")
+
+func ParseShadowedMode(stated string) (ShadowedMode, error) {
+	if !slices.Contains(shadowedModes, ShadowedMode(stated)) {
+		return "", fmt.Errorf("%w: %q", ErrUnknownShadowedMode, stated)
+	}
+	return ShadowedMode(stated), nil
+}
 
 type Escape struct {
 	Mode         ShadowedMode

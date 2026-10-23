@@ -124,3 +124,16 @@ func TestAMinimisationEscapeIsJudgedAgainstTheMinimisedSetOnlyWhenMinimisationIs
 		}
 	}
 }
+
+func TestAShadowedModeParsesFromSelectionOrMinimisationOnly(t *testing.T) {
+	for stated, isAccepted := range map[string]bool{"selection": true, "minimisation": true, "": false, "Selection": false, "shadow": false} {
+		parsed, err := domain.ParseShadowedMode(stated)
+
+		if isAccepted && (err != nil || string(parsed) != stated) {
+			t.Errorf("%q parsed to %q (%v), want it accepted", stated, parsed, err)
+		}
+		if !isAccepted && err == nil {
+			t.Errorf("%q was accepted as %q, want it refused", stated, parsed)
+		}
+	}
+}
