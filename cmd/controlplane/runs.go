@@ -12,7 +12,6 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/forge/github"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/history/jsonl"
 )
 
 func runRecordingFor(configured configuration.Configuration, evaluation evaluating) (application.RecordRun, error) {
@@ -25,7 +24,7 @@ func runRecordingFor(configured configuration.Configuration, evaluation evaluati
 		return application.RecordRun{}, err
 	}
 	return application.RecordRun{
-		Ledger: evaluation.ledger, Publisher: publisher, Callers: callers, Escapes: jsonl.NewEscapes(evaluation.history),
+		Ledger: evaluation.ledger, Publisher: publisher, Callers: callers, Escapes: evaluation.escapes,
 	}, nil
 }
 

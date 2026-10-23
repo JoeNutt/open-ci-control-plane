@@ -11,7 +11,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var _ domain.PlanLedger = (*PlanLedger)(nil)
+var (
+	_ domain.PlanLedger = (*PlanLedger)(nil)
+	_ domain.ShadowRuns = (*PlanLedger)(nil)
+)
 
 type PlanLedger struct {
 	reporting sync.Mutex

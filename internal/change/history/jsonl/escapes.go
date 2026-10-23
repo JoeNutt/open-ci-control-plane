@@ -10,7 +10,10 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-var _ domain.EscapeLog = (*Escapes)(nil)
+var (
+	_ domain.EscapeLog     = (*Escapes)(nil)
+	_ domain.EscapeHistory = (*Escapes)(nil)
+)
 
 type Escapes struct {
 	log *Log
@@ -44,7 +47,7 @@ func (escapes *Escapes) RecordEscape(_ context.Context, escape domain.Escape) er
 	return escapes.log.Append(body)
 }
 
-func (escapes *Escapes) RecordedEscapes() ([]domain.Escape, error) {
+func (escapes *Escapes) RecordedEscapes(_ context.Context) ([]domain.Escape, error) {
 	entries, err := escapes.log.Entries()
 	if err != nil {
 		return nil, fmt.Errorf("read the shadow history: %w", err)

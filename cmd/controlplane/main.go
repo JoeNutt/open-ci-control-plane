@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/configuration"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
@@ -170,9 +171,11 @@ func evaluatingOf(
 	if err != nil {
 		return evaluating{}, err
 	}
+	escapes := jsonl.NewEscapes(history)
 	return evaluating{
 		app: app, endpoint: endpoint, rules: rules, recorder: recorder, active: active,
-		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, ledger: ledger, log: log,
+		maps: memory.NewCoverageMaps(domain.DeclaredCoverageLimits()), history: history, ledger: ledger, escapes: escapes, log: log,
+		windows: application.CountShadowWindows{Runs: ledger, Escapes: escapes},
 	}, nil
 }
 

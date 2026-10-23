@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -48,5 +49,32 @@ func TestAModesWindowCountsOnlyTheRunsThatShadowedIt(t *testing.T) {
 	}
 	if window := domain.ShadowWindowOf(domain.ShadowedMinimisation, runs, nil); window.Runs != 1 || window.Gaps != 0 {
 		t.Errorf("minimisation counts %+v, want 1 run and no gap", window)
+	}
+}
+
+func TestARepositorysWindowsCountOnlyItsOwnRunsAndEscapesForEachMode(t *testing.T) {
+	ours, err := domain.ParsePullRequestLocator("JoeNutt/open-ci-control-plane", 7)
+	if err != nil {
+		t.Fatalf("parse locator: %v", err)
+	}
+	theirs, err := domain.ParsePullRequestLocator("JoeNutt/another-repository", 7)
+	if err != nil {
+		t.Fatalf("parse locator: %v", err)
+	}
+	inShadow := domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
+	runs := []domain.ShadowedRun{
+		{Plan: domain.DispatchedPlan{Locator: ours, Modes: inShadow}, IsReported: true},
+		{Plan: domain.DispatchedPlan{Locator: theirs, Modes: inShadow}, IsReported: true},
+	}
+	escapes := []domain.Escape{{Mode: domain.ShadowedSelection, PullRequest: ours}, {Mode: domain.ShadowedSelection, PullRequest: theirs}}
+
+	windows := domain.ShadowWindowsFor(ours.GovernedRepository(), runs, escapes)
+
+	want := []domain.ModeWindow{
+		{Mode: domain.ShadowedSelection, Window: domain.ShadowWindow{Runs: 1, Gaps: 1, Escapes: 1}},
+		{Mode: domain.ShadowedMinimisation, Window: domain.ShadowWindow{Runs: 1, Gaps: 1, Escapes: 0}},
+	}
+	if !slices.Equal(windows, want) {
+		t.Errorf("windows are %+v, want %+v", windows, want)
 	}
 }

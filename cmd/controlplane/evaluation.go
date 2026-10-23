@@ -28,6 +28,8 @@ type evaluating struct {
 	maps     *memory.CoverageMaps
 	history  *jsonl.Log
 	ledger   *jsonl.PlanLedger
+	escapes  *jsonl.Escapes
+	windows  application.CountShadowWindows
 	log      *slog.Logger
 }
 
@@ -65,7 +67,7 @@ func (evaluation installationEvaluation) evaluated(
 	if err != nil {
 		return err
 	}
-	return application.GateChange{
+	err = application.GateChange{
 		Build: application.BuildDocument{
 			Source:    forge.source,
 			Bases:     forge.source,
@@ -82,4 +84,6 @@ func (evaluation installationEvaluation) evaluated(
 		Dispatcher: forge.dispatches,
 		Ledger:     evaluation.evaluating.ledger,
 	}.Execute(ctx, locator, id)
+	logShadowWindows(ctx, evaluation.evaluating.log, evaluation.evaluating.windows, locator.GovernedRepository())
+	return err
 }
