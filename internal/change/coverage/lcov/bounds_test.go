@@ -180,6 +180,16 @@ func TestReportedFilesRefusesMoreTestSectionsThanTheBound(t *testing.T) {
 	assertBreachOf(t, domain.ErrTooManyTestSections, err)
 }
 
+func TestReportedFilesAcceptsLineRecordsAtTheBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfLineRecords(limits.MaxLineRecords).ReportedFiles(limits)
+
+	if err != nil {
+		t.Fatalf("want DA records at the bound accepted, got %v", err)
+	}
+}
+
 func TestReportedFilesRefusesMoreLineRecordsThanTheBound(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
