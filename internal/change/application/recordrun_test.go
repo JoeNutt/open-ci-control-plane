@@ -99,6 +99,7 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 	}
 	passed := domain.TestResult{Suite: suite, Name: "TestReadFrom", Outcome: domain.TestOutcomePass}
 	failed := domain.TestResult{Suite: suite, Name: "TestReadFromRefusesAliases", Outcome: domain.TestOutcomeFail}
+	skipped := domain.TestResult{Suite: suite, Name: "TestReadFromAnArchive", Outcome: domain.TestOutcomeSkip}
 
 	for _, report := range []struct {
 		description string
@@ -108,6 +109,8 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 	}{
 		{"every planned test passed", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
 			[]domain.TestResult{passed}, domain.ConclusionSuccess},
+		{"a planned test was skipped", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
+			[]domain.TestResult{passed, skipped}, domain.ConclusionSuccess},
 		{"a planned test failed", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
 			[]domain.TestResult{passed, failed}, domain.ConclusionFailure},
 		{"a planned suite reported nothing", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite, unreported}},
