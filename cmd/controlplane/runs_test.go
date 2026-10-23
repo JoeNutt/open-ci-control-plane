@@ -10,7 +10,10 @@ import (
 
 func TestATestsCheckRunIsPublishedUnderTheRepositorysOwnAllowlistedInstallation(t *testing.T) {
 	recording := &recordingForge{t: t, installedAs: installationID}
-	publisher := recordingAppForge(t, recording).repositoryCheckRunsFor([]int64{installationID - 1, installationID})
+	publisher, err := recordingAppForge(t, recording).repositoryCheckRunsFor([]int64{installationID - 1, installationID})
+	if err != nil {
+		t.Fatalf("build the publisher: %v", err)
+	}
 
 	publishCheckRun(t, publisher)
 

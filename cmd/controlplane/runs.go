@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -17,9 +18,14 @@ type repositoryCheckRuns struct {
 	allowed       []int64
 }
 
-func (app appForge) repositoryCheckRunsFor(allowed []int64) repositoryCheckRuns {
-	installations, _ := github.ParseRepositoryInstallations(app.settings, app.key, app.clock)
-	return repositoryCheckRuns{app: app, installations: installations, allowed: allowed}
+var errInstallationNotAllowlisted = errors.New("the repository's App installation is not on the configured allowlist")
+
+func (app appForge) repositoryCheckRunsFor(allowed []int64) (repositoryCheckRuns, error) {
+	installations, err := github.ParseRepositoryInstallations(app.settings, app.key, app.clock)
+	if err != nil {
+		return repositoryCheckRuns{}, fmt.Errorf("build the repository installation lookup: %w", err)
+	}
+	return repositoryCheckRuns{app: app, installations: installations, allowed: allowed}, nil
 }
 
 func (publishing repositoryCheckRuns) PublishCheckRun(
@@ -30,11 +36,11 @@ func (publishing repositoryCheckRuns) PublishCheckRun(
 		return err
 	}
 	if !slices.Contains(publishing.allowed, installation) {
-		return errors.New("not allowlisted")
+		return fmt.Errorf("%w: installation %d holds %s", errInstallationNotAllowlisted, installation, locator.GovernedRepository())
 	}
 	installed, err := publishing.app.installationForgeFor(installation)
 	if err != nil {
-		return err
+		return fmt.Errorf("build the forge of installation %d: %w", installation, err)
 	}
 	return installed.checkRuns.PublishCheckRun(ctx, locator, head, run)
 }
