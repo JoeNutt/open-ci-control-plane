@@ -111,6 +111,10 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 	if subject.Binding.SelectionMode() == TestModeShadow && trigger == PlanTriggerNone {
 		return plan.asShadow(subject.recordedSetsOf(plan.Suites)), nil
 	}
+	if subject.Binding.SelectionMode() == TestModeOff {
+		plan.Suites = nil
+		plan.FullMatrix = true
+	}
 	return plan, nil
 }
 
