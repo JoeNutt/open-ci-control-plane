@@ -95,8 +95,8 @@ func TestADispatchedPlanIsInTheLedgerForItsHeadAndPullRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the dispatched plan is not in the ledger: %v", err)
 	}
-	if dispatched.Locator != gatedLocator(t) || dispatched.Plan.DecisionID != decisionIDOf(t, gatedDecisionID) {
+	if dispatched.Locator != gatedLocator(t) || dispatched.DecisionID != decisionIDOf(t, gatedDecisionID) {
 		t.Errorf("the ledger holds %+v under %s, want the plan for %+v under %s",
-			dispatched.Locator, dispatched.Plan.DecisionID, gatedLocator(t), gatedDecisionID)
+			dispatched.Locator, dispatched.DecisionID, gatedLocator(t), gatedDecisionID)
 	}
 }

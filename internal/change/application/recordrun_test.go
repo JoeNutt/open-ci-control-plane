@@ -30,7 +30,7 @@ func (ledger *plannedHeads) RecordDispatch(_ context.Context, dispatched domain.
 	if ledger.dispatched == nil {
 		ledger.dispatched = map[domain.CommitSHA]domain.DispatchedPlan{}
 	}
-	ledger.dispatched[dispatched.Plan.Head] = dispatched
+	ledger.dispatched[dispatched.Head] = dispatched
 	return nil
 }
 
@@ -38,7 +38,7 @@ func ledgerHolding(t *testing.T, plan domain.TestPlan) *plannedHeads {
 	t.Helper()
 
 	return &plannedHeads{dispatched: map[domain.CommitSHA]domain.DispatchedPlan{
-		plan.Head: {Locator: gatedLocator(t), Plan: plan},
+		plan.Head: domain.DispatchedPlanOf(gatedLocator(t), plan),
 	}}
 }
 

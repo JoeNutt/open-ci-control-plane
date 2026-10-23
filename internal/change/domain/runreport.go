@@ -45,22 +45,3 @@ func (report RunReport) Repository() GovernedRepository { return report.reposito
 func (report RunReport) Head() CommitSHA { return report.head }
 
 func (report RunReport) Results() []TestResult { return slices.Clone(report.results) }
-
-func TestsConclusionOf(plan TestPlan, results []TestResult) Conclusion {
-	if len(results) == 0 {
-		return ConclusionFailure
-	}
-	reported := map[CoverageSuite]bool{}
-	for _, result := range results {
-		if result.Outcome == TestOutcomeFail {
-			return ConclusionFailure
-		}
-		reported[result.Suite] = true
-	}
-	for _, suite := range plan.Suites {
-		if !reported[suite] {
-			return ConclusionFailure
-		}
-	}
-	return ConclusionSuccess
-}

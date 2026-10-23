@@ -89,7 +89,7 @@ func (useCase GateChange) dispatch(ctx context.Context, locator domain.PullReque
 	if err := useCase.Dispatcher.DispatchPlan(ctx, plan); err != nil {
 		return fmt.Errorf("dispatch the plan for %s: %w", plan.Repository, err)
 	}
-	if err := useCase.Ledger.RecordDispatch(ctx, domain.DispatchedPlan{Locator: locator, Plan: plan}); err != nil {
+	if err := useCase.Ledger.RecordDispatch(ctx, domain.DispatchedPlanOf(locator, plan)); err != nil {
 		return fmt.Errorf("record the plan dispatched for %s: %w", plan.Repository, err)
 	}
 	return nil
