@@ -184,3 +184,22 @@ func TestAReportThatIsNotTheC13ShapeIsAnswered400AndRecordsNothing(t *testing.T)
 		})
 	}
 }
+
+func TestAReportWhoseContentDoesNotParseIsAnswered400AndRecordsNothing(t *testing.T) {
+	for name, body := range map[string]string{
+		"a malformed decision":      strings.Replace(passingReport, reportedDecisionID, "dec_not-a-decision", 1),
+		"an unknown outcome":        strings.Replace(passingReport, `"pass"`, `"passed"`, 1),
+		"a subtest's name":          strings.Replace(passingReport, `"TestReadFrom"`, `"TestReadFrom/aliases"`, 1),
+		"a package outside its set": strings.Replace(passingReport, reportedSuite, "../rules", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			reporting := &runReports{}
+
+			answered := reporting.answerTo(t, runReport(t, body))
+
+			if answered.Code != http.StatusBadRequest || len(reporting.received) != 0 {
+				t.Errorf("answered %d, recorded %d: want %d, nothing recorded", answered.Code, len(reporting.received), http.StatusBadRequest)
+			}
+		})
+	}
+}

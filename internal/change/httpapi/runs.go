@@ -45,10 +45,16 @@ func (receiving runReports) answerTo(answer http.ResponseWriter, asked *http.Req
 	if refused != nil {
 		return refused
 	}
-	id, _ := domain.ParseDecisionID(body.DecisionID)
+	id, err := domain.ParseDecisionID(body.DecisionID)
+	if err != nil {
+		return fieldProblem{Code: "malformed_report", Message: "x", Field: "decisionId"}
+	}
 	var results []domain.TestResult
 	for _, test := range body.Tests {
-		result, _ := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
+		result, err := domain.ParseTestResult(test.Package, test.Name, test.Outcome)
+		if err != nil {
+			return fieldProblem{Code: "malformed_report", Message: "x", Field: "tests"}
+		}
 		results = append(results, result)
 	}
 	report, _ := domain.ParseRunReport(target.repository, target.head, id, results)
