@@ -21,7 +21,7 @@ jobs:
     env:
       PLAN: ${{ inputs.plan }}
       GH_TOKEN: ${{ github.token }}
-      CONTROL_PLANE: https://ci.joenutt.com
+      CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
     steps:
       - name: Read the plan
         id: plan

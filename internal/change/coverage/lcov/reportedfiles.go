@@ -156,7 +156,7 @@ func (reading *recordReading) openTestSection(name string) error {
 }
 
 func (reading *recordReading) openRecord(path string) error {
-	if reading.testSections.counted == 0 {
+	if !reading.testSections.hasCounted() {
 		return errOutsideTestSection
 	}
 	parsed, err := domain.ParseRepositoryPath(path)
@@ -222,6 +222,8 @@ func (bounded *boundedCount) countOneMore() error {
 	bounded.counted = withThisOne
 	return nil
 }
+
+func (bounded boundedCount) hasCounted() bool { return bounded.counted > 0 }
 
 func carryingNothing(*recordReading, string) error { return nil }
 
