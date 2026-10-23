@@ -59,6 +59,7 @@ type recordReading struct {
 	isRecordOpen       bool
 	hasTestSection     bool
 	limits             domain.CoverageLimits
+	positionOf         map[domain.RepositoryPath]int
 }
 
 type Artifact struct {
@@ -167,8 +168,17 @@ func (reading *recordReading) countExecutions(lineData string) error {
 }
 
 func (reading *recordReading) closeRecord(string) error {
-	reading.reported = append(reading.reported,
-		domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	if reading.positionOf == nil {
+		reading.positionOf = map[domain.RepositoryPath]int{}
+	}
+	if position, seen := reading.positionOf[reading.currentPath]; seen {
+		earlier := reading.reported[position]
+		reading.reported[position] = domain.NewReportedFile(reading.currentPath, earlier.IsExercised() || reading.isCurrentExercised)
+	} else {
+		reading.positionOf[reading.currentPath] = len(reading.reported)
+		reading.reported = append(reading.reported,
+			domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	}
 	reading.isRecordOpen = false
 	return nil
 }

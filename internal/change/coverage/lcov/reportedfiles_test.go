@@ -53,6 +53,24 @@ func TestReportedFilesReportsEachRecordOnItsOwnCounts(t *testing.T) {
 	}
 }
 
+func TestReportedFilesReportsTheUnionOfItsTestsOncePerFile(t *testing.T) {
+	artifact := testSection(effectTest, record(effectPath, lineMissed), record(gatePath, lineMissed)) +
+		testSection("TestGate", record(effectPath, lineHit), record(gatePath, lineMissed))
+
+	reported, err := reportedFilesIn(artifact)
+
+	if err != nil {
+		t.Fatalf("parse two test sections: %v", err)
+	}
+	want := []domain.ReportedFile{
+		domain.NewReportedFile(repositoryPath(t, effectPath), true),
+		domain.NewReportedFile(repositoryPath(t, gatePath), false),
+	}
+	if !slices.Equal(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func TestReportedFilesRefusesAnAbsolutePathWhole(t *testing.T) {
 	err := refusalOf(t, testSection(effectTest, record(effectPath, lineHit), record(runnerPath, lineHit)))
 
