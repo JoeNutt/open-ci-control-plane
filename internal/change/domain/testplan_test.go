@@ -337,6 +337,14 @@ func TestAPlanReplacedAsTooLargeRecordsNothing(t *testing.T) {
 	}
 }
 
+func TestAPlanReplacedAsTooLargeNamesNoTests(t *testing.T) {
+	plan := modedPlanOf(t, "enforce", "off").AsTooLarge()
+
+	if len(plan.Tests) != 0 {
+		t.Errorf("a plan replaced as too large names tests %+v, want none", plan.Tests)
+	}
+}
+
 func TestAPlanCarriesThePathsItsChangeTouched(t *testing.T) {
 	plan := modedPlanOf(t, "shadow", "off")
 
