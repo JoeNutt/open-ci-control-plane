@@ -19,3 +19,16 @@ func TestChangedLinesOfAModifiedLineNameItOnBothSides(t *testing.T) {
 		t.Fatalf("lines are base %v head %v, want base [2] head [2]", lines.base, lines.head)
 	}
 }
+
+func TestChangedLinesPassOverTheMarkOfAMissingFinalLineBreak(t *testing.T) {
+	patch := "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file"
+
+	lines, err := ParseChangedLines(patch)
+
+	if err != nil {
+		t.Fatalf("parse changed lines: %v", err)
+	}
+	if !slices.Equal(lines.base, []int{1}) || !slices.Equal(lines.head, []int{1}) {
+		t.Fatalf("lines are base %v head %v, want base [1] head [1]", lines.base, lines.head)
+	}
+}

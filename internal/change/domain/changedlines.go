@@ -77,6 +77,7 @@ var (
 		removedLineMark: {onBase: changedOnSide, onHead: absentFromSide},
 		addedLineMark:   {onBase: absentFromSide, onHead: changedOnSide},
 		contextLineMark: {onBase: keptOnSide, onHead: keptOnSide},
+		'\\':            {onBase: absentFromSide, onHead: absentFromSide},
 	}
 )
 
