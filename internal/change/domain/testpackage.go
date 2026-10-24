@@ -9,23 +9,21 @@ import (
 	"slices"
 )
 
-var (
-	errNoImportRootHoldsTheTest = errors.New("no import root holds the test file")
-	errAmbiguousTestPackage     = errors.New("two import roots name the test file's package differently")
-)
+var errAmbiguousTestPackage = errors.New("two import roots name the test file's package differently")
 
-func testPackageOf(file RepositoryPath, roots []ImportRoot) (GoImportPath, error) {
+func testPackageOf(file RepositoryPath, roots []ImportRoot) (pkg GoImportPath, isNamed bool, err error) {
 	directory := file.directorySegments()
 	isElsewhere := func(root ImportRoot) bool { return !root.holds(directory) }
 	holding := slices.DeleteFunc(slices.Clone(roots), isElsewhere)
 	if len(holding) == 0 {
-		return GoImportPath{}, errNoImportRootHoldsTheTest
+		return GoImportPath{}, false, nil
 	}
 	deepest := slices.MaxFunc(holding, ImportRoot.comparedByDepth)
 	if rival := slices.IndexFunc(holding, deepest.isRivalledBy); rival >= 0 {
-		return GoImportPath{}, fmt.Errorf("%w: %s and %s", errAmbiguousTestPackage, deepest.prefix, holding[rival].prefix)
+		return GoImportPath{}, false, fmt.Errorf("%w: %s and %s", errAmbiguousTestPackage, deepest.prefix, holding[rival].prefix)
 	}
-	return deepest.importPathOf(directory)
+	pkg, err = deepest.importPathOf(directory)
+	return pkg, err == nil, err
 }
 
 func (root ImportRoot) comparedByDepth(other ImportRoot) int {

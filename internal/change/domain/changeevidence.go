@@ -3,7 +3,6 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 )
@@ -20,36 +19,39 @@ type changedTest struct {
 }
 
 func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Binding) (ChangeEvidence, error) {
-	roots := binding.importRoots()
-	var tests []changedTest
-	var unknown []RepositoryPath
+	tally := testTally{roots: binding.importRoots()}
 	for _, file := range edited {
-		named, err := file.changedTestsUnder(roots)
-		if errors.Is(err, errNoImportRootHoldsTheTest) {
-			unknown = append(unknown, file.path)
-			continue
-		}
-		if err != nil {
+		if err := tally.count(file); err != nil {
 			return ChangeEvidence{}, fmt.Errorf("%s: %w", file.path, err)
 		}
-		tests = append(tests, named...)
 	}
-	return ChangeEvidence{files: slices.Clone(files), tests: tests, testFilesOfUnknownPackage: unknown}, nil
+	return ChangeEvidence{
+		files: slices.Clone(files), tests: tally.tests, testFilesOfUnknownPackage: tally.ofUnknownPackage,
+	}, nil
 }
 
-func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]changedTest, error) {
+type testTally struct {
+	roots            []ImportRoot
+	tests            []changedTest
+	ofUnknownPackage []RepositoryPath
+}
+
+func (tally *testTally) count(edited EditedTests) error {
 	if !edited.isEditingAnyTest() {
-		return nil, nil
+		return nil
 	}
-	pkg, err := testPackageOf(edited.path, roots)
+	pkg, isNamed, err := testPackageOf(edited.path, tally.roots)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	tests := make([]changedTest, 0, len(edited.names))
+	if !isNamed {
+		tally.ofUnknownPackage = append(tally.ofUnknownPackage, edited.path)
+		return nil
+	}
 	for _, name := range edited.names {
-		tests = append(tests, changedTest{pkg: pkg, name: name})
+		tally.tests = append(tally.tests, changedTest{pkg: pkg, name: name})
 	}
-	return tests, nil
+	return nil
 }
 
 func (edited EditedTests) isEditingAnyTest() bool { return len(edited.names) > 0 }

@@ -25,7 +25,7 @@ func TestTestPackageIsTheImportPathTheDeepestRootGivesTheFilesDirectory(t *testi
 				t.Fatalf("parse repository path: %v", err)
 			}
 
-			tested, err := testPackageOf(parsed, roots)
+			tested, _, err := testPackageOf(parsed, roots)
 
 			if err != nil {
 				t.Fatalf("test package of %s: %v", path, err)
@@ -37,17 +37,17 @@ func TestTestPackageIsTheImportPathTheDeepestRootGivesTheFilesDirectory(t *testi
 	}
 }
 
-func TestTestPackageIsRefusedForAFileNoImportRootHolds(t *testing.T) {
+func TestTestPackageIsUnnamedForAFileNoImportRootHolds(t *testing.T) {
 	roots := []ImportRoot{importRootFrom(t, ImportRootStatement{Prefix: "example.com/tools", Path: "tools"})}
 	file, err := ParseRepositoryPath("internal/auth/owner_test.go")
 	if err != nil {
 		t.Fatalf("parse repository path: %v", err)
 	}
 
-	_, err = testPackageOf(file, roots)
+	_, isNamed, err := testPackageOf(file, roots)
 
-	if !errors.Is(err, errNoImportRootHoldsTheTest) {
-		t.Fatalf("error is %v, want %v", err, errNoImportRootHoldsTheTest)
+	if err != nil || isNamed {
+		t.Fatalf("package named %v with %v, want unnamed and no error", isNamed, err)
 	}
 }
 
@@ -62,7 +62,7 @@ func TestTestPackageIsRefusedWhereTwoRootsAtOneDepthNameItDifferently(t *testing
 		t.Fatalf("parse repository path: %v", err)
 	}
 
-	_, err = testPackageOf(file, roots)
+	_, _, err = testPackageOf(file, roots)
 
 	if !errors.Is(err, errAmbiguousTestPackage) {
 		t.Fatalf("error is %v, want %v", err, errAmbiguousTestPackage)
