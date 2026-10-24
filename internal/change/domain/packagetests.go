@@ -40,3 +40,7 @@ func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
 
 func (tests PackageTests) Package() GoImportPath { return tests.pkg }
+
+func (tests PackageTests) runsPackageOf(suite CoverageSuite) bool {
+	return tests.pkg == suite.importPath
+}
