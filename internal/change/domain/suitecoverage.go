@@ -11,26 +11,24 @@ import (
 var errUnknownPath = fmt.Errorf("%w: the repository holds no such path", ErrPathOutsideRepository)
 
 type SuiteCoverage struct {
-	tests []ReportedTest
+	fileEntryCount int
+	tests          []ReportedTest
 }
 
-func ParseSuiteCoverage(reported []ReportedTest, known KnownPaths) (SuiteCoverage, error) {
-	coverage := SuiteCoverage{tests: slices.Clone(reported)}
-	for file := range coverage.testedFiles() {
-		if !known.Contains(file.path) {
-			return SuiteCoverage{}, errUnknownPath
+func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCoverage, error) {
+	if !slices.ContainsFunc(reported.paths, func(path RepositoryPath) bool { return !known.Contains(path) }) {
+		coverage := SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests}
+		for file := range coverage.testedFiles() {
+			if !known.Contains(file.path) {
+				return SuiteCoverage{}, errUnknownPath
+			}
 		}
+		return coverage, nil
 	}
-	return coverage, nil
+	return SuiteCoverage{}, errUnknownPath
 }
 
-func (coverage SuiteCoverage) FileEntryCount() int {
-	paths := map[RepositoryPath]bool{}
-	for file := range coverage.testedFiles() {
-		paths[file.path] = true
-	}
-	return len(paths)
-}
+func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
 
 func (coverage SuiteCoverage) Covers(path RepositoryPath) bool {
 	for file := range coverage.testedFiles() {

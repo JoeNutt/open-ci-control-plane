@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -75,12 +77,12 @@ type Artifact struct {
 	Body          io.Reader
 }
 
-func (artifact Artifact) ReportedTests(limits domain.CoverageLimits) ([]domain.ReportedTest, error) {
+func (artifact Artifact) ReportedCoverage(limits domain.CoverageLimits) (domain.ReportedCoverage, error) {
 	reading, err := artifact.completedReading(limits)
 	if err != nil {
-		return nil, err
+		return domain.ReportedCoverage{}, err
 	}
-	return reading.tests, nil
+	return domain.NewReportedCoverage(slices.Collect(maps.Keys(reading.reported)), reading.tests), nil
 }
 
 func (artifact Artifact) completedReading(limits domain.CoverageLimits) (*recordReading, error) {

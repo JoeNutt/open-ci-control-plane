@@ -176,7 +176,8 @@ func coverageByFiles(t *testing.T, fileBySuite map[string]string) domain.Reposit
 			t.Fatalf("parse path: %v", err)
 		}
 		coverage, err := domain.ParseSuiteCoverage(
-			[]domain.ReportedTest{domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})},
+			domain.NewReportedCoverage([]domain.RepositoryPath{path}, []domain.ReportedTest{
+				domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})}),
 			domain.NewKnownPaths([]domain.RepositoryPath{path}))
 		if err != nil {
 			t.Fatalf("parse suite coverage: %v", err)

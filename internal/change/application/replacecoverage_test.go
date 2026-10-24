@@ -43,8 +43,9 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 
 func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
 	covered, untouched := parsedPath(t), parsedPathOf(t, untouchedFile)
-	files := []domain.TestedFile{domain.NewTestedFile(covered, []uint32{1}), domain.NewTestedFile(untouched, nil)}
-	report := artifactReporting{reads: new(int), reported: []domain.ReportedTest{domain.NewReportedTest(reportedTestName(t), files)}}
+	paths := []domain.RepositoryPath{covered, untouched}
+	tested := domain.NewReportedTest(reportedTestName(t), []domain.TestedFile{domain.NewTestedFile(covered, []uint32{1})})
+	report := artifactReporting{reads: new(int), reported: domain.NewReportedCoverage(paths, []domain.ReportedTest{tested})}
 	useCase := replaceCoverage(t, newCoverageStore(domain.DeclaredCoverageLimits()), repositoryHolding{covered, untouched}, tokensNaming{parsedRepository(t)})
 
 	replaced, err := useCase.Execute(t.Context(), uploadOf(t, report))
@@ -52,9 +53,9 @@ func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
-	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != len(files) {
+	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != len(paths) {
 		t.Fatalf("answered %s with %d file entries, want %s with %d",
-			replaced.Suite, replaced.FileEntryCount, uploadedSuite, len(files))
+			replaced.Suite, replaced.FileEntryCount, uploadedSuite, len(paths))
 	}
 }
 
@@ -211,8 +212,8 @@ func TestReplaceCoverageNeverSpendsTheAllowanceOnARefusedUploader(t *testing.T) 
 
 type unreadableArtifact struct{}
 
-func (unreadableArtifact) ReportedTests(domain.CoverageLimits) ([]domain.ReportedTest, error) {
-	return nil, domain.ErrTooManyFileEntries
+func (unreadableArtifact) ReportedCoverage(domain.CoverageLimits) (domain.ReportedCoverage, error) {
+	return domain.ReportedCoverage{}, domain.ErrTooManyFileEntries
 }
 
 type unverifiedTokens struct{ refusal error }
@@ -281,11 +282,11 @@ func (held repositoryHolding) KnownPathsOf(context.Context, domain.GovernedRepos
 }
 
 type artifactReporting struct {
-	reported []domain.ReportedTest
+	reported domain.ReportedCoverage
 	reads    *int
 }
 
-func (artifact artifactReporting) ReportedTests(domain.CoverageLimits) ([]domain.ReportedTest, error) {
+func (artifact artifactReporting) ReportedCoverage(domain.CoverageLimits) (domain.ReportedCoverage, error) {
 	*artifact.reads++
 	return artifact.reported, nil
 }
@@ -293,8 +294,8 @@ func (artifact artifactReporting) ReportedTests(domain.CoverageLimits) ([]domain
 func reportOf(t *testing.T, path domain.RepositoryPath) artifactReporting {
 	t.Helper()
 
-	return artifactReporting{reported: []domain.ReportedTest{domain.NewReportedTest(reportedTestName(t),
-		[]domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})}, reads: new(int)}
+	tested := domain.NewReportedTest(reportedTestName(t), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})
+	return artifactReporting{reported: domain.NewReportedCoverage([]domain.RepositoryPath{path}, []domain.ReportedTest{tested}), reads: new(int)}
 }
 
 func reportedTestName(t *testing.T) domain.TopLevelTestName {

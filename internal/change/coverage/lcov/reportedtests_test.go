@@ -36,7 +36,7 @@ func TestReportedTestsReadAnExercisedRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse one exercised record: %v", err)
 	}
-	want := []domain.ReportedTest{reportedTest(t, effectTest, testedFile(t, effectPath, lineHitNumber))}
+	want := reportedCoverage(t, []string{effectPath}, reportedTest(t, effectTest, testedFile(t, effectPath, lineHitNumber)))
 	if !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
@@ -50,9 +50,9 @@ func TestReportedTestsReportEachRecordOnItsOwnCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse two records: %v", err)
 	}
-	want := []domain.ReportedTest{
+	want := reportedCoverage(t, []string{effectPath, gatePath},
 		reportedTest(t, effectTest, testedFile(t, effectPath, lineHitNumber), testedFile(t, gatePath)),
-	}
+	)
 	if !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
@@ -67,10 +67,10 @@ func TestReportedTestsReportAFileOnceForEachTestThatRanIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse two test sections: %v", err)
 	}
-	want := []domain.ReportedTest{
+	want := reportedCoverage(t, []string{effectPath, gatePath},
 		reportedTest(t, effectTest, testedFile(t, effectPath), testedFile(t, gatePath)),
 		reportedTest(t, gateTest, testedFile(t, effectPath, lineHitNumber), testedFile(t, gatePath)),
-	}
+	)
 	if !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
@@ -85,10 +85,10 @@ func TestReportedTestsReadTheArtifactCIUploads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse the artifact CI uploads: %v", err)
 	}
-	want := []domain.ReportedTest{
+	want := reportedCoverage(t, []string{effectPath, gatePath},
 		reportedTest(t, effectTest, testedFile(t, effectPath, 7, 8), testedFile(t, gatePath, 3)),
 		reportedTest(t, gateTest, testedFile(t, gatePath, 3, 9)),
-	}
+	)
 	if !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}
@@ -213,15 +213,25 @@ func refusalOf(t *testing.T, artifact string) error {
 	t.Helper()
 
 	reported, err := reportedTestsIn(artifact)
-	if reported != nil {
+	if !reflect.DeepEqual(reported, domain.ReportedCoverage{}) {
 		t.Fatalf("want nothing reported alongside a refusal, got %+v", reported)
 	}
 	return err
 }
 
-func reportedTestsIn(artifact string) ([]domain.ReportedTest, error) {
+func reportedTestsIn(artifact string) (domain.ReportedCoverage, error) {
 	var report domain.CoverageReport = artifactOf(artifact)
-	return report.ReportedTests(domain.DeclaredCoverageLimits())
+	return report.ReportedCoverage(domain.DeclaredCoverageLimits())
+}
+
+func reportedCoverage(t *testing.T, paths []string, tests ...domain.ReportedTest) domain.ReportedCoverage {
+	t.Helper()
+
+	parsed := make([]domain.RepositoryPath, 0, len(paths))
+	for _, path := range paths {
+		parsed = append(parsed, repositoryPath(t, path))
+	}
+	return domain.NewReportedCoverage(parsed, tests)
 }
 
 func artifactOf(text string) lcov.Artifact {
@@ -263,10 +273,10 @@ func TestReportedTestsKeepEachSectionsFilesAndTheLinesItHit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse two test sections: %v", err)
 	}
-	want := []domain.ReportedTest{
+	want := reportedCoverage(t, []string{effectPath, gatePath},
 		reportedTest(t, effectTest, testedFile(t, effectPath, 7), testedFile(t, gatePath)),
 		reportedTest(t, gateTest, testedFile(t, gatePath, 3, 9)),
-	}
+	)
 	if !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v, want %+v", reported, want)
 	}

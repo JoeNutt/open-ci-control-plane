@@ -85,7 +85,8 @@ func coverageOf(t *testing.T, exercised string) domain.SuiteCoverage {
 
 	path := parsedPath(t, exercised)
 	coverage, err := domain.ParseSuiteCoverage(
-		[]domain.ReportedTest{domain.NewReportedTest(effectTestName(t), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})},
+		domain.NewReportedCoverage([]domain.RepositoryPath{path}, []domain.ReportedTest{
+			domain.NewReportedTest(effectTestName(t), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})}),
 		domain.NewKnownPaths([]domain.RepositoryPath{path}))
 	if err != nil {
 		t.Fatalf("parse coverage of %s: %v", exercised, err)

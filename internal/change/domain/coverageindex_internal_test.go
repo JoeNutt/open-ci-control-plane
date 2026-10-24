@@ -156,8 +156,8 @@ func coverageHolding(t *testing.T, testsBySuite map[string][]ReportedTest) Repos
 
 	var coverage RepositoryCoverage
 	for suite, tests := range testsBySuite {
-		known := NewKnownPaths(pathsRunBy(tests))
-		suiteCoverage, err := ParseSuiteCoverage(tests, known)
+		paths := pathsRunBy(tests)
+		suiteCoverage, err := ParseSuiteCoverage(NewReportedCoverage(paths, tests), NewKnownPaths(paths))
 		if err != nil {
 			t.Fatalf("parse coverage of %s: %v", suite, err)
 		}

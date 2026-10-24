@@ -77,7 +77,8 @@ func suiteOfTests(t *testing.T, count int) domain.SuiteCoverage {
 func suiteHoldingOnly(t *testing.T, held domain.RepositoryPath, tests []domain.ReportedTest) domain.SuiteCoverage {
 	t.Helper()
 
-	coverage, err := domain.ParseSuiteCoverage(tests, domain.NewKnownPaths([]domain.RepositoryPath{held}))
+	paths := []domain.RepositoryPath{held}
+	coverage, err := domain.ParseSuiteCoverage(domain.NewReportedCoverage(paths, tests), domain.NewKnownPaths(paths))
 	if err != nil {
 		t.Fatalf("parse a suite of %d tests running %s: %v", len(tests), held, err)
 	}
