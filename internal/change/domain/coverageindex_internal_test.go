@@ -4,6 +4,7 @@ package domain
 
 import (
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -60,6 +61,17 @@ func TestCoverageIndexRefusesToCountASuiteItHoldsNoCoverageFor(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for file, want := range map[string][]int{indexedEffectFile: {0, 1}, indexedGateFile: {2}} {
+		reaching, err := coverage.index.testsReaching(pathNamed(t, file))
+		if err != nil || !slices.Equal(membersOf(reaching), want) {
+			t.Errorf("%s is reached by %v (%v), want %v", file, membersOf(reaching), err, want)
+		}
+	}
+}
+
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
@@ -109,11 +121,17 @@ func testRunning(t *testing.T, name string, files ...TestedFile) ReportedTest {
 func fileHitting(t *testing.T, path string, lines ...uint32) TestedFile {
 	t.Helper()
 
+	return NewTestedFile(pathNamed(t, path), lines)
+}
+
+func pathNamed(t *testing.T, path string) RepositoryPath {
+	t.Helper()
+
 	parsed, err := ParseRepositoryPath(path)
 	if err != nil {
 		t.Fatalf("parse path %q: %v", path, err)
 	}
-	return NewTestedFile(parsed, lines)
+	return parsed
 }
 
 func testNamed(t *testing.T, name string) TopLevelTestName {
