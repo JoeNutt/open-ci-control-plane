@@ -51,7 +51,7 @@ func (source ChangeSource) PullRequestAt(
 
 func (source ChangeSource) FilesChanged(
 	ctx context.Context, locator domain.PullRequestLocator,
-) ([]domain.File, error) {
+) ([]domain.StatedFile, error) {
 	listed, err := source.changedFilesAcrossPages(ctx, locator)
 	if err != nil {
 		return nil, fmt.Errorf("list the changed files of %s: %w", locator, err)

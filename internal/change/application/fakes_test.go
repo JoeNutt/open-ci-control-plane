@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -16,6 +17,7 @@ type recordedChange struct {
 	PullRequest domain.PullRequest
 	Tips        domain.BranchTips
 	Files       []domain.File
+	Stated      []domain.StatedFile
 }
 
 type recordedChanges struct {
@@ -34,12 +36,29 @@ func (source recordedChanges) PullRequestAt(
 
 func (source recordedChanges) FilesChanged(
 	_ context.Context, locator domain.PullRequestLocator,
-) ([]domain.File, error) {
+) ([]domain.StatedFile, error) {
 	change, err := source.changeAt(locator)
 	if err != nil {
 		return nil, err
 	}
-	return change.Files, nil
+	stated := make([]domain.StatedFile, 0, len(change.Files)+len(change.Stated))
+	for _, file := range change.Files {
+		stated = append(stated, statedWithPatchOf(file))
+	}
+	return append(stated, change.Stated...), nil
+}
+
+const onlyContextHunk = "@@ -1,1 +1,1 @@\n "
+
+func statedWithPatchOf(file domain.File) domain.StatedFile {
+	if file.PatchBytes == 0 {
+		return domain.StatedFile{File: file}
+	}
+	patch := strings.Repeat("x", file.PatchBytes)
+	if file.PatchBytes > len(onlyContextHunk) {
+		patch = onlyContextHunk + patch[len(onlyContextHunk):]
+	}
+	return domain.StatedFile{File: file, Patch: patch, IsPatchStated: true}
 }
 
 func (source recordedChanges) changeAt(locator domain.PullRequestLocator) (recordedChange, error) {

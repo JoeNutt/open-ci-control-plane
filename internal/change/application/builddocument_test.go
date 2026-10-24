@@ -44,6 +44,97 @@ func changeSourceOver(t *testing.T, locator domain.PullRequestLocator, files ...
 	}
 }
 
+func TestBuildDocumentBuildsTheDocumentOfAChangeWhosePatchIsMalformed(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+			Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	built, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	if len(built.Document.Diff.Files) != 1 {
+		t.Fatalf("the document lists %d files, want 1", len(built.Document.Diff.Files))
+	}
+}
+
+func TestBuildDocumentRefusesAPatchOverItsByteBoundBeforeReadingItsHunks(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	oversized := strings.Repeat("x", domain.DeclaredLimits().MaxPatchBytesPerFile+1)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: len(oversized)},
+			Patch: oversized, IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	var over domain.ChangeOverBound
+	if !errors.As(err, &over) || !errors.Is(err, domain.ErrFilePatchTooLarge) {
+		t.Fatalf("error is %v, want an over-bound change naming %v", err, domain.ErrFilePatchTooLarge)
+	}
+}
+
+func TestBuildDocumentBoundsAPatchByItsOwnBytesWhateverTheForgeCountsForIt(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	oversized := strings.Repeat("x", domain.DeclaredLimits().MaxPatchBytesPerFile+1)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: 1},
+			Patch: oversized, IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrFilePatchTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrFilePatchTooLarge)
+	}
+}
+
+const (
+	ownerTestAtBase = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(0)\n}\n"
+	ownerTestAtHead = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(1)\n}\n"
+	ownerTestPatch  = "@@ -5,3 +5,3 @@\n func TestAdmitsAnOwner(t *testing.T) {\n-\tt.Log(0)\n+\tt.Log(1)\n }"
+)
+
+func editedTestsAtHead(t *testing.T, stated domain.StatedFile, head string) []domain.EditedTests {
+	t.Helper()
+
+	changed, err := domain.ParseChangedFile(stated)
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	source, err := domain.ParseBoundedSource([]byte(head), domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("bound source: %v", err)
+	}
+	functions, err := ownerTestFunctions(t).TestFunctionsIn(source)
+	if err != nil {
+		t.Fatalf("test functions in: %v", err)
+	}
+	return []domain.EditedTests{domain.EditedTestsIn(changed, functions)}
+}
+
+func changeSourceStating(t *testing.T, locator domain.PullRequestLocator, stated ...domain.StatedFile) recordedChanges {
+	t.Helper()
+
+	source := changeSourceOver(t, locator)
+	recorded := source.Changes[locator]
+	recorded.Stated = stated
+	source.Changes[locator] = recorded
+	return source
+}
+
 func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	source := changeSourceOver(t, locator,
@@ -59,10 +150,12 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -85,10 +178,12 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -112,10 +207,12 @@ func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -141,6 +238,7 @@ func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *t
 		Bases:     recordedBases(t),
 		Contents:  recordedAtBothEnds(t, locator, file.Path, sourceImportingContext, oversized),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -163,10 +261,12 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 		),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -184,10 +284,12 @@ func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) 
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -207,10 +309,12 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedBaseSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -236,6 +340,7 @@ func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
 		Contents: recordedAt(t, locator, recordedHeadSHA, file.Path,
 			"package auth\n\nimport (\n\t\"context\"\n\t\"errors\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    limits,
 	}
 
@@ -255,10 +360,12 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			sourceThatDoesNotParse),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if !errors.Is(err, golang.ErrUnparsableSource) {
 		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
@@ -276,6 +383,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheReposito
 		Bases:     recordedBases(t),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -294,6 +402,7 @@ func TestBuildDocumentNamesTheCommitOfAFileItCannotReadOnce(t *testing.T) {
 		Bases:     recordedBases(t),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -315,10 +424,12 @@ func TestBuildDocumentAdmitsAGoFileImportingAPathWithAPlusAndPublishesItsEdges(t
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, "package auth\n\nimport \"example.com/c++\"\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)

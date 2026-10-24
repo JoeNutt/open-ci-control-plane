@@ -165,9 +165,9 @@ func TestEveryFamilyDecidesOnlyTheDocumentBuiltFromTheForge(t *testing.T) {
 		if len(engine.received) != 1 {
 			t.Fatalf("%s was asked %d times, want once", family, len(engine.received))
 		}
-		if !reflect.DeepEqual(engine.received[0], built) {
+		if !reflect.DeepEqual(engine.received[0], built.Document) {
 			t.Errorf("%s decided %+v, want the built document %+v",
-				family, engine.received[0], built)
+				family, engine.received[0], built.Document)
 		}
 	}
 }
@@ -470,6 +470,7 @@ func buildOverRecorded(
 		Contents: recordedAtBothEnds(t, locator, file.Path,
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 }

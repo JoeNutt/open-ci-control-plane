@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 var ErrSharedImportRootPrefix = errors.New("two import roots share one prefix")
@@ -52,3 +53,15 @@ func parseImportRoot(stated ImportRootStatement) (ImportRoot, error) {
 }
 
 func (root ImportRoot) sharesPrefixWith(other ImportRoot) bool { return root.prefix == other.prefix }
+
+func (root ImportRoot) holds(directory []string) bool {
+	rooted := root.directory.segments()
+	return len(rooted) <= len(directory) && slices.Equal(directory[:len(rooted)], rooted)
+}
+
+func (root ImportRoot) depth() int { return len(root.directory.segments()) }
+
+func (root ImportRoot) importPathOf(directory []string) (GoImportPath, error) {
+	written := append([]string{root.prefix.String()}, directory[root.depth():]...)
+	return ParseGoImportPath(strings.Join(written, pathSeparator))
+}
