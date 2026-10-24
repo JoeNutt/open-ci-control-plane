@@ -201,11 +201,10 @@ func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 
 func TestALineRecordedBeforeTestLevelPlansReadsEachRecordedSuiteAsItsWholePackage(t *testing.T) {
 	history := openedLog(t, ledgerPath(t))
-	before := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` + ledgerHeadSHA +
-		`","decisionId":"` + ledgerDecisionID + `","suites":["` + ledgerSuite + `"],"alwaysRun":["` + ledgerAlwaysRun +
-		`"],"recorded":{"selected":["` + ledgerSuite + `"],"minimised":["` + ledgerSuite + `"]},"changedFiles":["` +
-		ledgerChangedFile + `"],"modes":{"selection":"shadow","minimisation":"shadow"}}`
-	if err := history.Append(json.RawMessage(before)); err != nil {
+	before := dispatchedLineCarrying(`"decisionId":"` + ledgerDecisionID + `","suites":["` + ledgerSuite + `"],"alwaysRun":["` +
+		ledgerAlwaysRun + `"],"recorded":{"selected":["` + ledgerSuite + `"],"minimised":["` + ledgerSuite + `"]},"changedFiles":["` +
+		ledgerChangedFile + `"],"modes":{"selection":"shadow","minimisation":"shadow"}`)
+	if err := history.Append(before); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	dispatched := dispatchedPlanOf(t)
@@ -236,9 +235,8 @@ func TestARecordedEntryThatDoesNotParseInEitherShapeIsRefused(t *testing.T) {
 	} {
 		t.Run(form, func(t *testing.T) {
 			history := openedLog(t, ledgerPath(t))
-			hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` + ledgerHeadSHA +
-				`","decisionId":"` + ledgerDecisionID + `","recorded":{"selected":[` + entry + `],"minimised":[]}}`
-			if err := history.Append(json.RawMessage(hostile)); err != nil {
+			hostile := dispatchedLineCarrying(`"decisionId":"` + ledgerDecisionID + `","recorded":{"selected":[` + entry + `],"minimised":[]}`)
+			if err := history.Append(hostile); err != nil {
 				t.Fatalf("append: %v", err)
 			}
 			dispatched := dispatchedPlanOf(t)
@@ -253,6 +251,11 @@ func TestARecordedEntryThatDoesNotParseInEitherShapeIsRefused(t *testing.T) {
 	}
 }
 
+func dispatchedLineCarrying(fields string) json.RawMessage {
+	return json.RawMessage(`{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
+		ledgerHeadSHA + `",` + fields + `}`)
+}
+
 func suiteOf(t *testing.T) domain.CoverageSuite {
 	t.Helper()
 
@@ -265,9 +268,8 @@ func suiteOf(t *testing.T) domain.CoverageSuite {
 
 func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
 	history := openedLog(t, ledgerPath(t))
-	hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
-		ledgerHeadSHA + `","decisionId":"dec_not-a-decision","suites":[]}`
-	if err := history.Append(json.RawMessage(hostile)); err != nil {
+	hostile := dispatchedLineCarrying(`"decisionId":"dec_not-a-decision","suites":[]`)
+	if err := history.Append(hostile); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	head, err := domain.ParseCommitSHA(ledgerHeadSHA)
