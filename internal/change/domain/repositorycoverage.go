@@ -25,7 +25,11 @@ func (repositoryCoverage RepositoryCoverage) Replacing(
 	suites := make(map[CoverageSuite]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	return RepositoryCoverage{suites: suites, index: indexOf(suites)}, nil
+	index, err := indexOf(suites, limits)
+	if err != nil {
+		return RepositoryCoverage{}, err
+	}
+	return RepositoryCoverage{suites: suites, index: index}, nil
 }
 
 func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite CoverageSuite) int {

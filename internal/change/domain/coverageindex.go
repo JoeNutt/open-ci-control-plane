@@ -28,25 +28,31 @@ type coverageIndex struct {
 	postings         coveragePostings
 }
 
-func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
-	tests := denselyNumberedTestsOf(suites)
+func indexOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) (coverageIndex, error) {
+	tests, err := denselyNumberedTestsOf(suites, limits)
+	if err != nil {
+		return coverageIndex{}, err
+	}
 	return coverageIndex{
 		revision:         &indexRevision{testCount: len(tests)},
 		tests:            tests,
 		testCountBySuite: testCountBySuiteOf(suites),
 		postings:         postingsOf(edgesOf(suites, positionsOf(tests))),
-	}
+	}, nil
 }
 
-func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
+func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) ([]coveredTest, error) {
 	var tests []coveredTest
 	for suite, coverage := range suites {
 		for _, test := range coverage.tests {
+			if breach := limits.indexedTestsBreach(len(tests) + 1); breach != nil {
+				return nil, breach
+			}
 			tests = append(tests, coveredTest{suite: suite, name: test.name})
 		}
 	}
 	slices.SortFunc(tests, suiteThenNameOrder)
-	return tests
+	return tests, nil
 }
 
 func suiteThenNameOrder(one, other coveredTest) int {

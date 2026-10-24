@@ -56,7 +56,9 @@ func TestCoverageMapsStartEmpty(t *testing.T) {
 }
 
 func TestCoverageMapsKeepServingWhatIsHeldWhenAReplaceIsRefused(t *testing.T) {
-	maps := memory.NewCoverageMaps(domain.CoverageLimits{MaxSuitesPerRepository: oneSuite})
+	limits := domain.DeclaredCoverageLimits()
+	limits.MaxSuitesPerRepository = oneSuite
+	maps := memory.NewCoverageMaps(limits)
 	repository, held := parsedRepository(t, governedRepository), parsedSuite(t, domainSuite)
 	mustReplace(t, maps, repository, held)
 
