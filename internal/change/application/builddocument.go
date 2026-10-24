@@ -54,15 +54,27 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return BuiltChange{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
-	var changed []domain.ChangedFile
-	for _, statedFile := range listed {
-		parsed, err := domain.ParseChangedFile(statedFile)
+	return builtWithEvidence(document, listed), nil
+}
+
+func builtWithEvidence(document domain.Document, listed []domain.StatedFile) BuiltChange {
+	changed, err := changedFilesOf(listed)
+	if err != nil {
+		return BuiltChange{Document: document, EvidenceFailure: fmt.Errorf("read the change evidence: %w", err)}
+	}
+	return BuiltChange{Document: document, Files: changed}
+}
+
+func changedFilesOf(listed []domain.StatedFile) ([]domain.ChangedFile, error) {
+	changed := make([]domain.ChangedFile, 0, len(listed))
+	for _, stated := range listed {
+		parsed, err := domain.ParseChangedFile(stated)
 		if err != nil {
-			return BuiltChange{Document: document, EvidenceFailure: err}, nil
+			return nil, err
 		}
 		changed = append(changed, parsed)
 	}
-	return BuiltChange{Document: document, Files: changed}, nil
+	return changed, nil
 }
 
 func documentFilesOf(listed []domain.StatedFile) []domain.File {
