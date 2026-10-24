@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -89,7 +90,7 @@ func TestFilesChangedCarriesThePatchAndThePreviousPathTheForgeStates(t *testing.
 	const patch = "@@ -1,1 +1,1 @@\n-old\n+new"
 	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
 		{"filename": "internal/auth/session.go", "status": "renamed",
-		 "previous_filename": "internal/auth/token.go", "patch": "@@ -1,1 +1,1 @@\n-old\n+new"},
+		 "previous_filename": "internal/auth/token.go", "patch": `+strconv.Quote(patch)+`},
 		{"filename": "assets/logo.png", "status": "modified"}
 	]`)
 	source := sourceAt(t, server)
