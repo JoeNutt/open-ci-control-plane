@@ -16,6 +16,7 @@ const (
 	testSectionsLabel      = "TN sections"
 	lineRecordsLabel       = "DA records"
 	indexedTestsLabel      = "indexed tests"
+	indexEdgesLabel        = "block-test edges"
 )
 
 var ErrCoverageBoundExceeded = errors.New("coverage artifact exceeds a bound")
@@ -34,6 +35,8 @@ var ErrTooManyLineRecords = boundNamed(lineRecordsLabel)
 
 var ErrTooManyIndexedTests = boundNamed(indexedTestsLabel)
 
+var ErrTooManyIndexEdges = boundNamed(indexEdgesLabel)
+
 type CoverageLimits struct {
 	MaxCompressedBytes     int64
 	MaxDecompressedBytes   int64
@@ -43,6 +46,7 @@ type CoverageLimits struct {
 	MaxSuitesPerRepository int
 	MaxUploadsPerMinute    int
 	MaxIndexedTests        int
+	MaxIndexEdges          int
 }
 
 type coverageBound struct {
@@ -66,11 +70,13 @@ var (
 		func(limits CoverageLimits) int64 { return int64(limits.MaxLineRecords) }}
 	indexedTestsBound = coverageBound{ErrTooManyIndexedTests, indexedTestsLabel,
 		func(limits CoverageLimits) int64 { return int64(limits.MaxIndexedTests) }}
+	indexEdgesBound = coverageBound{ErrTooManyIndexEdges, indexEdgesLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxIndexEdges) }}
 )
 
 var coverageBounds = []coverageBound{
 	compressedBytesBound, decompressedBytesBound, fileEntriesBound, suitesBound, testSectionsBound, lineRecordsBound,
-	indexedTestsBound,
+	indexedTestsBound, indexEdgesBound,
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
@@ -83,6 +89,7 @@ func DeclaredCoverageLimits() CoverageLimits {
 		MaxSuitesPerRepository: 5_000,
 		MaxUploadsPerMinute:    60,
 		MaxIndexedTests:        10_000,
+		MaxIndexEdges:          5_000_000,
 	}
 }
 
@@ -100,6 +107,10 @@ func (limits CoverageLimits) LineRecordsBreach(lineRecords int) error {
 
 func (limits CoverageLimits) indexedTestsBreach(indexedTests int) error {
 	return indexedTestsBound.breachIn(limits, int64(indexedTests))
+}
+
+func (limits CoverageLimits) indexEdgesBreach(indexEdges int) error {
+	return indexEdgesBound.breachIn(limits, int64(indexEdges))
 }
 
 func (limits CoverageLimits) SuitesBreach(suites int) error {

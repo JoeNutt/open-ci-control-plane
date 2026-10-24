@@ -32,6 +32,17 @@ func indexOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) (cov
 	if breach := limits.indexedTestsBreach(testsHeldIn(suites)); breach != nil {
 		return coverageIndex{}, breach
 	}
+	edges := 0
+	for _, coverage := range suites {
+		for _, test := range coverage.tests {
+			for _, file := range test.files {
+				edges += len(file.hitLines)
+			}
+		}
+	}
+	if breach := limits.indexEdgesBreach(edges); breach != nil {
+		return coverageIndex{}, breach
+	}
 	tests := denselyNumberedTestsOf(suites)
 	return coverageIndex{
 		revision:         &indexRevision{testCount: len(tests)},

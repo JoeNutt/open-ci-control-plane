@@ -25,6 +25,37 @@ func TestRepositoryCoverageRefusesAnIndexOfMoreTestsThanTheBoundAndKeepsThePrevi
 	}
 }
 
+func TestRepositoryCoverageRefusesAnIndexOfMoreEdgesThanTheBoundAndKeepsThePrevious(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	held := mustReplace(t, domain.RepositoryCoverage{}, mustParseSuite(t, domainSuite), suiteOfTests(t, 1))
+	tooWide := mustParseSuite(t, lcovSuite)
+
+	_, err := held.Replacing(tooWide, suiteOfEdges(t, limits.MaxIndexEdges), limits)
+
+	if !errors.Is(err, domain.ErrTooManyIndexEdges) {
+		t.Fatalf("want ErrTooManyIndexEdges, got %v", err)
+	}
+	if _, err := held.SuiteCoverageOf(tooWide); !errors.Is(err, domain.ErrNoCoverageMap) {
+		t.Fatalf("the refused suite reached the held coverage: %v", err)
+	}
+}
+
+func suiteOfEdges(t *testing.T, count int) domain.SuiteCoverage {
+	t.Helper()
+
+	held := mustParseRepositoryPath(t, heldFile)
+	lines := make([]uint32, 0, count)
+	for line := range count {
+		lines = append(lines, uint32(line+1))
+	}
+	tested := domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{domain.NewTestedFile(held, lines)})
+	coverage, err := domain.ParseSuiteCoverage([]domain.ReportedTest{tested}, domain.NewKnownPaths([]domain.RepositoryPath{held}))
+	if err != nil {
+		t.Fatalf("parse a suite of %d edges: %v", count, err)
+	}
+	return coverage
+}
+
 func suiteOfTests(t *testing.T, count int) domain.SuiteCoverage {
 	t.Helper()
 
