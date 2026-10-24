@@ -38,6 +38,17 @@ func TestChangedFileThatIsNoRenameSitsAtBaseUnderItsOwnPath(t *testing.T) {
 	}
 }
 
+func TestChangedFileTheChangeAddsIsAbsentAtBase(t *testing.T) {
+	changed, err := ParseChangedFile(StatedFile{File: File{Path: "internal/auth/owner.go", Action: FileActionAdded}})
+
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	if changed.base != absentAtBase() {
+		t.Fatalf("base path is %+v, want absent at base", changed.base)
+	}
+}
+
 func TestChangedFileWhosePatchTheForgeOmitsHasUnknownLines(t *testing.T) {
 	stated := StatedFile{File: File{Path: "assets/logo.png", Action: FileActionModified}}
 

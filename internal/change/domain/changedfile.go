@@ -61,7 +61,12 @@ func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
 	if stated.File.Action == FileActionRenamed {
 		return basePath{}, ErrRenameWithoutPreviousPath
 	}
+	if !stated.File.Action.ExistsAtBase() {
+		return absentAtBase(), nil
+	}
 	return atBaseUnder(path), nil
 }
+
+func absentAtBase() basePath { return basePath{} }
 
 func atBaseUnder(path RepositoryPath) basePath { return basePath{path: path, isAtBase: true} }
