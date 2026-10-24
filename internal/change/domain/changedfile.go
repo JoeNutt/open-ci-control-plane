@@ -9,6 +9,8 @@ import (
 
 var ErrRenameWithoutPreviousPath = errors.New("the forge states a rename with no previous path")
 
+var ErrPreviousPathOfNoRename = errors.New("the forge states a previous path for a file that is no rename")
+
 const unstatedPreviousPath = ""
 
 type ChangedFile struct {
@@ -46,6 +48,9 @@ func linesOf(stated StatedFile) (ChangedLines, error) {
 }
 
 func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
+	if stated.PreviousPath != unstatedPreviousPath && stated.File.Action != FileActionRenamed {
+		return basePath{}, ErrPreviousPathOfNoRename
+	}
 	if stated.PreviousPath != unstatedPreviousPath {
 		previous, err := ParseRepositoryPath(stated.PreviousPath)
 		if err != nil {
