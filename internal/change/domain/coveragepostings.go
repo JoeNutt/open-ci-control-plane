@@ -26,12 +26,10 @@ type coveragePostings struct {
 	tests       []uint32
 }
 
-func edgesOf(suites map[CoverageSuite]SuiteCoverage, positions map[coveredTest]uint32) []coverageEdge {
+func edgesOf(numbered []suiteTest) []coverageEdge {
 	var edges []coverageEdge
-	for suite, coverage := range suites {
-		for _, test := range coverage.tests {
-			edges = test.appendEdges(edges, positions[coveredTest{suite: suite, name: test.name}])
-		}
+	for dense, each := range numbered {
+		edges = each.test.appendEdges(edges, uint32(dense))
 	}
 	return edges
 }

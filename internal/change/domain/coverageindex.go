@@ -28,32 +28,45 @@ type coverageIndex struct {
 	postings         coveragePostings
 }
 
+type suiteTest struct {
+	suite CoverageSuite
+	test  ReportedTest
+}
+
 func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
-	tests := denselyNumberedTestsOf(suites)
+	numbered := denselyNumberedTestsOf(suites)
 	return coverageIndex{
-		revision:         &indexRevision{testCount: len(tests)},
-		tests:            tests,
+		revision:         &indexRevision{testCount: len(numbered)},
+		tests:            coveredTestsOf(numbered),
 		testCountBySuite: testCountBySuiteOf(suites),
-		postings:         postingsOf(edgesOf(suites, positionsOf(tests))),
+		postings:         postingsOf(edgesOf(numbered)),
 	}
 }
 
-func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
-	var tests []coveredTest
+func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []suiteTest {
+	var numbered []suiteTest
 	for suite, coverage := range suites {
 		for _, test := range coverage.tests {
-			tests = append(tests, coveredTest{suite: suite, name: test.name})
+			numbered = append(numbered, suiteTest{suite: suite, test: test})
 		}
 	}
-	slices.SortFunc(tests, suiteThenNameOrder)
-	return tests
+	slices.SortFunc(numbered, suiteThenNameOrder)
+	return numbered
 }
 
-func suiteThenNameOrder(one, other coveredTest) int {
+func suiteThenNameOrder(one, other suiteTest) int {
 	return cmp.Or(
 		strings.Compare(one.suite.String(), other.suite.String()),
-		one.name.compare(other.name),
+		one.test.name.compare(other.test.name),
 	)
+}
+
+func coveredTestsOf(numbered []suiteTest) []coveredTest {
+	tests := make([]coveredTest, 0, len(numbered))
+	for _, each := range numbered {
+		tests = append(tests, coveredTest{suite: each.suite, name: each.test.name})
+	}
+	return tests
 }
 
 func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuite]int {
@@ -62,14 +75,6 @@ func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuit
 		counts[suite] = len(coverage.tests)
 	}
 	return counts
-}
-
-func positionsOf(tests []coveredTest) map[coveredTest]uint32 {
-	positions := make(map[coveredTest]uint32, len(tests))
-	for position, test := range tests {
-		positions[test] = uint32(position)
-	}
-	return positions
 }
 
 func (index coverageIndex) testAt(dense int) (coveredTest, error) {
