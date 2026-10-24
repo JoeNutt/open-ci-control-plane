@@ -27,3 +27,5 @@ func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 	slices.SortFunc(held, TopLevelTestName.compare)
 	return slices.Compact(held)
 }
+
+func (tests PackageTests) IsWholePackage() bool { return false }

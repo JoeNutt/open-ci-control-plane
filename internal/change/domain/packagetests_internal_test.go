@@ -46,3 +46,14 @@ func TestNamedTestsOfHoldsEachNameOnceInOrder(t *testing.T) {
 		t.Fatalf("want %v, got %v", want, named.names)
 	}
 }
+
+func TestNamedTestsAreNotTheWholePackage(t *testing.T) {
+	named, err := namedTestsOf(parsedImportPath(t, "example.com/parser"), []TopLevelTestName{parsedTestName(t, "TestAlpha")})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if named.IsWholePackage() {
+		t.Fatal("want named tests to run by name, got the whole package")
+	}
+}
