@@ -3,35 +3,20 @@
 package domain
 
 import (
+	"cmp"
 	"errors"
 	"slices"
-	"strings"
 )
 
+var errNoImportRootHoldsTheTest = errors.New("no import root holds the test file")
+
 func testPackageOf(file RepositoryPath, roots []ImportRoot) (GoImportPath, error) {
-	segments := file.Segments()
-	directory := segments[:len(segments)-1]
-	best := -1
-	var bestPath string
-	for _, root := range roots {
-		var rootSegments []string
-		if root.directory.String() != "" {
-			rootSegments = strings.Split(root.directory.String(), "/")
-		}
-		if len(rootSegments) > len(directory) || !slices.Equal(directory[:len(rootSegments)], rootSegments) {
-			continue
-		}
-		if len(rootSegments) > best {
-			best = len(rootSegments)
-			rest := directory[len(rootSegments):]
-			bestPath = root.prefix.String()
-			if len(rest) > 0 {
-				bestPath += "/" + strings.Join(rest, "/")
-			}
-		}
+	directory := file.directorySegments()
+	isElsewhere := func(root ImportRoot) bool { return !root.holds(directory) }
+	holding := slices.DeleteFunc(slices.Clone(roots), isElsewhere)
+	if len(holding) == 0 {
+		return GoImportPath{}, errNoImportRootHoldsTheTest
 	}
-	if best < 0 {
-		return GoImportPath{}, errors.New("no root")
-	}
-	return ParseGoImportPath(bestPath)
+	deepest := slices.MaxFunc(holding, func(one, other ImportRoot) int { return cmp.Compare(one.depth(), other.depth()) })
+	return deepest.importPathOf(directory)
 }

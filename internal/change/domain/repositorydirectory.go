@@ -5,6 +5,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const repositoryRoot = ""
@@ -26,3 +27,10 @@ func ParseRepositoryDirectory(stated string) (RepositoryDirectory, error) {
 }
 
 func (directory RepositoryDirectory) String() string { return directory.value }
+
+func (directory RepositoryDirectory) segments() []string {
+	if directory.value == repositoryRoot {
+		return nil
+	}
+	return strings.Split(directory.value, pathSeparator)
+}
