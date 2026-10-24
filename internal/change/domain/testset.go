@@ -22,6 +22,18 @@ type testSet struct {
 	words    []uint64
 }
 
+func testSetOf(revision *indexRevision, members []uint32) testSet {
+	words := make([]uint64, wordsHolding(revision.testCount))
+	for _, member := range members {
+		words[member/testsPerWord] |= 1 << (member % testsPerWord)
+	}
+	return testSet{revision: revision, words: words}
+}
+
+func wordsHolding(testCount int) int {
+	return (testCount + testsPerWord - 1) / testsPerWord
+}
+
 func (set testSet) union(other testSet) (testSet, error) {
 	if set.revision != other.revision {
 		return testSet{}, errMixedRevisions
