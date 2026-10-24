@@ -131,6 +131,8 @@ func (index coverageIndex) itemsOf(path RepositoryPath) (itemSpan, error) {
 	return items, nil
 }
 
+func (index coverageIndex) holdsAnyTest() bool { return len(index.tests) > 0 }
+
 func (index coverageIndex) numbers(dense int) bool {
 	return 0 <= dense && dense < len(index.tests)
 }
