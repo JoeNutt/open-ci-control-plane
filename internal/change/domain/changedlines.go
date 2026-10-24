@@ -117,7 +117,7 @@ func (walk *patchWalk) enter(header string) error {
 	if err != nil {
 		return err
 	}
-	if walk.hasHunk && (hunk.base.firstLine() < walk.base.line || hunk.head.firstLine() < walk.head.line) {
+	if walk.hasHunk && (walk.base.isPassedBy(hunk.base) || walk.head.isPassedBy(hunk.head)) {
 		return ErrMalformedHunk
 	}
 	walk.base.open(hunk.base)
@@ -152,6 +152,8 @@ type patchSide struct {
 	isChangedInBlock bool
 	isFileAbsent     bool
 }
+
+func (side patchSide) isPassedBy(stated hunkRange) bool { return stated.firstLine() < side.line }
 
 func (side *patchSide) open(stated hunkRange) {
 	side.line, side.remaining = stated.firstLine(), stated.count
