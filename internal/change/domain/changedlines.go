@@ -21,6 +21,7 @@ const (
 	patchLineBreak       = "\n"
 	removedLineMark      = '-'
 	addedLineMark        = '+'
+	contextLineMark      = ' '
 	firstPatchLineNumber = 1
 	unstatedHunkCount    = 1
 )
@@ -39,15 +40,35 @@ func ParseChangedLines(patch string) (ChangedLines, error) {
 			return ChangedLines{}, fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
 		}
 	}
-	return walk.changed, nil
+	return walk.changedLines(), nil
 }
 
 type patchWalk struct {
-	baseLine int
-	headLine int
+	base     patchSide
+	head     patchSide
 	isInHunk bool
-	changed  ChangedLines
 }
+
+type patchSide struct {
+	line    int
+	changed []int
+}
+
+type sidePresence struct {
+	isPresent bool
+	isChanged bool
+}
+
+var (
+	absentFromSide  = sidePresence{}
+	keptOnSide      = sidePresence{isPresent: true}
+	changedOnSide   = sidePresence{isPresent: true, isChanged: true}
+	presenceOfLines = map[byte]struct{ onBase, onHead sidePresence }{
+		removedLineMark: {onBase: changedOnSide, onHead: absentFromSide},
+		addedLineMark:   {onBase: absentFromSide, onHead: changedOnSide},
+		contextLineMark: {onBase: keptOnSide, onHead: keptOnSide},
+	}
+)
 
 func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
@@ -56,20 +77,23 @@ func (walk *patchWalk) step(line string) error {
 	if !walk.isInHunk || line == "" {
 		return ErrMalformedHunk
 	}
-	switch line[0] {
-	case removedLineMark:
-		walk.changed.base = append(walk.changed.base, walk.baseLine)
-		walk.baseLine++
-	case addedLineMark:
-		walk.changed.head = append(walk.changed.head, walk.headLine)
-		walk.headLine++
-	case ' ':
-		walk.baseLine++
-		walk.headLine++
-	default:
+	presence, isMarked := presenceOfLines[line[0]]
+	if !isMarked {
 		return ErrMalformedHunk
 	}
+	walk.base.take(presence.onBase)
+	walk.head.take(presence.onHead)
 	return nil
+}
+
+func (side *patchSide) take(presence sidePresence) {
+	if !presence.isPresent {
+		return
+	}
+	if presence.isChanged {
+		side.changed = append(side.changed, side.line)
+	}
+	side.line++
 }
 
 func (walk *patchWalk) enter(header string) error {
@@ -77,9 +101,13 @@ func (walk *patchWalk) enter(header string) error {
 	if err != nil {
 		return err
 	}
-	walk.baseLine, walk.headLine = hunk.base.start, hunk.head.start
+	walk.base.line, walk.head.line = hunk.base.start, hunk.head.start
 	walk.isInHunk = true
 	return nil
+}
+
+func (walk patchWalk) changedLines() ChangedLines {
+	return ChangedLines{base: walk.base.changed, head: walk.head.changed}
 }
 
 type hunkHeader struct {
