@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -42,8 +43,7 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) ||
 		!slices.Equal(found.AlwaysRun, dispatched.AlwaysRun) || !slices.Equal(found.ChangedFiles, dispatched.ChangedFiles) ||
 		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded || found.Modes != dispatched.Modes ||
-		!slices.Equal(found.Recorded.Selected, dispatched.Recorded.Selected) ||
-		!slices.Equal(found.Recorded.Minimised, dispatched.Recorded.Minimised) {
+		!reflect.DeepEqual(found.Recorded, dispatched.Recorded) {
 		t.Errorf("after a restart the ledger holds %+v, want %+v", found, dispatched)
 	}
 }
@@ -62,6 +62,16 @@ func openedLog(t *testing.T, path string) *jsonl.Log {
 		t.Fatalf("open: %v", err)
 	}
 	return history
+}
+
+func wholePackageOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	pkg, err := domain.ParseGoImportPath(suite.String())
+	if err != nil {
+		t.Fatalf("parse import path: %v", err)
+	}
+	return []domain.PackageTests{domain.NewPackageTests(pkg, nil)}
 }
 
 func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
@@ -94,7 +104,7 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 	return domain.DispatchedPlan{
 		Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite},
 		AlwaysRun:    []domain.GoImportPath{alwaysRun},
-		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suite}, Minimised: []domain.CoverageSuite{suite}},
+		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: wholePackageOf(t, suite), Minimised: wholePackageOf(t, suite)},
 		ChangedFiles: []domain.RepositoryPath{changed},
 		Modes:        domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
 	}

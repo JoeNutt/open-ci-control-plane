@@ -250,7 +250,7 @@ func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *test
 	if !plan.FullMatrix || len(plan.Suites) != 0 {
 		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
 	}
-	if got := suiteNamesOf(plan.Recorded.Selected); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
+	if got := packagesOf(plan.Recorded.Selected); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) || slices.ContainsFunc(plan.Recorded.Selected, isNamed) {
 		t.Errorf("a shadow plan recorded %v as selected, want %v", got, []string{ordersSuite, paymentsSuite})
 	}
 }
@@ -262,7 +262,7 @@ func TestAShadowPlanRecordsTheMinimisedSetOnlyWhenMinimisationIsInShadow(t *test
 	} {
 		plan := modedPlanOf(t, "shadow", minimisation)
 
-		if got := suiteNamesOf(plan.Recorded.Minimised); !slices.Equal(got, want) {
+		if got := packagesOf(plan.Recorded.Minimised); !slices.Equal(got, want) {
 			t.Errorf("minimisation %s recorded %v as minimised, want %v", minimisation, got, want)
 		}
 	}
@@ -295,7 +295,7 @@ func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
 
 	if !plan.FullMatrix || len(plan.Suites)+len(plan.Tests) != 0 || len(plan.Recorded.Selected) != 0 {
 		t.Errorf("selection off planned full matrix %v, suites %v, tests %+v, recorded %v: want the full matrix and nothing recorded",
-			plan.FullMatrix, suiteNamesOf(plan.Suites), plan.Tests, suiteNamesOf(plan.Recorded.Selected))
+			plan.FullMatrix, suiteNamesOf(plan.Suites), plan.Tests, packagesOf(plan.Recorded.Selected))
 	}
 }
 

@@ -91,6 +91,16 @@ func plannedSuiteOf(t *testing.T) domain.CoverageSuite {
 	return suite
 }
 
+func wholePackageOfSuite(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	pkg, err := domain.ParseGoImportPath(suite.String())
+	if err != nil {
+		t.Fatalf("parse import path: %v", err)
+	}
+	return []domain.PackageTests{domain.NewPackageTests(pkg, nil)}
+}
+
 func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T) {
 	head := commitSHAOf(t, recordedHeadSHA)
 	suite := plannedSuiteOf(t)
@@ -224,7 +234,7 @@ func TestEachEscapeInAShadowRunIsRecordedAgainstItsMode(t *testing.T) {
 	}
 	ledger := ledgerHolding(t, domain.TestPlan{
 		Head: head, FullMatrix: true,
-		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{plannedSuiteOf(t)}},
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: wholePackageOfSuite(t, plannedSuiteOf(t))},
 	})
 	logged := &loggedEscapes{}
 	useCase := application.RecordRun{
@@ -256,7 +266,7 @@ func TestAnEscapeThatCannotBeRecordedLeavesTheReportUnspentAndPostsNothing(t *te
 	}
 	ledger := ledgerHolding(t, domain.TestPlan{
 		Head: head, FullMatrix: true,
-		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{plannedSuiteOf(t)}},
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: wholePackageOfSuite(t, plannedSuiteOf(t))},
 	})
 	published := &publishedCheckRuns{}
 	useCase := application.RecordRun{

@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func TestAnEnforcedSelectionThatShadowRunsDoNotProveRunsTheFullMatrixAsUnproven(
 			plan, err := planner.Execute(t.Context(), uploadedChangeOf(t))
 
 			if err != nil || !plan.FullMatrix || plan.Trigger != domain.PlanTriggerShadowUnproven ||
-				!slices.Equal(plan.Recorded.Selected, []domain.CoverageSuite{parsedSuite(t)}) {
+				!reflect.DeepEqual(plan.Recorded.Selected, wholePackageOfSuite(t, parsedSuite(t))) {
 				t.Errorf("planned %+v (%v), want the full matrix as %q recording the uploaded suite",
 					plan, err, domain.PlanTriggerShadowUnproven)
 			}

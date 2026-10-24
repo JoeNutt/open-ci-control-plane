@@ -97,8 +97,8 @@ type PlanModes struct {
 
 type RecordedSets struct {
 	IsRecorded bool
-	Selected   []CoverageSuite
-	Minimised  []CoverageSuite
+	Selected   []PackageTests
+	Minimised  []PackageTests
 }
 
 type PlanSubject struct {
@@ -161,14 +161,14 @@ func (plan TestPlan) shadowed() TestPlan {
 }
 
 func (plan TestPlan) recordedSets() RecordedSets {
-	recorded := RecordedSets{IsRecorded: true, Selected: plan.Suites}
+	recorded := RecordedSets{IsRecorded: true, Selected: plan.Tests}
 	if plan.Modes.Minimisation == TestModeShadow {
-		recorded.Minimised = minimisedOf(plan.Suites)
+		recorded.Minimised = minimisedOf(plan.Tests)
 	}
 	return recorded
 }
 
-func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
+func minimisedOf(selected []PackageTests) []PackageTests { return slices.Clone(selected) }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
 	head, err := ParseCommitSHA(subject.Document.PR.HeadSHA)

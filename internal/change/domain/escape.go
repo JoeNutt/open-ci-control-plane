@@ -49,7 +49,7 @@ func (dispatched DispatchedPlan) EscapesIn(results []TestResult) []Escape {
 
 type shadowedSet struct {
 	mode     ShadowedMode
-	recorded []CoverageSuite
+	recorded []PackageTests
 }
 
 func (dispatched DispatchedPlan) shadowedSets() []shadowedSet {
@@ -63,7 +63,7 @@ func (dispatched DispatchedPlan) shadowedSets() []shadowedSet {
 	return sets
 }
 
-func (dispatched DispatchedPlan) escapesOutside(recorded []CoverageSuite, results []TestResult) []TestResult {
+func (dispatched DispatchedPlan) escapesOutside(recorded []PackageTests, results []TestResult) []TestResult {
 	var escaped []TestResult
 	for _, result := range results {
 		if result.failedTwice() && !dispatched.wouldHaveRun(recorded, result.Suite) {
@@ -73,8 +73,8 @@ func (dispatched DispatchedPlan) escapesOutside(recorded []CoverageSuite, result
 	return escaped
 }
 
-func (dispatched DispatchedPlan) wouldHaveRun(recorded []CoverageSuite, suite CoverageSuite) bool {
-	return slices.Contains(recorded, suite) ||
+func (dispatched DispatchedPlan) wouldHaveRun(recorded []PackageTests, suite CoverageSuite) bool {
+	return slices.ContainsFunc(recorded, func(entry PackageTests) bool { return entry.pkg == suite.importPath }) ||
 		slices.ContainsFunc(dispatched.AlwaysRun, func(path GoImportPath) bool { return path.String() == suite.String() })
 }
 

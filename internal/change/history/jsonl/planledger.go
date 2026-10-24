@@ -150,7 +150,7 @@ func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
 	if !recorded.IsRecorded {
 		return nil
 	}
-	return &recordedLine{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+	return &recordedLine{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
 }
 
 func modesLineOf(modes domain.PlanModes) *modesLine {
@@ -215,15 +215,31 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 	if line == nil {
 		return domain.RecordedSets{}, nil
 	}
-	selected, err := parsedAll(line.Selected, domain.ParseCoverageSuite)
+	selected, err := parsedAll(line.Selected, wholePackageNamed)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
-	minimised, err := parsedAll(line.Minimised, domain.ParseCoverageSuite)
+	minimised, err := parsedAll(line.Minimised, wholePackageNamed)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func wholePackageNamed(stated string) (domain.PackageTests, error) {
+	pkg, err := domain.ParseGoImportPath(stated)
+	if err != nil {
+		return domain.PackageTests{}, err
+	}
+	return domain.NewPackageTests(pkg, nil), nil
+}
+
+func packageNamesOf(tests []domain.PackageTests) []string {
+	names := make([]string, 0, len(tests))
+	for _, entry := range tests {
+		names = append(names, entry.Package().String())
+	}
+	return names
 }
 
 func (line *modesLine) planModes() (domain.PlanModes, error) {

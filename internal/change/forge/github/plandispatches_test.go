@@ -291,21 +291,25 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 	if err != nil {
 		t.Fatalf("parse always-run suite: %v", err)
 	}
+	pkg, err := domain.ParseGoImportPath(dispatchedSuite)
+	if err != nil {
+		t.Fatalf("parse package: %v", err)
+	}
 	revision, err := domain.ParseBundleRevision(planRevision)
 	if err != nil {
 		t.Fatalf("parse revision: %v", err)
 	}
 	return domain.TestPlan{
 		DecisionID: decisionID, Repository: repository, Head: headCommit, Workflow: workflow,
-		Suites: []domain.CoverageSuite{suite}, AlwaysRun: []domain.GoImportPath{always},
-		Trigger: domain.PlanTriggerNone, BundleRevision: revision,
+		Suites: []domain.CoverageSuite{suite}, Tests: []domain.PackageTests{domain.NewPackageTests(pkg, nil)},
+		AlwaysRun: []domain.GoImportPath{always}, Trigger: domain.PlanTriggerNone, BundleRevision: revision,
 	}
 }
 
 func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
 	held := newDispatchForge(t)
 	plan := selectedPlan(t)
-	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: plan.Suites, Minimised: plan.Suites}
+	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: plan.Tests, Minimised: plan.Tests}
 	plan.Suites, plan.FullMatrix = nil, true
 	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
 

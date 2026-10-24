@@ -113,7 +113,15 @@ func recordedOf(recorded domain.RecordedSets) *recordedPayload {
 	if !recorded.IsRecorded {
 		return nil
 	}
-	return &recordedPayload{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+	return &recordedPayload{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
+}
+
+func packageNamesOf(tests []domain.PackageTests) []string {
+	names := make([]string, 0, len(tests))
+	for _, entry := range tests {
+		names = append(names, entry.Package().String())
+	}
+	return names
 }
 
 func namesOf[Named fmt.Stringer](suites []Named) []string {
