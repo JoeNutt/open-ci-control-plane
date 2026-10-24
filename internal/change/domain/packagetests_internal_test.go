@@ -57,3 +57,9 @@ func TestNamedTestsAreNotTheWholePackage(t *testing.T) {
 		t.Fatal("want named tests to run by name, got the whole package")
 	}
 }
+
+func TestWholePackageOfRunsTheWholePackage(t *testing.T) {
+	if !wholePackageOf(parsedImportPath(t, "example.com/parser")).IsWholePackage() {
+		t.Fatal("want the whole package, got named tests")
+	}
+}

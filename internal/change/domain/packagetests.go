@@ -29,3 +29,5 @@ func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 }
 
 func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
+
+func wholePackageOf(pkg GoImportPath) PackageTests { return PackageTests{pkg: pkg} }
