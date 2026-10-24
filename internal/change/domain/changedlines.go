@@ -41,9 +41,12 @@ type changedLines struct {
 func unknownChangedLines() changedLines { return changedLines{} }
 
 func knownLines(base, head []int) changedLines {
-	slices.Sort(base)
-	slices.Sort(head)
-	return changedLines{isKnown: true, base: slices.Compact(base), head: slices.Compact(head)}
+	return changedLines{isKnown: true, base: ascendingOnce(base), head: ascendingOnce(head)}
+}
+
+func ascendingOnce(lines []int) []int {
+	slices.Sort(lines)
+	return slices.Compact(lines)
 }
 
 func (lines changedLines) mayTouchHead(span lineSpan) bool {
