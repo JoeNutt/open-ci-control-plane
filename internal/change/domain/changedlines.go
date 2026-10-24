@@ -26,6 +26,7 @@ const (
 	missingLineBreakMark = '\\'
 	firstLineNumber      = 1
 	unstatedHunkCount    = 1
+	noLineBefore         = 0
 )
 
 var ErrMalformedHunk = errors.New("the patch holds a malformed hunk")
@@ -151,7 +152,7 @@ type patchSide struct {
 
 func (side *patchSide) open(stated hunkRange) {
 	side.line, side.remaining = stated.firstLine(), stated.count
-	side.isFileAbsent = stated.isEmpty() && stated.start == 0
+	side.isFileAbsent = stated.namesAnAbsentFile()
 }
 
 func (side *patchSide) take(presence sidePresence) error {
@@ -198,6 +199,10 @@ func (stated hunkRange) firstLine() int {
 }
 
 func (stated hunkRange) isEmpty() bool { return stated.count == 0 }
+
+func (stated hunkRange) namesAnAbsentFile() bool {
+	return stated.isEmpty() && stated.start == noLineBefore
+}
 
 func parseHunkHeader(header string) (hunkHeader, error) {
 	afterOpen, isOpened := strings.CutPrefix(header, hunkBaseRangeOpen)
