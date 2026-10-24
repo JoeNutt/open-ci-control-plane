@@ -40,6 +40,16 @@ func TestRepositoryCoverageRefusesAnIndexOfMoreEdgesThanTheBoundAndKeepsThePrevi
 	}
 }
 
+func TestRepositoryCoverageAcceptsAnIndexOfExactlyTheEdgeBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := domain.RepositoryCoverage{}.Replacing(mustParseSuite(t, domainSuite), suiteOfEdges(t, limits.MaxIndexEdges), limits)
+
+	if err != nil {
+		t.Fatalf("want an index at the edge bound accepted, got %v", err)
+	}
+}
+
 func suiteOfEdges(t *testing.T, count int) domain.SuiteCoverage {
 	t.Helper()
 
