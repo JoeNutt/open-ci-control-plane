@@ -91,6 +91,19 @@ func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
 	return count, nil
 }
 
+func (index coverageIndex) testsOfSuite(suite CoverageSuite) (testSet, error) {
+	if _, err := index.testCountOf(suite); err != nil {
+		return testSet{}, err
+	}
+	var members []uint32
+	for dense, test := range index.tests {
+		if test.suite == suite {
+			members = append(members, uint32(dense))
+		}
+	}
+	return testSetOf(index.revision, members), nil
+}
+
 func (index coverageIndex) testsReaching(path RepositoryPath) (testSet, error) {
 	items, err := index.itemsOf(path)
 	if err != nil {

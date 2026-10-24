@@ -52,6 +52,17 @@ func TestCoverageIndexCountsTheTestsEachSuiteHolds(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexHoldsEachSuitesTestsAsOneSet(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for suite, want := range map[string][]int{indexedLCOVSuite: {0, 1}, indexedDomainSuite: {2}} {
+		tests, err := coverage.coverageIndex().testsOfSuite(suiteNamed(t, suite))
+		if err != nil || !slices.Equal(membersOf(tests), want) {
+			t.Errorf("%s holds %v (%v), want %v", suite, membersOf(tests), err, want)
+		}
+	}
+}
+
 func TestCoverageIndexRefusesToCountASuiteItHoldsNoCoverageFor(t *testing.T) {
 	unindexed := suiteNamed(t, "github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi")
 
