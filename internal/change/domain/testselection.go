@@ -31,7 +31,7 @@ func (index coverageIndex) testsSelectedBy(evidence ChangeEvidence) ([]PackageTe
 	if err != nil {
 		return nil, err
 	}
-	return index.packageTestsOf(selected, placed.unindexed)
+	return index.packageTestsOf(selected, placed.unindexed, evidence.packagesEditedBeyondTests)
 }
 
 func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
@@ -82,7 +82,7 @@ func (lines changedLines) baseLineNumbers() []uint32 {
 	return numbers
 }
 
-func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTest) ([]PackageTests, error) {
+func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTest, wholes []GoImportPath) ([]PackageTests, error) {
 	selections := packageSelections{positionOf: map[CoverageSuite]int{}}
 	for dense := range selected.members() {
 		test := index.tests[dense]
@@ -90,6 +90,16 @@ func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTes
 	}
 	for _, test := range changed {
 		selections.adding(CoverageSuite{importPath: test.pkg}, test.name)
+	}
+	for _, pkg := range wholes {
+		suite := CoverageSuite{importPath: pkg}
+		position, isHeld := selections.positionOf[suite]
+		if !isHeld {
+			position = len(selections.ordered)
+			selections.positionOf[suite] = position
+			selections.ordered = append(selections.ordered, packageSelection{suite: suite})
+		}
+		selections.ordered[position].isWhole = true
 	}
 	tests := make([]PackageTests, 0, len(selections.ordered))
 	for _, selection := range selections.ordered {
@@ -103,7 +113,7 @@ func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTes
 }
 
 func (index coverageIndex) packageTestsIn(selection packageSelection) (PackageTests, error) {
-	if index.isEveryIndexedTestIn(selection) {
+	if selection.isWhole || index.isEveryIndexedTestIn(selection) {
 		return wholePackageOf(selection.suite.importPath), nil
 	}
 	return namedTestsOf(selection.suite.importPath, selection.names)
@@ -118,6 +128,7 @@ type packageSelection struct {
 	suite        CoverageSuite
 	names        []TopLevelTestName
 	indexedCount int
+	isWhole      bool
 }
 
 type packageSelections struct {

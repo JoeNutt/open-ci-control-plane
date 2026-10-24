@@ -164,6 +164,22 @@ func TestSelectionOfATestFileWhosePackageNoImportRootNamesIsTheFullMatrix(t *tes
 	}
 }
 
+func TestSelectionRunsWholeThePackageOfATestFileEditedOutsideEveryTest(t *testing.T) {
+	helping := changedFileFrom(t, modifiedAt(ordersTestFile, refundingLine))
+	edited := EditedTestsIn(helping, []TestFunction{testFunctionFrom(t, "TestCancels", cancellingLine, cancellingLine)})
+	evidence, err := ParseChangeEvidence([]ChangedFile{helping}, []EditedTests{edited}, bindingRootedAt(t, selectionModule))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{wholePackageOf(parsedImportPath(t, ordersPackage))}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
 func bindingWithNoImportRoot(t *testing.T) Binding {
 	t.Helper()
 
