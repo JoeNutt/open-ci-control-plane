@@ -3,8 +3,9 @@
 package domain
 
 type EditedTests struct {
-	path  RepositoryPath
-	names []TopLevelTestName
+	path                 RepositoryPath
+	names                []TopLevelTestName
+	isEditingBeyondTests bool
 }
 
 func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
@@ -14,5 +15,17 @@ func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
 			names = append(names, function.name)
 		}
 	}
-	return EditedTests{path: file.path, names: names}
+	isBeyond := !file.lines.isKnown
+	for _, line := range file.lines.head {
+		inside := false
+		for _, function := range functions {
+			if function.lines.holds(line) {
+				inside = true
+			}
+		}
+		if !inside {
+			isBeyond = true
+		}
+	}
+	return EditedTests{path: file.path, names: names, isEditingBeyondTests: isBeyond}
 }
