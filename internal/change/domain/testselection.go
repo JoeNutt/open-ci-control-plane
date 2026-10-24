@@ -58,40 +58,50 @@ func (lines changedLines) baseLineNumbers() []uint32 {
 }
 
 func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTest) ([]PackageTests, error) {
-	var suites []CoverageSuite
-	namesBySuite := map[CoverageSuite][]TopLevelTestName{}
+	selections := packageSelections{positionOf: map[CoverageSuite]int{}}
 	for dense := range selected.members() {
 		test := index.tests[dense]
-		if _, isHeld := namesBySuite[test.suite]; !isHeld {
-			suites = append(suites, test.suite)
-		}
-		namesBySuite[test.suite] = append(namesBySuite[test.suite], test.name)
-	}
-	indexedCount := map[CoverageSuite]int{}
-	for suite, names := range namesBySuite {
-		indexedCount[suite] = len(names)
+		selections.adding(test.suite, test.name).indexedCount++
 	}
 	for _, test := range changed {
-		suite := CoverageSuite{importPath: test.pkg}
-		if _, isHeld := namesBySuite[suite]; !isHeld {
-			suites = append(suites, suite)
-		}
-		namesBySuite[suite] = append(namesBySuite[suite], test.name)
+		selections.adding(CoverageSuite{importPath: test.pkg}, test.name)
 	}
-	tests := make([]PackageTests, 0, len(suites))
-	for _, suite := range suites {
-		inSuite, err := index.packageTestsIn(suite, namesBySuite[suite], indexedCount[suite])
+	tests := make([]PackageTests, 0, len(selections.ordered))
+	for _, selection := range selections.ordered {
+		inPackage, err := index.packageTestsIn(selection)
 		if err != nil {
 			return nil, err
 		}
-		tests = append(tests, inSuite)
+		tests = append(tests, inPackage)
 	}
 	return tests, nil
 }
 
-func (index coverageIndex) packageTestsIn(suite CoverageSuite, selected []TopLevelTestName, indexed int) (PackageTests, error) {
-	if indexed == index.testsOfSuites[suite].testCount() {
-		return wholePackageOf(suite.importPath), nil
+func (index coverageIndex) packageTestsIn(selection packageSelection) (PackageTests, error) {
+	if selection.indexedCount == index.testsOfSuites[selection.suite].testCount() {
+		return wholePackageOf(selection.suite.importPath), nil
 	}
-	return namedTestsOf(suite.importPath, selected)
+	return namedTestsOf(selection.suite.importPath, selection.names)
+}
+
+type packageSelection struct {
+	suite        CoverageSuite
+	names        []TopLevelTestName
+	indexedCount int
+}
+
+type packageSelections struct {
+	ordered    []packageSelection
+	positionOf map[CoverageSuite]int
+}
+
+func (selections *packageSelections) adding(suite CoverageSuite, name TopLevelTestName) *packageSelection {
+	position, isHeld := selections.positionOf[suite]
+	if !isHeld {
+		position = len(selections.ordered)
+		selections.positionOf[suite] = position
+		selections.ordered = append(selections.ordered, packageSelection{suite: suite})
+	}
+	selections.ordered[position].names = append(selections.ordered[position].names, name)
+	return &selections.ordered[position]
 }
