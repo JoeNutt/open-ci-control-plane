@@ -12,10 +12,15 @@ var ErrRenameWithoutPreviousPath = errors.New("the forge states a rename with no
 const unstatedPreviousPath = ""
 
 type ChangedFile struct {
-	path         RepositoryPath
-	action       FileAction
-	previousPath RepositoryPath
-	lines        ChangedLines
+	path   RepositoryPath
+	action FileAction
+	base   basePath
+	lines  ChangedLines
+}
+
+type basePath struct {
+	path     RepositoryPath
+	isAtBase bool
 }
 
 func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
@@ -23,7 +28,7 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%q: %w", stated.File.Path, err)
 	}
-	previous, err := previousPathOf(stated)
+	previous, err := previousPathOf(stated, path)
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -31,7 +36,7 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return ChangedFile{path: path, action: stated.File.Action, previousPath: previous, lines: lines}, nil
+	return ChangedFile{path: path, action: stated.File.Action, base: previous, lines: lines}, nil
 }
 
 func (file ChangedFile) Path() RepositoryPath { return file.path }
@@ -45,12 +50,13 @@ func linesOf(stated StatedFile) (ChangedLines, error) {
 	return ParseChangedLines(stated.Patch)
 }
 
-func previousPathOf(stated StatedFile) (RepositoryPath, error) {
+func previousPathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
 	if stated.PreviousPath != unstatedPreviousPath {
-		return ParseRepositoryPath(stated.PreviousPath)
+		previous, err := ParseRepositoryPath(stated.PreviousPath)
+		return basePath{path: previous, isAtBase: true}, err
 	}
 	if stated.File.Action == FileActionRenamed {
-		return RepositoryPath{}, ErrRenameWithoutPreviousPath
+		return basePath{}, ErrRenameWithoutPreviousPath
 	}
-	return RepositoryPath{}, nil
+	return basePath{path: path, isAtBase: true}, nil
 }
