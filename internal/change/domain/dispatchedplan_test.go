@@ -84,18 +84,23 @@ func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
 	return suite
 }
 
+const (
+	recordedTestName   = "TestReadFrom"
+	unrecordedTestName = "TestWriteTo"
+)
+
 func TestAFailedTestItsPackagesRecordedEntryDoesNotNameEscapedIt(t *testing.T) {
 	rules := suiteOf(t, "example.com/app/rules")
 	pkg, err := domain.ParseGoImportPath(rules.String())
 	if err != nil {
 		t.Fatalf("parse import path: %v", err)
 	}
-	named := domain.NewPackageTests(pkg, []domain.TopLevelTestName{mustParseTestName(t, "TestReadFrom")})
+	named := domain.NewPackageTests(pkg, []domain.TopLevelTestName{mustParseTestName(t, recordedTestName)})
 	dispatched := domain.DispatchedPlan{Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.PackageTests{named}}}
-	escaped := domain.TestResult{Suite: rules, Name: "TestWriteTo", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+	escaped := domain.TestResult{Suite: rules, Name: unrecordedTestName, Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
 	results := []domain.TestResult{
 		escaped,
-		{Suite: rules, Name: "TestReadFrom", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+		{Suite: rules, Name: recordedTestName, Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
 	}
 
 	if got := dispatched.EscapesIn(results); len(got) != 1 || got[0].Test != escaped {
