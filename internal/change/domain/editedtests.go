@@ -2,6 +2,8 @@
 
 package domain
 
+import "slices"
+
 type EditedTests struct {
 	path                 RepositoryPath
 	names                []TopLevelTestName
@@ -15,17 +17,13 @@ func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
 			names = append(names, function.name)
 		}
 	}
-	isBeyond := !file.lines.isKnown
-	for _, line := range file.lines.head {
-		inside := false
-		for _, function := range functions {
-			if function.lines.holds(line) {
-				inside = true
-			}
-		}
-		if !inside {
-			isBeyond = true
-		}
+	return EditedTests{path: file.path, names: names, isEditingBeyondTests: file.lines.mayTouchHeadOutside(functions)}
+}
+
+func (lines changedLines) mayTouchHeadOutside(functions []TestFunction) bool {
+	isInsideATest := func(line int) bool {
+		return slices.ContainsFunc(functions, func(function TestFunction) bool { return function.lines.holds(line) })
 	}
-	return EditedTests{path: file.path, names: names, isEditingBeyondTests: isBeyond}
+	isOutsideEveryTest := func(line int) bool { return !isInsideATest(line) }
+	return !lines.isKnown || slices.ContainsFunc(lines.head, isOutsideEveryTest)
 }
