@@ -2,7 +2,12 @@
 
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrMalformedLineSpan = errors.New("the span is not a run of lines in a file")
 
 type TestFunction struct {
 	name  TopLevelTestName
@@ -18,6 +23,9 @@ func ParseTestFunction(name string, firstLine, lastLine int) (TestFunction, erro
 	parsed, err := ParseTopLevelTestName(name)
 	if err != nil {
 		return TestFunction{}, fmt.Errorf("test function: %w", err)
+	}
+	if firstLine < 1 || lastLine < firstLine {
+		return TestFunction{}, fmt.Errorf("%w: lines %d to %d", ErrMalformedLineSpan, firstLine, lastLine)
 	}
 	return TestFunction{name: parsed, lines: lineSpan{first: firstLine, last: lastLine}}, nil
 }
