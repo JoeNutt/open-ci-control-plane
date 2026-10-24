@@ -25,8 +25,9 @@ func TestTestSetSizeCountsItsMembers(t *testing.T) {
 }
 
 func TestTestSetUnionHoldsTheMembersOfBoth(t *testing.T) {
-	one := testSet{words: []uint64{0b0011, 0}}
-	other := testSet{words: []uint64{0b0110, 1}}
+	revision := &indexRevision{testCount: testsPerWord + 1}
+	one := testSet{revision: revision, words: []uint64{0b0011, 0}}
+	other := testSet{revision: revision, words: []uint64{0b0110, 1}}
 
 	joined, err := one.union(other)
 
