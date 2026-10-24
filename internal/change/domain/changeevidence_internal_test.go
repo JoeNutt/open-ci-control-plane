@@ -68,6 +68,51 @@ func TestChangeEvidenceNamesTheTestFileWhosePackageNoImportRootNames(t *testing.
 	}
 }
 
+func TestChangeEvidenceNamesEveryTestFileItReadWhetherOrNotItEditsATest(t *testing.T) {
+	editing := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/owner_test.go", Action: FileActionModified},
+		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	helping := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/fixture_test.go", Action: FileActionModified},
+		Patch: "@@ -9,1 +9,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	edited := []EditedTests{
+		EditedTestsIn(editing, []TestFunction{testFunctionFrom(t, "TestAdmitsAnOwner", 1, 3)}),
+		EditedTestsIn(helping, []TestFunction{testFunctionFrom(t, "TestRefusesAStranger", 1, 3)}),
+	}
+
+	evidence, err := ParseChangeEvidence([]ChangedFile{editing, helping}, edited, bindingRootedAt(t, "example.com/app"))
+
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	if want := []RepositoryPath{editing.path, helping.path}; !reflect.DeepEqual(evidence.testFiles, want) {
+		t.Fatalf("test files are %v, want %v", evidence.testFiles, want)
+	}
+}
+
+func TestChangeEvidenceNamesThePackageOfATestFileEditedOutsideEveryTest(t *testing.T) {
+	helping := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/fixture_test.go", Action: FileActionModified},
+		Patch: "@@ -9,1 +9,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	edited := EditedTestsIn(helping, []TestFunction{testFunctionFrom(t, "TestRefusesAStranger", 1, 3)})
+
+	evidence, err := ParseChangeEvidence([]ChangedFile{helping}, []EditedTests{edited}, bindingRootedAt(t, "example.com/app"))
+
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	pkg, err := ParseGoImportPath("example.com/app/internal/auth")
+	if err != nil {
+		t.Fatalf("parse go import path: %v", err)
+	}
+	if want := []GoImportPath{pkg}; !reflect.DeepEqual(evidence.packagesEditedBeyondTests, want) {
+		t.Fatalf("packages edited beyond tests are %v, want %v", evidence.packagesEditedBeyondTests, want)
+	}
+}
+
 func bindingRootedAt(t *testing.T, module string) Binding {
 	t.Helper()
 

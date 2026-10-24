@@ -2,7 +2,10 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"slices"
+)
 
 type FileAction string
 
@@ -33,6 +36,12 @@ func ParseFileAction(name string) (FileAction, error) {
 func (action FileAction) ExistsAtHead() bool { return action.presence().atHead }
 
 func (action FileAction) ExistsAtBase() bool { return action.presence().atBase }
+
+var actionsLeavingTheBasePath = []FileAction{FileActionRemoved, FileActionRenamed}
+
+func (action FileAction) leavesItsBasePath() bool {
+	return slices.Contains(actionsLeavingTheBasePath, action)
+}
 
 func (action FileAction) mayStateAPreviousPath() bool {
 	return action == FileActionRenamed || action == FileActionCopied

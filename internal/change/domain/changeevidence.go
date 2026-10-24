@@ -10,7 +10,9 @@ import (
 type ChangeEvidence struct {
 	files                     []ChangedFile
 	tests                     []changedTest
+	testFiles                 []RepositoryPath
 	testFilesOfUnknownPackage []RepositoryPath
+	packagesEditedBeyondTests []GoImportPath
 }
 
 type changedTest struct {
@@ -26,18 +28,22 @@ func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Bind
 		}
 	}
 	return ChangeEvidence{
-		files: slices.Clone(files), tests: tally.tests, testFilesOfUnknownPackage: tally.ofUnknownPackage,
+		files: slices.Clone(files), tests: tally.tests, testFiles: tally.testFiles, testFilesOfUnknownPackage: tally.ofUnknownPackage,
+		packagesEditedBeyondTests: tally.editedBeyondTests,
 	}, nil
 }
 
 type testTally struct {
-	roots            []ImportRoot
-	tests            []changedTest
-	ofUnknownPackage []RepositoryPath
+	roots             []ImportRoot
+	tests             []changedTest
+	testFiles         []RepositoryPath
+	ofUnknownPackage  []RepositoryPath
+	editedBeyondTests []GoImportPath
 }
 
 func (tally *testTally) count(edited EditedTests) error {
-	if !edited.isEditingAnyTest() {
+	tally.testFiles = append(tally.testFiles, edited.path)
+	if !edited.isEditingAnything() {
 		return nil
 	}
 	pkg, isNamed, err := testPackageOf(edited.path, tally.roots)
@@ -48,10 +54,24 @@ func (tally *testTally) count(edited EditedTests) error {
 		tally.ofUnknownPackage = append(tally.ofUnknownPackage, edited.path)
 		return nil
 	}
+	if edited.isEditingBeyondTests {
+		tally.editedBeyondTests = append(tally.editedBeyondTests, pkg)
+	}
 	for _, name := range edited.names {
 		tally.tests = append(tally.tests, changedTest{pkg: pkg, name: name})
 	}
 	return nil
 }
 
-func (edited EditedTests) isEditingAnyTest() bool { return len(edited.names) > 0 }
+func (evidence ChangeEvidence) holdsATestFileOfUnknownPackage() bool {
+	return len(evidence.testFilesOfUnknownPackage) > 0
+}
+
+func (evidence ChangeEvidence) filesBesideTests() []ChangedFile {
+	isTestFile := func(file ChangedFile) bool { return slices.Contains(evidence.testFiles, file.path) }
+	return slices.DeleteFunc(slices.Clone(evidence.files), isTestFile)
+}
+
+func (edited EditedTests) isEditingAnything() bool {
+	return len(edited.names) > 0 || edited.isEditingBeyondTests
+}

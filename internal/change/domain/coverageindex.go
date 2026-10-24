@@ -54,16 +54,21 @@ func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []suiteTest 
 }
 
 func suiteThenNameOrder(one, other suiteTest) int {
-	return cmp.Or(
-		one.suite.compare(other.suite),
-		one.test.name.compare(other.test.name),
-	)
+	return one.covered().compare(other.covered())
+}
+
+func (each suiteTest) covered() coveredTest {
+	return coveredTest{suite: each.suite, name: each.test.name}
+}
+
+func (test coveredTest) compare(other coveredTest) int {
+	return cmp.Or(test.suite.compare(other.suite), test.name.compare(other.name))
 }
 
 func coveredTestsOf(numbered []suiteTest) []coveredTest {
 	tests := make([]coveredTest, 0, len(numbered))
 	for _, each := range numbered {
-		tests = append(tests, coveredTest{suite: each.suite, name: each.test.name})
+		tests = append(tests, each.covered())
 	}
 	return tests
 }
@@ -72,6 +77,8 @@ type testSpan struct {
 	first int
 	end   int
 }
+
+func (span testSpan) testCount() int { return span.end - span.first }
 
 func testSpansOf(numbered []suiteTest) map[CoverageSuite]testSpan {
 	spans := map[CoverageSuite]testSpan{}
@@ -98,7 +105,7 @@ func (index coverageIndex) testsOfSuite(suite CoverageSuite) (testSet, error) {
 	if !isIndexed {
 		return testSet{}, fmt.Errorf("%w: %s", errUnindexedSuite, suite)
 	}
-	members := make([]uint32, 0, span.end-span.first)
+	members := make([]uint32, 0, span.testCount())
 	for dense := span.first; dense < span.end; dense++ {
 		members = append(members, uint32(dense))
 	}
@@ -128,6 +135,12 @@ func (index coverageIndex) itemsOf(path RepositoryPath) (itemSpan, error) {
 	}
 	return items, nil
 }
+
+func (index coverageIndex) positionOf(sought coveredTest) (int, bool) {
+	return slices.BinarySearchFunc(index.tests, sought, coveredTest.compare)
+}
+
+func (index coverageIndex) holdsAnyTest() bool { return len(index.tests) > 0 }
 
 func (index coverageIndex) numbers(dense int) bool {
 	return 0 <= dense && dense < len(index.tests)
