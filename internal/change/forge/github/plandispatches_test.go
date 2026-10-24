@@ -101,17 +101,9 @@ func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t 
 		{domain.MaxPlanCharacters, "none"},
 		{domain.MaxPlanCharacters + 1, "plan_too_large"},
 	} {
-		held := newDispatchForge(t)
 		plan := planSerialisingTo(t, bound.characters)
 
-		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-			t.Fatalf("dispatch plan: %v", err)
-		}
-
-		var sent wirePlan
-		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-			t.Fatalf("decode the plan: %v", err)
-		}
+		sent := sentPlanOf(t, plan)
 		isReplaced := bound.trigger == "plan_too_large"
 		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced {
 			t.Errorf("%d characters: sent %q, full matrix %v, %d tests; want %q",
@@ -128,17 +120,9 @@ func TestAPlanNamingTestsIsSentByNameAtTheLimitAndAsWholePackagesOneCharacterOve
 		{domain.MaxPlanCharacters, true},
 		{domain.MaxPlanCharacters + 1, false},
 	} {
-		held := newDispatchForge(t)
 		plan := namedPlanSerialisingTo(t, bound.characters)
 
-		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-			t.Fatalf("dispatch plan: %v", err)
-		}
-
-		var sent wirePlan
-		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-			t.Fatalf("decode the plan: %v", err)
-		}
+		sent := sentPlanOf(t, plan)
 		if sent.TriggerReason != "none" || sent.FullMatrix || len(sent.Tests) != 1 ||
 			sent.Tests[0].Package != dispatchedSuite || (len(sent.Tests[0].Names) > 0) != bound.isNamed {
 			t.Errorf("%d characters: sent %q, full matrix %v, tests %d; want %s selected, by name %v",
@@ -155,20 +139,12 @@ func TestAPlanNamingTestsWhoseWholePackagesFitIsSentWholeAndOneCharacterOverIsTh
 		{domain.MaxPlanCharacters, "none"},
 		{domain.MaxPlanCharacters + 1, "plan_too_large"},
 	} {
-		held := newDispatchForge(t)
 		plan := planSerialisingTo(t, bound.characters)
 		for index, entry := range plan.Tests {
 			plan.Tests[index] = domain.NewPackageTests(entry.Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})
 		}
 
-		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-			t.Fatalf("dispatch plan: %v", err)
-		}
-
-		var sent wirePlan
-		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-			t.Fatalf("decode the plan: %v", err)
-		}
+		sent := sentPlanOf(t, plan)
 		isReplaced := bound.trigger == "plan_too_large"
 		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced ||
 			slices.ContainsFunc(sent.Tests, func(entry wireTests) bool { return len(entry.Names) > 0 }) {
@@ -307,6 +283,20 @@ func TestEveryForgeConnectionAdmitsTheCallTimeoutAndRefusesOneNanosecondOver(t *
 	}
 }
 
+func sentPlanOf(t *testing.T, plan domain.TestPlan) wirePlan {
+	t.Helper()
+
+	held := newDispatchForge(t)
+	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+		t.Fatalf("dispatch plan: %v", err)
+	}
+	var sent wirePlan
+	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+		t.Fatalf("decode the plan: %v", err)
+	}
+	return sent
+}
+
 func equalWirePlans(one, other wirePlan) bool {
 	encodedOne, errOne := json.Marshal(one)
 	encodedOther, errOther := json.Marshal(other)
@@ -404,21 +394,13 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 }
 
 func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
-	held := newDispatchForge(t)
 	plan := selectedPlan(t)
 	named := []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})}
 	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: named, Minimised: plan.Tests}
 	plan.Suites, plan.Tests, plan.FullMatrix = nil, nil, true
 	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
 
-	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-		t.Fatalf("dispatch plan: %v", err)
-	}
-
-	var sent wirePlan
-	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-		t.Fatalf("decode the plan: %v", err)
-	}
+	sent := sentPlanOf(t, plan)
 	want := wireRecorded{
 		Selected:  []wireTests{{Package: dispatchedSuite, Names: []string{dispatchedTest}}},
 		Minimised: []wireTests{{Package: dispatchedSuite, Names: []string{}}},
