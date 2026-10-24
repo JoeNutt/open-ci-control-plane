@@ -40,6 +40,10 @@ func (file ChangedFile) Path() RepositoryPath { return file.path }
 
 func (file ChangedFile) ExistsAtHead() bool { return file.action.ExistsAtHead() }
 
+func (file ChangedFile) isAtBaseUnderItsOwnPath() bool {
+	return file.base.isAtBase && file.base.path == file.path
+}
+
 func linesOf(stated StatedFile) (changedLines, error) {
 	if !stated.IsPatchStated {
 		return unknownChangedLines(), nil

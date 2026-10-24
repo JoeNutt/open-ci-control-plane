@@ -18,7 +18,7 @@ func TestADispatchedPlanKeepsWhatItsPlanRecordedAndAlwaysRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse import path: %v", err)
 	}
-	recorded := domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suite}}
+	recorded := domain.RecordedSets{IsRecorded: true, Selected: wholePackagesNamed(t, suite.String())}
 	changed, err := domain.ParseRepositoryPath("internal/change/rules/rules.go")
 	if err != nil {
 		t.Fatalf("parse path: %v", err)
@@ -28,11 +28,23 @@ func TestADispatchedPlanKeepsWhatItsPlanRecordedAndAlwaysRuns(t *testing.T) {
 		Recorded: recorded, AlwaysRun: []domain.GoImportPath{alwaysRun}, ChangedFiles: []domain.RepositoryPath{changed},
 	})
 
-	if !dispatched.Recorded.IsRecorded || !slices.Equal(dispatched.Recorded.Selected, recorded.Selected) ||
+	if !dispatched.Recorded.IsRecorded || !slices.Equal(packagesOf(dispatched.Recorded.Selected), packagesOf(recorded.Selected)) ||
 		!slices.Equal(dispatched.AlwaysRun, []domain.GoImportPath{alwaysRun}) ||
 		!slices.Equal(dispatched.ChangedFiles, []domain.RepositoryPath{changed}) {
 		t.Errorf("the dispatched plan keeps %+v and always runs %v, want %+v and %v",
 			dispatched.Recorded, dispatched.AlwaysRun, recorded, alwaysRun)
+	}
+}
+
+func TestARunWhereAPlannedPackageReportedNothingFails(t *testing.T) {
+	rules := suiteOf(t, "example.com/app/rules")
+	dispatched := domain.DispatchedPlanOf(domain.PullRequestLocator{}, domain.TestPlan{
+		Tests: wholePackagesNamed(t, rules.String(), "example.com/app/payments"),
+	})
+	reported := []domain.TestResult{{Suite: rules, Name: recordedTestName, Outcome: domain.TestOutcomePass}}
+
+	if got := dispatched.ConclusionOf(reported); got != domain.ConclusionFailure {
+		t.Errorf("a run where a planned package reported nothing concluded %q, want %q", got, domain.ConclusionFailure)
 	}
 }
 
@@ -44,7 +56,7 @@ func TestOnlyATestThatFailedTwiceOutsideTheRecordedSelectionEscapedIt(t *testing
 	}
 	dispatched := domain.DispatchedPlan{
 		AlwaysRun: []domain.GoImportPath{alwaysRunPath},
-		Recorded:  domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{selected}},
+		Recorded:  domain.RecordedSets{IsRecorded: true, Selected: wholePackagesNamed(t, selected.String())},
 	}
 	escaped := domain.TestResult{Suite: outside, Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
 	results := []domain.TestResult{
@@ -60,6 +72,20 @@ func TestOnlyATestThatFailedTwiceOutsideTheRecordedSelectionEscapedIt(t *testing
 	}
 }
 
+func wholePackagesNamed(t *testing.T, stated ...string) []domain.PackageTests {
+	t.Helper()
+
+	tests := make([]domain.PackageTests, 0, len(stated))
+	for _, named := range stated {
+		pkg, err := domain.ParseGoImportPath(named)
+		if err != nil {
+			t.Fatalf("parse import path: %v", err)
+		}
+		tests = append(tests, domain.NewPackageTests(pkg, nil))
+	}
+	return tests
+}
+
 func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
 	t.Helper()
 
@@ -68,6 +94,30 @@ func suiteOf(t *testing.T, stated string) domain.CoverageSuite {
 		t.Fatalf("parse suite: %v", err)
 	}
 	return suite
+}
+
+const (
+	recordedTestName   = "TestReadFrom"
+	unrecordedTestName = "TestWriteTo"
+)
+
+func TestAFailedTestItsPackagesRecordedEntryDoesNotNameEscapedIt(t *testing.T) {
+	rules := suiteOf(t, "example.com/app/rules")
+	pkg, err := domain.ParseGoImportPath(rules.String())
+	if err != nil {
+		t.Fatalf("parse import path: %v", err)
+	}
+	named := domain.NewPackageTests(pkg, []domain.TopLevelTestName{mustParseTestName(t, recordedTestName)})
+	dispatched := domain.DispatchedPlan{Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.PackageTests{named}}}
+	escaped := domain.TestResult{Suite: rules, Name: unrecordedTestName, Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
+	results := []domain.TestResult{
+		escaped,
+		{Suite: rules, Name: recordedTestName, Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail},
+	}
+
+	if got := dispatched.EscapesIn(results); len(got) != 1 || got[0].Test != escaped {
+		t.Errorf("escapes are %+v, want only %+v", got, escaped)
+	}
 }
 
 func TestAPlanThatRecordedNothingHasNoEscapes(t *testing.T) {
@@ -89,7 +139,7 @@ func TestAnEscapeNamesItsModeThePullRequestTheTestAndTheChangedFiles(t *testing.
 	}
 	dispatched := domain.DispatchedPlan{
 		Locator: locator, ChangedFiles: []domain.RepositoryPath{changed},
-		Recorded: domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suiteOf(t, "example.com/app/rules")}},
+		Recorded: domain.RecordedSets{IsRecorded: true, Selected: wholePackagesNamed(t, "example.com/app/rules")},
 	}
 	failed := domain.TestResult{Suite: suiteOf(t, "example.com/app/payments"), Name: "TestRefund", Outcome: domain.TestOutcomeFail, Rerun: domain.TestOutcomeFail}
 
@@ -111,7 +161,7 @@ func TestAMinimisationEscapeIsJudgedAgainstTheMinimisedSetOnlyWhenMinimisationIs
 		dispatched := domain.DispatchedPlan{
 			Modes: domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: minimisation},
 			Recorded: domain.RecordedSets{IsRecorded: true,
-				Selected: []domain.CoverageSuite{rules, payments}, Minimised: []domain.CoverageSuite{rules}},
+				Selected: wholePackagesNamed(t, rules.String(), payments.String()), Minimised: wholePackagesNamed(t, rules.String())},
 		}
 
 		var modes []domain.ShadowedMode

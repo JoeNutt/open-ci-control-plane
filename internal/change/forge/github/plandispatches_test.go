@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 const (
 	dispatchedWorkflow = "open-ci-tests.yml"
 	dispatchedSuite    = "example.com/payments/internal/orders"
+	dispatchedTest     = "TestRefund"
 	alwaysRunSuite     = "example.com/payments/internal/domain"
 	planRevision       = "c0ffee0000000000000000000000000000c0ffee"
 	dispatchPath       = "/repos/acme/payments/actions/workflows/" + dispatchedWorkflow + "/dispatches"
@@ -33,7 +35,7 @@ type wirePlan struct {
 	DecisionID      string        `json:"decisionId"`
 	Repository      string        `json:"repository"`
 	HeadSHA         string        `json:"headSha"`
-	Suites          []string      `json:"suites"`
+	Tests           []wireTests   `json:"tests"`
 	AlwaysRunSuites []string      `json:"alwaysRunSuites"`
 	FullMatrix      bool          `json:"fullMatrix"`
 	TriggerReason   string        `json:"triggerReason"`
@@ -43,9 +45,14 @@ type wirePlan struct {
 	Recorded        *wireRecorded `json:"recorded,omitempty"`
 }
 
+type wireTests struct {
+	Package string   `json:"package"`
+	Names   []string `json:"names"`
+}
+
 type wireRecorded struct {
-	Selected  []string `json:"selected"`
-	Minimised []string `json:"minimised"`
+	Selected  []wireTests `json:"selected"`
+	Minimised []wireTests `json:"minimised"`
 }
 
 type wireMode struct {
@@ -78,7 +85,7 @@ func TestDispatchPlanPostsTheC9PlanAsOneInputOnTheDefaultBranch(t *testing.T) {
 	}
 	want := wirePlan{
 		SchemaVersion: 1, DecisionID: decisionText, Repository: "acme/payments", HeadSHA: headSHA,
-		Suites: []string{dispatchedSuite}, AlwaysRunSuites: []string{alwaysRunSuite},
+		Tests: []wireTests{{Package: dispatchedSuite, Names: []string{}}}, AlwaysRunSuites: []string{alwaysRunSuite},
 		TriggerReason: "none", BundleRevision: planRevision,
 	}
 	if !equalWirePlans(plan, want) {
@@ -94,45 +101,102 @@ func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t 
 		{domain.MaxPlanCharacters, "none"},
 		{domain.MaxPlanCharacters + 1, "plan_too_large"},
 	} {
-		held := newDispatchForge(t)
 		plan := planSerialisingTo(t, bound.characters)
 
-		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-			t.Fatalf("dispatch plan: %v", err)
-		}
-
-		var sent wirePlan
-		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-			t.Fatalf("decode the plan: %v", err)
-		}
+		sent := sentPlanOf(t, plan)
 		isReplaced := bound.trigger == "plan_too_large"
-		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Suites) == 0) != isReplaced {
-			t.Errorf("%d characters: sent %q, full matrix %v, %d suites; want %q",
-				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Suites), bound.trigger)
+		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced {
+			t.Errorf("%d characters: sent %q, full matrix %v, %d tests; want %q",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), bound.trigger)
 		}
 	}
+}
+
+func TestAPlanNamingTestsIsSentByNameAtTheLimitAndAsWholePackagesOneCharacterOver(t *testing.T) {
+	for _, bound := range []struct {
+		characters int
+		isNamed    bool
+	}{
+		{domain.MaxPlanCharacters, true},
+		{domain.MaxPlanCharacters + 1, false},
+	} {
+		plan := namedPlanSerialisingTo(t, bound.characters)
+
+		sent := sentPlanOf(t, plan)
+		if sent.TriggerReason != "none" || sent.FullMatrix || len(sent.Tests) != 1 ||
+			sent.Tests[0].Package != dispatchedSuite || (len(sent.Tests[0].Names) > 0) != bound.isNamed {
+			t.Errorf("%d characters: sent %q, full matrix %v, tests %d; want %s selected, by name %v",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), dispatchedSuite, bound.isNamed)
+		}
+	}
+}
+
+func TestAPlanNamingTestsWhoseWholePackagesFitIsSentWholeAndOneCharacterOverIsTheFullMatrix(t *testing.T) {
+	for _, bound := range []struct {
+		characters int
+		trigger    string
+	}{
+		{domain.MaxPlanCharacters, "none"},
+		{domain.MaxPlanCharacters + 1, "plan_too_large"},
+	} {
+		plan := planSerialisingTo(t, bound.characters)
+		for index, entry := range plan.Tests {
+			plan.Tests[index] = domain.NewPackageTests(entry.Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})
+		}
+
+		sent := sentPlanOf(t, plan)
+		isReplaced := bound.trigger == "plan_too_large"
+		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced ||
+			slices.ContainsFunc(sent.Tests, func(entry wireTests) bool { return len(entry.Names) > 0 }) {
+			t.Errorf("%d characters as whole packages: sent %q, full matrix %v, %d tests %+v; want %q with no names",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), sent.Tests, bound.trigger)
+		}
+	}
+}
+
+func namedPlanSerialisingTo(t *testing.T, characters int) domain.TestPlan {
+	t.Helper()
+
+	const nameLength = 20
+	nameOverhead := len(`"",`)
+	plan := selectedPlan(t)
+	toFill := characters - len(encodedWirePlanOf(t, plan)) + 1
+	count, longer := toFill/(nameLength+nameOverhead), toFill%(nameLength+nameOverhead)
+	names := make([]domain.TopLevelTestName, 0, count)
+	for index := range count {
+		padding := ""
+		if index < longer {
+			padding = "Z"
+		}
+		names = append(names, testNamed(t, fmt.Sprintf("Test%s%0*d", padding, nameLength-len("Test"), index)))
+	}
+	plan.Tests = []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), names)}
+	if got := len(encodedWirePlanOf(t, plan)); got != characters {
+		t.Fatalf("built a plan of %d characters, want %d", got, characters)
+	}
+	return plan
 }
 
 func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
 	t.Helper()
 
-	const quotesAndComma = 3
+	entryOverhead := len(`{"package":"","names":[]},`)
 	plan := selectedPlan(t)
-	plan.Suites = nil
+	plan.Tests = nil
 	toFill := characters - len(encodedWirePlanOf(t, plan)) + 1
-	count := (toFill + domain.MaxGoImportPathBytes + quotesAndComma - 1) / (domain.MaxGoImportPathBytes + quotesAndComma)
+	count := (toFill + domain.MaxGoImportPathBytes + entryOverhead - 1) / (domain.MaxGoImportPathBytes + entryOverhead)
 	share, extra := toFill/count, toFill%count
 	for index := range count {
-		length := share - quotesAndComma
+		length := share - entryOverhead
 		if index < extra {
 			length++
 		}
 		name := fmt.Sprintf("example.com/payments/s%d/", index)
-		suite, err := domain.ParseCoverageSuite(name + strings.Repeat("a", length-len(name)))
+		pkg, err := domain.ParseGoImportPath(name + strings.Repeat("a", length-len(name)))
 		if err != nil {
-			t.Fatalf("parse suite: %v", err)
+			t.Fatalf("parse package: %v", err)
 		}
-		plan.Suites = append(plan.Suites, suite)
+		plan.Tests = append(plan.Tests, domain.NewPackageTests(pkg, nil))
 	}
 	if got := len(encodedWirePlanOf(t, plan)); got != characters {
 		t.Fatalf("built a plan of %d characters, want %d", got, characters)
@@ -140,17 +204,26 @@ func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
 	return plan
 }
 
+func wireTestsOf(tests []domain.PackageTests) []wireTests {
+	entries := []wireTests{}
+	for _, entry := range tests {
+		names := []string{}
+		for _, name := range entry.Names() {
+			names = append(names, name.String())
+		}
+		entries = append(entries, wireTests{Package: entry.Package().String(), Names: names})
+	}
+	return entries
+}
+
 func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
 	t.Helper()
 
 	sent := wirePlan{
 		SchemaVersion: 1, DecisionID: plan.DecisionID.String(), Repository: plan.Repository.String(),
-		HeadSHA: plan.Head.String(), Suites: []string{}, AlwaysRunSuites: []string{},
+		HeadSHA: plan.Head.String(), Tests: wireTestsOf(plan.Tests), AlwaysRunSuites: []string{},
 		FullMatrix: plan.FullMatrix, TriggerReason: string(plan.Trigger), BundleRevision: plan.BundleRevision.String(),
 		Mode: wireMode{Selection: plan.Modes.Selection.String(), Minimisation: plan.Modes.Minimisation.String()},
-	}
-	for _, suite := range plan.Suites {
-		sent.Suites = append(sent.Suites, suite.String())
 	}
 	for _, suite := range plan.AlwaysRun {
 		sent.AlwaysRunSuites = append(sent.AlwaysRunSuites, suite.String())
@@ -208,6 +281,20 @@ func TestEveryForgeConnectionAdmitsTheCallTimeoutAndRefusesOneNanosecondOver(t *
 			t.Errorf("timeout %v: error is %v, want refused %v", bound.timeout, err, bound.isRefusing)
 		}
 	}
+}
+
+func sentPlanOf(t *testing.T, plan domain.TestPlan) wirePlan {
+	t.Helper()
+
+	held := newDispatchForge(t)
+	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+		t.Fatalf("dispatch plan: %v", err)
+	}
+	var sent wirePlan
+	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+		t.Fatalf("decode the plan: %v", err)
+	}
+	return sent
 }
 
 func equalWirePlans(one, other wirePlan) bool {
@@ -283,13 +370,13 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 	if err != nil {
 		t.Fatalf("parse workflow: %v", err)
 	}
-	suite, err := domain.ParseCoverageSuite(dispatchedSuite)
-	if err != nil {
-		t.Fatalf("parse suite: %v", err)
-	}
 	always, err := domain.ParseGoImportPath(alwaysRunSuite)
 	if err != nil {
 		t.Fatalf("parse always-run suite: %v", err)
+	}
+	pkg, err := domain.ParseGoImportPath(dispatchedSuite)
+	if err != nil {
+		t.Fatalf("parse package: %v", err)
 	}
 	revision, err := domain.ParseBundleRevision(planRevision)
 	if err != nil {
@@ -297,28 +384,35 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 	}
 	return domain.TestPlan{
 		DecisionID: decisionID, Repository: repository, Head: headCommit, Workflow: workflow,
-		Suites: []domain.CoverageSuite{suite}, AlwaysRun: []domain.GoImportPath{always},
-		Trigger: domain.PlanTriggerNone, BundleRevision: revision,
+		Tests:     []domain.PackageTests{domain.NewPackageTests(pkg, nil)},
+		AlwaysRun: []domain.GoImportPath{always}, Trigger: domain.PlanTriggerNone, BundleRevision: revision,
 	}
 }
 
 func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
-	held := newDispatchForge(t)
 	plan := selectedPlan(t)
-	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: plan.Suites, Minimised: plan.Suites}
-	plan.Suites, plan.FullMatrix = nil, true
+	named := []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})}
+	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: named, Minimised: plan.Tests}
+	plan.Tests, plan.FullMatrix = nil, true
 	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
 
-	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
-		t.Fatalf("dispatch plan: %v", err)
-	}
-
-	var sent wirePlan
-	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
-		t.Fatalf("decode the plan: %v", err)
+	sent := sentPlanOf(t, plan)
+	want := wireRecorded{
+		Selected:  []wireTests{{Package: dispatchedSuite, Names: []string{dispatchedTest}}},
+		Minimised: []wireTests{{Package: dispatchedSuite, Names: []string{}}},
 	}
 	if !sent.Shadow || sent.Mode.Selection != "shadow" || sent.Mode.Minimisation != "shadow" || sent.Recorded == nil ||
-		!slices.Equal(sent.Recorded.Selected, []string{dispatchedSuite}) || !slices.Equal(sent.Recorded.Minimised, []string{dispatchedSuite}) {
+		!reflect.DeepEqual(*sent.Recorded, want) {
 		t.Errorf("dispatched %+v, want shadow with both modes and both recorded sets", sent)
 	}
+}
+
+func testNamed(t *testing.T, stated string) domain.TopLevelTestName {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName(stated)
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return name
 }

@@ -5,6 +5,7 @@ package domain_test
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -25,7 +26,7 @@ func TestRepositoryCoverageServesTheMapASuiteWasReplacedWith(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serve the suite's map: %v", err)
 	}
-	if !served.Covers(uploaded.exercised) || served.FileEntryCount() != uploaded.reportedCount {
+	if !reflect.DeepEqual(served, uploaded.coverage) {
 		t.Fatalf("served a map other than the one the suite was replaced with")
 	}
 }

@@ -26,8 +26,9 @@ const (
 const MaxPlanSuites = 512
 
 type plannedSelection struct {
-	diff      Diff
-	selection coverageSelection
+	diff    Diff
+	tests   []PackageTests
+	trigger PlanTrigger
 }
 
 var fullMatrixTriggers = []struct {
@@ -44,10 +45,10 @@ var fullMatrixTriggers = []struct {
 }
 
 func selectsTooManySuites(planned plannedSelection) bool {
-	return len(planned.selection.suites) > MaxPlanSuites
+	return len(planned.tests) > MaxPlanSuites
 }
 
-func holdsNoMap(planned plannedSelection) bool { return !planned.selection.isAnyMapHeld }
+func holdsNoMap(planned plannedSelection) bool { return planned.trigger == PlanTriggerNoMap }
 
 func editsCIConfig(planned plannedSelection) bool { return len(planned.diff.Kinds.CIConfig) > 0 }
 
@@ -55,7 +56,9 @@ func editsLockfile(planned plannedSelection) bool { return len(planned.diff.Kind
 
 func addsFile(planned plannedSelection) bool { return slices.ContainsFunc(planned.diff.Files, isAdded) }
 
-func changesUnmappedFile(planned plannedSelection) bool { return !planned.selection.isEveryFileMapped }
+func changesUnmappedFile(planned plannedSelection) bool {
+	return planned.trigger == PlanTriggerUnmappedFile
+}
 
 func addsMigration(planned plannedSelection) bool {
 	return slices.ContainsFunc(planned.diff.Files, func(file File) bool {
@@ -79,7 +82,7 @@ type TestPlan struct {
 	Repository     GovernedRepository
 	Head           CommitSHA
 	Workflow       WorkflowFile
-	Suites         []CoverageSuite
+	Tests          []PackageTests
 	AlwaysRun      []GoImportPath
 	FullMatrix     bool
 	Trigger        PlanTrigger
@@ -96,8 +99,8 @@ type PlanModes struct {
 
 type RecordedSets struct {
 	IsRecorded bool
-	Selected   []CoverageSuite
-	Minimised  []CoverageSuite
+	Selected   []PackageTests
+	Minimised  []PackageTests
 }
 
 type PlanSubject struct {
@@ -113,16 +116,16 @@ func PlanFor(subject PlanSubject, coverage RepositoryCoverage) (TestPlan, error)
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	selection, err := coverage.selectionFor(subject.Document.Diff.Files)
+	tests, selectionTrigger, err := coverage.coverageIndex().testsSelectedFor(subject.Evidence)
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, selection: selection})
+	trigger := triggerOf(plannedSelection{diff: subject.Document.Diff, tests: tests, trigger: selectionTrigger})
 	changed, err := changedPathsOf(subject.Document.Diff.Files)
 	if err != nil {
 		return TestPlan{}, fmt.Errorf("plan tests: %w", err)
 	}
-	plan := subject.planned(head, trigger, plannedSuitesOf(trigger, selection)).shapedByMode()
+	plan := subject.planned(head, trigger, plannedTestsOf(trigger, tests)).shapedByMode()
 	plan.ChangedFiles = changed
 	return plan, nil
 }
@@ -161,14 +164,14 @@ func (plan TestPlan) shadowed() TestPlan {
 }
 
 func (plan TestPlan) recordedSets() RecordedSets {
-	recorded := RecordedSets{IsRecorded: true, Selected: plan.Suites}
+	recorded := RecordedSets{IsRecorded: true, Selected: plan.Tests}
 	if plan.Modes.Minimisation == TestModeShadow {
-		recorded.Minimised = minimisedOf(plan.Suites)
+		recorded.Minimised = minimisedOf(plan.Tests)
 	}
 	return recorded
 }
 
-func minimisedOf(selected []CoverageSuite) []CoverageSuite { return slices.Clone(selected) }
+func minimisedOf(selected []PackageTests) []PackageTests { return slices.Clone(selected) }
 
 func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
 	head, err := ParseCommitSHA(subject.Document.PR.HeadSHA)
@@ -178,13 +181,13 @@ func FailedPlanFor(subject PlanSubject) (TestPlan, error) {
 	return subject.planned(head, PlanTriggerPlanFailed, nil), nil
 }
 
-func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites []CoverageSuite) TestPlan {
+func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, tests []PackageTests) TestPlan {
 	return TestPlan{
 		DecisionID:     subject.DecisionID,
 		Repository:     subject.Binding.Repository(),
 		Head:           head,
 		Workflow:       subject.Binding.Workflow(),
-		Suites:         suites,
+		Tests:          tests,
 		AlwaysRun:      subject.Binding.AlwaysRun(),
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
@@ -193,11 +196,11 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 	}
 }
 
-func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []CoverageSuite {
+func plannedTestsOf(trigger PlanTrigger, tests []PackageTests) []PackageTests {
 	if trigger != PlanTriggerNone {
 		return nil
 	}
-	return selection.suites
+	return tests
 }
 
 const MaxPlanCharacters = 60000
@@ -209,15 +212,29 @@ func (plan TestPlan) asShadow(recorded RecordedSets) TestPlan {
 }
 
 func (plan TestPlan) asUnselected() TestPlan {
-	plan.Suites = nil
+	plan.Tests = nil
 	plan.FullMatrix = true
 	return plan
 }
 
+func (plan TestPlan) AsWholePackages() TestPlan {
+	plan.Tests = wholePackagesIn(plan.Tests)
+	plan.Recorded.Selected = wholePackagesIn(plan.Recorded.Selected)
+	plan.Recorded.Minimised = wholePackagesIn(plan.Recorded.Minimised)
+	return plan
+}
+
+func wholePackagesIn(tests []PackageTests) []PackageTests {
+	var whole []PackageTests
+	for _, entry := range tests {
+		whole = append(whole, wholePackageOf(entry.pkg))
+	}
+	return whole
+}
+
 func (plan TestPlan) AsTooLarge() TestPlan {
+	plan = plan.asUnselected()
 	plan.Recorded = RecordedSets{}
-	plan.Suites = nil
-	plan.FullMatrix = true
 	plan.Trigger = PlanTriggerPlanTooLarge
 	return plan
 }

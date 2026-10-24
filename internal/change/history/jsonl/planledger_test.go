@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -23,6 +24,7 @@ const (
 	ledgerSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 	ledgerAlwaysRun   = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	ledgerChangedFile = "internal/change/rules/rules.go"
+	ledgerTest        = "TestRulesClassify"
 )
 
 func TestADispatchedPlanSurvivesARestart(t *testing.T) {
@@ -39,11 +41,10 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 		t.Fatalf("after a restart the dispatched plan is not found: %v", err)
 	}
 	if found.Locator != dispatched.Locator || found.Head != dispatched.Head ||
-		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) ||
+		found.DecisionID != dispatched.DecisionID || !reflect.DeepEqual(found.Tests, dispatched.Tests) ||
 		!slices.Equal(found.AlwaysRun, dispatched.AlwaysRun) || !slices.Equal(found.ChangedFiles, dispatched.ChangedFiles) ||
 		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded || found.Modes != dispatched.Modes ||
-		!slices.Equal(found.Recorded.Selected, dispatched.Recorded.Selected) ||
-		!slices.Equal(found.Recorded.Minimised, dispatched.Recorded.Minimised) {
+		!reflect.DeepEqual(found.Recorded, dispatched.Recorded) {
 		t.Errorf("after a restart the ledger holds %+v, want %+v", found, dispatched)
 	}
 }
@@ -62,6 +63,32 @@ func openedLog(t *testing.T, path string) *jsonl.Log {
 		t.Fatalf("open: %v", err)
 	}
 	return history
+}
+
+func packageOf(t *testing.T, suite domain.CoverageSuite) domain.GoImportPath {
+	t.Helper()
+
+	pkg, err := domain.ParseGoImportPath(suite.String())
+	if err != nil {
+		t.Fatalf("parse import path: %v", err)
+	}
+	return pkg
+}
+
+func wholePackageOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	return []domain.PackageTests{domain.NewPackageTests(packageOf(t, suite), nil)}
+}
+
+func namedEntryOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName(ledgerTest)
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return []domain.PackageTests{domain.NewPackageTests(packageOf(t, suite), []domain.TopLevelTestName{name})}
 }
 
 func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
@@ -92,9 +119,9 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 		t.Fatalf("parse changed file: %v", err)
 	}
 	return domain.DispatchedPlan{
-		Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite},
+		Locator: locator, Head: head, DecisionID: id, Tests: namedEntryOf(t, suite),
 		AlwaysRun:    []domain.GoImportPath{alwaysRun},
-		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: []domain.CoverageSuite{suite}, Minimised: []domain.CoverageSuite{suite}},
+		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: namedEntryOf(t, suite), Minimised: wholePackageOf(t, suite)},
 		ChangedFiles: []domain.RepositoryPath{changed},
 		Modes:        domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
 	}
@@ -172,11 +199,80 @@ func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 	}
 }
 
+func TestALineRecordedBeforeTestLevelPlansReadsEachRecordedSuiteAsItsWholePackage(t *testing.T) {
+	history := openedLog(t, ledgerPath(t))
+	before := dispatchedLineCarrying(`"decisionId":"` + ledgerDecisionID + `","suites":["` + ledgerSuite + `"],"alwaysRun":["` +
+		ledgerAlwaysRun + `"],"recorded":{"selected":["` + ledgerSuite + `"],"minimised":["` + ledgerSuite + `"]},"changedFiles":["` +
+		ledgerChangedFile + `"],"modes":{"selection":"shadow","minimisation":"shadow"}`)
+	if err := history.Append(before); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	dispatched := dispatchedPlanOf(t)
+	ledger := jsonl.NewPlanLedger(history)
+
+	found, err := ledger.DispatchedPlanFor(context.Background(), dispatched.Locator.GovernedRepository(), dispatched.Head)
+	if err != nil {
+		t.Fatalf("a line recorded before test-level plans does not read: %v", err)
+	}
+	runs, err := ledger.ShadowedRuns(context.Background())
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("the shadow history reads %d runs (%v), want the one run", len(runs), err)
+	}
+
+	if !reflect.DeepEqual(found.Tests, wholePackageOf(t, suiteOf(t))) {
+		t.Errorf("the line planned %+v, want each suite as its whole package %+v", found.Tests, wholePackageOf(t, suiteOf(t)))
+	}
+	want := domain.RecordedSets{IsRecorded: true, Selected: wholePackageOf(t, suiteOf(t)), Minimised: wholePackageOf(t, suiteOf(t))}
+	for _, read := range []domain.RecordedSets{found.Recorded, runs[0].Plan.Recorded} {
+		if !reflect.DeepEqual(read, want) {
+			t.Errorf("the line recorded %+v, want each suite as its whole package %+v", read, want)
+		}
+	}
+}
+
+func TestARecordedEntryThatDoesNotParseInEitherShapeIsRefused(t *testing.T) {
+	for form, entry := range map[string]string{
+		"a suite that is no import path":      `"not an import path"`,
+		"a name that is no top-level test":    `{"package":"` + ledgerSuite + `","names":["ExampleRules"]}`,
+		"neither a suite nor a package entry": `7`,
+	} {
+		t.Run(form, func(t *testing.T) {
+			history := openedLog(t, ledgerPath(t))
+			hostile := dispatchedLineCarrying(`"decisionId":"` + ledgerDecisionID + `","recorded":{"selected":[` + entry + `],"minimised":[]}`)
+			if err := history.Append(hostile); err != nil {
+				t.Fatalf("append: %v", err)
+			}
+			dispatched := dispatchedPlanOf(t)
+
+			found, err := jsonl.NewPlanLedger(history).DispatchedPlanFor(
+				context.Background(), dispatched.Locator.GovernedRepository(), dispatched.Head)
+
+			if err == nil {
+				t.Errorf("the ledger read %+v from a hostile entry, want a refusal", found.Recorded)
+			}
+		})
+	}
+}
+
+func dispatchedLineCarrying(fields string) json.RawMessage {
+	return json.RawMessage(`{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
+		ledgerHeadSHA + `",` + fields + `}`)
+}
+
+func suiteOf(t *testing.T) domain.CoverageSuite {
+	t.Helper()
+
+	suite, err := domain.ParseCoverageSuite(ledgerSuite)
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	return suite
+}
+
 func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
 	history := openedLog(t, ledgerPath(t))
-	hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +
-		ledgerHeadSHA + `","decisionId":"dec_not-a-decision","suites":[]}`
-	if err := history.Append(json.RawMessage(hostile)); err != nil {
+	hostile := dispatchedLineCarrying(`"decisionId":"dec_not-a-decision","suites":[]`)
+	if err := history.Append(hostile); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	head, err := domain.ParseCommitSHA(ledgerHeadSHA)
@@ -199,7 +295,7 @@ func TestTheLatestPlanDispatchedForAHeadIsTheOneFound(t *testing.T) {
 	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
 	earlier := dispatchedPlanOf(t)
 	later := earlier
-	later.Suites = nil
+	later.Tests = nil
 	id, err := domain.ParseDecisionID("dec_ffffffffffffffffffffffffffffffff")
 	if err != nil {
 		t.Fatalf("parse decision ID: %v", err)

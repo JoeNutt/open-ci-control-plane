@@ -44,8 +44,8 @@ func TestNamedTestsOfHoldsEachNameOnceInOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if want := []TopLevelTestName{alpha, beta}; !slices.Equal(named.names, want) {
-		t.Fatalf("want %v, got %v", want, named.names)
+	if want := []TopLevelTestName{alpha, beta}; !slices.Equal(named.Names(), want) {
+		t.Fatalf("want %v, got %v", want, named.Names())
 	}
 }
 

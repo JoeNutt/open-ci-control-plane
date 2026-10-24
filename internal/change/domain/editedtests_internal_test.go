@@ -53,6 +53,37 @@ func TestEditedTestsOfAnAddedFileAreEveryTestInIt(t *testing.T) {
 	}
 }
 
+func TestEditedTestsOfATestFileRenamedUnchangedAreEveryTestInIt(t *testing.T) {
+	renamed := changedFileFrom(t, StatedFile{
+		File:         File{Path: "internal/owners/owner_test.go", Action: FileActionRenamed},
+		PreviousPath: "internal/auth/owner_test.go", Patch: "", IsPatchStated: true,
+	})
+	moved := testFunctionFrom(t, "TestAdmitsAnOwner", 1, 9)
+
+	edited := EditedTestsIn(renamed, []TestFunction{moved})
+
+	if !slices.Equal(edited.names, []TopLevelTestName{moved.name}) {
+		t.Fatalf("edited tests are %+v, want %s, which now runs at its new path", edited, moved.name.name)
+	}
+}
+
+func TestEditedTestsSayWhetherTheChangeEditsALineOutsideEveryTest(t *testing.T) {
+	function := testFunctionFrom(t, "TestAdmitsAnOwner", 10, 20)
+	for patch, want := range map[string]bool{
+		"@@ -15,1 +15,1 @@\n-old\n+new": false,
+		"@@ -3,1 +3,1 @@\n-old\n+new":   true,
+	} {
+		changed := changedFileFrom(t, StatedFile{
+			File:  File{Path: "internal/auth/owner_test.go", Action: FileActionModified},
+			Patch: patch, IsPatchStated: true,
+		})
+
+		if edited := EditedTestsIn(changed, []TestFunction{function}); edited.isEditingBeyondTests != want {
+			t.Errorf("%q: edits beyond tests is %v, want %v", patch, edited.isEditingBeyondTests, want)
+		}
+	}
+}
+
 func changedFileFrom(t *testing.T, stated StatedFile) ChangedFile {
 	t.Helper()
 

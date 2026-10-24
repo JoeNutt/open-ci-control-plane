@@ -3,9 +3,11 @@
 package jsonl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -109,16 +111,17 @@ func (ledger *PlanLedger) append(line ledgerLine) error {
 }
 
 type ledgerLine struct {
-	Kind         lineKind      `json:"kind"`
-	Repository   string        `json:"repository"`
-	PullRequest  int           `json:"pullRequest,omitempty"`
-	Head         string        `json:"head"`
-	DecisionID   string        `json:"decisionId,omitempty"`
-	Suites       []string      `json:"suites,omitempty"`
-	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
-	Recorded     *recordedLine `json:"recorded,omitempty"`
-	ChangedFiles []string      `json:"changedFiles,omitempty"`
-	Modes        *modesLine    `json:"modes,omitempty"`
+	Kind                       lineKind           `json:"kind"`
+	Repository                 string             `json:"repository"`
+	PullRequest                int                `json:"pullRequest,omitempty"`
+	Head                       string             `json:"head"`
+	DecisionID                 string             `json:"decisionId,omitempty"`
+	SuitesBeforeTestLevelPlans []string           `json:"suites,omitempty"`
+	Tests                      []packageTestsLine `json:"tests,omitempty"`
+	AlwaysRun                  []string           `json:"alwaysRun,omitempty"`
+	Recorded                   *recordedLine      `json:"recorded,omitempty"`
+	ChangedFiles               []string           `json:"changedFiles,omitempty"`
+	Modes                      *modesLine         `json:"modes,omitempty"`
 }
 
 type modesLine struct {
@@ -127,8 +130,13 @@ type modesLine struct {
 }
 
 type recordedLine struct {
-	Selected  []string `json:"selected"`
-	Minimised []string `json:"minimised"`
+	Selected  []packageTestsLine `json:"selected"`
+	Minimised []packageTestsLine `json:"minimised"`
+}
+
+type packageTestsLine struct {
+	Package string   `json:"package"`
+	Names   []string `json:"names"`
 }
 
 func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
@@ -138,7 +146,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 		PullRequest:  dispatched.Locator.Number(),
 		Head:         dispatched.Head.String(),
 		DecisionID:   dispatched.DecisionID.String(),
-		Suites:       namesOf(dispatched.Suites),
+		Tests:        packageTestsLinesOf(dispatched.Tests),
 		AlwaysRun:    namesOf(dispatched.AlwaysRun),
 		Recorded:     recordedLineOf(dispatched.Recorded),
 		ChangedFiles: namesOf(dispatched.ChangedFiles),
@@ -150,7 +158,7 @@ func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
 	if !recorded.IsRecorded {
 		return nil
 	}
-	return &recordedLine{Selected: namesOf(recorded.Selected), Minimised: namesOf(recorded.Minimised)}
+	return &recordedLine{Selected: packageTestsLinesOf(recorded.Selected), Minimised: packageTestsLinesOf(recorded.Minimised)}
 }
 
 func modesLineOf(modes domain.PlanModes) *modesLine {
@@ -185,7 +193,7 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
-	suites, err := parsedAll(line.Suites, domain.ParseCoverageSuite)
+	tests, err := parsedAll(line.plannedTests(), packageTestsLine.packageTests)
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
@@ -206,24 +214,71 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 		return domain.DispatchedPlan{}, err
 	}
 	return domain.DispatchedPlan{
-		Locator: locator, Head: head, DecisionID: id, Suites: suites,
+		Locator: locator, Head: head, DecisionID: id, Tests: tests,
 		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed, Modes: modes,
 	}, nil
+}
+
+func (line ledgerLine) plannedTests() []packageTestsLine {
+	planned := slices.Clone(line.Tests)
+	for _, suite := range line.SuitesBeforeTestLevelPlans {
+		planned = append(planned, packageTestsLine{Package: suite})
+	}
+	return planned
 }
 
 func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 	if line == nil {
 		return domain.RecordedSets{}, nil
 	}
-	selected, err := parsedAll(line.Selected, domain.ParseCoverageSuite)
+	selected, err := parsedAll(line.Selected, packageTestsLine.packageTests)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
-	minimised, err := parsedAll(line.Minimised, domain.ParseCoverageSuite)
+	minimised, err := parsedAll(line.Minimised, packageTestsLine.packageTests)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func (line *packageTestsLine) UnmarshalJSON(stated []byte) error {
+	if isStatedAsSuite(stated) {
+		line.Names = nil
+		return json.Unmarshal(stated, &line.Package)
+	}
+	type objectLine packageTestsLine
+	var held objectLine
+	if err := json.Unmarshal(stated, &held); err != nil {
+		return err
+	}
+	*line = packageTestsLine(held)
+	return nil
+}
+
+func isStatedAsSuite(stated []byte) bool {
+	trimmed := bytes.TrimSpace(stated)
+	return len(trimmed) > 0 && trimmed[0] == '"'
+}
+
+func (line packageTestsLine) packageTests() (domain.PackageTests, error) {
+	pkg, err := domain.ParseGoImportPath(line.Package)
+	if err != nil {
+		return domain.PackageTests{}, err
+	}
+	names, err := parsedAll(line.Names, domain.ParseTopLevelTestName)
+	if err != nil {
+		return domain.PackageTests{}, err
+	}
+	return domain.NewPackageTests(pkg, names), nil
+}
+
+func packageTestsLinesOf(tests []domain.PackageTests) []packageTestsLine {
+	lines := make([]packageTestsLine, 0, len(tests))
+	for _, entry := range tests {
+		lines = append(lines, packageTestsLine{Package: entry.Package().String(), Names: namesOf(entry.Names())})
+	}
+	return lines
 }
 
 func (line *modesLine) planModes() (domain.PlanModes, error) {
@@ -241,7 +296,7 @@ func (line *modesLine) planModes() (domain.PlanModes, error) {
 	return domain.PlanModes{Selection: selection, Minimisation: minimisation}, nil
 }
 
-func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) ([]Parsed, error) {
+func parsedAll[Stated, Parsed any](stated []Stated, parse func(Stated) (Parsed, error)) ([]Parsed, error) {
 	parsed := make([]Parsed, 0, len(stated))
 	for _, value := range stated {
 		one, err := parse(value)

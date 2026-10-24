@@ -22,6 +22,8 @@ jobs:
       PLAN: ${{ inputs.plan }}
       GH_TOKEN: ${{ github.token }}
       CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
+      GO_IMPORT_PATH: '^[A-Za-z0-9][A-Za-z0-9._~+/-]*$'
+      TOP_LEVEL_TESTS: '^Test[A-Za-z0-9_]*(\|Test[A-Za-z0-9_]*)*$'
     steps:
       - name: Read the plan
         id: plan
@@ -33,10 +35,18 @@ jobs:
           [[ "$decision_id" =~ ^dec_[0-9a-f]{32}$ ]] || { echo "decisionId is not a decision ID" >&2; exit 1; }
           full_matrix="$(jq -er '.fullMatrix | if type == "boolean" then tostring else error("fullMatrix is not a boolean") end' <<<"$PLAN")"
           shadow="$(jq -er '.shadow | if type == "boolean" then tostring else error("shadow is not a boolean") end' <<<"$PLAN")"
-          packages="$(jq -er '(.suites + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
+          packages="$(jq -er '([.tests[] | select(.names | length == 0) | .package] + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
           for package in $packages; do
-            [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ ]] || { echo "a suite is not a Go import path" >&2; exit 1; }
+            [[ "$package" =~ $GO_IMPORT_PATH ]] || { echo "a package is not a Go import path" >&2; exit 1; }
           done
+          named="$RUNNER_TEMP/named-tests.txt"
+          jq -r --arg whole "$packages" '($whole | split(" ")) as $whole
+            | [.tests[] | select(.names | length > 0) | select(.package as $p | $whole | index($p) | not)
+              | "\(.package) \(.names | join("|"))"] | .[]' <<<"$PLAN" >"$named"
+          while read -r package names; do
+            [[ "$package" =~ $GO_IMPORT_PATH ]] || { echo "a package is not a Go import path" >&2; exit 1; }
+            [[ "$names" =~ $TOP_LEVEL_TESTS ]] || { echo "a named test is not a top-level test name" >&2; exit 1; }
+          done <"$named"
           {
             echo "head_sha=$head_sha"
             echo "decision_id=$decision_id"
@@ -95,7 +105,7 @@ jobs:
         if: steps.current.outputs.is_current == 'true'
         uses: ./.open-ci-workflow-actions/.github/actions/install-suite-tools
 
-      - name: Run the planned suites
+      - name: Run the planned tests
         id: tests
         if: steps.current.outputs.is_current == 'true'
         env:
@@ -104,13 +114,21 @@ jobs:
         run: |
           set -euo pipefail
           events="$RUNNER_TEMP/test-events.jsonl"
+          named="$RUNNER_TEMP/named-tests.txt"
           : >"$events"
           if [[ "$FULL_MATRIX" == "true" ]]; then
             go test -json ./... >"$events"
-          elif [[ -n "$PACKAGES" ]]; then
-            read -ra planned <<<"$PACKAGES"
-            go test -json "${planned[@]}" >"$events"
+            exit 0
           fi
+          status=0
+          if [[ -n "$PACKAGES" ]]; then
+            read -ra planned <<<"$PACKAGES"
+            go test -json "${planned[@]}" >>"$events" || status=1
+          fi
+          while read -r package names; do
+            go test -json -run "^($names)\$" "$package" >>"$events" || status=1
+          done <"$named"
+          exit "$status"
 
       - name: Rerun each failed top-level test once, in shadow
         if: always() && steps.current.outputs.is_current == 'true' && steps.plan.outputs.shadow == 'true'
@@ -124,7 +142,7 @@ jobs:
             | sort -u \
             | awk '{names[$1] = (names[$1] == "" ? $2 : names[$1] "|" $2)} END {for (p in names) print p, names[p]}' \
             | while read -r package names; do
-                [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ && "$names" =~ ^[A-Za-z_][A-Za-z0-9_|]*$ ]] || { echo "a failed test is not a Go identifier" >&2; exit 1; }
+                [[ "$package" =~ $GO_IMPORT_PATH && "$names" =~ ^[A-Za-z_][A-Za-z0-9_|]*$ ]] || { echo "a failed test is not a Go identifier" >&2; exit 1; }
                 go test -json -count=1 -run "^($names)\$" "$package" >>"$reruns" || true
               done
 
