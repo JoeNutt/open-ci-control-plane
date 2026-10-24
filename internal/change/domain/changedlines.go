@@ -141,10 +141,7 @@ type patchSide struct {
 }
 
 func (side *patchSide) open(stated hunkRange) {
-	side.line, side.remaining = stated.start, stated.count
-	if stated.count == 0 {
-		side.line++
-	}
+	side.line, side.remaining = stated.firstLine(), stated.count
 }
 
 func (side *patchSide) take(presence sidePresence) error {
@@ -182,6 +179,15 @@ type hunkRange struct {
 	start int
 	count int
 }
+
+func (stated hunkRange) firstLine() int {
+	if stated.isEmpty() {
+		return stated.start + 1
+	}
+	return stated.start
+}
+
+func (stated hunkRange) isEmpty() bool { return stated.count == 0 }
 
 func parseHunkHeader(header string) (hunkHeader, error) {
 	afterOpen, isOpened := strings.CutPrefix(header, hunkBaseRangeOpen)
