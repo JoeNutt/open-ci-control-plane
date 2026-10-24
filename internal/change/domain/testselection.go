@@ -3,23 +3,42 @@
 package domain
 
 func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageTests, PlanTrigger, error) {
+	selected, err := index.testsCoveringChangesTo(evidence.files)
+	if err != nil {
+		return nil, "", err
+	}
+	tests, err := index.packageTestsOf(selected)
+	if err != nil {
+		return nil, "", err
+	}
+	return tests, PlanTriggerNone, nil
+}
+
+func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
 	selected := testSetOf(index.revision, nil)
-	for _, file := range evidence.files {
-		var lines []uint32
-		for _, line := range file.lines.base {
-			lines = append(lines, uint32(line))
-		}
-		covering, err := index.testsCovering(file.base.path, lines)
+	for _, file := range files {
+		covering, err := index.testsCovering(file.base.path, file.lines.baseLineNumbers())
 		if err != nil {
-			return nil, "", err
+			return testSet{}, err
 		}
-		selected, err = selected.union(covering)
-		if err != nil {
-			return nil, "", err
+		if selected, err = selected.union(covering); err != nil {
+			return testSet{}, err
 		}
 	}
-	namesBySuite := map[CoverageSuite][]TopLevelTestName{}
+	return selected, nil
+}
+
+func (lines changedLines) baseLineNumbers() []uint32 {
+	numbers := make([]uint32, 0, len(lines.base))
+	for _, line := range lines.base {
+		numbers = append(numbers, uint32(line))
+	}
+	return numbers
+}
+
+func (index coverageIndex) packageTestsOf(selected testSet) ([]PackageTests, error) {
 	var suites []CoverageSuite
+	namesBySuite := map[CoverageSuite][]TopLevelTestName{}
 	for dense := range selected.members() {
 		test := index.tests[dense]
 		if _, isHeld := namesBySuite[test.suite]; !isHeld {
@@ -27,13 +46,13 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 		}
 		namesBySuite[test.suite] = append(namesBySuite[test.suite], test.name)
 	}
-	var tests []PackageTests
+	tests := make([]PackageTests, 0, len(suites))
 	for _, suite := range suites {
 		named, err := namedTestsOf(suite.importPath, namesBySuite[suite])
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 		tests = append(tests, named)
 	}
-	return tests, PlanTriggerNone, nil
+	return tests, nil
 }
