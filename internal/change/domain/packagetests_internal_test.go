@@ -65,3 +65,5 @@ func TestWholePackageOfRunsTheWholePackage(t *testing.T) {
 		t.Fatal("want the whole package, got named tests")
 	}
 }
+
+func TestLiveProofAddedTest(t *testing.T) {}
