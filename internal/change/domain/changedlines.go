@@ -116,8 +116,8 @@ func (walk *patchWalk) enter(header string) error {
 
 func (walk *patchWalk) closeBlock() {
 	if walk.isInBlock() {
-		walk.base.markUnchangedBlock()
-		walk.head.markUnchangedBlock()
+		walk.base.markNeighboursOfUnchangedBlock()
+		walk.head.markNeighboursOfUnchangedBlock()
 	}
 	walk.base.isChangedInBlock = false
 	walk.head.isChangedInBlock = false
@@ -160,7 +160,7 @@ func (side *patchSide) take(presence sidePresence) error {
 	return nil
 }
 
-func (side *patchSide) markUnchangedBlock() {
+func (side *patchSide) markNeighboursOfUnchangedBlock() {
 	if side.isChangedInBlock {
 		return
 	}
