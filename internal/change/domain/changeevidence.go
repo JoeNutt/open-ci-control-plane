@@ -31,7 +31,7 @@ func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Bind
 }
 
 func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, error) {
-	if len(edited.names) == 0 {
+	if !edited.isEditingAnyTest() {
 		return nil, nil
 	}
 	pkg, err := testPackageOf(edited.path, roots)
@@ -44,3 +44,5 @@ func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, 
 	}
 	return tests, nil
 }
+
+func (edited EditedTests) isEditingAnyTest() bool { return len(edited.names) > 0 }
