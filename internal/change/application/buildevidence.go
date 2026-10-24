@@ -24,25 +24,15 @@ func (read headSources) at(stated statedChange) headReads {
 func (useCase BuildDocument) evidenceUnder(
 	ctx context.Context, built BuiltChange, binding domain.Binding,
 ) (domain.ChangeEvidence, error) {
-	files, edited, err := useCase.evidenceOf(ctx, built.listed, built.reads)
+	files, err := changedFilesOf(built.listed)
 	if err != nil {
-		return domain.ChangeEvidence{}, fmt.Errorf("read the change evidence: %w", err)
+		return domain.ChangeEvidence{}, fmt.Errorf("read the changed files' lines: %w", err)
+	}
+	edited, err := useCase.editedTestsOf(ctx, files, built.reads)
+	if err != nil {
+		return domain.ChangeEvidence{}, fmt.Errorf("read the edited tests: %w", err)
 	}
 	return domain.ParseChangeEvidence(files, edited, binding)
-}
-
-func (useCase BuildDocument) evidenceOf(
-	ctx context.Context, listed []domain.StatedFile, reads headReads,
-) ([]domain.ChangedFile, []domain.EditedTests, error) {
-	files, err := changedFilesOf(listed)
-	if err != nil {
-		return nil, nil, err
-	}
-	edited, err := useCase.editedTestsOf(ctx, files, reads)
-	if err != nil {
-		return nil, nil, err
-	}
-	return files, edited, nil
 }
 
 func changedFilesOf(listed []domain.StatedFile) ([]domain.ChangedFile, error) {
