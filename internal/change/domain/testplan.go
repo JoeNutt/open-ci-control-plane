@@ -80,6 +80,7 @@ type TestPlan struct {
 	Head           CommitSHA
 	Workflow       WorkflowFile
 	Suites         []CoverageSuite
+	Tests          []PackageTests
 	AlwaysRun      []GoImportPath
 	FullMatrix     bool
 	Trigger        PlanTrigger
@@ -184,12 +185,21 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 		Head:           head,
 		Workflow:       subject.Binding.Workflow(),
 		Suites:         suites,
+		Tests:          testsOfSuites(suites),
 		AlwaysRun:      subject.Binding.AlwaysRun(),
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
 		BundleRevision: subject.Revision,
 		Modes:          subject.Binding.modes(),
 	}
+}
+
+func testsOfSuites(suites []CoverageSuite) []PackageTests {
+	var tests []PackageTests
+	for _, suite := range suites {
+		tests = append(tests, wholePackageOf(suite.importPath))
+	}
+	return tests
 }
 
 func plannedSuitesOf(trigger PlanTrigger, selection coverageSelection) []CoverageSuite {

@@ -35,6 +35,17 @@ func TestAChangeToFilesTwoSuitesCoverPlansThoseSuitesAndTheAlwaysRunSet(t *testi
 	}
 }
 
+func TestASelectedPlanRunsEachSelectedSuiteAsAWholePackage(t *testing.T) {
+	plan := planOf(t, plannedChange{
+		files:    []domain.File{modified(ordersFile), modified(paymentsFile)},
+		coverage: coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}),
+	})
+
+	if len(plan.Tests) != 2 || !plan.Tests[0].IsWholePackage() || !plan.Tests[1].IsWholePackage() {
+		t.Errorf("tests are %+v, want the two selected suites as whole packages", plan.Tests)
+	}
+}
+
 func TestEachReasonSelectionCannotVouchForPlansTheFullMatrixNamingIt(t *testing.T) {
 	mapped := coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile})
 	cases := map[string]struct {
