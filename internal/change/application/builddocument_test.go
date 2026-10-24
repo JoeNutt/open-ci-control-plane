@@ -46,16 +46,13 @@ func changeSourceOver(t *testing.T, locator domain.PullRequestLocator, files ...
 
 func TestBuildDocumentParsesEachChangedFileBesideTheDocument(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
-	source := changeSourceOver(t, locator)
 	stated := domain.StatedFile{
 		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: 24},
 		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
 	}
-	recorded := source.Changes[locator]
-	recorded.Stated = []domain.StatedFile{stated}
-	source.Changes[locator] = recorded
 	useCase := application.BuildDocument{
-		Source: source, Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+		Source: changeSourceStating(t, locator, stated),
+		Bases:  recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
 	}
 
 	built, err := useCase.Execute(context.Background(), locator)
@@ -70,6 +67,62 @@ func TestBuildDocumentParsesEachChangedFileBesideTheDocument(t *testing.T) {
 	if !reflect.DeepEqual(built.Files, []domain.ChangedFile{changed}) {
 		t.Fatalf("changed files are %+v, want %+v", built.Files, changed)
 	}
+}
+
+func TestBuildDocumentRecordsAMalformedPatchAsAnEvidenceFailureAndStillBuildsTheDocument(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+			Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	built, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	if !errors.Is(built.EvidenceFailure, domain.ErrMalformedHunk) || built.Files != nil {
+		t.Fatalf("evidence failure is %v with files %+v, want %v and no files",
+			built.EvidenceFailure, built.Files, domain.ErrMalformedHunk)
+	}
+	if len(built.Document.Diff.Files) != 1 {
+		t.Fatalf("the document lists %d files, want 1", len(built.Document.Diff.Files))
+	}
+}
+
+func TestBuildDocumentRefusesAPatchOverItsByteBoundBeforeReadingItsHunks(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	oversized := strings.Repeat("x", domain.DeclaredLimits().MaxPatchBytesPerFile+1)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: len(oversized)},
+			Patch: oversized, IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	built, err := useCase.Execute(context.Background(), locator)
+
+	var over domain.ChangeOverBound
+	if !errors.As(err, &over) || !errors.Is(err, domain.ErrFilePatchTooLarge) {
+		t.Fatalf("error is %v, want an over-bound change naming %v", err, domain.ErrFilePatchTooLarge)
+	}
+	if built.EvidenceFailure != nil || built.Files != nil {
+		t.Fatalf("evidence was read from an over-bound patch: %+v", built)
+	}
+}
+
+func changeSourceStating(t *testing.T, locator domain.PullRequestLocator, stated ...domain.StatedFile) recordedChanges {
+	t.Helper()
+
+	source := changeSourceOver(t, locator)
+	recorded := source.Changes[locator]
+	recorded.Stated = stated
+	source.Changes[locator] = recorded
+	return source
 }
 
 func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
