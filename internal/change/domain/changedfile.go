@@ -28,7 +28,7 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%q: %w", stated.File.Path, err)
 	}
-	previous, err := previousPathOf(stated, path)
+	base, err := basePathOf(stated, path)
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -36,7 +36,7 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return ChangedFile{path: path, action: stated.File.Action, base: previous, lines: lines}, nil
+	return ChangedFile{path: path, action: stated.File.Action, base: base, lines: lines}, nil
 }
 
 func (file ChangedFile) Path() RepositoryPath { return file.path }
@@ -50,13 +50,18 @@ func linesOf(stated StatedFile) (ChangedLines, error) {
 	return ParseChangedLines(stated.Patch)
 }
 
-func previousPathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
+func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
 	if stated.PreviousPath != unstatedPreviousPath {
 		previous, err := ParseRepositoryPath(stated.PreviousPath)
-		return basePath{path: previous, isAtBase: true}, err
+		if err != nil {
+			return basePath{}, err
+		}
+		return atBaseUnder(previous), nil
 	}
 	if stated.File.Action == FileActionRenamed {
 		return basePath{}, ErrRenameWithoutPreviousPath
 	}
-	return basePath{path: path, isAtBase: true}, nil
+	return atBaseUnder(path), nil
 }
+
+func atBaseUnder(path RepositoryPath) basePath { return basePath{path: path, isAtBase: true} }
