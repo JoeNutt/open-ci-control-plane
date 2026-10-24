@@ -115,19 +115,28 @@ func TestCoverageIndexTakesANewRevisionOnEveryRebuildSoSetsOfTwoRebuildsNeverJoi
 	suite := suiteNamed(t, indexedDomainSuite)
 	unchanged, err := before.SuiteCoverageOf(suite)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("read %s: %v", suite, err)
 	}
 	after, err := before.Replacing(suite, unchanged, DeclaredCoverageLimits())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("replace %s with its own coverage: %v", suite, err)
 	}
-	gate := pathNamed(t, indexedGateFile)
-	earlier, _ := before.index.testsReaching(gate)
-	later, _ := after.index.testsReaching(gate)
+	earlier := testsReachingGate(t, before)
+	later := testsReachingGate(t, after)
 
 	if _, err := earlier.union(later); !errors.Is(err, errMixedRevisions) {
 		t.Fatalf("joined sets of two rebuilds (%v), want errMixedRevisions", err)
 	}
+}
+
+func testsReachingGate(t *testing.T, coverage RepositoryCoverage) testSet {
+	t.Helper()
+
+	reaching, err := coverage.index.testsReaching(pathNamed(t, indexedGateFile))
+	if err != nil {
+		t.Fatalf("read the tests reaching %s: %v", indexedGateFile, err)
+	}
+	return reaching
 }
 
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
