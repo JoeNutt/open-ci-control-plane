@@ -3,23 +3,21 @@
 package domain
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
 
 const (
-	selectionModule   = "example.com/app"
-	ordersPackage     = selectionModule + "/orders"
-	ordersSource      = "orders/order.go"
-	placingLine       = 1
-	cancellingLine    = 5
-	oneLineEditAtFive = "@@ -5,1 +5,1 @@\n-old\n+new"
+	selectionModule = "example.com/app"
+	ordersPackage   = selectionModule + "/orders"
+	ordersSource    = "orders/order.go"
+	placingLine     = 1
+	cancellingLine  = 5
 )
 
 func TestSelectionNamesTheTestsCoveringABaseSideChangedLine(t *testing.T) {
-	evidence := evidenceOf(t, StatedFile{
-		File: File{Path: ordersSource, Action: FileActionModified}, Patch: oneLineEditAtFive, IsPatchStated: true,
-	})
+	evidence := evidenceOf(t, modifiedAt(ordersSource, cancellingLine))
 
 	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
 
@@ -34,10 +32,7 @@ func TestSelectionNamesTheTestsCoveringABaseSideChangedLine(t *testing.T) {
 
 func TestSelectionOfAChangedLineInAFileTheIndexHasNeverSeenIsTheFullMatrixNeverAnEmptyRow(t *testing.T) {
 	for _, unseen := range []string{"orders/refund.go", "README.md", ".github/workflows/deploy.yaml"} {
-		evidence := evidenceOf(t,
-			StatedFile{File: File{Path: ordersSource, Action: FileActionModified}, Patch: oneLineEditAtFive, IsPatchStated: true},
-			StatedFile{File: File{Path: unseen, Action: FileActionModified}, Patch: oneLineEditAtFive, IsPatchStated: true},
-		)
+		evidence := evidenceOf(t, modifiedAt(ordersSource, cancellingLine), modifiedAt(unseen, cancellingLine))
 
 		selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
 
@@ -57,6 +52,12 @@ func ordersCoverage(t *testing.T) RepositoryCoverage {
 		},
 	})
 }
+
+func modifiedAt(path string, line int) StatedFile {
+	return StatedFile{File: File{Path: path, Action: FileActionModified}, Patch: oneLineEditAt(line), IsPatchStated: true}
+}
+
+func oneLineEditAt(line int) string { return fmt.Sprintf("@@ -%d,1 +%d,1 @@\n-old\n+new", line, line) }
 
 func evidenceOf(t *testing.T, stated ...StatedFile) ChangeEvidence {
 	t.Helper()

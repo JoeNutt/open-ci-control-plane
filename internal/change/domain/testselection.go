@@ -10,11 +10,11 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 		return nil, PlanTriggerUnmappedFile, nil
 	}
 	if err != nil {
-		return nil, "", err
+		return nil, PlanTriggerPlanFailed, err
 	}
 	tests, err := index.packageTestsOf(selected)
 	if err != nil {
-		return nil, "", err
+		return nil, PlanTriggerPlanFailed, err
 	}
 	return tests, PlanTriggerNone, nil
 }
