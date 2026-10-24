@@ -83,6 +83,24 @@ func TestBuildDocumentRefusesAPatchOverItsByteBoundBeforeReadingItsHunks(t *test
 	}
 }
 
+func TestBuildDocumentBoundsAPatchByItsOwnBytesWhateverTheForgeCountsForIt(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	oversized := strings.Repeat("x", domain.DeclaredLimits().MaxPatchBytesPerFile+1)
+	useCase := application.BuildDocument{
+		Source: changeSourceStating(t, locator, domain.StatedFile{
+			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: 1},
+			Patch: oversized, IsPatchStated: true,
+		}),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	_, err := useCase.Execute(context.Background(), locator)
+
+	if !errors.Is(err, domain.ErrFilePatchTooLarge) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrFilePatchTooLarge)
+	}
+}
+
 const (
 	ownerTestAtBase = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(0)\n}\n"
 	ownerTestAtHead = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(1)\n}\n"

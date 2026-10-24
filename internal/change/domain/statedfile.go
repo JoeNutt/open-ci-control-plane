@@ -8,3 +8,9 @@ type StatedFile struct {
 	Patch         string
 	IsPatchStated bool
 }
+
+func (stated StatedFile) DocumentFile() File {
+	file := stated.File
+	file.PatchBytes = len(stated.Patch)
+	return file
+}

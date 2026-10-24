@@ -61,7 +61,7 @@ func (useCase BuildDocument) Execute(
 func documentFilesOf(listed []domain.StatedFile) []domain.File {
 	files := make([]domain.File, 0, len(listed))
 	for _, stated := range listed {
-		files = append(files, stated.File)
+		files = append(files, stated.DocumentFile())
 	}
 	return files
 }

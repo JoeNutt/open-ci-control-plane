@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -42,9 +43,22 @@ func (source recordedChanges) FilesChanged(
 	}
 	stated := make([]domain.StatedFile, 0, len(change.Files)+len(change.Stated))
 	for _, file := range change.Files {
-		stated = append(stated, domain.StatedFile{File: file})
+		stated = append(stated, statedWithPatchOf(file))
 	}
 	return append(stated, change.Stated...), nil
+}
+
+const onlyContextHunk = "@@ -1,1 +1,1 @@\n "
+
+func statedWithPatchOf(file domain.File) domain.StatedFile {
+	if file.PatchBytes == 0 {
+		return domain.StatedFile{File: file}
+	}
+	patch := strings.Repeat("x", file.PatchBytes)
+	if file.PatchBytes > len(onlyContextHunk) {
+		patch = onlyContextHunk + patch[len(onlyContextHunk):]
+	}
+	return domain.StatedFile{File: file, Patch: patch, IsPatchStated: true}
 }
 
 func (source recordedChanges) changeAt(locator domain.PullRequestLocator) (recordedChange, error) {
