@@ -118,7 +118,7 @@ func editedTestsAtHead(t *testing.T, stated domain.StatedFile, head string) []do
 	if err != nil {
 		t.Fatalf("bound source: %v", err)
 	}
-	functions, err := golang.Extractor{}.TestFunctionsIn(source)
+	functions, err := ownerTestFunctions(t).TestFunctionsIn(source)
 	if err != nil {
 		t.Fatalf("test functions in: %v", err)
 	}

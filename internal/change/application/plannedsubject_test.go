@@ -8,14 +8,13 @@ import (
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestAPassingChangeIsPlannedWithTheTestsItsChangedTestFileEdits(t *testing.T) {
 	locator := gatedLocator(t)
 	stated := ownerTestModified()
 	build := evidenceBuildOver(t, locator,
-		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), golang.Extractor{}, stated)
+		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), importsNothing{}, stated)
 
 	subject := plannedSubjectOf(t, build)
 

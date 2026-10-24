@@ -9,7 +9,6 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *testing.T) {
@@ -36,7 +35,7 @@ func TestAPassingChangeWhoseEvidenceCannotBeReadRunsTheFullMatrixNamingWhy(t *te
 	dispatched := &dispatchedPlans{}
 	published := &publishedCheckRuns{}
 	useCase := passingGateChange(t, published, dispatched)
-	useCase.Build = evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, golang.Extractor{}, domain.StatedFile{
+	useCase.Build = evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, importsNothing{}, domain.StatedFile{
 		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
 		Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
 	})
@@ -65,7 +64,7 @@ func TestATestFileEditedOutsideAnyTestPlansNormallyUnderABindingWithNoImportRoot
 	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
 	useCase.Bindings = bindingWithNoImportRoots{}
 	useCase.Build = evidenceBuildOver(t, locator,
-		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), golang.Extractor{}, stated)
+		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), importsNothing{}, stated)
 
 	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
 

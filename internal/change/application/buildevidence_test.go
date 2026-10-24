@@ -5,12 +5,13 @@ package application_test
 import (
 	"context"
 	"errors"
+	"io"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
-	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestAPassingChangeIsPlannedWithEachChangedFilesLines(t *testing.T) {
@@ -18,7 +19,7 @@ func TestAPassingChangeIsPlannedWithEachChangedFilesLines(t *testing.T) {
 		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
 		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
 	}
-	build := evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, golang.Extractor{}, stated)
+	build := evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, importsNothing{}, stated)
 
 	subject := plannedSubjectOf(t, build)
 
@@ -32,7 +33,7 @@ func TestAChangedTestFileIsReadAtHeadOnceForItsImportsAndItsTests(t *testing.T) 
 	stated := ownerTestModified()
 	contents := &countedFiles{recorded: recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead)}
 
-	plannedSubjectOf(t, evidenceBuildOver(t, locator, contents, golang.Extractor{}, stated))
+	plannedSubjectOf(t, evidenceBuildOver(t, locator, contents, importsNothing{}, stated))
 
 	if contents.asked != 2 {
 		t.Fatalf("the forge was asked for %d file contents, want one at base and one at head", contents.asked)
@@ -44,7 +45,7 @@ func TestATestFileTheChangeRemovesIsPlannedWithNoEditedTests(t *testing.T) {
 	stated := domain.StatedFile{File: domain.File{Path: "internal/auth/owner_test.go", Action: domain.FileActionRemoved}}
 	contents := recordedAt(t, locator, recordedBaseSHA, stated.File.Path, ownerTestAtBase)
 
-	subject := plannedSubjectOf(t, evidenceBuildOver(t, locator, contents, golang.Extractor{}, stated))
+	subject := plannedSubjectOf(t, evidenceBuildOver(t, locator, contents, importsNothing{}, stated))
 
 	if want := evidenceOf(t, nil, stated); !reflect.DeepEqual(subject.Evidence, want) {
 		t.Fatalf("planned with evidence %+v, want %+v", subject.Evidence, want)
@@ -58,11 +59,11 @@ func TestATestFileWhoseBodyDoesNotParseRunsTheFullMatrixNamingWhy(t *testing.T) 
 	dispatched := &dispatchedPlans{}
 	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
 	useCase.Build = evidenceBuildOver(t, locator,
-		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, broken), golang.Extractor{}, stated)
+		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, broken), importsNothing{}, stated)
 
 	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
 
-	if !errors.Is(err, golang.ErrUnparsableSource) {
+	if !errors.Is(err, errUnparsableTestSource) {
 		t.Errorf("the parse failure was not returned for the log: %v", err)
 	}
 	plans := dispatched.Dispatched()
@@ -139,7 +140,7 @@ func evidenceBuildOver(
 		Bases:     recordedBases(t),
 		Contents:  contents,
 		Extractor: imports,
-		Tests:     golang.Extractor{},
+		Tests:     ownerTestFunctions(t),
 		Limits:    domain.DeclaredLimits(),
 	}
 }
@@ -153,6 +154,49 @@ func (contents *countedFiles) ContentsAt(ctx context.Context, file domain.FileAt
 	contents.asked++
 	return contents.recorded.ContentsAt(ctx, file)
 }
+
+const (
+	testFileSuffix     = "_test.go"
+	ownerTestName      = "TestAdmitsAnOwner"
+	ownerTestFirstLine = 5
+	ownerTestLastLine  = 7
+)
+
+var errUnparsableTestSource = errors.New("the test source does not parse")
+
+type testFunctionsBySource map[string][]domain.TestFunction
+
+func ownerTestFunctions(t *testing.T) testFunctionsBySource {
+	t.Helper()
+
+	owner, err := domain.ParseTestFunction(ownerTestName, ownerTestFirstLine, ownerTestLastLine)
+	if err != nil {
+		t.Fatalf("parse test function: %v", err)
+	}
+	return testFunctionsBySource{ownerTestAtBase: {owner}, ownerTestAtHead: {owner}}
+}
+
+func (testFunctionsBySource) DeclaresTests(path string) bool {
+	return strings.HasSuffix(path, testFileSuffix)
+}
+
+func (functions testFunctionsBySource) TestFunctionsIn(source domain.BoundedSource) ([]domain.TestFunction, error) {
+	contents, err := io.ReadAll(source.Reader())
+	if err != nil {
+		return nil, err
+	}
+	declared, isStated := functions[string(contents)]
+	if !isStated {
+		return nil, errUnparsableTestSource
+	}
+	return declared, nil
+}
+
+type importsNothing struct{}
+
+func (importsNothing) Claims(path string) bool { return strings.HasSuffix(path, testFileSuffix) }
+
+func (importsNothing) ImportsIn(domain.BoundedSource) ([]domain.GoImportPath, error) { return nil, nil }
 
 type claimsNothing struct{}
 
