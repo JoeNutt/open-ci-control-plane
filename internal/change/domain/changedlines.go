@@ -5,6 +5,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -36,6 +37,10 @@ type ChangedLines struct {
 }
 
 func UnknownChangedLines() ChangedLines { return ChangedLines{} }
+
+func (lines ChangedLines) mayTouchHead(span lineSpan) bool {
+	return !lines.isKnown || slices.ContainsFunc(lines.head, span.holds)
+}
 
 func ParseChangedLines(patch string) (ChangedLines, error) {
 	var walk patchWalk
