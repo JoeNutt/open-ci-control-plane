@@ -13,7 +13,7 @@ type EditedTests struct {
 func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
 	var names []TopLevelTestName
 	for _, function := range functions {
-		if file.lines.mayTouchHead(function.lines) {
+		if file.base.path != file.path || file.lines.mayTouchHead(function.lines) {
 			names = append(names, function.name)
 		}
 	}
