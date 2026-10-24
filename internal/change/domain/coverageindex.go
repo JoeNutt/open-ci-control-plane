@@ -76,7 +76,7 @@ func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTes
 func suiteThenNameOrder(one, other coveredTest) int {
 	return cmp.Or(
 		strings.Compare(one.suite.String(), other.suite.String()),
-		strings.Compare(one.name.name, other.name.name),
+		one.name.compare(other.name),
 	)
 }
 
