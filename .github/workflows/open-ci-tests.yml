@@ -142,7 +142,7 @@ jobs:
             | sort -u \
             | awk '{names[$1] = (names[$1] == "" ? $2 : names[$1] "|" $2)} END {for (p in names) print p, names[p]}' \
             | while read -r package names; do
-                [[ "$package" =~ $GO_IMPORT_PATH && "$names" =~ $TOP_LEVEL_TESTS ]] || { echo "a failed test is not a top-level test name" >&2; exit 1; }
+                [[ "$package" =~ $GO_IMPORT_PATH && "$names" =~ ^[A-Za-z_][A-Za-z0-9_|]*$ ]] || { echo "a failed test is not a Go identifier" >&2; exit 1; }
                 go test -json -count=1 -run "^($names)\$" "$package" >>"$reruns" || true
               done
 
