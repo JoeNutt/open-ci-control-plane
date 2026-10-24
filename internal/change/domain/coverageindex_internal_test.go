@@ -129,6 +129,22 @@ func TestCoverageIndexTakesANewRevisionOnEveryRebuildSoSetsOfTwoRebuildsNeverJoi
 	}
 }
 
+func TestCoverageIndexIsOneRevisionForEveryReadOfOneValueAndItsCopies(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+	copied := coverage
+
+	first := testsReachingGate(t, coverage)
+	again := testsReachingGate(t, coverage)
+	fromCopy := testsReachingGate(t, copied)
+
+	if _, err := first.union(again); err != nil {
+		t.Fatalf("two reads of one value joined with %v, want one revision", err)
+	}
+	if _, err := first.union(fromCopy); err != nil {
+		t.Fatalf("a read of a copy joined with %v, want one revision", err)
+	}
+}
+
 func testsReachingGate(t *testing.T, coverage RepositoryCoverage) testSet {
 	t.Helper()
 
