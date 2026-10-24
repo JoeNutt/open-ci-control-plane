@@ -57,4 +57,13 @@ func (tally *testTally) count(edited EditedTests) error {
 	return nil
 }
 
+func (evidence ChangeEvidence) holdsATestFileOfUnknownPackage() bool {
+	return len(evidence.testFilesOfUnknownPackage) > 0
+}
+
+func (evidence ChangeEvidence) filesBesideTests() []ChangedFile {
+	isTestFile := func(file ChangedFile) bool { return slices.Contains(evidence.testFiles, file.path) }
+	return slices.DeleteFunc(slices.Clone(evidence.files), isTestFile)
+}
+
 func (edited EditedTests) isEditingAnyTest() bool { return len(edited.names) > 0 }

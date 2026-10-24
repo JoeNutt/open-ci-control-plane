@@ -2,42 +2,41 @@
 
 package domain
 
-import (
-	"errors"
-	"slices"
-)
+import "errors"
 
 func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageTests, PlanTrigger, error) {
 	if !index.holdsAnyTest() {
 		return nil, PlanTriggerNoMap, nil
 	}
-	if len(evidence.testFilesOfUnknownPackage) > 0 {
+	if evidence.holdsATestFileOfUnknownPackage() {
 		return nil, PlanTriggerUnmappedFile, nil
 	}
-	selected, err := index.testsCoveringChangesTo(evidence.files, evidence.testFiles)
+	tests, err := index.testsSelectedBy(evidence)
 	if errors.Is(err, errUnindexedFile) {
 		return nil, PlanTriggerUnmappedFile, nil
 	}
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
-	placed := index.placementOf(evidence.tests)
-	if selected, err = selected.union(placed.indexed); err != nil {
-		return nil, PlanTriggerPlanFailed, err
-	}
-	tests, err := index.packageTestsOf(selected, placed.unindexed)
-	if err != nil {
-		return nil, PlanTriggerPlanFailed, err
-	}
 	return tests, PlanTriggerNone, nil
 }
 
-func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile, testFiles []RepositoryPath) (testSet, error) {
+func (index coverageIndex) testsSelectedBy(evidence ChangeEvidence) ([]PackageTests, error) {
+	covering, err := index.testsCoveringChangesTo(evidence.filesBesideTests())
+	if err != nil {
+		return nil, err
+	}
+	placed := index.placementOf(evidence.tests)
+	selected, err := covering.union(placed.indexed)
+	if err != nil {
+		return nil, err
+	}
+	return index.packageTestsOf(selected, placed.unindexed)
+}
+
+func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
 	selected := testSetOf(index.revision, nil)
 	for _, file := range files {
-		if slices.Contains(testFiles, file.path) {
-			continue
-		}
 		covering, err := index.testsTouchedBy(file)
 		if err != nil {
 			return testSet{}, err
