@@ -6,7 +6,6 @@ import (
 	"errors"
 	"maps"
 	"slices"
-	"strings"
 )
 
 var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
@@ -69,7 +68,7 @@ func (repositoryCoverage RepositoryCoverage) selectionFor(files []File) (coverag
 		selection.isEveryFileMapped = selection.isEveryFileMapped && len(covering) > 0
 		selection.suites = append(selection.suites, covering...)
 	}
-	slices.SortFunc(selection.suites, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
+	slices.SortFunc(selection.suites, CoverageSuite.compare)
 	selection.suites = slices.Compact(selection.suites)
 	return selection, nil
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 )
 
 var (
@@ -56,7 +55,7 @@ func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []suiteTest 
 
 func suiteThenNameOrder(one, other suiteTest) int {
 	return cmp.Or(
-		strings.Compare(one.suite.String(), other.suite.String()),
+		one.suite.compare(other.suite),
 		one.test.name.compare(other.test.name),
 	)
 }
