@@ -10,7 +10,7 @@ func TestTestFunctionHoldsItsNameAndTheLinesItSpans(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse test function: %v", err)
 	}
-	if function.name.name != "TestAdmitsAnOwner" || function.firstLine != 12 || function.lastLine != 30 {
+	if function.name.name != "TestAdmitsAnOwner" || function.lines != (lineSpan{first: 12, last: 30}) {
 		t.Fatalf("function is %+v, want TestAdmitsAnOwner over lines 12 to 30", function)
 	}
 }
