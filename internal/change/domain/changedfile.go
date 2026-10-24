@@ -48,21 +48,25 @@ func linesOf(stated StatedFile) (ChangedLines, error) {
 }
 
 func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
-	if stated.PreviousPath != unstatedPreviousPath && stated.File.Action != FileActionRenamed {
-		return basePath{}, ErrPreviousPathOfNoRename
+	if stated.File.Action == FileActionRenamed {
+		return previousPathOf(stated)
 	}
 	if stated.PreviousPath != unstatedPreviousPath {
-		previous, err := ParseRepositoryPath(stated.PreviousPath)
-		if err != nil {
-			return basePath{}, err
-		}
-		return atBaseUnder(previous), nil
-	}
-	if stated.File.Action == FileActionRenamed {
-		return basePath{}, ErrRenameWithoutPreviousPath
+		return basePath{}, ErrPreviousPathOfNoRename
 	}
 	if !stated.File.Action.ExistsAtBase() {
 		return absentAtBase(), nil
 	}
 	return atBaseUnder(path), nil
+}
+
+func previousPathOf(renamed StatedFile) (basePath, error) {
+	if renamed.PreviousPath == unstatedPreviousPath {
+		return basePath{}, ErrRenameWithoutPreviousPath
+	}
+	previous, err := ParseRepositoryPath(renamed.PreviousPath)
+	if err != nil {
+		return basePath{}, err
+	}
+	return atBaseUnder(previous), nil
 }
