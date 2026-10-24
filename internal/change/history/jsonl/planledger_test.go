@@ -65,14 +65,20 @@ func openedLog(t *testing.T, path string) *jsonl.Log {
 	return history
 }
 
-func wholePackageOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+func packageOf(t *testing.T, suite domain.CoverageSuite) domain.GoImportPath {
 	t.Helper()
 
 	pkg, err := domain.ParseGoImportPath(suite.String())
 	if err != nil {
 		t.Fatalf("parse import path: %v", err)
 	}
-	return []domain.PackageTests{domain.NewPackageTests(pkg, nil)}
+	return pkg
+}
+
+func wholePackageOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	return []domain.PackageTests{domain.NewPackageTests(packageOf(t, suite), nil)}
 }
 
 func namedEntryOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
@@ -82,7 +88,7 @@ func namedEntryOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTest
 	if err != nil {
 		t.Fatalf("parse test name: %v", err)
 	}
-	return []domain.PackageTests{domain.NewPackageTests(wholePackageOf(t, suite)[0].Package(), []domain.TopLevelTestName{name})}
+	return []domain.PackageTests{domain.NewPackageTests(packageOf(t, suite), []domain.TopLevelTestName{name})}
 }
 
 func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
