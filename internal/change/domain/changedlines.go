@@ -123,10 +123,14 @@ func (walk *patchWalk) enter(header string) error {
 	if err != nil {
 		return err
 	}
-	walk.base.line, walk.base.remaining = hunk.base.start, hunk.base.count
-	walk.head.line, walk.head.remaining = hunk.head.start, hunk.head.count
+	walk.base.open(hunk.base)
+	walk.head.open(hunk.head)
 	walk.hasHunk = true
 	return nil
+}
+
+func (side *patchSide) open(stated hunkRange) {
+	side.line, side.remaining = stated.start, stated.count
 }
 
 func (walk patchWalk) changedLines() ChangedLines {
