@@ -14,14 +14,15 @@ import (
 )
 
 const (
-	effectPath  = "internal/change/domain/effect.go"
-	gatePath    = "internal/change/domain/gate.go"
-	runnerPath  = "/home/runner/work/effect.go"
-	lineHit     = "DA:7,3"
-	lineMissed  = "DA:7,0"
-	recordClose = "end_of_record"
-	effectTest  = "TestEffect"
-	gateTest    = "TestGate"
+	effectPath    = "internal/change/domain/effect.go"
+	gatePath      = "internal/change/domain/gate.go"
+	runnerPath    = "/home/runner/work/effect.go"
+	lineHitNumber = 7
+	lineHit       = "DA:7,3"
+	lineMissed    = "DA:7,0"
+	recordClose   = "end_of_record"
+	effectTest    = "TestEffect"
+	gateTest      = "TestGate"
 )
 
 func TestReportedFilesReadsAnExercisedRecord(t *testing.T) {
@@ -214,8 +215,7 @@ func refusalOf(t *testing.T, artifact string) error {
 }
 
 func reportedFilesIn(artifact string) ([]domain.ReportedFile, error) {
-	var report domain.CoverageReport = artifactOf(artifact)
-	return report.ReportedFiles(domain.DeclaredCoverageLimits())
+	return artifactOf(artifact).ReportedFiles(domain.DeclaredCoverageLimits())
 }
 
 func artifactOf(text string) lcov.Artifact {

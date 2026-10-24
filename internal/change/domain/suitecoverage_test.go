@@ -31,9 +31,11 @@ func TestParseSuiteCoverageCoversOnlyExercisedFiles(t *testing.T) {
 func TestParseSuiteCoverageRefusesAPathTheRepositoryDoesNotHold(t *testing.T) {
 	held := mustParseRepositoryPath(t, heldFile)
 	absent := mustParseRepositoryPath(t, absentFile)
-	reported := []domain.ReportedFile{
-		domain.NewReportedFile(held, true),
-		domain.NewReportedFile(absent, true),
+	reported := []domain.ReportedTest{
+		domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{
+			domain.NewTestedFile(held, []uint32{1}),
+			domain.NewTestedFile(absent, []uint32{1}),
+		}),
 	}
 
 	_, err := domain.ParseSuiteCoverage(reported, domain.NewKnownPaths([]domain.RepositoryPath{held}))
@@ -55,9 +57,11 @@ func twoFileSuiteOf(t *testing.T) twoFileSuite {
 
 	exercised := mustParseRepositoryPath(t, heldFile)
 	unexercised := mustParseRepositoryPath(t, otherHeldFile)
-	reported := []domain.ReportedFile{
-		domain.NewReportedFile(exercised, true),
-		domain.NewReportedFile(unexercised, false),
+	reported := []domain.ReportedTest{
+		domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{
+			domain.NewTestedFile(exercised, []uint32{1}),
+			domain.NewTestedFile(unexercised, nil),
+		}),
 	}
 	known := domain.NewKnownPaths([]domain.RepositoryPath{exercised, unexercised})
 
@@ -68,7 +72,7 @@ func twoFileSuiteOf(t *testing.T) twoFileSuite {
 	return twoFileSuite{
 		exercised:     exercised,
 		unexercised:   unexercised,
-		reportedCount: len(reported),
+		reportedCount: 2,
 		coverage:      coverage,
 	}
 }

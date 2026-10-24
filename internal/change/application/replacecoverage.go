@@ -69,7 +69,7 @@ func callerIsRepository(
 }
 
 func (useCase ReplaceCoverage) coverageIn(ctx context.Context, upload CoverageUpload) (domain.SuiteCoverage, error) {
-	reported, err := upload.Report.ReportedFiles(domain.DeclaredCoverageLimits())
+	reported, err := upload.Report.ReportedTests(domain.DeclaredCoverageLimits())
 	if err != nil {
 		return domain.SuiteCoverage{}, fmt.Errorf("read the artifact: %w", err)
 	}
