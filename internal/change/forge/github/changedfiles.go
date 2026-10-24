@@ -41,26 +41,38 @@ type changedFile struct {
 func filesOf(listed []changedFile) ([]domain.StatedFile, error) {
 	files := make([]domain.StatedFile, 0, len(listed))
 	for _, listing := range listed {
-		action, err := domain.ParseFileAction(listing.Status)
+		stated, err := statedFileOf(listing)
 		if err != nil {
 			return nil, fmt.Errorf("%q: %w", listing.Filename, err)
 		}
-		patch := ""
-		if listing.Patch != nil {
-			patch = *listing.Patch
-		}
-		files = append(files, domain.StatedFile{
-			File: domain.File{
-				Path:       listing.Filename,
-				Action:     action,
-				Additions:  listing.Additions,
-				Deletions:  listing.Deletions,
-				PatchBytes: len(patch),
-			},
-			PreviousPath:  listing.PreviousFilename,
-			Patch:         patch,
-			IsPatchStated: listing.Patch != nil,
-		})
+		files = append(files, stated)
 	}
 	return files, nil
+}
+
+func statedFileOf(listing changedFile) (domain.StatedFile, error) {
+	action, err := domain.ParseFileAction(listing.Status)
+	if err != nil {
+		return domain.StatedFile{}, err
+	}
+	patch, isPatchStated := listing.statedPatch()
+	return domain.StatedFile{
+		File: domain.File{
+			Path:       listing.Filename,
+			Action:     action,
+			Additions:  listing.Additions,
+			Deletions:  listing.Deletions,
+			PatchBytes: len(patch),
+		},
+		PreviousPath:  listing.PreviousFilename,
+		Patch:         patch,
+		IsPatchStated: isPatchStated,
+	}, nil
+}
+
+func (listing changedFile) statedPatch() (string, bool) {
+	if listing.Patch == nil {
+		return "", false
+	}
+	return *listing.Patch, true
 }

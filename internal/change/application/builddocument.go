@@ -29,10 +29,7 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("read changed files of %s: %w", locator, err)
 	}
-	files := make([]domain.File, 0, len(listed))
-	for _, statedFile := range listed {
-		files = append(files, statedFile.File)
-	}
+	files := documentFilesOf(listed)
 	bounded, err := domain.ParseBoundedFiles(files, useCase.Limits)
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, overBoundAt(reported.Tips, err))
@@ -52,6 +49,14 @@ func (useCase BuildDocument) Execute(
 		return domain.Document{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
 	return document, nil
+}
+
+func documentFilesOf(listed []domain.StatedFile) []domain.File {
+	files := make([]domain.File, 0, len(listed))
+	for _, stated := range listed {
+		files = append(files, stated.File)
+	}
+	return files
 }
 
 func (useCase BuildDocument) boundedDocumentOf(
