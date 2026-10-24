@@ -3,6 +3,7 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -29,5 +30,17 @@ func TestParseTopLevelTestNameFollowsTheGoToolsRuleForATestName(t *testing.T) {
 				t.Fatalf("%q parsed with %v, want a test name %v", name, err, isTest)
 			}
 		})
+	}
+}
+
+func TestNoRefusalOfATestNameOrItsFunctionQuotesTheNameStated(t *testing.T) {
+	const quotedFromTheSource = "hunter2ApiKey"
+	_, nameErr := domain.ParseTopLevelTestName("Test-" + quotedFromTheSource)
+	_, spanErr := domain.ParseTestFunction("Test"+strings.ToUpper(quotedFromTheSource), 9, 8)
+
+	for _, err := range []error{nameErr, spanErr} {
+		if err == nil || strings.Contains(strings.ToLower(err.Error()), strings.ToLower(quotedFromTheSource)) {
+			t.Errorf("the refusal %v is missing or quotes the stated name", err)
+		}
 	}
 }

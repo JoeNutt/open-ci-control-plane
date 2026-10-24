@@ -21,7 +21,7 @@ func ParseTestFunction(name string, firstLine, lastLine int) (TestFunction, erro
 	}
 	lines, err := parseLineSpan(firstLine, lastLine)
 	if err != nil {
-		return TestFunction{}, fmt.Errorf("test function %s: %w", name, err)
+		return TestFunction{}, fmt.Errorf("test function: %w", err)
 	}
 	return TestFunction{name: parsed, lines: lines}, nil
 }

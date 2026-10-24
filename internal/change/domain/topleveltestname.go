@@ -21,7 +21,7 @@ type TopLevelTestName struct{ name string }
 
 func ParseTopLevelTestName(stated string) (TopLevelTestName, error) {
 	if !isIdentifierInAnyScript(stated) || !isTopLevelTestName(stated) {
-		return TopLevelTestName{}, fmt.Errorf("%w: %q", errNotATopLevelTest, stated)
+		return TopLevelTestName{}, fmt.Errorf("%w: %d bytes", errNotATopLevelTest, len(stated))
 	}
 	return TopLevelTestName{name: stated}, nil
 }
