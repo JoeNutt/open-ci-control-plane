@@ -20,6 +20,7 @@ const (
 	hunkNumberBase       = 10
 	hunkNumberBits       = 31
 	patchLineBreak       = "\n"
+	emptyPatch           = ""
 	removedLineMark      = '-'
 	addedLineMark        = '+'
 	contextLineMark      = ' '
@@ -39,13 +40,17 @@ type changedLines struct {
 
 func unknownChangedLines() changedLines { return changedLines{} }
 
+func knownLines(base, head []int) changedLines {
+	return changedLines{isKnown: true, base: base, head: head}
+}
+
 func (lines changedLines) mayTouchHead(span lineSpan) bool {
 	return !lines.isKnown || slices.ContainsFunc(lines.head, span.holds)
 }
 
 func parseChangedLines(patch string) (changedLines, error) {
-	if patch == "" {
-		return changedLines{isKnown: true}, nil
+	if patch == emptyPatch {
+		return knownLines(nil, nil), nil
 	}
 	var walk patchWalk
 	lines := strings.Split(patch, patchLineBreak)
@@ -145,7 +150,7 @@ func (walk patchWalk) isInBlock() bool {
 func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
 
 func (walk patchWalk) changedLines() changedLines {
-	return changedLines{isKnown: true, base: walk.base.changed, head: walk.head.changed}
+	return knownLines(walk.base.changed, walk.head.changed)
 }
 
 type patchSide struct {
