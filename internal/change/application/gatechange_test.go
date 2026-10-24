@@ -470,6 +470,7 @@ func buildOverRecorded(
 		Contents: recordedAtBothEnds(t, locator, file.Path,
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 }

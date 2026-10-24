@@ -74,6 +74,7 @@ func (evaluation installationEvaluation) evaluated(
 			Bases:     forge.source,
 			Contents:  forge.contents,
 			Extractor: golang.Extractor{},
+			Tests:     golang.Extractor{},
 			Limits:    domain.DeclaredLimits(),
 			Rules:     evaluation.evaluating.rules,
 		},

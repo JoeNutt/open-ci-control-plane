@@ -52,7 +52,7 @@ func TestBuildDocumentParsesEachChangedFileBesideTheDocument(t *testing.T) {
 	}
 	useCase := application.BuildDocument{
 		Source: changeSourceStating(t, locator, stated),
-		Bases:  recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+		Bases:  recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
 	}
 
 	built, err := useCase.Execute(context.Background(), locator)
@@ -76,7 +76,7 @@ func TestBuildDocumentRecordsAMalformedPatchAsAnEvidenceFailureAndStillBuildsThe
 			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
 			Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
 		}),
-		Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
 	}
 
 	built, err := useCase.Execute(context.Background(), locator)
@@ -101,7 +101,7 @@ func TestBuildDocumentRefusesAPatchOverItsByteBoundBeforeReadingItsHunks(t *test
 			File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: len(oversized)},
 			Patch: oversized, IsPatchStated: true,
 		}),
-		Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+		Bases: recordedBases(t), Extractor: golang.Extractor{}, Tests: golang.Extractor{}, Limits: domain.DeclaredLimits(),
 	}
 
 	built, err := useCase.Execute(context.Background(), locator)
@@ -113,6 +113,55 @@ func TestBuildDocumentRefusesAPatchOverItsByteBoundBeforeReadingItsHunks(t *test
 	if built.EvidenceFailure != nil || built.Files != nil {
 		t.Fatalf("evidence was read from an over-bound patch: %+v", built)
 	}
+}
+
+const (
+	ownerTestAtBase = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(0)\n}\n"
+	ownerTestAtHead = "package auth\n\nimport \"testing\"\n\nfunc TestAdmitsAnOwner(t *testing.T) {\n\tt.Log(1)\n}\n"
+	ownerTestPatch  = "@@ -5,3 +5,3 @@\n func TestAdmitsAnOwner(t *testing.T) {\n-\tt.Log(0)\n+\tt.Log(1)\n }"
+)
+
+func TestBuildDocumentNamesTheTestsAChangedTestFileEditsAtHead(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	stated := domain.StatedFile{
+		File:  domain.File{Path: "internal/auth/owner_test.go", Action: domain.FileActionModified},
+		Patch: ownerTestPatch, IsPatchStated: true,
+	}
+	useCase := application.BuildDocument{
+		Source:    changeSourceStating(t, locator, stated),
+		Bases:     recordedBases(t),
+		Contents:  recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead),
+		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
+		Limits:    domain.DeclaredLimits(),
+	}
+
+	built, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil || built.EvidenceFailure != nil {
+		t.Fatalf("build document: %v, evidence: %v", err, built.EvidenceFailure)
+	}
+	if want := editedTestsAtHead(t, stated, ownerTestAtHead); !reflect.DeepEqual(built.Edited, want) {
+		t.Fatalf("edited tests are %+v, want %+v", built.Edited, want)
+	}
+}
+
+func editedTestsAtHead(t *testing.T, stated domain.StatedFile, head string) []domain.EditedTests {
+	t.Helper()
+
+	changed, err := domain.ParseChangedFile(stated)
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	source, err := domain.ParseBoundedSource([]byte(head), domain.DeclaredLimits())
+	if err != nil {
+		t.Fatalf("bound source: %v", err)
+	}
+	functions, err := golang.Extractor{}.TestFunctionsIn(source)
+	if err != nil {
+		t.Fatalf("test functions in: %v", err)
+	}
+	return []domain.EditedTests{domain.EditedTestsIn(changed, functions)}
 }
 
 func changeSourceStating(t *testing.T, locator domain.PullRequestLocator, stated ...domain.StatedFile) recordedChanges {
@@ -140,6 +189,7 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -167,6 +217,7 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package auth\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/session\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -195,6 +246,7 @@ func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			"package domain\n\nimport (\n\t\"context\"\n\n\t\"github.com/acme/payments/internal/forge\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -225,6 +277,7 @@ func TestBuildDocumentRefusesAFetchedFileOverTheSourceBoundWithoutQuotingIt(t *t
 		Bases:     recordedBases(t),
 		Contents:  recordedAtBothEnds(t, locator, file.Path, sourceImportingContext, oversized),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -247,6 +300,7 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 		),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -269,6 +323,7 @@ func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) 
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -293,6 +348,7 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedBaseSHA, file.Path, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -323,6 +379,7 @@ func TestBuildDocumentRefusesAChangeOverItsEdgeBoundWhole(t *testing.T) {
 		Contents: recordedAt(t, locator, recordedHeadSHA, file.Path,
 			"package auth\n\nimport (\n\t\"context\"\n\t\"errors\"\n)\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    limits,
 	}
 
@@ -342,6 +399,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 		Contents: recordedAtBothEnds(t, locator, file.Path, sourceImportingContext,
 			sourceThatDoesNotParse),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -364,6 +422,7 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFilePathIsOutsideTheReposito
 		Bases:     recordedBases(t),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -382,6 +441,7 @@ func TestBuildDocumentNamesTheCommitOfAFileItCannotReadOnce(t *testing.T) {
 		Bases:     recordedBases(t),
 		Contents:  recordedFiles{},
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
@@ -403,6 +463,7 @@ func TestBuildDocumentAdmitsAGoFileImportingAPathWithAPlusAndPublishesItsEdges(t
 		Bases:     recordedBases(t),
 		Contents:  recordedAt(t, locator, recordedHeadSHA, file.Path, "package auth\n\nimport \"example.com/c++\"\n"),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
