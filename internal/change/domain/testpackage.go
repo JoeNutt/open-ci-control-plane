@@ -21,11 +21,17 @@ func testPackageOf(file RepositoryPath, roots []ImportRoot) (GoImportPath, error
 	if len(holding) == 0 {
 		return GoImportPath{}, errNoImportRootHoldsTheTest
 	}
-	deepest := slices.MaxFunc(holding, func(one, other ImportRoot) int { return cmp.Compare(one.depth(), other.depth()) })
-	for _, root := range holding {
-		if root.depth() == deepest.depth() && root.prefix != deepest.prefix {
-			return GoImportPath{}, fmt.Errorf("%w: %s and %s", errAmbiguousTestPackage, root.prefix, deepest.prefix)
-		}
+	deepest := slices.MaxFunc(holding, ImportRoot.comparedByDepth)
+	if rival := slices.IndexFunc(holding, deepest.isRivalledBy); rival >= 0 {
+		return GoImportPath{}, fmt.Errorf("%w: %s and %s", errAmbiguousTestPackage, deepest.prefix, holding[rival].prefix)
 	}
 	return deepest.importPathOf(directory)
+}
+
+func (root ImportRoot) comparedByDepth(other ImportRoot) int {
+	return cmp.Compare(root.depth(), other.depth())
+}
+
+func (root ImportRoot) isRivalledBy(other ImportRoot) bool {
+	return root.depth() == other.depth() && !root.sharesPrefixWith(other)
 }
