@@ -75,6 +75,29 @@ func TestSelectionOfAnIndexedFileWhoseChangedLinesAreUnknownIsEveryTestReachingI
 	}
 }
 
+func TestSelectionOfADeletedOrRenamedFileIsEveryTestThatReachedItsBasePath(t *testing.T) {
+	for form, stated := range map[string]StatedFile{
+		"deleted": {
+			File:  File{Path: ordersSource, Action: FileActionRemoved},
+			Patch: "@@ -1,5 +0,0 @@\n-a\n-b\n-c\n-d\n-e", IsPatchStated: true,
+		},
+		"renamed with an edit": {
+			File: File{Path: "orders/placing.go", Action: FileActionRenamed}, PreviousPath: ordersSource,
+			Patch: oneLineEditAt(cancellingLine), IsPatchStated: true,
+		},
+		"renamed with unknown lines": {
+			File: File{Path: "orders/placing.go", Action: FileActionRenamed}, PreviousPath: ordersSource,
+		},
+	} {
+		selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidenceOf(t, stated))
+
+		want := []PackageTests{wholePackageOf(parsedImportPath(t, ordersPackage))}
+		if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+			t.Errorf("%s: selected %+v with %q (%v), want %+v with %q", form, selected, trigger, err, want, PlanTriggerNone)
+		}
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
