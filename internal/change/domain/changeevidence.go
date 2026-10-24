@@ -2,7 +2,10 @@
 
 package domain
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+)
 
 type ChangeEvidence struct {
 	files []ChangedFile
@@ -15,19 +18,26 @@ type ChangedTest struct {
 }
 
 func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Binding) (ChangeEvidence, error) {
-	var roots []ImportRoot
-	for _, policy := range binding.policies {
-		roots = append(roots, policy.importRoots...)
-	}
+	roots := binding.importRoots()
 	var tests []ChangedTest
 	for _, file := range edited {
-		pkg, err := testPackageOf(file.path, roots)
+		named, err := file.changedTestsUnder(roots)
 		if err != nil {
-			return ChangeEvidence{}, err
+			return ChangeEvidence{}, fmt.Errorf("%s: %w", file.path, err)
 		}
-		for _, name := range file.names {
-			tests = append(tests, ChangedTest{pkg: pkg, name: name})
-		}
+		tests = append(tests, named...)
 	}
 	return ChangeEvidence{files: slices.Clone(files), tests: tests}, nil
+}
+
+func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, error) {
+	pkg, err := testPackageOf(edited.path, roots)
+	if err != nil {
+		return nil, err
+	}
+	tests := make([]ChangedTest, 0, len(edited.names))
+	for _, name := range edited.names {
+		tests = append(tests, ChangedTest{pkg: pkg, name: name})
+	}
+	return tests, nil
 }
