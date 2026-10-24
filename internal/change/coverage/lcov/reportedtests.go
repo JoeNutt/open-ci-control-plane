@@ -199,16 +199,16 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
 	}
+	line, err := sourceLineOf(fields[lineNumberSlot])
+	if err != nil {
+		return err
+	}
 	executions, err := strconv.ParseUint(fields[executionCountSlot], decimal, countBits)
 	if err != nil {
 		return errUnreadableLineData
 	}
 	if executions == 0 {
 		return nil
-	}
-	line, err := sourceLineOf(fields[lineNumberSlot])
-	if err != nil {
-		return err
 	}
 	reading.currentHits = append(reading.currentHits, line)
 	return nil

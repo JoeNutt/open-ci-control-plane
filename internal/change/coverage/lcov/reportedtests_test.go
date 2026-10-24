@@ -193,6 +193,9 @@ func TestReportedTestsRefuseAMalformedLine(t *testing.T) {
 		"hit line data at line zero":      "DA:0,1",
 		"hit line data with a word line":  "DA:seven,1",
 		"hit line data past 32 bits":      "DA:4294967296,1",
+		"missed line data at line zero":   "DA:0,0",
+		"missed line data with a word":    "DA:seven,0",
+		"missed line data past 32 bits":   "DA:4294967296,0",
 	}
 
 	for form, line := range refused {
