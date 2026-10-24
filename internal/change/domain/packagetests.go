@@ -28,4 +28,4 @@ func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 	return slices.Compact(held)
 }
 
-func (tests PackageTests) IsWholePackage() bool { return false }
+func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
