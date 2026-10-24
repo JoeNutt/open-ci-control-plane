@@ -53,8 +53,9 @@ func malformedAt(index int, err error) error {
 }
 
 type patchWalk struct {
-	base patchSide
-	head patchSide
+	base    patchSide
+	head    patchSide
+	hasHunk bool
 }
 
 type patchSide struct {
@@ -86,7 +87,7 @@ func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
 		return walk.enter(line)
 	}
-	if line == "" {
+	if !walk.hasHunk || line == "" {
 		return ErrMalformedHunk
 	}
 	presence, isMarked := presenceOfLines[line[0]]
@@ -124,6 +125,7 @@ func (walk *patchWalk) enter(header string) error {
 	}
 	walk.base.line, walk.base.remaining = hunk.base.start, hunk.base.count
 	walk.head.line, walk.head.remaining = hunk.head.start, hunk.head.count
+	walk.hasHunk = true
 	return nil
 }
 

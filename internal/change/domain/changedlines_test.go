@@ -50,6 +50,7 @@ func TestParseChangedLinesRefusesALineOutsideAnyHunk(t *testing.T) {
 		" context before any header\n@@ -1,1 +1,1 @@\n context",
 		"@@ -1,2 +1,2 @@\n context\n\n context",
 		"@@ -1,2 +1,2 @@\n context\n*starred",
+		"\\ No newline at end of file\n@@ -1,1 +1,1 @@\n context",
 		"",
 	} {
 		_, err := domain.ParseChangedLines(patch)
