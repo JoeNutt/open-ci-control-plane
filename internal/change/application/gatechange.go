@@ -64,16 +64,7 @@ func (useCase GateChange) planAndDispatch(
 	if err != nil {
 		return fmt.Errorf("plan the tests of %s: %w", repository, err)
 	}
-	var plan domain.TestPlan
-	var planErr error
-	if built.EvidenceFailure != nil {
-		planErr = built.EvidenceFailure
-	} else {
-		subject.Evidence, planErr = domain.ParseChangeEvidence(built.Files, built.Edited, subject.Binding)
-		if planErr == nil {
-			plan, planErr = useCase.Planner.Execute(ctx, subject)
-		}
-	}
+	plan, planErr := useCase.planOf(ctx, subject, built)
 	if planErr != nil {
 		planErr = fmt.Errorf("plan the tests of %s: %w", repository, planErr)
 		if plan, err = domain.FailedPlanFor(subject); err != nil {
@@ -81,6 +72,15 @@ func (useCase GateChange) planAndDispatch(
 		}
 	}
 	return errors.Join(planErr, useCase.dispatch(ctx, locator, plan))
+}
+
+func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject, built BuiltChange) (domain.TestPlan, error) {
+	evidence, err := built.evidenceUnder(subject.Binding)
+	if err != nil {
+		return domain.TestPlan{}, err
+	}
+	subject.Evidence = evidence
+	return useCase.Planner.Execute(ctx, subject)
 }
 
 func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubject) (domain.PlanSubject, error) {

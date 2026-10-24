@@ -21,6 +21,13 @@ func (read headSources) at(stated statedChange) headReads {
 	return headReads{repository: stated.locator.GovernedRepository(), head: stated.tips.Head(), read: read}
 }
 
+func (built BuiltChange) evidenceUnder(binding domain.Binding) (domain.ChangeEvidence, error) {
+	if built.EvidenceFailure != nil {
+		return domain.ChangeEvidence{}, built.EvidenceFailure
+	}
+	return domain.ParseChangeEvidence(built.Files, built.Edited, binding)
+}
+
 func (useCase BuildDocument) builtWithEvidence(
 	ctx context.Context, document domain.Document, listed []domain.StatedFile, reads headReads,
 ) BuiltChange {
