@@ -10,9 +10,10 @@ import (
 	"strings"
 )
 
-var errNoTestAtIndex = errors.New("the coverage index numbers no test at that position")
-
-var errUnindexedSuite = errors.New("the coverage index holds no coverage for the suite")
+var (
+	errNoTestAtIndex  = errors.New("the coverage index numbers no test at that position")
+	errUnindexedSuite = errors.New("the coverage index holds no coverage for the suite")
+)
 
 type coveredTest struct {
 	suite CoverageSuite
@@ -26,14 +27,6 @@ type coverageIndex struct {
 
 func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
 	return coverageIndex{tests: denselyNumberedTestsOf(suites), testCountBySuite: testCountBySuiteOf(suites)}
-}
-
-func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuite]int {
-	counts := make(map[CoverageSuite]int, len(suites))
-	for suite, coverage := range suites {
-		counts[suite] = len(coverage.tests)
-	}
-	return counts
 }
 
 func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
@@ -52,6 +45,14 @@ func suiteThenNameOrder(one, other coveredTest) int {
 		strings.Compare(one.suite.String(), other.suite.String()),
 		strings.Compare(one.name.name, other.name.name),
 	)
+}
+
+func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuite]int {
+	counts := make(map[CoverageSuite]int, len(suites))
+	for suite, coverage := range suites {
+		counts[suite] = len(coverage.tests)
+	}
+	return counts
 }
 
 func (index coverageIndex) testAt(dense int) (coveredTest, error) {
