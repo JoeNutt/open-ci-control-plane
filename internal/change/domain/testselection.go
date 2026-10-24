@@ -78,11 +78,15 @@ func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTes
 }
 
 func (index coverageIndex) packageTestsIn(selection packageSelection) (PackageTests, error) {
-	span, isIndexed := index.testsOfSuites[selection.suite]
-	if isIndexed && selection.indexedCount == span.testCount() {
+	if index.isEveryIndexedTestIn(selection) {
 		return wholePackageOf(selection.suite.importPath), nil
 	}
 	return namedTestsOf(selection.suite.importPath, selection.names)
+}
+
+func (index coverageIndex) isEveryIndexedTestIn(selection packageSelection) bool {
+	span, isIndexed := index.testsOfSuites[selection.suite]
+	return isIndexed && selection.indexedCount == span.testCount()
 }
 
 type packageSelection struct {
