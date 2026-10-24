@@ -9,6 +9,8 @@ import (
 
 var ErrRenameWithoutPreviousPath = errors.New("the forge states a rename with no previous path")
 
+const unstatedPreviousPath = ""
+
 type ChangedFile struct {
 	path         RepositoryPath
 	previousPath RepositoryPath
@@ -20,13 +22,21 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%q: %w", stated.File.Path, err)
 	}
-	if stated.File.Action == FileActionRenamed && stated.PreviousPath == "" {
-		return ChangedFile{}, fmt.Errorf("%s: %w", path, ErrRenameWithoutPreviousPath)
+	previous, err := previousPathOf(stated)
+	if err != nil {
+		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
-	previous, _ := ParseRepositoryPath(stated.PreviousPath)
 	lines, err := ParseChangedLines(stated.Patch)
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return ChangedFile{path: path, previousPath: previous, lines: lines}, nil
+}
+
+func previousPathOf(stated StatedFile) (RepositoryPath, error) {
+	if stated.File.Action == FileActionRenamed && stated.PreviousPath == unstatedPreviousPath {
+		return RepositoryPath{}, ErrRenameWithoutPreviousPath
+	}
+	previous, _ := ParseRepositoryPath(stated.PreviousPath)
+	return previous, nil
 }
