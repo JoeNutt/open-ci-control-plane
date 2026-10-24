@@ -48,6 +48,28 @@ func TestCoverageIndexRefusesAPositionOutsideItsTests(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexCountsTheTestsEachSuiteHolds(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for suite, want := range map[string]int{indexedLCOVSuite: 2, indexedDomainSuite: 1} {
+		if count, err := coverage.index.testCountOf(suiteNamed(t, suite)); err != nil || count != want {
+			t.Errorf("%s holds %d tests (%v), want %d", suite, count, err, want)
+		}
+	}
+}
+
+func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
+	t.Helper()
+
+	return coverageHolding(t, map[string][]ReportedTest{
+		indexedDomainSuite: {testRunning(t, "TestGate", fileHitting(t, indexedGateFile, 1))},
+		indexedLCOVSuite: {
+			testRunning(t, "TestReading", fileHitting(t, indexedEffectFile, 1)),
+			testRunning(t, "TestBounds", fileHitting(t, indexedEffectFile, 2)),
+		},
+	})
+}
+
 func coverageHolding(t *testing.T, testsBySuite map[string][]ReportedTest) RepositoryCoverage {
 	t.Helper()
 

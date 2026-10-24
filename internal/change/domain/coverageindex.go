@@ -50,6 +50,16 @@ func (index coverageIndex) testAt(dense int) (coveredTest, error) {
 	return index.tests[dense], nil
 }
 
+func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
+	count := 0
+	for _, test := range index.tests {
+		if test.suite == suite {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (index coverageIndex) numbers(dense int) bool {
 	return 0 <= dense && dense < len(index.tests)
 }
