@@ -18,3 +18,16 @@ func TestParseChangedFileRefusesARenameThatStatesNoPreviousPath(t *testing.T) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrRenameWithoutPreviousPath)
 	}
 }
+
+func TestParseChangedFileRefusesAPreviousPathOutsideTheRepository(t *testing.T) {
+	stated := domain.StatedFile{
+		File:         domain.File{Path: "internal/auth/session.go", Action: domain.FileActionRenamed},
+		PreviousPath: "../elsewhere/token.go",
+	}
+
+	_, err := domain.ParseChangedFile(stated)
+
+	if !errors.Is(err, domain.ErrPathOutsideRepository) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPathOutsideRepository)
+	}
+}

@@ -44,6 +44,8 @@ func previousPathOf(stated StatedFile) (RepositoryPath, error) {
 	if stated.File.Action == FileActionRenamed && stated.PreviousPath == unstatedPreviousPath {
 		return RepositoryPath{}, ErrRenameWithoutPreviousPath
 	}
-	previous, _ := ParseRepositoryPath(stated.PreviousPath)
-	return previous, nil
+	if stated.PreviousPath == unstatedPreviousPath {
+		return RepositoryPath{}, nil
+	}
+	return ParseRepositoryPath(stated.PreviousPath)
 }
