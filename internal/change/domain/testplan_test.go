@@ -345,6 +345,20 @@ func TestAPlanReplacedAsTooLargeNamesNoTests(t *testing.T) {
 	}
 }
 
+func TestAPlanAsWholePackagesRunsEveryNamedEntryAsItsWholePackage(t *testing.T) {
+	plan := modedPlanOf(t, "shadow", "shadow")
+	named := []domain.PackageTests{domain.NewPackageTests(ordersPackage(t), []domain.TopLevelTestName{mustParseTestName(t, effectTest)})}
+	plan.Tests, plan.Recorded.Selected, plan.Recorded.Minimised = named, named, named
+
+	whole := plan.AsWholePackages()
+
+	for _, entries := range [][]domain.PackageTests{whole.Tests, whole.Recorded.Selected, whole.Recorded.Minimised} {
+		if slices.ContainsFunc(entries, isNamed) || !slices.Equal(packagesOf(entries), []string{ordersSuite}) {
+			t.Errorf("as whole packages the plan runs %+v, want %s as its whole package", entries, ordersSuite)
+		}
+	}
+}
+
 func TestAPlanCarriesThePathsItsChangeTouched(t *testing.T) {
 	plan := modedPlanOf(t, "shadow", "off")
 
