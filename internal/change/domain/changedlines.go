@@ -38,13 +38,17 @@ func ParseChangedLines(patch string) (ChangedLines, error) {
 	lines := strings.Split(patch, patchLineBreak)
 	for index, line := range lines {
 		if err := walk.step(line); err != nil {
-			return ChangedLines{}, fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
+			return ChangedLines{}, malformedAt(index, err)
 		}
 	}
 	if walk.isHunkOpen() {
-		return ChangedLines{}, fmt.Errorf("%w: patch line %d", ErrMalformedHunk, len(lines))
+		return ChangedLines{}, malformedAt(len(lines)-1, ErrMalformedHunk)
 	}
 	return walk.changedLines(), nil
+}
+
+func malformedAt(index int, err error) error {
+	return fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
 }
 
 type patchWalk struct {
