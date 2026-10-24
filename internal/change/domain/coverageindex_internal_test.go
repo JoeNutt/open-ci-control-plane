@@ -80,6 +80,25 @@ func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testin
 	}
 }
 
+func TestCoverageIndexFindsTheTestsCoveringGivenLinesOfAFile(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+	effect := pathNamed(t, indexedEffectFile)
+
+	for _, asked := range []struct {
+		lines []uint32
+		want  []int
+	}{
+		{lines: []uint32{2}, want: []int{0}},
+		{lines: []uint32{1, 2}, want: []int{0, 1}},
+		{lines: []uint32{9}, want: nil},
+	} {
+		covering, err := coverage.index.testsCovering(effect, asked.lines)
+		if err != nil || !slices.Equal(membersOf(covering), asked.want) {
+			t.Errorf("lines %v are covered by %v (%v), want %v", asked.lines, membersOf(covering), err, asked.want)
+		}
+	}
+}
+
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 

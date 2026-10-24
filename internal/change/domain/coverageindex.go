@@ -95,6 +95,14 @@ func (index coverageIndex) testsReaching(path RepositoryPath) (testSet, error) {
 	return testSetOf(index.revision, index.postings.testsOn(items)), nil
 }
 
+func (index coverageIndex) testsCovering(path RepositoryPath, lines []uint32) (testSet, error) {
+	items, isIndexed := index.postings.itemsOf(path)
+	if !isIndexed {
+		return testSet{}, fmt.Errorf("%w: %s", errUnindexedFile, path)
+	}
+	return testSetOf(index.revision, index.postings.testsOnLines(items, lines)), nil
+}
+
 func (index coverageIndex) numbers(dense int) bool {
 	return 0 <= dense && dense < len(index.tests)
 }

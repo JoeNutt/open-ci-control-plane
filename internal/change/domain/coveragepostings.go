@@ -21,6 +21,7 @@ type itemSpan struct {
 
 type coveragePostings struct {
 	itemsOfFile map[RepositoryPath]itemSpan
+	lineOfItem  []uint32
 	offsets     []uint32
 	tests       []uint32
 }
@@ -50,6 +51,7 @@ func postingsOf(edges []coverageEdge) coveragePostings {
 	for position, edge := range edges {
 		if position == 0 || !edges[position-1].isOnItemOf(edge) {
 			postings.openItem(edge.path, uint32(position))
+			postings.lineOfItem = append(postings.lineOfItem, edge.line)
 		}
 		postings.tests = append(postings.tests, edge.test)
 	}
@@ -83,6 +85,17 @@ func (postings *coveragePostings) openItem(path RepositoryPath, firstPosting uin
 func (postings coveragePostings) itemsOf(path RepositoryPath) (itemSpan, bool) {
 	span, isIndexed := postings.itemsOfFile[path]
 	return span, isIndexed
+}
+
+func (postings coveragePostings) testsOnLines(span itemSpan, lines []uint32) []uint32 {
+	var tests []uint32
+	for _, line := range lines {
+		offset, isFound := slices.BinarySearch(postings.lineOfItem[span.first:span.end], line)
+		if isFound {
+			tests = append(tests, postings.testsOn(itemSpan{first: span.first + offset, end: span.first + offset + 1})...)
+		}
+	}
+	return tests
 }
 
 func (postings coveragePostings) testsOn(span itemSpan) []uint32 {
