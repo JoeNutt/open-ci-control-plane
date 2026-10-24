@@ -31,7 +31,10 @@ func (index coverageIndex) testsSelectedBy(evidence ChangeEvidence) ([]PackageTe
 	if err != nil {
 		return nil, err
 	}
-	return index.packageTestsOf(selected, placed.unindexed, evidence.packagesEditedBeyondTests)
+	selections := index.selectionsOf(selected)
+	selections.addTests(placed.unindexed)
+	selections.markWhole(evidence.packagesEditedBeyondTests)
+	return index.packageTestsOf(selections)
 }
 
 func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
@@ -82,25 +85,18 @@ func (lines changedLines) baseLineNumbers() []uint32 {
 	return numbers
 }
 
-func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTest, wholes []GoImportPath) ([]PackageTests, error) {
+func (index coverageIndex) selectionsOf(selected testSet) packageSelections {
 	selections := packageSelections{positionOf: map[CoverageSuite]int{}}
 	for dense := range selected.members() {
 		test := index.tests[dense]
-		selections.adding(test.suite, test.name).indexedCount++
+		selection := selections.selectionFor(test.suite)
+		selection.names = append(selection.names, test.name)
+		selection.indexedCount++
 	}
-	for _, test := range changed {
-		selections.adding(CoverageSuite{importPath: test.pkg}, test.name)
-	}
-	for _, pkg := range wholes {
-		suite := CoverageSuite{importPath: pkg}
-		position, isHeld := selections.positionOf[suite]
-		if !isHeld {
-			position = len(selections.ordered)
-			selections.positionOf[suite] = position
-			selections.ordered = append(selections.ordered, packageSelection{suite: suite})
-		}
-		selections.ordered[position].isWhole = true
-	}
+	return selections
+}
+
+func (index coverageIndex) packageTestsOf(selections packageSelections) ([]PackageTests, error) {
 	tests := make([]PackageTests, 0, len(selections.ordered))
 	for _, selection := range selections.ordered {
 		inPackage, err := index.packageTestsIn(selection)
@@ -136,13 +132,25 @@ type packageSelections struct {
 	positionOf map[CoverageSuite]int
 }
 
-func (selections *packageSelections) adding(suite CoverageSuite, name TopLevelTestName) *packageSelection {
+func (selections *packageSelections) addTests(changed []changedTest) {
+	for _, test := range changed {
+		selection := selections.selectionFor(CoverageSuite{importPath: test.pkg})
+		selection.names = append(selection.names, test.name)
+	}
+}
+
+func (selections *packageSelections) markWhole(packages []GoImportPath) {
+	for _, pkg := range packages {
+		selections.selectionFor(CoverageSuite{importPath: pkg}).isWhole = true
+	}
+}
+
+func (selections *packageSelections) selectionFor(suite CoverageSuite) *packageSelection {
 	position, isHeld := selections.positionOf[suite]
 	if !isHeld {
 		position = len(selections.ordered)
 		selections.positionOf[suite] = position
 		selections.ordered = append(selections.ordered, packageSelection{suite: suite})
 	}
-	selections.ordered[position].names = append(selections.ordered[position].names, name)
 	return &selections.ordered[position]
 }
