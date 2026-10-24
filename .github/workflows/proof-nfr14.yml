@@ -25,6 +25,7 @@ jobs:
             awk -v tests="$tests" -v lines="$lines" -v file="$COVERED" -v suite="$suite" 'BEGIN {
               for (t = 1; t <= tests; t++) {
                 printf "TN:TestProof%s%05d\nSF:%s\n", suite, t, file
+                if (lines == 0) printf "DA:%d,1\n", (t <= 1300 ? 12 : 13)
                 for (l = 1; l <= lines; l++) printf "DA:%d,1\n", l
                 print "end_of_record"
               }
@@ -37,8 +38,4 @@ jobs:
               "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/github.com/JoeNutt/open-ci-control-plane/proof/nfr14/$suite")"
             echo "$suite: $tests tests x $lines lines -> $answer $(cat "$RUNNER_TEMP/answer.json")"
           }
-          upload EdgesA 500 3800
-          upload EdgesB 500 3800
-          upload EdgesC 500 3800
-          upload TestsA 6000 1
-          upload TestsB 6000 1
+          upload NamesWithALongSelectedTestNameForTheNFRSeventeenProof 1400 0
