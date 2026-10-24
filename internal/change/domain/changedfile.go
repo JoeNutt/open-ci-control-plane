@@ -9,7 +9,7 @@ import (
 
 var ErrRenameWithoutPreviousPath = errors.New("the forge states a rename with no previous path")
 
-var ErrPreviousPathOfNoRename = errors.New("the forge states a previous path for a file that is no rename")
+var ErrPreviousPathOfNoRenameOrCopy = errors.New("the forge states a previous path for a file that is neither renamed nor copied")
 
 const unstatedPreviousPath = ""
 
@@ -51,8 +51,8 @@ func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
 	if stated.File.Action == FileActionRenamed {
 		return previousPathOf(stated)
 	}
-	if stated.PreviousPath != unstatedPreviousPath && stated.File.Action != FileActionCopied {
-		return basePath{}, ErrPreviousPathOfNoRename
+	if stated.PreviousPath != unstatedPreviousPath && !stated.File.Action.mayStateAPreviousPath() {
+		return basePath{}, ErrPreviousPathOfNoRenameOrCopy
 	}
 	if !stated.File.Action.ExistsAtBase() {
 		return absentAtBase(), nil

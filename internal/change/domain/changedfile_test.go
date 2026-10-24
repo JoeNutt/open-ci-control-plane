@@ -27,8 +27,8 @@ func TestParseChangedFileRefusesAPreviousPathOnAFileThatIsNoRename(t *testing.T)
 
 	_, err := domain.ParseChangedFile(stated)
 
-	if !errors.Is(err, domain.ErrPreviousPathOfNoRename) {
-		t.Fatalf("error is %v, want %v", err, domain.ErrPreviousPathOfNoRename)
+	if !errors.Is(err, domain.ErrPreviousPathOfNoRenameOrCopy) {
+		t.Fatalf("error is %v, want %v", err, domain.ErrPreviousPathOfNoRenameOrCopy)
 	}
 }
 
