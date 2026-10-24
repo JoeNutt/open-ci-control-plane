@@ -26,14 +26,18 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
-	lines := UnknownChangedLines()
-	if stated.IsPatchStated {
-		lines, err = ParseChangedLines(stated.Patch)
-		if err != nil {
-			return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
-		}
+	lines, err := linesOf(stated)
+	if err != nil {
+		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return ChangedFile{path: path, previousPath: previous, lines: lines}, nil
+}
+
+func linesOf(stated StatedFile) (ChangedLines, error) {
+	if !stated.IsPatchStated {
+		return UnknownChangedLines(), nil
+	}
+	return ParseChangedLines(stated.Patch)
 }
 
 func previousPathOf(stated StatedFile) (RepositoryPath, error) {
