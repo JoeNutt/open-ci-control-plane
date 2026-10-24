@@ -18,7 +18,19 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
-	tests, err := index.packageTestsOf(selected, evidence.tests)
+	var unindexed []changedTest
+	for _, test := range evidence.tests {
+		dense, isIndexed := index.positionOf(CoverageSuite{importPath: test.pkg}, test.name)
+		if !isIndexed {
+			unindexed = append(unindexed, test)
+			continue
+		}
+		selected, err = selected.union(testSetOf(index.revision, []uint32{uint32(dense)}))
+		if err != nil {
+			return nil, PlanTriggerPlanFailed, err
+		}
+	}
+	tests, err := index.packageTestsOf(selected, unindexed)
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}

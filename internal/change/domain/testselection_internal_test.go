@@ -125,6 +125,18 @@ func TestSelectionRunsByNameTheTestsAddedToAPackageTheIndexHoldsNoTestOf(t *test
 	}
 }
 
+func TestSelectionRunsAPackageWholeWhenTheIndexAndTheEditedTestsTogetherSelectEveryIndexedTest(t *testing.T) {
+	evidence := evidenceEditingBeside(t, []StatedFile{modifiedAt(ordersSource, placingLine)},
+		ordersTestFile, testFunctionFrom(t, "TestCancels", cancellingLine, cancellingLine))
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{wholePackageOf(parsedImportPath(t, ordersPackage))}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
@@ -163,13 +175,23 @@ func evidenceOf(t *testing.T, stated ...StatedFile) ChangeEvidence {
 func evidenceEditing(t *testing.T, path string, functions ...TestFunction) ChangeEvidence {
 	t.Helper()
 
+	return evidenceEditingBeside(t, nil, path, functions...)
+}
+
+func evidenceEditingBeside(t *testing.T, sources []StatedFile, path string, functions ...TestFunction) ChangeEvidence {
+	t.Helper()
+
+	files := make([]ChangedFile, 0, len(sources)+1)
+	for _, source := range sources {
+		files = append(files, changedFileFrom(t, source))
+	}
 	lines := make([]int, 0, len(functions))
 	for _, function := range functions {
 		lines = append(lines, function.lines.first)
 	}
 	testFile := changedFileFrom(t, modifiedAt(path, lines...))
 	edited := EditedTestsIn(testFile, functions)
-	evidence, err := ParseChangeEvidence([]ChangedFile{testFile}, []EditedTests{edited}, bindingRootedAt(t, selectionModule))
+	evidence, err := ParseChangeEvidence(append(files, testFile), []EditedTests{edited}, bindingRootedAt(t, selectionModule))
 	if err != nil {
 		t.Fatalf("parse change evidence: %v", err)
 	}

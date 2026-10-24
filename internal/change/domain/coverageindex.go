@@ -131,6 +131,12 @@ func (index coverageIndex) itemsOf(path RepositoryPath) (itemSpan, error) {
 	return items, nil
 }
 
+func (index coverageIndex) positionOf(suite CoverageSuite, name TopLevelTestName) (int, bool) {
+	return slices.BinarySearchFunc(index.tests, coveredTest{suite: suite, name: name}, func(held, sought coveredTest) int {
+		return cmp.Or(held.suite.compare(sought.suite), held.name.compare(sought.name))
+	})
+}
+
 func (index coverageIndex) holdsAnyTest() bool { return len(index.tests) > 0 }
 
 func (index coverageIndex) numbers(dense int) bool {
