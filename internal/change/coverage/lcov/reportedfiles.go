@@ -217,7 +217,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 		return nil
 	}
 	line, err := strconv.ParseUint(fields[lineNumberSlot], decimal, lineNumberBits)
-	if err != nil {
+	if err != nil || line == 0 {
 		return errUnreadableLineData
 	}
 	reading.currentHits = append(reading.currentHits, uint32(line))

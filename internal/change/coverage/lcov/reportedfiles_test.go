@@ -187,6 +187,9 @@ func TestReportedFilesRefusesAMalformedLine(t *testing.T) {
 		"line data with no count":         "DA:7",
 		"line data with a word for count": "DA:7,many",
 		"line data with a negative count": "DA:7,-1",
+		"hit line data at line zero":      "DA:0,1",
+		"hit line data with a word line":  "DA:seven,1",
+		"hit line data past 32 bits":      "DA:4294967296,1",
 	}
 
 	for form, line := range refused {
