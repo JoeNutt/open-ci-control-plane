@@ -23,7 +23,7 @@ const (
 	addedLineMark        = '+'
 	contextLineMark      = ' '
 	missingLineBreakMark = '\\'
-	firstPatchLineNumber = 1
+	firstLineNumber      = 1
 	unstatedHunkCount    = 1
 )
 
@@ -50,24 +50,16 @@ func ParseChangedLines(patch string) (ChangedLines, error) {
 }
 
 func malformedAt(index int, err error) error {
-	return fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
+	return fmt.Errorf("%w: patch line %d", err, index+firstLineNumber)
 }
 
 type patchWalk struct {
-	base                 patchSide
-	head                 patchSide
-	hasHunk              bool
-	isInBlock            bool
-	isBaseChangedInBlock bool
+	base    patchSide
+	head    patchSide
+	hasHunk bool
 }
 
-type patchSide struct {
-	line      int
-	remaining int
-	changed   []int
-}
-
-func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
+type linePresence struct{ onBase, onHead sidePresence }
 
 type sidePresence struct {
 	isPresent bool
@@ -78,10 +70,11 @@ var (
 	absentFromSide  = sidePresence{}
 	keptOnSide      = sidePresence{isPresent: true}
 	changedOnSide   = sidePresence{isPresent: true, isChanged: true}
-	presenceOfLines = map[byte]struct{ onBase, onHead sidePresence }{
+	keptOnBothSides = linePresence{onBase: keptOnSide, onHead: keptOnSide}
+	presenceOfLines = map[byte]linePresence{
 		removedLineMark:      {onBase: changedOnSide, onHead: absentFromSide},
 		addedLineMark:        {onBase: absentFromSide, onHead: changedOnSide},
-		contextLineMark:      {onBase: keptOnSide, onHead: keptOnSide},
+		contextLineMark:      keptOnBothSides,
 		missingLineBreakMark: {onBase: absentFromSide, onHead: absentFromSide},
 	}
 )
@@ -97,45 +90,13 @@ func (walk *patchWalk) step(line string) error {
 	if !isMarked {
 		return ErrMalformedHunk
 	}
-	if presence.onBase.isChanged || presence.onHead.isChanged {
-		walk.isInBlock = true
-		if presence.onBase.isChanged {
-			walk.isBaseChangedInBlock = true
-		}
-	}
-	if presence == presenceOfLines[contextLineMark] {
+	if presence == keptOnBothSides {
 		walk.closeBlock()
 	}
 	if err := walk.base.take(presence.onBase); err != nil {
 		return err
 	}
 	return walk.head.take(presence.onHead)
-}
-
-func (walk *patchWalk) closeBlock() {
-	if walk.isInBlock && !walk.isBaseChangedInBlock {
-		if walk.base.line-1 >= 1 {
-			walk.base.changed = append(walk.base.changed, walk.base.line-1)
-		}
-		walk.base.changed = append(walk.base.changed, walk.base.line)
-	}
-	walk.isInBlock = false
-	walk.isBaseChangedInBlock = false
-}
-
-func (side *patchSide) take(presence sidePresence) error {
-	if !presence.isPresent {
-		return nil
-	}
-	if side.remaining == 0 {
-		return ErrMalformedHunk
-	}
-	if presence.isChanged {
-		side.changed = append(side.changed, side.line)
-	}
-	side.line++
-	side.remaining--
-	return nil
 }
 
 func (walk *patchWalk) enter(header string) error {
@@ -153,12 +114,59 @@ func (walk *patchWalk) enter(header string) error {
 	return nil
 }
 
+func (walk *patchWalk) closeBlock() {
+	if walk.isInBlock() {
+		walk.base.markUnchangedBlock()
+	}
+	walk.base.isChangedInBlock = false
+	walk.head.isChangedInBlock = false
+}
+
+func (walk patchWalk) isInBlock() bool {
+	return walk.base.isChangedInBlock || walk.head.isChangedInBlock
+}
+
+func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
+
+func (walk patchWalk) changedLines() ChangedLines {
+	return ChangedLines{base: walk.base.changed, head: walk.head.changed}
+}
+
+type patchSide struct {
+	line             int
+	remaining        int
+	changed          []int
+	isChangedInBlock bool
+}
+
 func (side *patchSide) open(stated hunkRange) {
 	side.line, side.remaining = stated.start, stated.count
 }
 
-func (walk patchWalk) changedLines() ChangedLines {
-	return ChangedLines{base: walk.base.changed, head: walk.head.changed}
+func (side *patchSide) take(presence sidePresence) error {
+	if !presence.isPresent {
+		return nil
+	}
+	if side.remaining == 0 {
+		return ErrMalformedHunk
+	}
+	if presence.isChanged {
+		side.changed = append(side.changed, side.line)
+		side.isChangedInBlock = true
+	}
+	side.line++
+	side.remaining--
+	return nil
+}
+
+func (side *patchSide) markUnchangedBlock() {
+	if side.isChangedInBlock {
+		return
+	}
+	if side.line > firstLineNumber {
+		side.changed = append(side.changed, side.line-1)
+	}
+	side.changed = append(side.changed, side.line)
 }
 
 type hunkHeader struct {
