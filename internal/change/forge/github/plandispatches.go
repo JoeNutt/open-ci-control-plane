@@ -94,6 +94,10 @@ func boundedEncodingOf(plan domain.TestPlan) ([]byte, error) {
 	if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
 		return encoded, err
 	}
+	encoded, err = json.Marshal(payloadOf(plan.AsWholePackages()))
+	if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
+		return encoded, err
+	}
 	return json.Marshal(payloadOf(plan.AsTooLarge()))
 }
 

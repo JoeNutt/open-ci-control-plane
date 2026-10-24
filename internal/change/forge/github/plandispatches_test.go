@@ -119,6 +119,56 @@ func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t 
 	}
 }
 
+func TestAPlanNamingTestsIsSentByNameAtTheLimitAndAsWholePackagesOneCharacterOver(t *testing.T) {
+	for _, bound := range []struct {
+		characters int
+		isNamed    bool
+	}{
+		{domain.MaxPlanCharacters, true},
+		{domain.MaxPlanCharacters + 1, false},
+	} {
+		held := newDispatchForge(t)
+		plan := namedPlanSerialisingTo(t, bound.characters)
+
+		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+			t.Fatalf("dispatch plan: %v", err)
+		}
+
+		var sent wirePlan
+		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+			t.Fatalf("decode the plan: %v", err)
+		}
+		if sent.TriggerReason != "none" || sent.FullMatrix || len(sent.Tests) != 1 ||
+			sent.Tests[0].Package != dispatchedSuite || (len(sent.Tests[0].Names) > 0) != bound.isNamed {
+			t.Errorf("%d characters: sent %q, full matrix %v, tests %d; want %s selected, by name %v",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), dispatchedSuite, bound.isNamed)
+		}
+	}
+}
+
+func namedPlanSerialisingTo(t *testing.T, characters int) domain.TestPlan {
+	t.Helper()
+
+	const nameLength = 20
+	nameOverhead := len(`"",`)
+	plan := selectedPlan(t)
+	toFill := characters - len(encodedWirePlanOf(t, plan)) + 1
+	count, longer := toFill/(nameLength+nameOverhead), toFill%(nameLength+nameOverhead)
+	names := make([]domain.TopLevelTestName, 0, count)
+	for index := range count {
+		padding := ""
+		if index < longer {
+			padding = "Z"
+		}
+		names = append(names, testNamed(t, fmt.Sprintf("Test%s%0*d", padding, nameLength-len("Test"), index)))
+	}
+	plan.Tests = []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), names)}
+	if got := len(encodedWirePlanOf(t, plan)); got != characters {
+		t.Fatalf("built a plan of %d characters, want %d", got, characters)
+	}
+	return plan
+}
+
 func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
 	t.Helper()
 
