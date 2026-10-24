@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	compressedBytesLabel   = "compressed bytes"
+	compressedBytesLabel   = "compressed artifact bytes"
 	decompressedBytesLabel = "decompressed bytes"
 	fileEntriesLabel       = "file entries"
 	suitesLabel            = "suites per repository"
