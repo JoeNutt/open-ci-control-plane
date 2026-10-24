@@ -22,6 +22,23 @@ func TestEditedTestsOfAModifiedFileAreTheTestsWhoseLinesTheChangeTouches(t *test
 	}
 }
 
+func TestEditedTestsOfAFileWhoseLinesAreUnknownAreEveryTestInIt(t *testing.T) {
+	changed := changedFileFrom(t, StatedFile{
+		File: File{Path: "internal/auth/owner_test.go", Action: FileActionModified},
+	})
+	functions := []TestFunction{
+		testFunctionFrom(t, "TestAdmitsAnOwner", 1, 9),
+		testFunctionFrom(t, "TestRefusesAStranger", 10, 20),
+	}
+
+	edited := EditedTestsIn(changed, functions)
+
+	want := []TopLevelTestName{functions[0].name, functions[1].name}
+	if !slices.Equal(edited.names, want) {
+		t.Fatalf("edited tests are %+v, want every test in the file", edited)
+	}
+}
+
 func changedFileFrom(t *testing.T, stated StatedFile) ChangedFile {
 	t.Helper()
 

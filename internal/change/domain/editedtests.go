@@ -12,7 +12,7 @@ type EditedTests struct {
 func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
 	var names []TopLevelTestName
 	for _, function := range functions {
-		if slices.ContainsFunc(file.lines.head, function.lines.holds) {
+		if !file.lines.isKnown || slices.ContainsFunc(file.lines.head, function.lines.holds) {
 			names = append(names, function.name)
 		}
 	}
