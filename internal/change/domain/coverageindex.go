@@ -73,6 +73,8 @@ type testSpan struct {
 	end   int
 }
 
+func (span testSpan) testCount() int { return span.end - span.first }
+
 func testSpansOf(numbered []suiteTest) map[CoverageSuite]testSpan {
 	spans := map[CoverageSuite]testSpan{}
 	for dense, each := range numbered {
@@ -98,7 +100,7 @@ func (index coverageIndex) testsOfSuite(suite CoverageSuite) (testSet, error) {
 	if !isIndexed {
 		return testSet{}, fmt.Errorf("%w: %s", errUnindexedSuite, suite)
 	}
-	members := make([]uint32, 0, span.end-span.first)
+	members := make([]uint32, 0, span.testCount())
 	for dense := span.first; dense < span.end; dense++ {
 		members = append(members, uint32(dense))
 	}
