@@ -110,6 +110,26 @@ func TestCoverageIndexFindsTheTestsCoveringGivenLinesOfAFile(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexTakesANewRevisionOnEveryRebuildSoSetsOfTwoRebuildsNeverJoin(t *testing.T) {
+	before := twoSuiteCoverage(t)
+	suite := suiteNamed(t, indexedDomainSuite)
+	unchanged, err := before.SuiteCoverageOf(suite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := before.Replacing(suite, unchanged, DeclaredCoverageLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gate := pathNamed(t, indexedGateFile)
+	earlier, _ := before.index.testsReaching(gate)
+	later, _ := after.index.testsReaching(gate)
+
+	if _, err := earlier.union(later); !errors.Is(err, errMixedRevisions) {
+		t.Fatalf("joined sets of two rebuilds (%v), want errMixedRevisions", err)
+	}
+}
+
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
