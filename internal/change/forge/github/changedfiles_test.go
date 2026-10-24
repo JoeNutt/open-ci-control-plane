@@ -43,8 +43,8 @@ func TestFilesChangedReadsEveryPageTheForgeSplitsTheFilesAcross(t *testing.T) {
 	if len(files) != github.FilesPerPage+1 {
 		t.Fatalf("read %d files, want %d", len(files), github.FilesPerPage+1)
 	}
-	if files[github.FilesPerPage].Path != "infra/iam.tf" {
-		t.Fatalf("the last file is %q, want infra/iam.tf", files[github.FilesPerPage].Path)
+	if files[github.FilesPerPage].File.Path != "infra/iam.tf" {
+		t.Fatalf("the last file is %q, want infra/iam.tf", files[github.FilesPerPage].File.Path)
 	}
 }
 
@@ -80,7 +80,31 @@ func TestFilesChangedReportsEveryFileTheForgeLists(t *testing.T) {
 		Deletions:  3,
 		PatchBytes: len("@@ -1,3 +1,12 @@"),
 	}
-	if len(files) != 1 || files[0] != want {
+	if len(files) != 1 || files[0].File != want {
 		t.Fatalf("files are %+v, want exactly %+v", files, want)
+	}
+}
+
+func TestFilesChangedCarriesThePatchAndThePreviousPathTheForgeStates(t *testing.T) {
+	const patch = "@@ -1,1 +1,1 @@\n-old\n+new"
+	server := serving(t, "/repos/acme/payments/pulls/412/files", `[
+		{"filename": "internal/auth/session.go", "status": "renamed",
+		 "previous_filename": "internal/auth/token.go", "patch": "@@ -1,1 +1,1 @@\n-old\n+new"},
+		{"filename": "assets/logo.png", "status": "modified"}
+	]`)
+	source := sourceAt(t, server)
+
+	files, err := source.FilesChanged(context.Background(), locatorOf(t, "acme/payments", 412))
+
+	if err != nil {
+		t.Fatalf("files changed: %v", err)
+	}
+	renamed := domain.StatedFile{
+		File:         domain.File{Path: "internal/auth/session.go", Action: domain.FileActionRenamed, PatchBytes: len(patch)},
+		PreviousPath: "internal/auth/token.go", Patch: patch, IsPatchStated: true,
+	}
+	unpatched := domain.StatedFile{File: domain.File{Path: "assets/logo.png", Action: domain.FileActionModified}}
+	if len(files) != 2 || files[0] != renamed || files[1] != unpatched {
+		t.Fatalf("files are %+v, want exactly %+v and %+v", files, renamed, unpatched)
 	}
 }

@@ -25,9 +25,13 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("read pull request %s: %w", locator, err)
 	}
-	files, err := useCase.Source.FilesChanged(ctx, locator)
+	listed, err := useCase.Source.FilesChanged(ctx, locator)
 	if err != nil {
 		return domain.Document{}, fmt.Errorf("read changed files of %s: %w", locator, err)
+	}
+	files := make([]domain.File, 0, len(listed))
+	for _, statedFile := range listed {
+		files = append(files, statedFile.File)
 	}
 	bounded, err := domain.ParseBoundedFiles(files, useCase.Limits)
 	if err != nil {

@@ -30,26 +30,36 @@ func changedFilesEndpoint(locator domain.PullRequestLocator, page int) string {
 }
 
 type changedFile struct {
-	Filename  string `json:"filename"`
-	Status    string `json:"status"`
-	Additions int    `json:"additions"`
-	Deletions int    `json:"deletions"`
-	Patch     string `json:"patch"`
+	Filename         string  `json:"filename"`
+	PreviousFilename string  `json:"previous_filename"`
+	Status           string  `json:"status"`
+	Additions        int     `json:"additions"`
+	Deletions        int     `json:"deletions"`
+	Patch            *string `json:"patch"`
 }
 
-func filesOf(listed []changedFile) ([]domain.File, error) {
-	files := make([]domain.File, 0, len(listed))
+func filesOf(listed []changedFile) ([]domain.StatedFile, error) {
+	files := make([]domain.StatedFile, 0, len(listed))
 	for _, listing := range listed {
 		action, err := domain.ParseFileAction(listing.Status)
 		if err != nil {
 			return nil, fmt.Errorf("%q: %w", listing.Filename, err)
 		}
-		files = append(files, domain.File{
-			Path:       listing.Filename,
-			Action:     action,
-			Additions:  listing.Additions,
-			Deletions:  listing.Deletions,
-			PatchBytes: len(listing.Patch),
+		patch := ""
+		if listing.Patch != nil {
+			patch = *listing.Patch
+		}
+		files = append(files, domain.StatedFile{
+			File: domain.File{
+				Path:       listing.Filename,
+				Action:     action,
+				Additions:  listing.Additions,
+				Deletions:  listing.Deletions,
+				PatchBytes: len(patch),
+			},
+			PreviousPath:  listing.PreviousFilename,
+			Patch:         patch,
+			IsPatchStated: listing.Patch != nil,
 		})
 	}
 	return files, nil

@@ -6,5 +6,5 @@ import "context"
 
 type ChangeSource interface {
 	PullRequestAt(ctx context.Context, locator PullRequestLocator) (ReportedPullRequest, error)
-	FilesChanged(ctx context.Context, locator PullRequestLocator) ([]File, error)
+	FilesChanged(ctx context.Context, locator PullRequestLocator) ([]StatedFile, error)
 }

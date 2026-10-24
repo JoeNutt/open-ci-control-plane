@@ -34,12 +34,16 @@ func (source recordedChanges) PullRequestAt(
 
 func (source recordedChanges) FilesChanged(
 	_ context.Context, locator domain.PullRequestLocator,
-) ([]domain.File, error) {
+) ([]domain.StatedFile, error) {
 	change, err := source.changeAt(locator)
 	if err != nil {
 		return nil, err
 	}
-	return change.Files, nil
+	stated := make([]domain.StatedFile, 0, len(change.Files))
+	for _, file := range change.Files {
+		stated = append(stated, domain.StatedFile{File: file})
+	}
+	return stated, nil
 }
 
 func (source recordedChanges) changeAt(locator domain.PullRequestLocator) (recordedChange, error) {
