@@ -79,7 +79,7 @@ func (useCase GateChange) planAndDispatch(
 }
 
 func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject, built BuiltChange) (domain.TestPlan, error) {
-	evidence, err := built.evidenceUnder(subject.Binding)
+	evidence, err := useCase.Build.evidenceUnder(ctx, built, subject.Binding)
 	if err != nil {
 		return domain.TestPlan{}, err
 	}

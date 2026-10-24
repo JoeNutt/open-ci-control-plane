@@ -20,10 +20,9 @@ type BuildDocument struct {
 }
 
 type BuiltChange struct {
-	Document        domain.Document
-	Files           []domain.ChangedFile
-	Edited          []domain.EditedTests
-	EvidenceFailure error
+	Document domain.Document
+	listed   []domain.StatedFile
+	reads    headReads
 }
 
 func (useCase BuildDocument) Execute(
@@ -56,7 +55,7 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return BuiltChange{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
-	return useCase.builtWithEvidence(ctx, document, listed, read.at(stated)), nil
+	return BuiltChange{Document: document, listed: listed, reads: read.at(stated)}, nil
 }
 
 func documentFilesOf(listed []domain.StatedFile) []domain.File {

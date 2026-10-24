@@ -21,21 +21,14 @@ func (read headSources) at(stated statedChange) headReads {
 	return headReads{repository: stated.locator.GovernedRepository(), head: stated.tips.Head(), read: read}
 }
 
-func (built BuiltChange) evidenceUnder(binding domain.Binding) (domain.ChangeEvidence, error) {
-	if built.EvidenceFailure != nil {
-		return domain.ChangeEvidence{}, built.EvidenceFailure
-	}
-	return domain.ParseChangeEvidence(built.Files, built.Edited, binding)
-}
-
-func (useCase BuildDocument) builtWithEvidence(
-	ctx context.Context, document domain.Document, listed []domain.StatedFile, reads headReads,
-) BuiltChange {
-	files, edited, err := useCase.evidenceOf(ctx, listed, reads)
+func (useCase BuildDocument) evidenceUnder(
+	ctx context.Context, built BuiltChange, binding domain.Binding,
+) (domain.ChangeEvidence, error) {
+	files, edited, err := useCase.evidenceOf(ctx, built.listed, built.reads)
 	if err != nil {
-		return BuiltChange{Document: document, EvidenceFailure: fmt.Errorf("read the change evidence: %w", err)}
+		return domain.ChangeEvidence{}, fmt.Errorf("read the change evidence: %w", err)
 	}
-	return BuiltChange{Document: document, Files: files, Edited: edited}
+	return domain.ParseChangeEvidence(files, edited, binding)
 }
 
 func (useCase BuildDocument) evidenceOf(
