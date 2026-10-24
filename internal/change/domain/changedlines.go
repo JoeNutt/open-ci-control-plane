@@ -236,12 +236,12 @@ func parseHunkRange(written string) (stated hunkRange, err error) {
 	if err != nil {
 		return hunkRange{}, err
 	}
-	if !hasCount {
-		return hunkRange{start: parsedStart, count: unstatedHunkCount}, nil
-	}
-	parsedCount, err := parseHunkNumber(count)
-	if err != nil {
-		return hunkRange{}, err
+	parsedCount := unstatedHunkCount
+	if hasCount {
+		parsedCount, err = parseHunkNumber(count)
+		if err != nil {
+			return hunkRange{}, err
+		}
 	}
 	stated = hunkRange{start: parsedStart, count: parsedCount}
 	if stated.spansLinesBeforeTheFirst() {

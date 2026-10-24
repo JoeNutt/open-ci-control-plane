@@ -65,6 +65,7 @@ func TestParseChangedFileRefusesAPatchWithARangeThatStartsAtZeroYetSpansLines(t 
 	for _, patch := range []string{
 		"@@ -0,1 +1,1 @@\n context",
 		"@@ -1,1 +0,1 @@\n context",
+		"@@ -0 +1 @@\n context",
 	} {
 		_, err := patchedFileParse(patch)
 
