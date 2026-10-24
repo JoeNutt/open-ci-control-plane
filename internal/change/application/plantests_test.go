@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"slices"
 	"testing"
 	"time"
 
@@ -23,9 +22,9 @@ func TestTheNextPlanUsesTheCoverageMapCIJustUploaded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("plan tests: %v", err)
 	}
-	if plan.FullMatrix || !slices.Equal(plan.Suites, []domain.CoverageSuite{parsedSuite(t)}) {
-		t.Errorf("planned %v (full matrix %v, %q), want only the uploaded suite %s",
-			plan.Suites, plan.FullMatrix, plan.Trigger, uploadedSuite)
+	if plan.FullMatrix || len(plan.Tests) != 1 || plan.Tests[0].Package().String() != uploadedSuite {
+		t.Errorf("planned %+v (full matrix %v, %q), want only the uploaded suite %s",
+			plan.Tests, plan.FullMatrix, plan.Trigger, uploadedSuite)
 	}
 }
 
@@ -80,11 +79,21 @@ func plannerOverAnUpload(t *testing.T) application.PlanTests {
 func uploadedChangeOf(t *testing.T) domain.PlanSubject {
 	t.Helper()
 
+	covered := domain.StatedFile{File: domain.File{Path: coveredFile, Action: domain.FileActionModified}}
+	changed, err := domain.ParseChangedFile(covered)
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	evidence, err := domain.ParseChangeEvidence([]domain.ChangedFile{changed}, nil, uploadingRepositorysBinding(t))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
 	return domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: uploadingRepository, HeadSHA: recordedHeadSHA},
-			Diff: domain.Diff{Files: []domain.File{{Path: coveredFile, Action: domain.FileActionModified}}},
+			Diff: domain.Diff{Files: []domain.File{covered.DocumentFile()}},
 		},
+		Evidence:   evidence,
 		Binding:    uploadingRepositorysBinding(t),
 		DecisionID: decisionIDOf(t, gatedDecisionID),
 		Revision:   revisionForTest(t),

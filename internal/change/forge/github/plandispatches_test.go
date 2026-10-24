@@ -370,10 +370,6 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 	if err != nil {
 		t.Fatalf("parse workflow: %v", err)
 	}
-	suite, err := domain.ParseCoverageSuite(dispatchedSuite)
-	if err != nil {
-		t.Fatalf("parse suite: %v", err)
-	}
 	always, err := domain.ParseGoImportPath(alwaysRunSuite)
 	if err != nil {
 		t.Fatalf("parse always-run suite: %v", err)
@@ -388,7 +384,7 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 	}
 	return domain.TestPlan{
 		DecisionID: decisionID, Repository: repository, Head: headCommit, Workflow: workflow,
-		Suites: []domain.CoverageSuite{suite}, Tests: []domain.PackageTests{domain.NewPackageTests(pkg, nil)},
+		Tests:     []domain.PackageTests{domain.NewPackageTests(pkg, nil)},
 		AlwaysRun: []domain.GoImportPath{always}, Trigger: domain.PlanTriggerNone, BundleRevision: revision,
 	}
 }
@@ -397,7 +393,7 @@ func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
 	plan := selectedPlan(t)
 	named := []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})}
 	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: named, Minimised: plan.Tests}
-	plan.Suites, plan.Tests, plan.FullMatrix = nil, nil, true
+	plan.Tests, plan.FullMatrix = nil, true
 	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
 
 	sent := sentPlanOf(t, plan)

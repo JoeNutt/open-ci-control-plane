@@ -118,13 +118,13 @@ func TestARecordedRunConcludesTheTestsCheckRunFromItsDispatchedPlan(t *testing.T
 		results     []domain.TestResult
 		conclusion  domain.Conclusion
 	}{
-		{"every planned test passed", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
+		{"every planned test passed", domain.TestPlan{Head: head, Tests: wholePackageOfSuite(t, suite)},
 			[]domain.TestResult{passed}, domain.ConclusionSuccess},
-		{"a planned test was skipped", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
+		{"a planned test was skipped", domain.TestPlan{Head: head, Tests: wholePackageOfSuite(t, suite)},
 			[]domain.TestResult{passed, skipped}, domain.ConclusionSuccess},
-		{"a planned test failed", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}},
+		{"a planned test failed", domain.TestPlan{Head: head, Tests: wholePackageOfSuite(t, suite)},
 			[]domain.TestResult{passed, failed}, domain.ConclusionFailure},
-		{"a planned suite reported nothing", domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite, unreported}},
+		{"a planned suite reported nothing", domain.TestPlan{Head: head, Tests: append(wholePackageOfSuite(t, suite), wholePackageOfSuite(t, unreported)...)},
 			[]domain.TestResult{passed}, domain.ConclusionFailure},
 		{"the full matrix reported nothing", domain.TestPlan{Head: head, FullMatrix: true},
 			nil, domain.ConclusionFailure},
@@ -153,7 +153,7 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 	suite := plannedSuiteOf(t)
 	published := &publishedCheckRuns{}
 	useCase := application.RecordRun{
-		Ledger:    ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{suite}}),
+		Ledger:    ledgerHolding(t, domain.TestPlan{Head: head, Tests: wholePackageOfSuite(t, suite)}),
 		Publisher: published,
 		Callers:   tokensNaming{gatedLocator(t).GovernedRepository()},
 	}
@@ -175,7 +175,7 @@ func TestASecondReportForOneHeadIsRefusedAndPostsNothingMore(t *testing.T) {
 
 func TestAReportCarryingAnotherRepositorysTokenIsRefusedPostsNothingAndUsesNoReport(t *testing.T) {
 	head := commitSHAOf(t, recordedHeadSHA)
-	ledger := ledgerHolding(t, domain.TestPlan{Head: head, Suites: []domain.CoverageSuite{plannedSuiteOf(t)}})
+	ledger := ledgerHolding(t, domain.TestPlan{Head: head, Tests: wholePackageOfSuite(t, plannedSuiteOf(t))})
 	published := &publishedCheckRuns{}
 	stranger, err := domain.ParseGovernedRepository("JoeNutt/another-repository")
 	if err != nil {

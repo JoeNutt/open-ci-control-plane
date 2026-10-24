@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -110,16 +111,17 @@ func (ledger *PlanLedger) append(line ledgerLine) error {
 }
 
 type ledgerLine struct {
-	Kind         lineKind      `json:"kind"`
-	Repository   string        `json:"repository"`
-	PullRequest  int           `json:"pullRequest,omitempty"`
-	Head         string        `json:"head"`
-	DecisionID   string        `json:"decisionId,omitempty"`
-	Suites       []string      `json:"suites,omitempty"`
-	AlwaysRun    []string      `json:"alwaysRun,omitempty"`
-	Recorded     *recordedLine `json:"recorded,omitempty"`
-	ChangedFiles []string      `json:"changedFiles,omitempty"`
-	Modes        *modesLine    `json:"modes,omitempty"`
+	Kind         lineKind           `json:"kind"`
+	Repository   string             `json:"repository"`
+	PullRequest  int                `json:"pullRequest,omitempty"`
+	Head         string             `json:"head"`
+	DecisionID   string             `json:"decisionId,omitempty"`
+	Suites       []string           `json:"suites,omitempty"`
+	Tests        []packageTestsLine `json:"tests,omitempty"`
+	AlwaysRun    []string           `json:"alwaysRun,omitempty"`
+	Recorded     *recordedLine      `json:"recorded,omitempty"`
+	ChangedFiles []string           `json:"changedFiles,omitempty"`
+	Modes        *modesLine         `json:"modes,omitempty"`
 }
 
 type modesLine struct {
@@ -144,7 +146,7 @@ func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
 		PullRequest:  dispatched.Locator.Number(),
 		Head:         dispatched.Head.String(),
 		DecisionID:   dispatched.DecisionID.String(),
-		Suites:       namesOf(dispatched.Suites),
+		Tests:        packageTestsLinesOf(dispatched.Tests),
 		AlwaysRun:    namesOf(dispatched.AlwaysRun),
 		Recorded:     recordedLineOf(dispatched.Recorded),
 		ChangedFiles: namesOf(dispatched.ChangedFiles),
@@ -191,7 +193,7 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
-	suites, err := parsedAll(line.Suites, domain.ParseCoverageSuite)
+	tests, err := parsedAll(line.plannedTests(), packageTestsLine.packageTests)
 	if err != nil {
 		return domain.DispatchedPlan{}, err
 	}
@@ -212,9 +214,17 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 		return domain.DispatchedPlan{}, err
 	}
 	return domain.DispatchedPlan{
-		Locator: locator, Head: head, DecisionID: id, Suites: suites,
+		Locator: locator, Head: head, DecisionID: id, Tests: tests,
 		AlwaysRun: alwaysRun, Recorded: recorded, ChangedFiles: changed, Modes: modes,
 	}, nil
+}
+
+func (line ledgerLine) plannedTests() []packageTestsLine {
+	planned := slices.Clone(line.Tests)
+	for _, suite := range line.Suites {
+		planned = append(planned, packageTestsLine{Package: suite})
+	}
+	return planned
 }
 
 func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {

@@ -26,9 +26,9 @@ func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *te
 	if len(plans) != 1 {
 		t.Fatalf("dispatched %d plans, want the full matrix once", len(plans))
 	}
-	if !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed || len(plans[0].Suites) != 0 {
-		t.Errorf("dispatched full matrix %t, trigger %q, %d suites; want the full matrix with %q",
-			plans[0].FullMatrix, plans[0].Trigger, len(plans[0].Suites), domain.PlanTriggerPlanFailed)
+	if !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed || len(plans[0].Tests) != 0 {
+		t.Errorf("dispatched full matrix %t, trigger %q, %d packages; want the full matrix with %q",
+			plans[0].FullMatrix, plans[0].Trigger, len(plans[0].Tests), domain.PlanTriggerPlanFailed)
 	}
 }
 

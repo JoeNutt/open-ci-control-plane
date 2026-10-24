@@ -20,12 +20,12 @@ const (
 
 func TestAChangeToFilesTwoSuitesCoverPlansThoseSuitesAndTheAlwaysRunSet(t *testing.T) {
 	plan := planOf(t, plannedChange{
-		files:    []domain.File{modified(ordersFile), modified(paymentsFile)},
+		files:    []domain.StatedFile{modified(ordersFile), modified(paymentsFile)},
 		coverage: coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}),
 	})
 
-	if got := suiteNamesOf(plan.Suites); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
-		t.Errorf("suites are %v, want %v", got, []string{ordersSuite, paymentsSuite})
+	if got := packagesOf(plan.Tests); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
+		t.Errorf("tests run packages %v, want %v", got, []string{ordersSuite, paymentsSuite})
 	}
 	if !slices.Equal(plan.AlwaysRun, planBinding(t).AlwaysRun()) {
 		t.Errorf("always-run set is %v, want the binding's %v", plan.AlwaysRun, planBinding(t).AlwaysRun())
@@ -35,9 +35,74 @@ func TestAChangeToFilesTwoSuitesCoverPlansThoseSuitesAndTheAlwaysRunSet(t *testi
 	}
 }
 
+const (
+	placesTest     = "TestPlaces"
+	cancelsTest    = "TestCancels"
+	placedLine     = 1
+	cancelledLine  = 5
+	cancelledPatch = "@@ -5 +5 @@\n-\treturn nil\n+\treturn errCancelled"
+)
+
+func TestAPlanNamesTheTestsCoveringTheChangedLines(t *testing.T) {
+	plan := planOf(t, plannedChange{
+		files:    []domain.StatedFile{statedPatch(modified(ordersFile), cancelledPatch)},
+		coverage: coverageOfTests(t, ordersSuite, ordersFile, map[string]uint32{placesTest: placedLine, cancelsTest: cancelledLine}),
+	})
+
+	want := []domain.PackageTests{domain.NewPackageTests(ordersPackage(t), []domain.TopLevelTestName{mustParseTestName(t, cancelsTest)})}
+	if !slices.EqualFunc(plan.Tests, want, samePackageTests) {
+		t.Errorf("tests are %+v, want %+v", plan.Tests, want)
+	}
+}
+
+func samePackageTests(one, other domain.PackageTests) bool {
+	return one.Package() == other.Package() && slices.Equal(one.Names(), other.Names())
+}
+
+func statedPatch(file domain.StatedFile, patch string) domain.StatedFile {
+	file.Patch, file.IsPatchStated = patch, true
+	return file
+}
+
+func evidenceOf(t *testing.T, stated ...domain.StatedFile) domain.ChangeEvidence {
+	t.Helper()
+
+	files := make([]domain.ChangedFile, 0, len(stated))
+	for _, each := range stated {
+		file, err := domain.ParseChangedFile(each)
+		if err != nil {
+			t.Fatalf("parse changed file: %v", err)
+		}
+		files = append(files, file)
+	}
+	evidence, err := domain.ParseChangeEvidence(files, nil, planBinding(t))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	return evidence
+}
+
+func coverageOfTests(t *testing.T, suite, file string, lineByTest map[string]uint32) domain.RepositoryCoverage {
+	t.Helper()
+
+	path, err := domain.ParseRepositoryPath(file)
+	if err != nil {
+		t.Fatalf("parse path: %v", err)
+	}
+	tests := make([]domain.ReportedTest, 0, len(lineByTest))
+	for name, line := range lineByTest {
+		tests = append(tests, domain.NewReportedTest(mustParseTestName(t, name), []domain.TestedFile{domain.NewTestedFile(path, []uint32{line})}))
+	}
+	coverage, err := domain.ParseSuiteCoverage(domain.NewReportedCoverage([]domain.RepositoryPath{path}, tests), domain.NewKnownPaths([]domain.RepositoryPath{path}))
+	if err != nil {
+		t.Fatalf("parse suite coverage: %v", err)
+	}
+	return mustReplace(t, domain.RepositoryCoverage{}, mustParseSuite(t, suite), coverage)
+}
+
 func TestASelectedPlanRunsEachSelectedSuiteAsAWholePackage(t *testing.T) {
 	plan := planOf(t, plannedChange{
-		files:    []domain.File{modified(ordersFile), modified(paymentsFile)},
+		files:    []domain.StatedFile{modified(ordersFile), modified(paymentsFile)},
 		coverage: coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}),
 	})
 
@@ -66,28 +131,28 @@ func TestEachReasonSelectionCannotVouchForPlansTheFullMatrixNamingIt(t *testing.
 		want   domain.PlanTrigger
 	}{
 		"a changed file in no map": {plannedChange{
-			files: []domain.File{modified(ordersFile), modified("README.md")}, coverage: mapped,
+			files: []domain.StatedFile{modified(ordersFile), modified("README.md")}, coverage: mapped,
 		}, domain.PlanTriggerUnmappedFile},
 		"no map at all": {plannedChange{
-			files: []domain.File{modified(ordersFile)},
+			files: []domain.StatedFile{modified(ordersFile)},
 		}, domain.PlanTriggerNoMap},
 		"an added file": {plannedChange{
-			files: []domain.File{added(ordersFile)}, coverage: mapped,
+			files: []domain.StatedFile{added(ordersFile)}, coverage: mapped,
 		}, domain.PlanTriggerFileAdded},
 		"a lockfile": {plannedChange{
-			files: []domain.File{modified(ordersFile)}, coverage: mapped, kinds: domain.Kinds{Lockfile: domain.Paths{"go.sum"}},
+			files: []domain.StatedFile{modified(ordersFile)}, coverage: mapped, kinds: domain.Kinds{Lockfile: domain.Paths{"go.sum"}},
 		}, domain.PlanTriggerLockfile},
 		"an added migration": {plannedChange{
-			files: []domain.File{added(ordersFile)}, coverage: mapped, kinds: domain.Kinds{Migration: domain.Paths{ordersFile}},
+			files: []domain.StatedFile{added(ordersFile)}, coverage: mapped, kinds: domain.Kinds{Migration: domain.Paths{ordersFile}},
 		}, domain.PlanTriggerMigration},
 		"CI configuration": {plannedChange{
-			files: []domain.File{modified(ordersFile)}, coverage: mapped, kinds: domain.Kinds{CIConfig: domain.Paths{".github/workflows/ci.yml"}},
+			files: []domain.StatedFile{modified(ordersFile)}, coverage: mapped, kinds: domain.Kinds{CIConfig: domain.Paths{".github/workflows/ci.yml"}},
 		}, domain.PlanTriggerCIConfig},
 		"precedence: no map over every other reason": {plannedChange{
-			files: []domain.File{added("README.md")}, kinds: domain.Kinds{CIConfig: domain.Paths{"README.md"}},
+			files: []domain.StatedFile{added("README.md")}, kinds: domain.Kinds{CIConfig: domain.Paths{"README.md"}},
 		}, domain.PlanTriggerNoMap},
 		"precedence: CI configuration over a lockfile": {plannedChange{
-			files: []domain.File{modified(ordersFile)}, coverage: mapped,
+			files: []domain.StatedFile{modified(ordersFile)}, coverage: mapped,
 			kinds: domain.Kinds{CIConfig: domain.Paths{".github/workflows/ci.yml"}, Lockfile: domain.Paths{"go.sum"}},
 		}, domain.PlanTriggerCIConfig},
 	}
@@ -108,7 +173,7 @@ func TestEachReasonSelectionCannotVouchForPlansTheFullMatrixNamingIt(t *testing.
 
 func TestAPlanCarriesItsDecisionRepositoryHeadRevisionAndTheBindingsWorkflow(t *testing.T) {
 	plan := planOf(t, plannedChange{
-		files: []domain.File{modified(".github/workflows/open-ci-tests.yml"), added(".openci.yaml")},
+		files: []domain.StatedFile{modified(".github/workflows/open-ci-tests.yml"), added(".openci.yaml")},
 	})
 
 	binding := planBinding(t)
@@ -139,8 +204,8 @@ func TestAPlanAtTheSuiteLimitIsSelectedAndOneSuiteOverIsTheFullMatrix(t *testing
 			t.Errorf("%d suites: full matrix %v with %q, want %v with %q",
 				bound.suites, plan.FullMatrix, plan.Trigger, bound.fullMatrix, bound.trigger)
 		}
-		if plan.FullMatrix && len(plan.Suites) != 0 {
-			t.Errorf("%d suites: a full-matrix plan names %d suites, want none", bound.suites, len(plan.Suites))
+		if plan.FullMatrix && len(plan.Tests) != 0 {
+			t.Errorf("%d suites: a full-matrix plan names %d packages, want none", bound.suites, len(plan.Tests))
 		}
 	}
 }
@@ -149,7 +214,7 @@ func changeCoveredBySuites(t *testing.T, count int) plannedChange {
 	t.Helper()
 
 	fileBySuite := make(map[string]string, count)
-	files := make([]domain.File, 0, count)
+	files := make([]domain.StatedFile, 0, count)
 	for index := range count {
 		file := fmt.Sprintf("internal/suite%d/file.go", index)
 		fileBySuite[fmt.Sprintf("github.com/JoeNutt/open-ci-control-plane/internal/suite%d", index)] = file
@@ -159,7 +224,7 @@ func changeCoveredBySuites(t *testing.T, count int) plannedChange {
 }
 
 type plannedChange struct {
-	files    []domain.File
+	files    []domain.StatedFile
 	coverage domain.RepositoryCoverage
 	kinds    domain.Kinds
 }
@@ -170,8 +235,9 @@ func planOf(t *testing.T, change plannedChange) domain.TestPlan {
 	plan, err := domain.PlanFor(domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
-			Diff: domain.Diff{Files: change.files, Kinds: change.kinds},
+			Diff: domain.Diff{Files: documentFilesOf(change.files), Kinds: change.kinds},
 		},
+		Evidence:   evidenceOf(t, change.files...),
 		Binding:    planBinding(t),
 		DecisionID: decisionIDForPlan(t),
 		Revision:   revisionForTest(t),
@@ -182,12 +248,20 @@ func planOf(t *testing.T, change plannedChange) domain.TestPlan {
 	return plan
 }
 
-func modified(path string) domain.File {
-	return domain.File{Path: path, Action: domain.FileActionModified}
+func modified(path string) domain.StatedFile {
+	return domain.StatedFile{File: domain.File{Path: path, Action: domain.FileActionModified}}
 }
 
-func added(path string) domain.File {
-	return domain.File{Path: path, Action: domain.FileActionAdded}
+func added(path string) domain.StatedFile {
+	return domain.StatedFile{File: domain.File{Path: path, Action: domain.FileActionAdded}}
+}
+
+func documentFilesOf(stated []domain.StatedFile) []domain.File {
+	files := make([]domain.File, 0, len(stated))
+	for _, each := range stated {
+		files = append(files, each.DocumentFile())
+	}
+	return files
 }
 
 func coverageByFiles(t *testing.T, fileBySuite map[string]string) domain.RepositoryCoverage {
@@ -233,22 +307,14 @@ func decisionIDForPlan(t *testing.T) domain.DecisionID {
 	return id
 }
 
-func suiteNamesOf(suites []domain.CoverageSuite) []string {
-	names := make([]string, 0, len(suites))
-	for _, suite := range suites {
-		names = append(names, suite.String())
-	}
-	return names
-}
-
 func TestAShadowBindingPlansTheFullMatrixAndRecordsWhatSelectionWouldRun(t *testing.T) {
 	plan := modedPlanOf(t, "shadow", "off")
 
 	if !plan.Recorded.IsRecorded {
 		t.Error("a shadow plan says it recorded nothing")
 	}
-	if !plan.FullMatrix || len(plan.Suites) != 0 {
-		t.Errorf("a shadow plan runs full matrix %v with suites %v, want the full matrix", plan.FullMatrix, suiteNamesOf(plan.Suites))
+	if !plan.FullMatrix || len(plan.Tests) != 0 {
+		t.Errorf("a shadow plan runs full matrix %v with tests %+v, want the full matrix", plan.FullMatrix, plan.Tests)
 	}
 	if got := packagesOf(plan.Recorded.Selected); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) || slices.ContainsFunc(plan.Recorded.Selected, isNamed) {
 		t.Errorf("a shadow plan recorded %v as selected, want %v", got, []string{ordersSuite, paymentsSuite})
@@ -277,12 +343,14 @@ func modedPlanOf(t *testing.T, selection, minimisation string) domain.TestPlan {
 	if err != nil {
 		t.Fatalf("parse binding: %v", err)
 	}
+	bothChanged := []domain.StatedFile{modified(ordersFile), modified(paymentsFile)}
 	plan, err := domain.PlanFor(domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
-			Diff: domain.Diff{Files: []domain.File{modified(ordersFile), modified(paymentsFile)}},
+			Diff: domain.Diff{Files: documentFilesOf(bothChanged)},
 		},
-		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+		Evidence: evidenceOf(t, bothChanged...),
+		Binding:  binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
 	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -293,9 +361,9 @@ func modedPlanOf(t *testing.T, selection, minimisation string) domain.TestPlan {
 func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
 	plan := modedPlanOf(t, "off", "off")
 
-	if !plan.FullMatrix || len(plan.Suites)+len(plan.Tests) != 0 || len(plan.Recorded.Selected) != 0 {
-		t.Errorf("selection off planned full matrix %v, suites %v, tests %+v, recorded %v: want the full matrix and nothing recorded",
-			plan.FullMatrix, suiteNamesOf(plan.Suites), plan.Tests, packagesOf(plan.Recorded.Selected))
+	if !plan.FullMatrix || len(plan.Tests) != 0 || len(plan.Recorded.Selected) != 0 {
+		t.Errorf("selection off planned full matrix %v, tests %+v, recorded %v: want the full matrix and nothing recorded",
+			plan.FullMatrix, plan.Tests, packagesOf(plan.Recorded.Selected))
 	}
 }
 
@@ -307,12 +375,14 @@ func TestAShadowPlanForcedToTheFullMatrixKeepsItsTriggerAndRecordsNothing(t *tes
 		t.Fatalf("parse binding: %v", err)
 	}
 
+	ordersChanged := []domain.StatedFile{modified(ordersFile)}
 	plan, err := domain.PlanFor(domain.PlanSubject{
 		Document: domain.Document{
 			PR:   domain.PullRequest{Repository: thisRepository, HeadSHA: planHeadSHA},
-			Diff: domain.Diff{Files: []domain.File{modified(ordersFile)}, Kinds: domain.Kinds{CIConfig: []string{ordersFile}}},
+			Diff: domain.Diff{Files: documentFilesOf(ordersChanged), Kinds: domain.Kinds{CIConfig: []string{ordersFile}}},
 		},
-		Binding: binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
+		Evidence: evidenceOf(t, ordersChanged...),
+		Binding:  binding, DecisionID: decisionIDForPlan(t), Revision: revisionForTest(t),
 	}, coverageByFiles(t, map[string]string{ordersSuite: ordersFile}))
 
 	if err != nil || plan.Trigger != domain.PlanTriggerCIConfig || plan.Recorded.IsRecorded {

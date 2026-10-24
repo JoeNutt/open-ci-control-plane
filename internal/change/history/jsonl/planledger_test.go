@@ -41,7 +41,7 @@ func TestADispatchedPlanSurvivesARestart(t *testing.T) {
 		t.Fatalf("after a restart the dispatched plan is not found: %v", err)
 	}
 	if found.Locator != dispatched.Locator || found.Head != dispatched.Head ||
-		found.DecisionID != dispatched.DecisionID || !slices.Equal(found.Suites, dispatched.Suites) ||
+		found.DecisionID != dispatched.DecisionID || !reflect.DeepEqual(found.Tests, dispatched.Tests) ||
 		!slices.Equal(found.AlwaysRun, dispatched.AlwaysRun) || !slices.Equal(found.ChangedFiles, dispatched.ChangedFiles) ||
 		found.Recorded.IsRecorded != dispatched.Recorded.IsRecorded || found.Modes != dispatched.Modes ||
 		!reflect.DeepEqual(found.Recorded, dispatched.Recorded) {
@@ -119,7 +119,7 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 		t.Fatalf("parse changed file: %v", err)
 	}
 	return domain.DispatchedPlan{
-		Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite},
+		Locator: locator, Head: head, DecisionID: id, Tests: namedEntryOf(t, suite),
 		AlwaysRun:    []domain.GoImportPath{alwaysRun},
 		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: namedEntryOf(t, suite), Minimised: wholePackageOf(t, suite)},
 		ChangedFiles: []domain.RepositoryPath{changed},
@@ -219,6 +219,9 @@ func TestALineRecordedBeforeTestLevelPlansReadsEachRecordedSuiteAsItsWholePackag
 		t.Fatalf("the shadow history reads %d runs (%v), want the one run", len(runs), err)
 	}
 
+	if !reflect.DeepEqual(found.Tests, wholePackageOf(t, suiteOf(t))) {
+		t.Errorf("the line planned %+v, want each suite as its whole package %+v", found.Tests, wholePackageOf(t, suiteOf(t)))
+	}
 	want := domain.RecordedSets{IsRecorded: true, Selected: wholePackageOf(t, suiteOf(t)), Minimised: wholePackageOf(t, suiteOf(t))}
 	for _, read := range []domain.RecordedSets{found.Recorded, runs[0].Plan.Recorded} {
 		if !reflect.DeepEqual(read, want) {
@@ -292,7 +295,7 @@ func TestTheLatestPlanDispatchedForAHeadIsTheOneFound(t *testing.T) {
 	ledger := jsonl.NewPlanLedger(openedLog(t, ledgerPath(t)))
 	earlier := dispatchedPlanOf(t)
 	later := earlier
-	later.Suites = nil
+	later.Tests = nil
 	id, err := domain.ParseDecisionID("dec_ffffffffffffffffffffffffffffffff")
 	if err != nil {
 		t.Fatalf("parse decision ID: %v", err)

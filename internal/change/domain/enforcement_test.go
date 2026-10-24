@@ -45,7 +45,7 @@ func anEscapeAnHourAgo(t *testing.T, mode domain.ShadowedMode, repository string
 func TestAnEnforcedSelectionWithNoShadowHistoryDropsToShadowNamingWhy(t *testing.T) {
 	plan := modedPlanOf(t, "enforce", "off").GatedOn(nil, nil, gatedAt)
 
-	if !plan.FullMatrix || len(plan.Suites) != 0 || plan.Trigger != domain.PlanTriggerShadowUnproven ||
+	if !plan.FullMatrix || len(plan.Tests) != 0 || plan.Trigger != domain.PlanTriggerShadowUnproven ||
 		plan.Modes.Selection != domain.TestModeShadow || !plan.Recorded.IsRecorded || len(plan.Recorded.Selected) != 2 {
 		t.Errorf("an unproven enforced plan is %+v, want the full matrix in shadow with %q and both selected suites recorded",
 			plan, domain.PlanTriggerShadowUnproven)
@@ -55,7 +55,7 @@ func TestAnEnforcedSelectionWithNoShadowHistoryDropsToShadowNamingWhy(t *testing
 func TestAnEnforcedSelectionWithALongCleanShadowHistoryRunsItsSelection(t *testing.T) {
 	plan := modedPlanOf(t, "enforce", "off").GatedOn(hourlyCleanHistoryOf(t, thisRepository), nil, gatedAt)
 
-	if plan.FullMatrix || len(plan.Suites) != 2 || plan.Modes.Selection != domain.TestModeEnforce {
+	if plan.FullMatrix || len(plan.Tests) != 2 || plan.Modes.Selection != domain.TestModeEnforce {
 		t.Errorf("a proven enforced plan is %+v, want both selected suites run under enforce", plan)
 	}
 }
@@ -98,7 +98,7 @@ func TestAnUnprovenMinimisationUnderAnEnforcedSelectionShadowsAloneAndRecordsIts
 
 	plan := modedPlanOf(t, "enforce", "enforce").GatedOn(hourlyCleanHistoryOf(t, thisRepository), escapes, gatedAt)
 
-	if plan.FullMatrix || len(plan.Suites) != 2 || plan.Modes.Selection != domain.TestModeEnforce ||
+	if plan.FullMatrix || len(plan.Tests) != 2 || plan.Modes.Selection != domain.TestModeEnforce ||
 		plan.Modes.Minimisation != domain.TestModeShadow || len(plan.Recorded.Minimised) != 2 {
 		t.Errorf("the plan is %+v, want the selection run, minimisation in shadow with both suites recorded as minimised", plan)
 	}
