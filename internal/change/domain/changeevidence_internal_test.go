@@ -44,6 +44,30 @@ func TestChangeEvidenceNamesEachEditedTestWithItsPackage(t *testing.T) {
 	}
 }
 
+func TestChangeEvidenceNamesTheTestFileWhosePackageNoImportRootNames(t *testing.T) {
+	changed := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/owner_test.go", Action: FileActionModified},
+		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	edited := EditedTestsIn(changed, []TestFunction{testFunctionFrom(t, "TestAdmitsAnOwner", 1, 3)})
+	binding, err := ParseBinding(BindingStatement{
+		Repository: "acme/app", Workflow: "tests.yml",
+		Policies: []BoundPolicyStatement{{Use: "clean-architecture"}},
+	})
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+
+	evidence, err := ParseChangeEvidence([]ChangedFile{changed}, []EditedTests{edited}, binding)
+
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	if !reflect.DeepEqual(evidence.testFilesOfUnknownPackage, []RepositoryPath{changed.path}) || evidence.tests != nil {
+		t.Fatalf("evidence is %+v, want the test file under an unknown package and no packaged tests", evidence)
+	}
+}
+
 func bindingRootedAt(t *testing.T, module string) Binding {
 	t.Helper()
 

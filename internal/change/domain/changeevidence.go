@@ -3,13 +3,15 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
 
 type ChangeEvidence struct {
-	files []ChangedFile
-	tests []changedTest
+	files                     []ChangedFile
+	tests                     []changedTest
+	testFilesOfUnknownPackage []RepositoryPath
 }
 
 type changedTest struct {
@@ -20,14 +22,19 @@ type changedTest struct {
 func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Binding) (ChangeEvidence, error) {
 	roots := binding.importRoots()
 	var tests []changedTest
+	var unknown []RepositoryPath
 	for _, file := range edited {
 		named, err := file.changedTestsUnder(roots)
+		if errors.Is(err, errNoImportRootHoldsTheTest) {
+			unknown = append(unknown, file.path)
+			continue
+		}
 		if err != nil {
 			return ChangeEvidence{}, fmt.Errorf("%s: %w", file.path, err)
 		}
 		tests = append(tests, named...)
 	}
-	return ChangeEvidence{files: slices.Clone(files), tests: tests}, nil
+	return ChangeEvidence{files: slices.Clone(files), tests: tests, testFilesOfUnknownPackage: unknown}, nil
 }
 
 func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]changedTest, error) {
