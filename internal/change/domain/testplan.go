@@ -102,6 +102,7 @@ type RecordedSets struct {
 
 type PlanSubject struct {
 	Document   Document
+	Evidence   ChangeEvidence
 	Binding    Binding
 	DecisionID DecisionID
 	Revision   BundleRevision

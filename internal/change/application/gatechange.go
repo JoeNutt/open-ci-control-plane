@@ -46,7 +46,7 @@ func (useCase GateChange) Execute(
 			useCase.publish(posting, locator, head, run))
 		if isStructuralPass(decided, run) {
 			subject := domain.PlanSubject{Document: document, DecisionID: id, Revision: decided.Decision.Revision()}
-			failures = append(failures, useCase.planAndDispatch(posting, locator, subject))
+			failures = append(failures, useCase.planAndDispatch(posting, locator, subject, built))
 		}
 	}
 	return errors.Join(failures...)
@@ -57,14 +57,23 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 }
 
 func (useCase GateChange) planAndDispatch(
-	ctx context.Context, locator domain.PullRequestLocator, unbound domain.PlanSubject,
+	ctx context.Context, locator domain.PullRequestLocator, unbound domain.PlanSubject, built BuiltChange,
 ) error {
 	repository := unbound.Document.PR.Repository
 	subject, err := useCase.subjectOf(ctx, unbound)
 	if err != nil {
 		return fmt.Errorf("plan the tests of %s: %w", repository, err)
 	}
-	plan, planErr := useCase.Planner.Execute(ctx, subject)
+	var plan domain.TestPlan
+	var planErr error
+	if built.EvidenceFailure != nil {
+		planErr = built.EvidenceFailure
+	} else {
+		subject.Evidence, planErr = domain.ParseChangeEvidence(built.Files, built.Edited, subject.Binding)
+		if planErr == nil {
+			plan, planErr = useCase.Planner.Execute(ctx, subject)
+		}
+	}
 	if planErr != nil {
 		planErr = fmt.Errorf("plan the tests of %s: %w", repository, planErr)
 		if plan, err = domain.FailedPlanFor(subject); err != nil {

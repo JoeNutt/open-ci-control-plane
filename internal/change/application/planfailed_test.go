@@ -9,6 +9,7 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *testing.T) {
@@ -28,6 +29,29 @@ func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *te
 	if !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed || len(plans[0].Suites) != 0 {
 		t.Errorf("dispatched full matrix %t, trigger %q, %d suites; want the full matrix with %q",
 			plans[0].FullMatrix, plans[0].Trigger, len(plans[0].Suites), domain.PlanTriggerPlanFailed)
+	}
+}
+
+func TestAPassingChangeWhoseEvidenceCannotBeReadRunsTheFullMatrixNamingWhy(t *testing.T) {
+	dispatched := &dispatchedPlans{}
+	published := &publishedCheckRuns{}
+	useCase := passingGateChange(t, published, dispatched)
+	useCase.Build = evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, golang.Extractor{}, domain.StatedFile{
+		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+		Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
+	})
+
+	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, domain.ErrMalformedHunk) {
+		t.Errorf("the evidence's cause was not returned for the log: %v", err)
+	}
+	if _, isPosted := published.PublishedOn(gatedLocator(t), commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]; !isPosted {
+		t.Errorf("an evidence failure stopped the structural check run")
+	}
+	plans := dispatched.Dispatched()
+	if len(plans) != 1 || !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed {
+		t.Errorf("unreadable evidence dispatched %+v, want the full matrix with %q", plans, domain.PlanTriggerPlanFailed)
 	}
 }
 
