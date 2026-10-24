@@ -16,23 +16,14 @@ type SuiteCoverage struct {
 	size           indexSize
 }
 
-type indexSize struct {
-	tests int
-	edges int
-}
-
 func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCoverage, error) {
 	isUnknown := func(path RepositoryPath) bool { return !known.Contains(path) }
 	if slices.ContainsFunc(reported.paths, isUnknown) {
 		return SuiteCoverage{}, errUnknownPath
 	}
-	edges := 0
-	for _, test := range reported.tests {
-		for _, file := range test.files {
-			edges += len(file.hitLines)
-		}
-	}
-	return SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests, size: indexSize{tests: len(reported.tests), edges: edges}}, nil
+	coverage := SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests}
+	coverage.size = coverage.indexSizeOf()
+	return coverage, nil
 }
 
 func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
@@ -44,6 +35,14 @@ func (coverage SuiteCoverage) Covers(path RepositoryPath) bool {
 		}
 	}
 	return false
+}
+
+func (coverage SuiteCoverage) indexSizeOf() indexSize {
+	size := indexSize{tests: len(coverage.tests)}
+	for file := range coverage.testedFiles() {
+		size.edges += len(file.hitLines)
+	}
+	return size
 }
 
 func (coverage SuiteCoverage) testedFiles() iter.Seq[TestedFile] {

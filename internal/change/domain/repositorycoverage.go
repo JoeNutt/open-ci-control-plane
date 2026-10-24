@@ -13,7 +13,8 @@ var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
 
 type RepositoryCoverage struct {
 	suites map[CoverageSuite]SuiteCoverage
-	index  coverageIndex
+	size   indexSize
+	index  *lazyIndex
 }
 
 func (repositoryCoverage RepositoryCoverage) Replacing(
@@ -22,14 +23,18 @@ func (repositoryCoverage RepositoryCoverage) Replacing(
 	if breach := limits.SuitesBreach(repositoryCoverage.suiteCountWith(suite)); breach != nil {
 		return RepositoryCoverage{}, breach
 	}
+	size := repositoryCoverage.size.replacing(repositoryCoverage.suites[suite].size, coverage.size)
+	if breach := size.breachIn(limits); breach != nil {
+		return RepositoryCoverage{}, breach
+	}
 	suites := make(map[CoverageSuite]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	index, err := indexOf(suites, limits)
-	if err != nil {
-		return RepositoryCoverage{}, err
-	}
-	return RepositoryCoverage{suites: suites, index: index}, nil
+	return RepositoryCoverage{suites: suites, size: size, index: &lazyIndex{suites: suites}}, nil
+}
+
+func (repositoryCoverage RepositoryCoverage) coverageIndex() coverageIndex {
+	return repositoryCoverage.index.index()
 }
 
 func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite CoverageSuite) int {

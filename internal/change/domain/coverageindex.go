@@ -28,42 +28,18 @@ type coverageIndex struct {
 	postings         coveragePostings
 }
 
-func indexOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) (coverageIndex, error) {
-	if breach := limits.indexedTestsBreach(testsHeldIn(suites)); breach != nil {
-		return coverageIndex{}, breach
-	}
-	if breach := limits.indexEdgesBreach(edgesHeldIn(suites)); breach != nil {
-		return coverageIndex{}, breach
-	}
+func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
 	tests := denselyNumberedTestsOf(suites)
 	return coverageIndex{
 		revision:         &indexRevision{testCount: len(tests)},
 		tests:            tests,
 		testCountBySuite: testCountBySuiteOf(suites),
 		postings:         postingsOf(edgesOf(suites, positionsOf(tests))),
-	}, nil
-}
-
-func testsHeldIn(suites map[CoverageSuite]SuiteCoverage) int {
-	held := 0
-	for _, coverage := range suites {
-		held += len(coverage.tests)
 	}
-	return held
-}
-
-func edgesHeldIn(suites map[CoverageSuite]SuiteCoverage) int {
-	held := 0
-	for _, coverage := range suites {
-		for file := range coverage.testedFiles() {
-			held += len(file.hitLines)
-		}
-	}
-	return held
 }
 
 func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
-	tests := make([]coveredTest, 0, testsHeldIn(suites))
+	var tests []coveredTest
 	for suite, coverage := range suites {
 		for _, test := range coverage.tests {
 			tests = append(tests, coveredTest{suite: suite, name: test.name})

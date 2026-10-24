@@ -25,7 +25,7 @@ func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
 	}
 
 	for dense, wanted := range want {
-		test, err := coverage.index.testAt(dense)
+		test, err := coverage.coverageIndex().testAt(dense)
 		if err != nil || test != wanted {
 			t.Errorf("test %d is %+v (%v), want %+v", dense, test, err, wanted)
 		}
@@ -35,8 +35,8 @@ func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
 func TestCoverageIndexRefusesAPositionOutsideItsTests(t *testing.T) {
 	coverage := twoSuiteCoverage(t)
 
-	for _, dense := range []int{-1, len(coverage.index.tests)} {
-		if _, err := coverage.index.testAt(dense); !errors.Is(err, errNoTestAtIndex) {
+	for _, dense := range []int{-1, len(coverage.coverageIndex().tests)} {
+		if _, err := coverage.coverageIndex().testAt(dense); !errors.Is(err, errNoTestAtIndex) {
 			t.Errorf("position %d: want errNoTestAtIndex, got %v", dense, err)
 		}
 	}
@@ -46,7 +46,7 @@ func TestCoverageIndexCountsTheTestsEachSuiteHolds(t *testing.T) {
 	coverage := twoSuiteCoverage(t)
 
 	for suite, want := range map[string]int{indexedLCOVSuite: 2, indexedDomainSuite: 1} {
-		if count, err := coverage.index.testCountOf(suiteNamed(t, suite)); err != nil || count != want {
+		if count, err := coverage.coverageIndex().testCountOf(suiteNamed(t, suite)); err != nil || count != want {
 			t.Errorf("%s holds %d tests (%v), want %d", suite, count, err, want)
 		}
 	}
@@ -55,7 +55,7 @@ func TestCoverageIndexCountsTheTestsEachSuiteHolds(t *testing.T) {
 func TestCoverageIndexRefusesToCountASuiteItHoldsNoCoverageFor(t *testing.T) {
 	unindexed := suiteNamed(t, "github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi")
 
-	count, err := twoSuiteCoverage(t).index.testCountOf(unindexed)
+	count, err := twoSuiteCoverage(t).coverageIndex().testCountOf(unindexed)
 
 	if !errors.Is(err, errUnindexedSuite) {
 		t.Fatalf("counted %d tests (%v), want errUnindexedSuite", count, err)
@@ -66,7 +66,7 @@ func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
 	coverage := twoSuiteCoverage(t)
 
 	for file, want := range map[string][]int{indexedEffectFile: {0, 1}, indexedGateFile: {2}} {
-		reaching, err := coverage.index.testsReaching(pathNamed(t, file))
+		reaching, err := coverage.coverageIndex().testsReaching(pathNamed(t, file))
 		if err != nil || !slices.Equal(membersOf(reaching), want) {
 			t.Errorf("%s is reached by %v (%v), want %v", file, membersOf(reaching), err, want)
 		}
@@ -74,7 +74,7 @@ func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
 }
 
 func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testing.T) {
-	reaching, err := twoSuiteCoverage(t).index.testsReaching(pathNamed(t, unindexedFile))
+	reaching, err := twoSuiteCoverage(t).coverageIndex().testsReaching(pathNamed(t, unindexedFile))
 
 	if !errors.Is(err, errUnindexedFile) {
 		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(reaching), err)
@@ -84,7 +84,7 @@ func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testin
 func TestCoverageIndexAnswersLinesOfAFileItHasNeverSeenWithAMiss(t *testing.T) {
 	unseen := pathNamed(t, unindexedFile)
 
-	covering, err := twoSuiteCoverage(t).index.testsCovering(unseen, []uint32{1})
+	covering, err := twoSuiteCoverage(t).coverageIndex().testsCovering(unseen, []uint32{1})
 
 	if !errors.Is(err, errUnindexedFile) {
 		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(covering), err)
@@ -103,7 +103,7 @@ func TestCoverageIndexFindsTheTestsCoveringGivenLinesOfAFile(t *testing.T) {
 		{lines: []uint32{1, 2}, want: []int{0, 1}},
 		{lines: []uint32{9}, want: nil},
 	} {
-		covering, err := coverage.index.testsCovering(effect, asked.lines)
+		covering, err := coverage.coverageIndex().testsCovering(effect, asked.lines)
 		if err != nil || !slices.Equal(membersOf(covering), asked.want) {
 			t.Errorf("lines %v are covered by %v (%v), want %v", asked.lines, membersOf(covering), err, asked.want)
 		}
@@ -132,7 +132,7 @@ func TestCoverageIndexTakesANewRevisionOnEveryRebuildSoSetsOfTwoRebuildsNeverJoi
 func testsReachingGate(t *testing.T, coverage RepositoryCoverage) testSet {
 	t.Helper()
 
-	reaching, err := coverage.index.testsReaching(pathNamed(t, indexedGateFile))
+	reaching, err := coverage.coverageIndex().testsReaching(pathNamed(t, indexedGateFile))
 	if err != nil {
 		t.Fatalf("read the tests reaching %s: %v", indexedGateFile, err)
 	}
