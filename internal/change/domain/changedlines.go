@@ -35,24 +35,30 @@ type ChangedLines struct {
 
 func ParseChangedLines(patch string) (ChangedLines, error) {
 	var walk patchWalk
-	for index, line := range strings.Split(patch, patchLineBreak) {
+	lines := strings.Split(patch, patchLineBreak)
+	for index, line := range lines {
 		if err := walk.step(line); err != nil {
 			return ChangedLines{}, fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
 		}
+	}
+	if walk.isHunkOpen() {
+		return ChangedLines{}, fmt.Errorf("%w: patch line %d", ErrMalformedHunk, len(lines))
 	}
 	return walk.changedLines(), nil
 }
 
 type patchWalk struct {
-	base     patchSide
-	head     patchSide
-	isInHunk bool
+	base patchSide
+	head patchSide
 }
 
 type patchSide struct {
-	line    int
-	changed []int
+	line      int
+	remaining int
+	changed   []int
 }
+
+func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
 
 type sidePresence struct {
 	isPresent bool
@@ -74,35 +80,44 @@ func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
 		return walk.enter(line)
 	}
-	if !walk.isInHunk || line == "" {
+	if line == "" {
 		return ErrMalformedHunk
 	}
 	presence, isMarked := presenceOfLines[line[0]]
 	if !isMarked {
 		return ErrMalformedHunk
 	}
-	walk.base.take(presence.onBase)
-	walk.head.take(presence.onHead)
-	return nil
+	if err := walk.base.take(presence.onBase); err != nil {
+		return err
+	}
+	return walk.head.take(presence.onHead)
 }
 
-func (side *patchSide) take(presence sidePresence) {
+func (side *patchSide) take(presence sidePresence) error {
 	if !presence.isPresent {
-		return
+		return nil
+	}
+	if side.remaining == 0 {
+		return ErrMalformedHunk
 	}
 	if presence.isChanged {
 		side.changed = append(side.changed, side.line)
 	}
 	side.line++
+	side.remaining--
+	return nil
 }
 
 func (walk *patchWalk) enter(header string) error {
+	if walk.isHunkOpen() {
+		return ErrMalformedHunk
+	}
 	hunk, err := parseHunkHeader(header)
 	if err != nil {
 		return err
 	}
-	walk.base.line, walk.head.line = hunk.base.start, hunk.head.start
-	walk.isInHunk = true
+	walk.base.line, walk.base.remaining = hunk.base.start, hunk.base.count
+	walk.head.line, walk.head.remaining = hunk.head.start, hunk.head.count
 	return nil
 }
 

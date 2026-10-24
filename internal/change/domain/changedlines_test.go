@@ -30,6 +30,21 @@ func TestParseChangedLinesRefusesAMalformedHunkHeader(t *testing.T) {
 	}
 }
 
+func TestParseChangedLinesRefusesAHunkWhoseLinesDisagreeWithItsHeader(t *testing.T) {
+	for _, patch := range []string{
+		"@@ -1,2 +1,2 @@\n context",
+		"@@ -1,1 +1,1 @@\n context\n context",
+		"@@ -1,2 +1,1 @@\n context\n+added",
+		"@@ -1,2 +1,2 @@\n context\n@@ -9,1 +9,1 @@\n context",
+	} {
+		_, err := domain.ParseChangedLines(patch)
+
+		if !errors.Is(err, domain.ErrMalformedHunk) {
+			t.Errorf("%q: error is %v, want %v", patch, err, domain.ErrMalformedHunk)
+		}
+	}
+}
+
 func TestParseChangedLinesRefusesALineOutsideAnyHunk(t *testing.T) {
 	for _, patch := range []string{
 		" context before any header\n@@ -1,1 +1,1 @@\n context",
