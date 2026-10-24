@@ -13,6 +13,12 @@ var errUnknownPath = fmt.Errorf("%w: the repository holds no such path", ErrPath
 type SuiteCoverage struct {
 	fileEntryCount int
 	tests          []ReportedTest
+	size           indexSize
+}
+
+type indexSize struct {
+	tests int
+	edges int
 }
 
 func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCoverage, error) {
@@ -20,7 +26,13 @@ func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCover
 	if slices.ContainsFunc(reported.paths, isUnknown) {
 		return SuiteCoverage{}, errUnknownPath
 	}
-	return SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests}, nil
+	edges := 0
+	for _, test := range reported.tests {
+		for _, file := range test.files {
+			edges += len(file.hitLines)
+		}
+	}
+	return SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests, size: indexSize{tests: len(reported.tests), edges: edges}}, nil
 }
 
 func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
