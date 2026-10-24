@@ -49,6 +49,20 @@ func TestChangedFileTheChangeAddsIsAbsentAtBase(t *testing.T) {
 	}
 }
 
+func TestChangedFileTheChangeCopiesAcceptsItsSourceAndIsAbsentAtBase(t *testing.T) {
+	changed, err := ParseChangedFile(StatedFile{
+		File:         File{Path: "internal/auth/session.go", Action: FileActionCopied},
+		PreviousPath: "internal/auth/token.go",
+	})
+
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	if changed.base != absentAtBase() {
+		t.Fatalf("base path is %+v, want absent at base", changed.base)
+	}
+}
+
 func TestChangedFileWhosePatchTheForgeOmitsHasUnknownLines(t *testing.T) {
 	stated := StatedFile{File: File{Path: "assets/logo.png", Action: FileActionModified}}
 
