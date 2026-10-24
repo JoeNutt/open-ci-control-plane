@@ -37,3 +37,5 @@ func parseLineSpan(first, last int) (lineSpan, error) {
 	}
 	return lineSpan{first: first, last: last}, nil
 }
+
+func (span lineSpan) holds(line int) bool { return span.first <= line && line <= span.last }

@@ -2,6 +2,8 @@
 
 package domain
 
+import "slices"
+
 type EditedTests struct {
 	path  RepositoryPath
 	names []TopLevelTestName
@@ -10,11 +12,8 @@ type EditedTests struct {
 func EditedTestsIn(file ChangedFile, functions []TestFunction) EditedTests {
 	var names []TopLevelTestName
 	for _, function := range functions {
-		for _, line := range file.lines.head {
-			if line >= function.lines.first && line <= function.lines.last {
-				names = append(names, function.name)
-				break
-			}
+		if slices.ContainsFunc(file.lines.head, function.lines.holds) {
+			names = append(names, function.name)
 		}
 	}
 	return EditedTests{path: file.path, names: names}
