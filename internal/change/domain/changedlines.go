@@ -239,6 +239,9 @@ func parseHunkRange(stated string) (hunkRange, error) {
 	if err != nil {
 		return hunkRange{}, err
 	}
+	if parsedStart == noLineBefore && parsedCount > 0 {
+		return hunkRange{}, ErrMalformedHunk
+	}
 	return hunkRange{start: parsedStart, count: parsedCount}, nil
 }
 

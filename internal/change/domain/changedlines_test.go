@@ -61,6 +61,19 @@ func TestParseChangedFileRefusesAPatchWithALineOutsideAnyHunk(t *testing.T) {
 	}
 }
 
+func TestParseChangedFileRefusesAPatchWithARangeThatStartsAtZeroYetSpansLines(t *testing.T) {
+	for _, patch := range []string{
+		"@@ -0,1 +1,1 @@\n context",
+		"@@ -1,1 +0,1 @@\n context",
+	} {
+		_, err := patchedFileParse(patch)
+
+		if !errors.Is(err, domain.ErrMalformedHunk) {
+			t.Errorf("%q: error is %v, want %v", patch, err, domain.ErrMalformedHunk)
+		}
+	}
+}
+
 func patchedFileParse(patch string) (domain.ChangedFile, error) {
 	return domain.ParseChangedFile(domain.StatedFile{
 		File:  domain.File{Path: "internal/auth/owner.go", Action: domain.FileActionModified},
