@@ -11,6 +11,9 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 	if !index.holdsAnyTest() {
 		return nil, PlanTriggerNoMap, nil
 	}
+	if len(evidence.testFilesOfUnknownPackage) > 0 {
+		return nil, PlanTriggerUnmappedFile, nil
+	}
 	selected, err := index.testsCoveringChangesTo(evidence.files, evidence.testFiles)
 	if errors.Is(err, errUnindexedFile) {
 		return nil, PlanTriggerUnmappedFile, nil

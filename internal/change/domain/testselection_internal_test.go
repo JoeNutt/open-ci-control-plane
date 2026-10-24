@@ -137,6 +137,46 @@ func TestSelectionRunsAPackageWholeWhenTheIndexAndTheEditedTestsTogetherSelectEv
 	}
 }
 
+func TestSelectionCountsATestBothCoveredAndEditedOnceSoItNeverRunsAPackageWholeOnADuplicate(t *testing.T) {
+	evidence := evidenceEditingBeside(t, []StatedFile{modifiedAt(ordersSource, placingLine)},
+		ordersTestFile, testFunctionFrom(t, "TestPlaces", placingLine, placingLine))
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{namedTestsIn(t, ordersPackage, "TestPlaces")}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
+func TestSelectionOfATestFileWhosePackageNoImportRootNamesIsTheFullMatrix(t *testing.T) {
+	testFile := changedFileFrom(t, modifiedAt("tools/lint_test.go", placingLine))
+	edited := EditedTestsIn(testFile, []TestFunction{testFunctionFrom(t, "TestLints", placingLine, placingLine)})
+	evidence, err := ParseChangeEvidence([]ChangedFile{testFile}, []EditedTests{edited}, bindingWithNoImportRoot(t))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	if err != nil || trigger != PlanTriggerUnmappedFile || selected != nil {
+		t.Fatalf("selected %+v with %q (%v), want no selection and %q", selected, trigger, err, PlanTriggerUnmappedFile)
+	}
+}
+
+func bindingWithNoImportRoot(t *testing.T) Binding {
+	t.Helper()
+
+	binding, err := ParseBinding(BindingStatement{
+		Repository: "acme/app", Workflow: "tests.yml",
+		Policies: []BoundPolicyStatement{{Use: "clean-architecture"}},
+	})
+	if err != nil {
+		t.Fatalf("parse binding: %v", err)
+	}
+	return binding
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
