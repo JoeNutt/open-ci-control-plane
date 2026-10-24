@@ -80,7 +80,10 @@ func (postings *coveragePostings) openItem(path RepositoryPath, firstPosting uin
 	postings.itemsOfFile[path] = span
 }
 
-func (postings coveragePostings) testsReaching(path RepositoryPath) []uint32 {
-	span := postings.itemsOfFile[path]
-	return postings.tests[postings.offsets[span.first]:postings.offsets[span.end]]
+func (postings coveragePostings) testsReaching(path RepositoryPath) ([]uint32, bool) {
+	span, isIndexed := postings.itemsOfFile[path]
+	if !isIndexed {
+		return nil, false
+	}
+	return postings.tests[postings.offsets[span.first]:postings.offsets[span.end]], true
 }

@@ -13,6 +13,7 @@ import (
 var (
 	errNoTestAtIndex  = errors.New("the coverage index numbers no test at that position")
 	errUnindexedSuite = errors.New("the coverage index holds no coverage for the suite")
+	errUnindexedFile  = errors.New("the coverage index has never seen a test run the file")
 )
 
 type coveredTest struct {
@@ -87,7 +88,11 @@ func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
 }
 
 func (index coverageIndex) testsReaching(path RepositoryPath) (testSet, error) {
-	return testSetOf(index.revision, index.postings.testsReaching(path)), nil
+	reaching, isIndexed := index.postings.testsReaching(path)
+	if !isIndexed {
+		return testSet{}, fmt.Errorf("%w: %s", errUnindexedFile, path)
+	}
+	return testSetOf(index.revision, reaching), nil
 }
 
 func (index coverageIndex) numbers(dense int) bool {

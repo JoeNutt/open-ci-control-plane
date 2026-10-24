@@ -72,6 +72,14 @@ func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testing.T) {
+	reaching, err := twoSuiteCoverage(t).index.testsReaching(pathNamed(t, "internal/change/domain/verdict.go"))
+
+	if !errors.Is(err, errUnindexedFile) {
+		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(reaching), err)
+	}
+}
+
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
