@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 )
 
 var errNoTestNames = errors.New("a package's named tests name no test")
@@ -20,7 +19,11 @@ func namedTestsOf(pkg GoImportPath, names []TopLevelTestName) (PackageTests, err
 	if len(names) == 0 {
 		return PackageTests{}, fmt.Errorf("%w: %s", errNoTestNames, pkg)
 	}
+	return PackageTests{pkg: pkg, names: distinctInOrder(names)}, nil
+}
+
+func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 	held := slices.Clone(names)
-	slices.SortFunc(held, func(one, other TopLevelTestName) int { return strings.Compare(one.name, other.name) })
-	return PackageTests{pkg: pkg, names: slices.Compact(held)}, nil
+	slices.SortFunc(held, TopLevelTestName.compare)
+	return slices.Compact(held)
 }
