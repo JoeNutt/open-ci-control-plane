@@ -56,7 +56,9 @@ func TestCoverageMapsStartEmpty(t *testing.T) {
 }
 
 func TestCoverageMapsKeepServingWhatIsHeldWhenAReplaceIsRefused(t *testing.T) {
-	maps := memory.NewCoverageMaps(domain.CoverageLimits{MaxSuitesPerRepository: oneSuite})
+	limits := domain.DeclaredCoverageLimits()
+	limits.MaxSuitesPerRepository = oneSuite
+	maps := memory.NewCoverageMaps(limits)
 	repository, held := parsedRepository(t, governedRepository), parsedSuite(t, domainSuite)
 	mustReplace(t, maps, repository, held)
 
@@ -83,12 +85,23 @@ func coverageOf(t *testing.T, exercised string) domain.SuiteCoverage {
 
 	path := parsedPath(t, exercised)
 	coverage, err := domain.ParseSuiteCoverage(
-		[]domain.ReportedFile{domain.NewReportedFile(path, true)},
+		domain.NewReportedCoverage([]domain.RepositoryPath{path}, []domain.ReportedTest{
+			domain.NewReportedTest(effectTestName(t), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})}),
 		domain.NewKnownPaths([]domain.RepositoryPath{path}))
 	if err != nil {
 		t.Fatalf("parse coverage of %s: %v", exercised, err)
 	}
 	return coverage
+}
+
+func effectTestName(t *testing.T) domain.TopLevelTestName {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName("TestEffect")
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return name
 }
 
 func parsedPath(t *testing.T, path string) domain.RepositoryPath {

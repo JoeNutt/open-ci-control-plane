@@ -6,13 +6,14 @@ import (
 	"errors"
 	"maps"
 	"slices"
-	"strings"
 )
 
 var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
 
 type RepositoryCoverage struct {
 	suites map[CoverageSuite]SuiteCoverage
+	size   indexSize
+	lazy   *lazyIndex
 }
 
 func (repositoryCoverage RepositoryCoverage) Replacing(
@@ -21,10 +22,18 @@ func (repositoryCoverage RepositoryCoverage) Replacing(
 	if breach := limits.SuitesBreach(repositoryCoverage.suiteCountWith(suite)); breach != nil {
 		return RepositoryCoverage{}, breach
 	}
+	size := repositoryCoverage.size.replacing(repositoryCoverage.suites[suite].size, coverage.size)
+	if breach := size.breachIn(limits); breach != nil {
+		return RepositoryCoverage{}, breach
+	}
 	suites := make(map[CoverageSuite]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	return RepositoryCoverage{suites: suites}, nil
+	return RepositoryCoverage{suites: suites, size: size, lazy: &lazyIndex{suites: suites}}, nil
+}
+
+func (repositoryCoverage RepositoryCoverage) coverageIndex() coverageIndex {
+	return repositoryCoverage.lazy.index()
 }
 
 func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite CoverageSuite) int {
@@ -59,7 +68,7 @@ func (repositoryCoverage RepositoryCoverage) selectionFor(files []File) (coverag
 		selection.isEveryFileMapped = selection.isEveryFileMapped && len(covering) > 0
 		selection.suites = append(selection.suites, covering...)
 	}
-	slices.SortFunc(selection.suites, func(one, other CoverageSuite) int { return strings.Compare(one.String(), other.String()) })
+	slices.SortFunc(selection.suites, CoverageSuite.compare)
 	selection.suites = slices.Compact(selection.suites)
 	return selection, nil
 }

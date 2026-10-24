@@ -20,6 +20,8 @@ func TestCoverageLimitsStateEachBoundAsItsAllowedCountAndTheLabelItsBreachNames(
 		domain.ErrTooManySuites:                int64(limits.MaxSuitesPerRepository),
 		domain.ErrTooManyTestSections:          int64(limits.MaxTestSections),
 		domain.ErrTooManyLineRecords:           int64(limits.MaxLineRecords),
+		domain.ErrTooManyIndexedTests:          int64(limits.MaxIndexedTests),
+		domain.ErrTooManyIndexEdges:            int64(limits.MaxIndexEdges),
 	} {
 		stated, isStated := limits.LimitOf(bound)
 

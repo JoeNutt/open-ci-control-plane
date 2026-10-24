@@ -27,7 +27,8 @@ const (
 	uploadedSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	coveredFile         = "internal/change/domain/effect.go"
 	uploadedTestSection = "TN:TestEffect\n"
-	uploadedLCOV        = uploadedTestSection + "SF:" + coveredFile + "\nDA:1,1\nend_of_record\n"
+	uploadedRecord      = "SF:" + coveredFile + "\nDA:1,1\nend_of_record\n"
+	uploadedLCOV        = uploadedTestSection + uploadedRecord
 	actionsToken        = "eyJhbGciOiJSUzI1NiJ9.the-workflows-token.c2lnbmF0dXJl"
 	coveragePath        = "/v1/repositories/" + gatedRepository + "/coverage/" + uploadedSuite
 )

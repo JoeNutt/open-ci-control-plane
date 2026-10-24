@@ -37,7 +37,7 @@ const (
 	rateExceededCode              = "rate_exceeded"
 	rateExceededMessage           = "the repository has uploaded more coverage this minute than C-12 allows"
 	retryAfterHeader              = "Retry-After"
-	boundExceededMessage          = "the artifact exceeds an NFR-5 or NFR-13 bound; nothing was stored"
+	boundExceededMessage          = "the artifact exceeds an NFR-5, NFR-13 or NFR-14 bound; nothing was stored"
 )
 
 var (
@@ -47,6 +47,8 @@ var (
 	suitesLimit               = statedLimitOf(domain.ErrTooManySuites)
 	testSectionsLimit         = statedLimitOf(domain.ErrTooManyTestSections)
 	lineRecordsLimit          = statedLimitOf(domain.ErrTooManyLineRecords)
+	indexedTestsLimit         = statedLimitOf(domain.ErrTooManyIndexedTests)
+	indexEdgesLimit           = statedLimitOf(domain.ErrTooManyIndexEdges)
 )
 
 func statedLimitOf(bound error) string {

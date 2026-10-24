@@ -1,0 +1,239 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain
+
+import (
+	"errors"
+	"slices"
+	"testing"
+)
+
+const (
+	indexedDomainSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	indexedLCOVSuite   = "github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
+	indexedEffectFile  = "internal/change/domain/effect.go"
+	indexedGateFile    = "internal/change/domain/gate.go"
+	unindexedFile      = "internal/change/domain/verdict.go"
+)
+
+func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+	want := []coveredTest{
+		{suite: suiteNamed(t, indexedLCOVSuite), name: testNamed(t, "TestBounds")},
+		{suite: suiteNamed(t, indexedLCOVSuite), name: testNamed(t, "TestReading")},
+		{suite: suiteNamed(t, indexedDomainSuite), name: testNamed(t, "TestGate")},
+	}
+
+	for dense, wanted := range want {
+		test, err := coverage.coverageIndex().testAt(dense)
+		if err != nil || test != wanted {
+			t.Errorf("test %d is %+v (%v), want %+v", dense, test, err, wanted)
+		}
+	}
+}
+
+func TestCoverageIndexRefusesAPositionOutsideItsTests(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for _, dense := range []int{-1, len(coverage.coverageIndex().tests)} {
+		if _, err := coverage.coverageIndex().testAt(dense); !errors.Is(err, errNoTestAtIndex) {
+			t.Errorf("position %d: want errNoTestAtIndex, got %v", dense, err)
+		}
+	}
+}
+
+func TestCoverageIndexHoldsEachSuitesTestsAsOneSet(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for suite, want := range map[string][]int{indexedLCOVSuite: {0, 1}, indexedDomainSuite: {2}} {
+		tests, err := coverage.coverageIndex().testsOfSuite(suiteNamed(t, suite))
+		if err != nil || !slices.Equal(membersOf(tests), want) {
+			t.Errorf("%s holds %v (%v), want %v", suite, membersOf(tests), err, want)
+		}
+	}
+}
+
+func TestCoverageIndexRefusesTheTestsOfASuiteItHoldsNoCoverageFor(t *testing.T) {
+	unindexed := suiteNamed(t, "github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi")
+
+	tests, err := twoSuiteCoverage(t).coverageIndex().testsOfSuite(unindexed)
+
+	if !errors.Is(err, errUnindexedSuite) {
+		t.Fatalf("answered %v (%v), want errUnindexedSuite", membersOf(tests), err)
+	}
+}
+
+func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+
+	for file, want := range map[string][]int{indexedEffectFile: {0, 1}, indexedGateFile: {2}} {
+		reaching, err := coverage.coverageIndex().testsReaching(pathNamed(t, file))
+		if err != nil || !slices.Equal(membersOf(reaching), want) {
+			t.Errorf("%s is reached by %v (%v), want %v", file, membersOf(reaching), err, want)
+		}
+	}
+}
+
+func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testing.T) {
+	reaching, err := twoSuiteCoverage(t).coverageIndex().testsReaching(pathNamed(t, unindexedFile))
+
+	if !errors.Is(err, errUnindexedFile) {
+		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(reaching), err)
+	}
+}
+
+func TestCoverageIndexAnswersLinesOfAFileItHasNeverSeenWithAMiss(t *testing.T) {
+	unseen := pathNamed(t, unindexedFile)
+
+	covering, err := twoSuiteCoverage(t).coverageIndex().testsCovering(unseen, []uint32{1})
+
+	if !errors.Is(err, errUnindexedFile) {
+		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(covering), err)
+	}
+}
+
+func TestCoverageIndexFindsTheTestsCoveringGivenLinesOfAFile(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+	effect := pathNamed(t, indexedEffectFile)
+
+	for _, asked := range []struct {
+		lines []uint32
+		want  []int
+	}{
+		{lines: []uint32{2}, want: []int{0}},
+		{lines: []uint32{1, 2}, want: []int{0, 1}},
+		{lines: []uint32{9}, want: nil},
+	} {
+		covering, err := coverage.coverageIndex().testsCovering(effect, asked.lines)
+		if err != nil || !slices.Equal(membersOf(covering), asked.want) {
+			t.Errorf("lines %v are covered by %v (%v), want %v", asked.lines, membersOf(covering), err, asked.want)
+		}
+	}
+}
+
+func TestCoverageIndexTakesANewRevisionOnEveryRebuildSoSetsOfTwoRebuildsNeverJoin(t *testing.T) {
+	before := twoSuiteCoverage(t)
+	suite := suiteNamed(t, indexedDomainSuite)
+	unchanged, err := before.SuiteCoverageOf(suite)
+	if err != nil {
+		t.Fatalf("read %s: %v", suite, err)
+	}
+	after, err := before.Replacing(suite, unchanged, DeclaredCoverageLimits())
+	if err != nil {
+		t.Fatalf("replace %s with its own coverage: %v", suite, err)
+	}
+	earlier := testsReachingGate(t, before)
+	later := testsReachingGate(t, after)
+
+	if _, err := earlier.union(later); !errors.Is(err, errMixedRevisions) {
+		t.Fatalf("joined sets of two rebuilds (%v), want errMixedRevisions", err)
+	}
+}
+
+func TestCoverageIndexIsOneRevisionForEveryReadOfOneValueAndItsCopies(t *testing.T) {
+	coverage := twoSuiteCoverage(t)
+	copied := coverage
+
+	first := testsReachingGate(t, coverage)
+	again := testsReachingGate(t, coverage)
+	fromCopy := testsReachingGate(t, copied)
+
+	if _, err := first.union(again); err != nil {
+		t.Fatalf("two reads of one value joined with %v, want one revision", err)
+	}
+	if _, err := first.union(fromCopy); err != nil {
+		t.Fatalf("a read of a copy joined with %v, want one revision", err)
+	}
+}
+
+func testsReachingGate(t *testing.T, coverage RepositoryCoverage) testSet {
+	t.Helper()
+
+	reaching, err := coverage.coverageIndex().testsReaching(pathNamed(t, indexedGateFile))
+	if err != nil {
+		t.Fatalf("read the tests reaching %s: %v", indexedGateFile, err)
+	}
+	return reaching
+}
+
+func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
+	t.Helper()
+
+	return coverageHolding(t, map[string][]ReportedTest{
+		indexedDomainSuite: {testRunning(t, "TestGate", fileHitting(t, indexedGateFile, 1))},
+		indexedLCOVSuite: {
+			testRunning(t, "TestReading", fileHitting(t, indexedEffectFile, 1)),
+			testRunning(t, "TestBounds", fileHitting(t, indexedEffectFile, 2)),
+		},
+	})
+}
+
+func coverageHolding(t *testing.T, testsBySuite map[string][]ReportedTest) RepositoryCoverage {
+	t.Helper()
+
+	var coverage RepositoryCoverage
+	for suite, tests := range testsBySuite {
+		paths := pathsRunBy(tests)
+		suiteCoverage, err := ParseSuiteCoverage(NewReportedCoverage(paths, tests), NewKnownPaths(paths))
+		if err != nil {
+			t.Fatalf("parse coverage of %s: %v", suite, err)
+		}
+		coverage, err = coverage.Replacing(suiteNamed(t, suite), suiteCoverage, DeclaredCoverageLimits())
+		if err != nil {
+			t.Fatalf("replace %s: %v", suite, err)
+		}
+	}
+	return coverage
+}
+
+func pathsRunBy(tests []ReportedTest) []RepositoryPath {
+	var paths []RepositoryPath
+	for _, test := range tests {
+		for _, file := range test.files {
+			paths = append(paths, file.path)
+		}
+	}
+	return paths
+}
+
+func testRunning(t *testing.T, name string, files ...TestedFile) ReportedTest {
+	t.Helper()
+
+	return NewReportedTest(testNamed(t, name), files)
+}
+
+func fileHitting(t *testing.T, path string, lines ...uint32) TestedFile {
+	t.Helper()
+
+	return NewTestedFile(pathNamed(t, path), lines)
+}
+
+func pathNamed(t *testing.T, path string) RepositoryPath {
+	t.Helper()
+
+	parsed, err := ParseRepositoryPath(path)
+	if err != nil {
+		t.Fatalf("parse path %q: %v", path, err)
+	}
+	return parsed
+}
+
+func testNamed(t *testing.T, name string) TopLevelTestName {
+	t.Helper()
+
+	parsed, err := ParseTopLevelTestName(name)
+	if err != nil {
+		t.Fatalf("parse test name %q: %v", name, err)
+	}
+	return parsed
+}
+
+func suiteNamed(t *testing.T, suite string) CoverageSuite {
+	t.Helper()
+
+	parsed, err := ParseCoverageSuite(suite)
+	if err != nil {
+		t.Fatalf("parse suite %q: %v", suite, err)
+	}
+	return parsed
+}

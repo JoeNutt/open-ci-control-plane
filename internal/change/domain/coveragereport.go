@@ -7,5 +7,5 @@ import "errors"
 var ErrMalformedCoverageReport = errors.New("the coverage artifact is not parseable")
 
 type CoverageReport interface {
-	ReportedFiles(limits CoverageLimits) ([]ReportedFile, error)
+	ReportedCoverage(limits CoverageLimits) (ReportedCoverage, error)
 }

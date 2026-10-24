@@ -31,4 +31,8 @@ func ParseRepositoryPath(path string) (RepositoryPath, error) {
 
 func (path RepositoryPath) String() string { return path.path }
 
+func (path RepositoryPath) compare(other RepositoryPath) int {
+	return strings.Compare(path.path, other.path)
+}
+
 func (path RepositoryPath) Segments() []string { return strings.Split(path.path, pathSeparator) }

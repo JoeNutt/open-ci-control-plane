@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -19,8 +21,11 @@ const (
 	tagSeparator       = ":"
 	lineDataSeparator  = ","
 	endOfRecord        = "end_of_record"
+	sourceLineSlot     = 0
 	executionCountSlot = 1
-	firstLineNumber    = 1
+	sourceLineBits     = 32
+	firstSourceLine    = 1
+	firstArtifactLine  = 1
 	decimal            = 10
 	countBits          = 64
 	gzipMagic          = "\x1f\x8b"
@@ -54,14 +59,17 @@ var readingByTag = map[string]lineReading{
 }
 
 type recordReading struct {
-	reported           fileUnion
-	currentPath        domain.RepositoryPath
-	isCurrentExercised bool
-	isRecordOpen       bool
-	testSections       boundedCount
-	testNames          map[domain.TopLevelTestName]bool
-	lineRecords        boundedCount
-	limits             domain.CoverageLimits
+	reported     reportedPaths
+	currentPath  domain.RepositoryPath
+	isRecordOpen bool
+	testSections boundedCount
+	testNames    map[domain.TopLevelTestName]bool
+	lineRecords  boundedCount
+	limits       domain.CoverageLimits
+	tests        []domain.ReportedTest
+	currentTest  domain.TopLevelTestName
+	currentFiles []domain.TestedFile
+	currentHits  []uint32
 }
 
 type Artifact struct {
@@ -69,7 +77,15 @@ type Artifact struct {
 	Body          io.Reader
 }
 
-func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+func (artifact Artifact) ReportedCoverage(limits domain.CoverageLimits) (domain.ReportedCoverage, error) {
+	reading, err := artifact.completedReading(limits)
+	if err != nil {
+		return domain.ReportedCoverage{}, err
+	}
+	return domain.NewReportedCoverage(slices.Collect(maps.Keys(reading.reported)), reading.tests), nil
+}
+
+func (artifact Artifact) completedReading(limits domain.CoverageLimits) (*recordReading, error) {
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
@@ -83,12 +99,15 @@ func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
-	return reading.completed()
+	if err := reading.complete(); err != nil {
+		return nil, err
+	}
+	return &reading, nil
 }
 
 func readingWithin(limits domain.CoverageLimits) recordReading {
 	return recordReading{
-		reported:     emptyFileUnion(),
+		reported:     reportedPaths{},
 		testSections: boundedCount{breachOf: limits.TestSectionsBreach},
 		testNames:    map[domain.TopLevelTestName]bool{},
 		lineRecords:  boundedCount{breachOf: limits.LineRecordsBreach},
@@ -113,9 +132,9 @@ func plainBodyOf(body io.Reader) (io.Reader, error) {
 }
 
 func (reading *recordReading) takeAll(lines *bufio.Scanner) error {
-	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
+	for artifactLine := firstArtifactLine; lines.Scan(); artifactLine++ {
 		if err := reading.take(lines.Text()); err != nil {
-			return fmt.Errorf("line %d: %w", lineNumber, err)
+			return fmt.Errorf("line %d: %w", artifactLine, err)
 		}
 	}
 	return readFailureOf(lines.Err())
@@ -141,6 +160,7 @@ func (reading *recordReading) take(line string) error {
 }
 
 func (reading *recordReading) openTestSection(name string) error {
+	reading.closeTest()
 	if breach := reading.testSections.countOneMore(); breach != nil {
 		return breach
 	}
@@ -152,6 +172,7 @@ func (reading *recordReading) openTestSection(name string) error {
 		return errTestNamedTwice
 	}
 	reading.testNames[parsed] = true
+	reading.currentTest = parsed
 	return nil
 }
 
@@ -167,7 +188,7 @@ func (reading *recordReading) openRecord(path string) error {
 		return breach
 	}
 	reading.currentPath = parsed
-	reading.isCurrentExercised = false
+	reading.currentHits = nil
 	reading.isRecordOpen = true
 	return nil
 }
@@ -180,16 +201,34 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
 	}
+	line, err := sourceLineOf(fields[sourceLineSlot])
+	if err != nil {
+		return err
+	}
 	executions, err := strconv.ParseUint(fields[executionCountSlot], decimal, countBits)
 	if err != nil {
 		return errUnreadableLineData
 	}
-	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
+	if executions == 0 {
+		return nil
+	}
+	reading.currentHits = append(reading.currentHits, line)
 	return nil
 }
 
+func sourceLineOf(stated string) (uint32, error) {
+	line, err := strconv.ParseUint(stated, decimal, sourceLineBits)
+	if err != nil || line < firstSourceLine {
+		return 0, errUnreadableLineData
+	}
+	return uint32(line), nil
+}
+
 func (reading *recordReading) closeRecord(string) error {
-	reading.reported.include(domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	reading.reported[reading.currentPath] = true
+	if len(reading.currentHits) > 0 {
+		reading.currentFiles = append(reading.currentFiles, domain.NewTestedFile(reading.currentPath, reading.currentHits))
+	}
 	reading.isRecordOpen = false
 	return nil
 }
@@ -225,14 +264,23 @@ func (bounded *boundedCount) countOneMore() error {
 
 func (bounded boundedCount) hasCounted() bool { return bounded.counted > 0 }
 
+func (reading *recordReading) closeTest() {
+	if !reading.testSections.hasCounted() {
+		return
+	}
+	reading.tests = append(reading.tests, domain.NewReportedTest(reading.currentTest, reading.currentFiles))
+	reading.currentFiles = nil
+}
+
 func carryingNothing(*recordReading, string) error { return nil }
 
-func (reading *recordReading) completed() ([]domain.ReportedFile, error) {
+func (reading *recordReading) complete() error {
 	if reading.isRecordOpen {
-		return nil, errTruncatedRecord
+		return errTruncatedRecord
 	}
-	if reading.reported.entries() == 0 {
-		return nil, errNoRecord
+	if len(reading.reported) == 0 {
+		return errNoRecord
 	}
-	return reading.reported.reportedFiles(), nil
+	reading.closeTest()
+	return nil
 }
