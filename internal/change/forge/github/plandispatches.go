@@ -31,21 +31,21 @@ func ParsePlanDispatches(settings Settings) (PlanDispatches, error) {
 }
 
 type planPayload struct {
-	SchemaVersion   int              `json:"schema_version"`
-	DecisionID      string           `json:"decisionId"`
-	Repository      string           `json:"repository"`
-	HeadSHA         string           `json:"headSha"`
-	Tests           []testsPayload   `json:"tests"`
-	AlwaysRunSuites []string         `json:"alwaysRunSuites"`
-	FullMatrix      bool             `json:"fullMatrix"`
-	TriggerReason   string           `json:"triggerReason"`
-	Shadow          bool             `json:"shadow"`
-	BundleRevision  string           `json:"bundleRevision"`
-	Mode            planModePayload  `json:"mode"`
-	Recorded        *recordedPayload `json:"recorded,omitempty"`
+	SchemaVersion   int                   `json:"schema_version"`
+	DecisionID      string                `json:"decisionId"`
+	Repository      string                `json:"repository"`
+	HeadSHA         string                `json:"headSha"`
+	Tests           []packageTestsPayload `json:"tests"`
+	AlwaysRunSuites []string              `json:"alwaysRunSuites"`
+	FullMatrix      bool                  `json:"fullMatrix"`
+	TriggerReason   string                `json:"triggerReason"`
+	Shadow          bool                  `json:"shadow"`
+	BundleRevision  string                `json:"bundleRevision"`
+	Mode            planModePayload       `json:"mode"`
+	Recorded        *recordedPayload      `json:"recorded,omitempty"`
 }
 
-type testsPayload struct {
+type packageTestsPayload struct {
 	Package string   `json:"package"`
 	Names   []string `json:"names"`
 }
@@ -103,7 +103,7 @@ func payloadOf(plan domain.TestPlan) planPayload {
 		DecisionID:      plan.DecisionID.String(),
 		Repository:      plan.Repository.String(),
 		HeadSHA:         plan.Head.String(),
-		Tests:           testsPayloadOf(plan.Tests),
+		Tests:           packageTestsPayloadsOf(plan.Tests),
 		AlwaysRunSuites: namesOf(plan.AlwaysRun),
 		FullMatrix:      plan.FullMatrix,
 		TriggerReason:   string(plan.Trigger),
@@ -121,10 +121,10 @@ func recordedOf(recorded domain.RecordedSets) *recordedPayload {
 	return &recordedPayload{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
 }
 
-func testsPayloadOf(tests []domain.PackageTests) []testsPayload {
-	entries := make([]testsPayload, 0, len(tests))
+func packageTestsPayloadsOf(tests []domain.PackageTests) []packageTestsPayload {
+	entries := make([]packageTestsPayload, 0, len(tests))
 	for _, entry := range tests {
-		entries = append(entries, testsPayload{Package: entry.Package().String(), Names: namesOf(entry.Names())})
+		entries = append(entries, packageTestsPayload{Package: entry.Package().String(), Names: namesOf(entry.Names())})
 	}
 	return entries
 }
