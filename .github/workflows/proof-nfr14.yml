@@ -1,0 +1,44 @@
+name: proof nfr-14
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/proof-nfr14.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
+      COVERED: internal/change/domain/coveragelimits.go
+    steps:
+      - name: Upload fake suites past the index bounds
+        run: |
+          set -euo pipefail
+          upload() {
+            local suite="$1" tests="$2" lines="$3" artifact="$RUNNER_TEMP/$1.lcov" token answer
+            awk -v tests="$tests" -v lines="$lines" -v file="$COVERED" -v suite="$suite" 'BEGIN {
+              for (t = 1; t <= tests; t++) {
+                printf "TN:TestProof%s%05d\nSF:%s\n", suite, t, file
+                for (l = 1; l <= lines; l++) printf "DA:%d,1\n", l
+                print "end_of_record"
+              }
+            }' >"$artifact"
+            token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CONTROL_PLANE" | jq -er .value)"
+            echo "::add-mask::$token"
+            answer="$(curl -sS -o "$RUNNER_TEMP/answer.json" -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $token" -F format=lcov -F "artifact=@$artifact" \
+              "$CONTROL_PLANE/v1/repositories/$GITHUB_REPOSITORY/coverage/github.com/JoeNutt/open-ci-control-plane/proof/nfr14/$suite")"
+            echo "$suite: $tests tests x $lines lines -> $answer $(cat "$RUNNER_TEMP/answer.json")"
+          }
+          upload EdgesA 500 3800
+          upload EdgesB 500 3800
+          upload EdgesC 500 3800
+          upload TestsA 6000 1
+          upload TestsB 6000 1
