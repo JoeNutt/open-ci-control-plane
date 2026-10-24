@@ -89,14 +89,17 @@ func (dispatches PlanDispatches) dispatch(ctx context.Context, plan domain.TestP
 	return nil
 }
 
+var boundedShapes = []func(domain.TestPlan) domain.TestPlan{
+	func(plan domain.TestPlan) domain.TestPlan { return plan },
+	domain.TestPlan.AsWholePackages,
+}
+
 func boundedEncodingOf(plan domain.TestPlan) ([]byte, error) {
-	encoded, err := json.Marshal(payloadOf(plan))
-	if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
-		return encoded, err
-	}
-	encoded, err = json.Marshal(payloadOf(plan.AsWholePackages()))
-	if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
-		return encoded, err
+	for _, shaped := range boundedShapes {
+		encoded, err := json.Marshal(payloadOf(shaped(plan)))
+		if err != nil || utf8.RuneCount(encoded) <= domain.MaxPlanCharacters {
+			return encoded, err
+		}
 	}
 	return json.Marshal(payloadOf(plan.AsTooLarge()))
 }
