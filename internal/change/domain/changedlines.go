@@ -142,6 +142,9 @@ type patchSide struct {
 
 func (side *patchSide) open(stated hunkRange) {
 	side.line, side.remaining = stated.start, stated.count
+	if stated.count == 0 {
+		side.line++
+	}
 }
 
 func (side *patchSide) take(presence sidePresence) error {

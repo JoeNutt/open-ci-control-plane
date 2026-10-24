@@ -46,6 +46,19 @@ func TestChangedLinesOfAPureDeletionNameTheHeadLinesEitherSideOfIt(t *testing.T)
 	}
 }
 
+func TestChangedLinesOfAnEmptyRangeReadItsStartAsTheLineBeforeTheChange(t *testing.T) {
+	patch := "@@ -5,0 +6,1 @@\n+inserted"
+
+	lines, err := ParseChangedLines(patch)
+
+	if err != nil {
+		t.Fatalf("parse changed lines: %v", err)
+	}
+	if !slices.Equal(lines.base, []int{5, 6}) || !slices.Equal(lines.head, []int{6}) {
+		t.Fatalf("lines are base %v head %v, want base [5 6] head [6]", lines.base, lines.head)
+	}
+}
+
 func TestChangedLinesPassOverTheMarkOfAMissingFinalLineBreak(t *testing.T) {
 	patch := "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file"
 
