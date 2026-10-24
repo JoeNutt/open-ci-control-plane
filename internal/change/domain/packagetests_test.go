@@ -9,11 +9,18 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-func TestAnEntryWithNoNamesRunsItsWholePackageAndOneWithNamesRunsThoseNames(t *testing.T) {
+func ordersPackage(t *testing.T) domain.GoImportPath {
+	t.Helper()
+
 	pkg, err := domain.ParseGoImportPath(ordersSuite)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return pkg
+}
+
+func TestAnEntryWithNoNamesRunsItsWholePackageAndOneWithNamesRunsThoseNames(t *testing.T) {
+	pkg := ordersPackage(t)
 
 	whole := domain.NewPackageTests(pkg, nil)
 	named := domain.NewPackageTests(pkg, []domain.TopLevelTestName{mustParseTestName(t, effectTest)})
@@ -24,10 +31,7 @@ func TestAnEntryWithNoNamesRunsItsWholePackageAndOneWithNamesRunsThoseNames(t *t
 }
 
 func TestAnEntryNamesEachOfItsTestsOnceInOrder(t *testing.T) {
-	pkg, err := domain.ParseGoImportPath(ordersSuite)
-	if err != nil {
-		t.Fatal(err)
-	}
+	pkg := ordersPackage(t)
 	alpha, beta := mustParseTestName(t, "TestAlpha"), mustParseTestName(t, "TestBeta")
 
 	got := domain.NewPackageTests(pkg, []domain.TopLevelTestName{beta, alpha, beta}).Names()
