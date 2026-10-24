@@ -22,6 +22,7 @@ const (
 	lineNumberSlot     = 0
 	executionCountSlot = 1
 	lineNumberBits     = 32
+	firstSourceLine    = 1
 	firstLineNumber    = 1
 	decimal            = 10
 	countBits          = 64
@@ -216,12 +217,20 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if executions == 0 {
 		return nil
 	}
-	line, err := strconv.ParseUint(fields[lineNumberSlot], decimal, lineNumberBits)
-	if err != nil || line == 0 {
-		return errUnreadableLineData
+	line, err := sourceLineOf(fields[lineNumberSlot])
+	if err != nil {
+		return err
 	}
-	reading.currentHits = append(reading.currentHits, uint32(line))
+	reading.currentHits = append(reading.currentHits, line)
 	return nil
+}
+
+func sourceLineOf(stated string) (uint32, error) {
+	line, err := strconv.ParseUint(stated, decimal, lineNumberBits)
+	if err != nil || line < firstSourceLine {
+		return 0, errUnreadableLineData
+	}
+	return uint32(line), nil
 }
 
 func (reading *recordReading) closeRecord(string) error {
