@@ -11,7 +11,7 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
-const secondSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
+const secondSuitePath = "/v1/repositories/" + gatedRepository + "/coverage/github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi"
 
 func TestAnUploadTakingTheIndexOverItsTestBoundIsAnswered413NamingItAndKeepsThePreviousMaps(t *testing.T) {
 	uploading := newCoverageUploads(t)
@@ -21,7 +21,7 @@ func TestAnUploadTakingTheIndexOverItsTestBoundIsAnswered413NamingItAndKeepsTheP
 		t.Fatalf("an index at the test bound was answered %d: %s", full.Code, full.Body.String())
 	}
 	oneMore := coverageUpload(t, "lcov", lcovOfTests(1))
-	oneMore.URL.Path = "/v1/repositories/" + gatedRepository + "/coverage/" + secondSuite
+	oneMore.URL.Path = secondSuitePath
 
 	answered := uploading.answerTo(t, oneMore)
 
@@ -37,7 +37,7 @@ func TestAnUploadTakingTheIndexOverItsTestBoundIsAnswered413NamingItAndKeepsTheP
 func lcovOfTests(count int) string {
 	var artifact strings.Builder
 	for index := range count {
-		fmt.Fprintf(&artifact, "TN:TestIndexed%d\nSF:%s\nDA:1,1\nend_of_record\n", index, coveredFile)
+		fmt.Fprintf(&artifact, "TN:TestIndexed%d\n%s", index, uploadedRecord)
 	}
 	return artifact.String()
 }
