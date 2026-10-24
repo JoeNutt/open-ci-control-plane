@@ -31,6 +31,23 @@ func TestNewReportedTestHoldsOneFileForEachPathWithEveryLineItHit(t *testing.T) 
 	}
 }
 
+func TestNewReportedTestHoldsNoFileItHitNoLineOf(t *testing.T) {
+	name := mustParseTestName(t, effectTest)
+	held := mustParseRepositoryPath(t, heldFile)
+	other := mustParseRepositoryPath(t, otherHeldFile)
+
+	reported := domain.NewReportedTest(name, []domain.TestedFile{
+		domain.NewTestedFile(held, nil),
+		domain.NewTestedFile(other, nil),
+		domain.NewTestedFile(held, []uint32{4}),
+	})
+
+	want := domain.NewReportedTest(name, []domain.TestedFile{domain.NewTestedFile(held, []uint32{4})})
+	if !reflect.DeepEqual(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
 func mustParseTestName(t *testing.T, stated string) domain.TopLevelTestName {
 	t.Helper()
 

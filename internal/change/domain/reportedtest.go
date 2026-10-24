@@ -2,13 +2,17 @@
 
 package domain
 
+import "slices"
+
 type ReportedTest struct {
 	name  TopLevelTestName
 	files []TestedFile
 }
 
 func NewReportedTest(name TopLevelTestName, files []TestedFile) ReportedTest {
-	return ReportedTest{name: name, files: onePerPathOf(files)}
+	joined := onePerPathOf(files)
+	joined = slices.DeleteFunc(joined, func(file TestedFile) bool { return !file.isExercised() })
+	return ReportedTest{name: name, files: joined}
 }
 
 func onePerPathOf(files []TestedFile) []TestedFile {
