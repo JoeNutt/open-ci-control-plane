@@ -18,11 +18,6 @@ type ChangedFile struct {
 	lines  ChangedLines
 }
 
-type basePath struct {
-	path     RepositoryPath
-	isAtBase bool
-}
-
 func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	path, err := ParseRepositoryPath(stated.File.Path)
 	if err != nil {
@@ -66,7 +61,3 @@ func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {
 	}
 	return atBaseUnder(path), nil
 }
-
-func absentAtBase() basePath { return basePath{} }
-
-func atBaseUnder(path RepositoryPath) basePath { return basePath{path: path, isAtBase: true} }
