@@ -225,10 +225,8 @@ func (plan TestPlan) asUnselected() TestPlan {
 }
 
 func (plan TestPlan) AsTooLarge() TestPlan {
+	plan = plan.asUnselected()
 	plan.Recorded = RecordedSets{}
-	plan.Suites = nil
-	plan.Tests = nil
-	plan.FullMatrix = true
 	plan.Trigger = PlanTriggerPlanTooLarge
 	return plan
 }
