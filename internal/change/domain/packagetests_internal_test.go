@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+const parserPackage = "example.com/parser"
+
 func parsedImportPath(t *testing.T, stated string) GoImportPath {
 	t.Helper()
 	path, err := ParseGoImportPath(stated)
@@ -18,7 +20,7 @@ func parsedImportPath(t *testing.T, stated string) GoImportPath {
 }
 
 func TestNamedTestsOfRefusesAPackageWithNoNames(t *testing.T) {
-	_, err := namedTestsOf(parsedImportPath(t, "example.com/parser"), nil)
+	_, err := namedTestsOf(parsedImportPath(t, parserPackage), nil)
 
 	if !errors.Is(err, errNoTestNames) {
 		t.Fatalf("want errNoTestNames, got %v", err)
@@ -37,7 +39,7 @@ func parsedTestName(t *testing.T, stated string) TopLevelTestName {
 func TestNamedTestsOfHoldsEachNameOnceInOrder(t *testing.T) {
 	alpha, beta := parsedTestName(t, "TestAlpha"), parsedTestName(t, "TestBeta")
 
-	named, err := namedTestsOf(parsedImportPath(t, "example.com/parser"), []TopLevelTestName{beta, alpha, beta})
+	named, err := namedTestsOf(parsedImportPath(t, parserPackage), []TopLevelTestName{beta, alpha, beta})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +50,7 @@ func TestNamedTestsOfHoldsEachNameOnceInOrder(t *testing.T) {
 }
 
 func TestNamedTestsAreNotTheWholePackage(t *testing.T) {
-	named, err := namedTestsOf(parsedImportPath(t, "example.com/parser"), []TopLevelTestName{parsedTestName(t, "TestAlpha")})
+	named, err := namedTestsOf(parsedImportPath(t, parserPackage), []TopLevelTestName{parsedTestName(t, "TestAlpha")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +61,7 @@ func TestNamedTestsAreNotTheWholePackage(t *testing.T) {
 }
 
 func TestWholePackageOfRunsTheWholePackage(t *testing.T) {
-	if !wholePackageOf(parsedImportPath(t, "example.com/parser")).IsWholePackage() {
+	if !wholePackageOf(parsedImportPath(t, parserPackage)).IsWholePackage() {
 		t.Fatal("want the whole package, got named tests")
 	}
 }

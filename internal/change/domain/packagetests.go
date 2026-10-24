@@ -15,6 +15,8 @@ type PackageTests struct {
 	names []TopLevelTestName
 }
 
+func wholePackageOf(pkg GoImportPath) PackageTests { return PackageTests{pkg: pkg} }
+
 func namedTestsOf(pkg GoImportPath, names []TopLevelTestName) (PackageTests, error) {
 	if len(names) == 0 {
 		return PackageTests{}, fmt.Errorf("%w: %s", errNoTestNames, pkg)
@@ -29,5 +31,3 @@ func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
 }
 
 func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
-
-func wholePackageOf(pkg GoImportPath) PackageTests { return PackageTests{pkg: pkg} }
