@@ -50,6 +50,18 @@ func TestRepositoryCoverageAcceptsAnIndexOfExactlyTheEdgeBound(t *testing.T) {
 	}
 }
 
+func TestRepositoryCoverageReplacesAHeldSuiteAtTheTestBoundCountingOnlyItsReplacement(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+	suite := mustParseSuite(t, domainSuite)
+	full := mustReplace(t, domain.RepositoryCoverage{}, suite, suiteOfTests(t, limits.MaxIndexedTests))
+
+	_, err := full.Replacing(suite, suiteOfTests(t, limits.MaxIndexedTests), limits)
+
+	if err != nil {
+		t.Fatalf("want a held suite replaced at the test bound, got %v", err)
+	}
+}
+
 func suiteOfEdges(t *testing.T, count int) domain.SuiteCoverage {
 	t.Helper()
 
