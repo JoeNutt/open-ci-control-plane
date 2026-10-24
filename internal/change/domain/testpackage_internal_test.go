@@ -51,6 +51,24 @@ func TestTestPackageIsRefusedForAFileNoImportRootHolds(t *testing.T) {
 	}
 }
 
+func TestTestPackageIsRefusedWhereTwoRootsAtOneDepthNameItDifferently(t *testing.T) {
+	roots := []ImportRoot{
+		importRootFrom(t, ImportRootStatement{Prefix: "example.com/app", Path: "internal"}),
+		importRootFrom(t, ImportRootStatement{Prefix: "example.com/app", Path: "internal"}),
+		importRootFrom(t, ImportRootStatement{Prefix: "example.com/fork", Path: "internal"}),
+	}
+	file, err := ParseRepositoryPath("internal/auth/owner_test.go")
+	if err != nil {
+		t.Fatalf("parse repository path: %v", err)
+	}
+
+	_, err = testPackageOf(file, roots)
+
+	if !errors.Is(err, errAmbiguousTestPackage) {
+		t.Fatalf("error is %v, want %v", err, errAmbiguousTestPackage)
+	}
+}
+
 func importRootFrom(t *testing.T, stated ImportRootStatement) ImportRoot {
 	t.Helper()
 
