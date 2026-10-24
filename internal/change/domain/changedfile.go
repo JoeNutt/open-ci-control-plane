@@ -13,6 +13,7 @@ const unstatedPreviousPath = ""
 
 type ChangedFile struct {
 	path         RepositoryPath
+	action       FileAction
 	previousPath RepositoryPath
 	lines        ChangedLines
 }
@@ -30,8 +31,12 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return ChangedFile{path: path, previousPath: previous, lines: lines}, nil
+	return ChangedFile{path: path, action: stated.File.Action, previousPath: previous, lines: lines}, nil
 }
+
+func (file ChangedFile) Path() RepositoryPath { return file.path }
+
+func (file ChangedFile) ExistsAtHead() bool { return file.action.ExistsAtHead() }
 
 func linesOf(stated StatedFile) (ChangedLines, error) {
 	if !stated.IsPatchStated {

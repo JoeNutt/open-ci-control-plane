@@ -43,8 +43,7 @@ func (useCase BuildDocument) Execute(
 		return BuiltChange{}, fmt.Errorf("bound %s: %w", locator, overBoundAt(reported.Tips, err))
 	}
 	stated := statedChange{locator: locator, tips: reported.Tips}
-	heads := map[string]domain.BoundedSource{}
-	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files), heads)
+	imported, read, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
 	if err != nil {
 		return BuiltChange{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
 	}
@@ -57,56 +56,7 @@ func (useCase BuildDocument) Execute(
 	if err != nil {
 		return BuiltChange{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
-	built := builtWithEvidence(document, listed)
-	if built.EvidenceFailure != nil {
-		return built, nil
-	}
-	for index, statedFile := range listed {
-		if !useCase.Tests.DeclaresTests(statedFile.File.Path) || !statedFile.File.Action.ExistsAtHead() {
-			continue
-		}
-		source, isRead := heads[statedFile.File.Path]
-		if !isRead {
-			file, err := domain.ParseFileAtCommit(locator.GovernedRepository(), reported.Tips.Head(), statedFile.File.Path)
-			if err != nil {
-				return BuiltChange{Document: document, EvidenceFailure: err}, nil
-			}
-			contents, err := useCase.Contents.ContentsAt(ctx, file)
-			if err != nil {
-				return BuiltChange{Document: document, EvidenceFailure: err}, nil
-			}
-			source, err = domain.ParseBoundedSource(contents, useCase.Limits)
-			if err != nil {
-				return BuiltChange{Document: document, EvidenceFailure: err}, nil
-			}
-		}
-		functions, err := useCase.Tests.TestFunctionsIn(source)
-		if err != nil {
-			return BuiltChange{Document: document, EvidenceFailure: err}, nil
-		}
-		built.Edited = append(built.Edited, domain.EditedTestsIn(built.Files[index], functions))
-	}
-	return built, nil
-}
-
-func builtWithEvidence(document domain.Document, listed []domain.StatedFile) BuiltChange {
-	changed, err := changedFilesOf(listed)
-	if err != nil {
-		return BuiltChange{Document: document, EvidenceFailure: fmt.Errorf("read the change evidence: %w", err)}
-	}
-	return BuiltChange{Document: document, Files: changed}
-}
-
-func changedFilesOf(listed []domain.StatedFile) ([]domain.ChangedFile, error) {
-	changed := make([]domain.ChangedFile, 0, len(listed))
-	for _, stated := range listed {
-		parsed, err := domain.ParseChangedFile(stated)
-		if err != nil {
-			return nil, err
-		}
-		changed = append(changed, parsed)
-	}
-	return changed, nil
+	return useCase.builtWithEvidence(ctx, document, listed, read.at(stated)), nil
 }
 
 func documentFilesOf(listed []domain.StatedFile) []domain.File {
@@ -153,24 +103,25 @@ func (useCase BuildDocument) claimedOf(files []domain.File) []domain.File {
 }
 
 func (useCase BuildDocument) importedFilesOf(
-	ctx context.Context, stated statedChange, claimed []domain.File, heads map[string]domain.BoundedSource,
-) ([]domain.ImportedFile, error) {
+	ctx context.Context, stated statedChange, claimed []domain.File,
+) ([]domain.ImportedFile, headSources, error) {
+	read := headSources{}
 	if len(claimed) == 0 {
-		return nil, nil
+		return nil, read, nil
 	}
 	ends, err := useCase.endsOf(ctx, stated)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	imported := make([]domain.ImportedFile, 0, len(claimed))
 	for _, file := range claimed {
-		importedFile, err := useCase.importedFileAt(ctx, ends, file, heads)
+		importedFile, err := useCase.importedFileAt(ctx, ends, file, read)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", file.Path, err)
+			return nil, nil, fmt.Errorf("%s: %w", file.Path, err)
 		}
 		imported = append(imported, importedFile)
 	}
-	return imported, nil
+	return imported, read, nil
 }
 
 func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (changeEnds, error) {
@@ -182,46 +133,62 @@ func (useCase BuildDocument) endsOf(ctx context.Context, stated statedChange) (c
 }
 
 func (useCase BuildDocument) importedFileAt(
-	ctx context.Context, ends changeEnds, file domain.File, heads map[string]domain.BoundedSource,
+	ctx context.Context, ends changeEnds, file domain.File, read headSources,
 ) (domain.ImportedFile, error) {
 	imported := domain.ImportedFile{File: file}
-	var err error
 	if file.Action.ExistsAtBase() {
-		imported.Base, err = useCase.importsAt(ctx, ends, ends.base, file.Path, nil)
+		base, err := useCase.importsAt(ctx, ends.repository, ends.base, file.Path)
 		if err != nil {
 			return domain.ImportedFile{}, fmt.Errorf("at base: %w", err)
 		}
+		imported.Base = base.imports
 	}
 	if file.Action.ExistsAtHead() {
-		imported.Head, err = useCase.importsAt(ctx, ends, ends.head, file.Path, heads)
+		head, err := useCase.importsAt(ctx, ends.repository, ends.head, file.Path)
 		if err != nil {
 			return domain.ImportedFile{}, fmt.Errorf("at head: %w", err)
 		}
+		imported.Head = head.imports
+		read[file.Path] = head.source
 	}
 	return imported, nil
 }
 
+type sourceImports struct {
+	source  domain.BoundedSource
+	imports domain.FileImports
+}
+
 func (useCase BuildDocument) importsAt(
-	ctx context.Context, ends changeEnds, commit domain.CommitSHA, path string, heads map[string]domain.BoundedSource,
-) (domain.FileImports, error) {
-	file, err := domain.ParseFileAtCommit(ends.repository, commit, path)
+	ctx context.Context, repository domain.GovernedRepository, commit domain.CommitSHA, path string,
+) (sourceImports, error) {
+	file, err := domain.ParseFileAtCommit(repository, commit, path)
 	if err != nil {
-		return domain.FileImports{}, err
+		return sourceImports{}, err
 	}
-	contents, err := useCase.Contents.ContentsAt(ctx, file)
+	source, err := useCase.sourceAt(ctx, file)
 	if err != nil {
-		return domain.FileImports{}, err
-	}
-	source, err := domain.ParseBoundedSource(contents, useCase.Limits)
-	if err != nil {
-		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit(), err)
-	}
-	if heads != nil {
-		heads[path] = source
+		return sourceImports{}, err
 	}
 	paths, err := useCase.Extractor.ImportsIn(source)
 	if err != nil {
-		return domain.FileImports{}, fmt.Errorf("at %s: %w", file.Commit(), err)
+		return sourceImports{}, fmt.Errorf("at %s: %w", file.Commit(), err)
 	}
-	return domain.ParseFileImports(paths, useCase.Limits)
+	imports, err := domain.ParseFileImports(paths, useCase.Limits)
+	if err != nil {
+		return sourceImports{}, err
+	}
+	return sourceImports{source: source, imports: imports}, nil
+}
+
+func (useCase BuildDocument) sourceAt(ctx context.Context, file domain.FileAtCommit) (domain.BoundedSource, error) {
+	contents, err := useCase.Contents.ContentsAt(ctx, file)
+	if err != nil {
+		return domain.BoundedSource{}, err
+	}
+	source, err := domain.ParseBoundedSource(contents, useCase.Limits)
+	if err != nil {
+		return domain.BoundedSource{}, fmt.Errorf("at %s: %w", file.Commit(), err)
+	}
+	return source, nil
 }
