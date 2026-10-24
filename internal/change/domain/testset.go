@@ -13,6 +13,14 @@ type testSet struct {
 	words []uint64
 }
 
+func (set testSet) size() int {
+	count := 0
+	for _, word := range set.words {
+		count += bits.OnesCount64(word)
+	}
+	return count
+}
+
 func (set testSet) members() iter.Seq[int] {
 	return func(yield func(int) bool) {
 		for position, word := range set.words {
