@@ -42,6 +42,7 @@ func ParseChangedLines(patch string) (ChangedLines, error) {
 			return ChangedLines{}, malformedAt(index, err)
 		}
 	}
+	walk.closeBlock()
 	if walk.isHunkOpen() {
 		return ChangedLines{}, malformedAt(len(lines)-1, ErrMalformedHunk)
 	}
@@ -53,9 +54,11 @@ func malformedAt(index int, err error) error {
 }
 
 type patchWalk struct {
-	base    patchSide
-	head    patchSide
-	hasHunk bool
+	base                 patchSide
+	head                 patchSide
+	hasHunk              bool
+	isInBlock            bool
+	isBaseChangedInBlock bool
 }
 
 type patchSide struct {
@@ -94,10 +97,30 @@ func (walk *patchWalk) step(line string) error {
 	if !isMarked {
 		return ErrMalformedHunk
 	}
+	if presence.onBase.isChanged || presence.onHead.isChanged {
+		walk.isInBlock = true
+		if presence.onBase.isChanged {
+			walk.isBaseChangedInBlock = true
+		}
+	}
+	if presence == presenceOfLines[contextLineMark] {
+		walk.closeBlock()
+	}
 	if err := walk.base.take(presence.onBase); err != nil {
 		return err
 	}
 	return walk.head.take(presence.onHead)
+}
+
+func (walk *patchWalk) closeBlock() {
+	if walk.isInBlock && !walk.isBaseChangedInBlock {
+		if walk.base.line-1 >= 1 {
+			walk.base.changed = append(walk.base.changed, walk.base.line-1)
+		}
+		walk.base.changed = append(walk.base.changed, walk.base.line)
+	}
+	walk.isInBlock = false
+	walk.isBaseChangedInBlock = false
 }
 
 func (side *patchSide) take(presence sidePresence) error {
@@ -116,6 +139,7 @@ func (side *patchSide) take(presence sidePresence) error {
 }
 
 func (walk *patchWalk) enter(header string) error {
+	walk.closeBlock()
 	if walk.isHunkOpen() {
 		return ErrMalformedHunk
 	}
