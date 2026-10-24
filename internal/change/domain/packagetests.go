@@ -2,7 +2,13 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"slices"
+)
+
+var errNoTestNames = errors.New("a package's named tests name no test")
 
 type PackageTests struct {
 	pkg   GoImportPath
@@ -11,7 +17,7 @@ type PackageTests struct {
 
 func namedTestsOf(pkg GoImportPath, names []TopLevelTestName) (PackageTests, error) {
 	if len(names) == 0 {
-		return PackageTests{}, errors.New("no names")
+		return PackageTests{}, fmt.Errorf("%w: %s", errNoTestNames, pkg)
 	}
-	return PackageTests{pkg: pkg, names: names}, nil
+	return PackageTests{pkg: pkg, names: slices.Clone(names)}, nil
 }
