@@ -82,20 +82,20 @@ func (postings *coveragePostings) openItem(path RepositoryPath, firstPosting uin
 	postings.itemsOfFile[path] = span
 }
 
-func (postings coveragePostings) itemsOf(path RepositoryPath) (itemSpan, bool) {
-	span, isIndexed := postings.itemsOfFile[path]
-	return span, isIndexed
-}
-
 func (postings coveragePostings) testsOnLines(span itemSpan, lines []uint32) []uint32 {
 	var tests []uint32
 	for _, line := range lines {
-		offset, isFound := slices.BinarySearch(postings.lineOfItem[span.first:span.end], line)
-		if isFound {
-			tests = append(tests, postings.testsOn(itemSpan{first: span.first + offset, end: span.first + offset + 1})...)
+		if item, isCovered := postings.itemOnLine(span, line); isCovered {
+			tests = append(tests, postings.testsOn(item)...)
 		}
 	}
 	return tests
+}
+
+func (postings coveragePostings) itemOnLine(span itemSpan, line uint32) (itemSpan, bool) {
+	offset, isCovered := slices.BinarySearch(postings.lineOfItem[span.first:span.end], line)
+	item := span.first + offset
+	return itemSpan{first: item, end: item + 1}, isCovered
 }
 
 func (postings coveragePostings) testsOn(span itemSpan) []uint32 {
