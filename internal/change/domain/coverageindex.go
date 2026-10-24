@@ -5,6 +5,7 @@ package domain
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -43,8 +44,12 @@ func suiteThenNameOrder(one, other coveredTest) int {
 }
 
 func (index coverageIndex) testAt(dense int) (coveredTest, error) {
-	if dense < 0 || dense >= len(index.tests) {
-		return coveredTest{}, errNoTestAtIndex
+	if !index.numbers(dense) {
+		return coveredTest{}, fmt.Errorf("%w: position %d of %d tests", errNoTestAtIndex, dense, len(index.tests))
 	}
 	return index.tests[dense], nil
+}
+
+func (index coverageIndex) numbers(dense int) bool {
+	return 0 <= dense && dense < len(index.tests)
 }
