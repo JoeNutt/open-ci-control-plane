@@ -59,11 +59,7 @@ func suiteOfEdges(t *testing.T, count int) domain.SuiteCoverage {
 		lines = append(lines, uint32(line+1))
 	}
 	tested := domain.NewReportedTest(mustParseTestName(t, effectTest), []domain.TestedFile{domain.NewTestedFile(held, lines)})
-	coverage, err := domain.ParseSuiteCoverage([]domain.ReportedTest{tested}, domain.NewKnownPaths([]domain.RepositoryPath{held}))
-	if err != nil {
-		t.Fatalf("parse a suite of %d edges: %v", count, err)
-	}
-	return coverage
+	return suiteHoldingOnly(t, held, []domain.ReportedTest{tested})
 }
 
 func suiteOfTests(t *testing.T, count int) domain.SuiteCoverage {
@@ -75,9 +71,15 @@ func suiteOfTests(t *testing.T, count int) domain.SuiteCoverage {
 		name := mustParseTestName(t, fmt.Sprintf("TestGenerated%d", index))
 		tests = append(tests, domain.NewReportedTest(name, []domain.TestedFile{domain.NewTestedFile(held, []uint32{1})}))
 	}
+	return suiteHoldingOnly(t, held, tests)
+}
+
+func suiteHoldingOnly(t *testing.T, held domain.RepositoryPath, tests []domain.ReportedTest) domain.SuiteCoverage {
+	t.Helper()
+
 	coverage, err := domain.ParseSuiteCoverage(tests, domain.NewKnownPaths([]domain.RepositoryPath{held}))
 	if err != nil {
-		t.Fatalf("parse a suite of %d tests: %v", count, err)
+		t.Fatalf("parse a suite of %d tests running %s: %v", len(tests), held, err)
 	}
 	return coverage
 }
