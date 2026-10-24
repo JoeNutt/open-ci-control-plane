@@ -55,6 +55,8 @@ var coverageRefusals = []causedRefusal{
 	{cause: domain.ErrTooManySuites, refusal: boundProblem(suitesLimit), level: slog.LevelWarn},
 	{cause: domain.ErrTooManyTestSections, refusal: boundProblem(testSectionsLimit), level: slog.LevelWarn},
 	{cause: domain.ErrTooManyLineRecords, refusal: boundProblem(lineRecordsLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManyIndexedTests, refusal: boundProblem(indexedTestsLimit), level: slog.LevelWarn},
+	{cause: domain.ErrTooManyIndexEdges, refusal: boundProblem(indexEdgesLimit), level: slog.LevelWarn},
 }
 
 func coverageRefusalOf(failure error) loggedAnswer {

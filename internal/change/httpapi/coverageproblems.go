@@ -47,6 +47,8 @@ var (
 	suitesLimit               = statedLimitOf(domain.ErrTooManySuites)
 	testSectionsLimit         = statedLimitOf(domain.ErrTooManyTestSections)
 	lineRecordsLimit          = statedLimitOf(domain.ErrTooManyLineRecords)
+	indexedTestsLimit         = statedLimitOf(domain.ErrTooManyIndexedTests)
+	indexEdgesLimit           = statedLimitOf(domain.ErrTooManyIndexEdges)
 )
 
 func statedLimitOf(bound error) string {
