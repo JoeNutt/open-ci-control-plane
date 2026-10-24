@@ -7,55 +7,50 @@ import (
 	"testing"
 )
 
-func TestChangedLinesOfAModifiedLineNameItOnBothSides(t *testing.T) {
-	patch := "@@ -1,3 +1,3 @@\n package auth\n-var limit = 1\n+var limit = 2\n func f() {}"
+func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
+	for _, stated := range []struct {
+		rule  string
+		patch string
+		base  []int
+		head  []int
+	}{
+		{
+			rule:  "a modified line is named on both sides",
+			patch: "@@ -1,3 +1,3 @@\n package auth\n-var limit = 1\n+var limit = 2\n func f() {}",
+			base:  []int{2}, head: []int{2},
+		},
+		{
+			rule:  "a pure insertion names the base lines either side of it",
+			patch: "@@ -1,2 +1,3 @@\n before\n+inserted\n after",
+			base:  []int{1, 2}, head: []int{2},
+		},
+		{
+			rule:  "a pure deletion names the head lines either side of it",
+			patch: "@@ -1,3 +1,2 @@\n before\n-deleted\n after",
+			base:  []int{2}, head: []int{1, 2},
+		},
+		{
+			rule:  "an empty range's start is the line before the change",
+			patch: "@@ -5,0 +6,1 @@\n+inserted",
+			base:  []int{5, 6}, head: []int{6},
+		},
+		{
+			rule:  "the mark of a missing final line break changes neither side",
+			patch: "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file",
+			base:  []int{1}, head: []int{1},
+		},
+	} {
+		t.Run(stated.rule, func(t *testing.T) {
+			lines, err := ParseChangedLines(stated.patch)
 
-	lines, err := ParseChangedLines(patch)
-
-	if err != nil {
-		t.Fatalf("parse changed lines: %v", err)
-	}
-	if !slices.Equal(lines.base, []int{2}) || !slices.Equal(lines.head, []int{2}) {
-		t.Fatalf("lines are base %v head %v, want base [2] head [2]", lines.base, lines.head)
-	}
-}
-
-func TestChangedLinesOfAPureInsertionNameTheBaseLinesEitherSideOfIt(t *testing.T) {
-	patch := "@@ -1,2 +1,3 @@\n before\n+inserted\n after"
-
-	lines, err := ParseChangedLines(patch)
-
-	if err != nil {
-		t.Fatalf("parse changed lines: %v", err)
-	}
-	if !slices.Equal(lines.base, []int{1, 2}) || !slices.Equal(lines.head, []int{2}) {
-		t.Fatalf("lines are base %v head %v, want base [1 2] head [2]", lines.base, lines.head)
-	}
-}
-
-func TestChangedLinesOfAPureDeletionNameTheHeadLinesEitherSideOfIt(t *testing.T) {
-	patch := "@@ -1,3 +1,2 @@\n before\n-deleted\n after"
-
-	lines, err := ParseChangedLines(patch)
-
-	if err != nil {
-		t.Fatalf("parse changed lines: %v", err)
-	}
-	if !slices.Equal(lines.base, []int{2}) || !slices.Equal(lines.head, []int{1, 2}) {
-		t.Fatalf("lines are base %v head %v, want base [2] head [1 2]", lines.base, lines.head)
-	}
-}
-
-func TestChangedLinesOfAnEmptyRangeReadItsStartAsTheLineBeforeTheChange(t *testing.T) {
-	patch := "@@ -5,0 +6,1 @@\n+inserted"
-
-	lines, err := ParseChangedLines(patch)
-
-	if err != nil {
-		t.Fatalf("parse changed lines: %v", err)
-	}
-	if !slices.Equal(lines.base, []int{5, 6}) || !slices.Equal(lines.head, []int{6}) {
-		t.Fatalf("lines are base %v head %v, want base [5 6] head [6]", lines.base, lines.head)
+			if err != nil {
+				t.Fatalf("parse changed lines: %v", err)
+			}
+			if !slices.Equal(lines.base, stated.base) || !slices.Equal(lines.head, stated.head) {
+				t.Fatalf("lines are base %v head %v, want base %v head %v",
+					lines.base, lines.head, stated.base, stated.head)
+			}
+		})
 	}
 }
 
@@ -68,18 +63,5 @@ func TestChangedLinesOfAnUnstatedPatchAreUnknownWhereAParsedPatchIsKnown(t *test
 	if UnknownChangedLines().isKnown || !parsed.isKnown {
 		t.Fatalf("unknown lines read known %v, parsed lines read known %v; want false and true",
 			UnknownChangedLines().isKnown, parsed.isKnown)
-	}
-}
-
-func TestChangedLinesPassOverTheMarkOfAMissingFinalLineBreak(t *testing.T) {
-	patch := "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file"
-
-	lines, err := ParseChangedLines(patch)
-
-	if err != nil {
-		t.Fatalf("parse changed lines: %v", err)
-	}
-	if !slices.Equal(lines.base, []int{1}) || !slices.Equal(lines.head, []int{1}) {
-		t.Fatalf("lines are base %v head %v, want base [1] head [1]", lines.base, lines.head)
 	}
 }
