@@ -7,15 +7,17 @@ import (
 	"math/bits"
 )
 
+const testsPerWord = 64
+
 type testSet struct {
 	words []uint64
 }
 
 func (set testSet) members() iter.Seq[int] {
 	return func(yield func(int) bool) {
-		for i, word := range set.words {
+		for position, word := range set.words {
 			for ; word != 0; word &= word - 1 {
-				if !yield(i*64 + bits.TrailingZeros64(word)) {
+				if !yield(position*testsPerWord + bits.TrailingZeros64(word)) {
 					return
 				}
 			}
