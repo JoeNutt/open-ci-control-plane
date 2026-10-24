@@ -10,7 +10,5 @@ type TestedFile struct {
 }
 
 func NewTestedFile(path RepositoryPath, hitLines []uint32) TestedFile {
-	ordered := slices.Clone(hitLines)
-	slices.Sort(ordered)
-	return TestedFile{path: path, hitLines: slices.Compact(ordered)}
+	return TestedFile{path: path, hitLines: slices.Compact(slices.Sorted(slices.Values(hitLines)))}
 }
