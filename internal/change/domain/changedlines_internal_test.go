@@ -69,6 +69,14 @@ func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
 	}
 }
 
+func TestChangedLinesOfAnEmptyPatchAreKnownAndNone(t *testing.T) {
+	lines, err := parseChangedLines("")
+
+	if err != nil || !lines.isKnown || lines.base != nil || lines.head != nil {
+		t.Fatalf("lines are %+v with %v, want known and none", lines, err)
+	}
+}
+
 func TestChangedLinesOfAnUnstatedPatchAreUnknownWhereAParsedPatchIsKnown(t *testing.T) {
 	parsed, err := parseChangedLines("@@ -1,1 +1,1 @@\n context")
 	if err != nil {

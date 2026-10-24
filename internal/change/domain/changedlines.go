@@ -44,6 +44,9 @@ func (lines changedLines) mayTouchHead(span lineSpan) bool {
 }
 
 func parseChangedLines(patch string) (changedLines, error) {
+	if patch == "" {
+		return changedLines{isKnown: true}, nil
+	}
 	var walk patchWalk
 	lines := strings.Split(patch, patchLineBreak)
 	for index, line := range lines {
