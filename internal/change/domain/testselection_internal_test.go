@@ -54,6 +54,16 @@ func TestSelectionRunsAPackageWholeWhenEveryTestTheIndexHoldsForItIsSelected(t *
 	}
 }
 
+func TestSelectionOverAnIndexHoldingNoTestIsTheFullMatrixWithNoMap(t *testing.T) {
+	evidence := evidenceOf(t, modifiedAt(ordersSource, cancellingLine))
+
+	selected, trigger, err := RepositoryCoverage{}.coverageIndex().testsSelectedFor(evidence)
+
+	if err != nil || trigger != PlanTriggerNoMap || selected != nil {
+		t.Fatalf("selected %+v with %q (%v), want no selection and %q", selected, trigger, err, PlanTriggerNoMap)
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 

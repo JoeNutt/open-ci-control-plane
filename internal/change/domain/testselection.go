@@ -5,6 +5,9 @@ package domain
 import "errors"
 
 func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageTests, PlanTrigger, error) {
+	if len(index.tests) == 0 {
+		return nil, PlanTriggerNoMap, nil
+	}
 	selected, err := index.testsCoveringChangesTo(evidence.files)
 	if errors.Is(err, errUnindexedFile) {
 		return nil, PlanTriggerUnmappedFile, nil
