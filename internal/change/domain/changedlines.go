@@ -22,6 +22,7 @@ const (
 	removedLineMark      = '-'
 	addedLineMark        = '+'
 	contextLineMark      = ' '
+	missingLineBreakMark = '\\'
 	firstPatchLineNumber = 1
 	unstatedHunkCount    = 1
 )
@@ -74,10 +75,10 @@ var (
 	keptOnSide      = sidePresence{isPresent: true}
 	changedOnSide   = sidePresence{isPresent: true, isChanged: true}
 	presenceOfLines = map[byte]struct{ onBase, onHead sidePresence }{
-		removedLineMark: {onBase: changedOnSide, onHead: absentFromSide},
-		addedLineMark:   {onBase: absentFromSide, onHead: changedOnSide},
-		contextLineMark: {onBase: keptOnSide, onHead: keptOnSide},
-		'\\':            {onBase: absentFromSide, onHead: absentFromSide},
+		removedLineMark:      {onBase: changedOnSide, onHead: absentFromSide},
+		addedLineMark:        {onBase: absentFromSide, onHead: changedOnSide},
+		contextLineMark:      {onBase: keptOnSide, onHead: keptOnSide},
+		missingLineBreakMark: {onBase: absentFromSide, onHead: absentFromSide},
 	}
 )
 
