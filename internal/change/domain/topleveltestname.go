@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	TopLevelTestPrefix = "Test"
+	topLevelTestPrefix = "Test"
 	identifierJoiner   = '_'
 )
 
@@ -31,7 +31,7 @@ func (name TopLevelTestName) compare(other TopLevelTestName) int {
 }
 
 func IsTopLevelTestName(name string) bool {
-	rest, hasPrefix := strings.CutPrefix(name, TopLevelTestPrefix)
+	rest, hasPrefix := strings.CutPrefix(name, topLevelTestPrefix)
 	if !hasPrefix {
 		return false
 	}
