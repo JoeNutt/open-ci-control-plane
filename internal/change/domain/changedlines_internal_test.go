@@ -59,6 +59,18 @@ func TestChangedLinesOfAnEmptyRangeReadItsStartAsTheLineBeforeTheChange(t *testi
 	}
 }
 
+func TestChangedLinesOfAnUnstatedPatchAreUnknownWhereAParsedPatchIsKnown(t *testing.T) {
+	parsed, err := ParseChangedLines("@@ -1,1 +1,1 @@\n context")
+	if err != nil {
+		t.Fatalf("parse changed lines: %v", err)
+	}
+
+	if UnknownChangedLines().isKnown || !parsed.isKnown {
+		t.Fatalf("unknown lines read known %v, parsed lines read known %v; want false and true",
+			UnknownChangedLines().isKnown, parsed.isKnown)
+	}
+}
+
 func TestChangedLinesPassOverTheMarkOfAMissingFinalLineBreak(t *testing.T) {
 	patch := "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file"
 

@@ -30,9 +30,12 @@ const (
 var ErrMalformedHunk = errors.New("the patch holds a malformed hunk")
 
 type ChangedLines struct {
-	base []int
-	head []int
+	isKnown bool
+	base    []int
+	head    []int
 }
+
+func UnknownChangedLines() ChangedLines { return ChangedLines{} }
 
 func ParseChangedLines(patch string) (ChangedLines, error) {
 	var walk patchWalk
@@ -130,7 +133,7 @@ func (walk patchWalk) isInBlock() bool {
 func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
 
 func (walk patchWalk) changedLines() ChangedLines {
-	return ChangedLines{base: walk.base.changed, head: walk.head.changed}
+	return ChangedLines{isKnown: true, base: walk.base.changed, head: walk.head.changed}
 }
 
 type patchSide struct {
