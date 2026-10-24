@@ -44,6 +44,17 @@ func TestASelectedPlanRunsEachSelectedSuiteAsAWholePackage(t *testing.T) {
 	if len(plan.Tests) != 2 || !plan.Tests[0].IsWholePackage() || !plan.Tests[1].IsWholePackage() {
 		t.Errorf("tests are %+v, want the two selected suites as whole packages", plan.Tests)
 	}
+	if got := packagesOf(plan.Tests); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
+		t.Errorf("tests run packages %v, want %v", got, []string{ordersSuite, paymentsSuite})
+	}
+}
+
+func packagesOf(tests []domain.PackageTests) []string {
+	packages := make([]string, 0, len(tests))
+	for _, entry := range tests {
+		packages = append(packages, entry.Package().String())
+	}
+	return packages
 }
 
 func TestEachReasonSelectionCannotVouchForPlansTheFullMatrixNamingIt(t *testing.T) {
