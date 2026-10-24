@@ -299,6 +299,14 @@ func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
 	}
 }
 
+func TestAPlanShapedToTheFullMatrixNamesNoTests(t *testing.T) {
+	plan := modedPlanOf(t, "off", "off")
+
+	if len(plan.Tests) != 0 {
+		t.Errorf("a full-matrix plan names tests %+v, want none", plan.Tests)
+	}
+}
+
 func TestAShadowPlanForcedToTheFullMatrixKeepsItsTriggerAndRecordsNothing(t *testing.T) {
 	statement := thisRepositorysBinding()
 	statement.Selection, statement.Minimisation = "shadow", "shadow"

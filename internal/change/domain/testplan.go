@@ -219,6 +219,7 @@ func (plan TestPlan) asShadow(recorded RecordedSets) TestPlan {
 
 func (plan TestPlan) asUnselected() TestPlan {
 	plan.Suites = nil
+	plan.Tests = nil
 	plan.FullMatrix = true
 	return plan
 }
