@@ -199,6 +199,45 @@ func TestOfConcurrentReportsForOneHeadExactlyOneIsAccepted(t *testing.T) {
 	}
 }
 
+func TestALineRecordedBeforeTestLevelPlansReadsEachRecordedSuiteAsItsWholePackage(t *testing.T) {
+	history := openedLog(t, ledgerPath(t))
+	before := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` + ledgerHeadSHA +
+		`","decisionId":"` + ledgerDecisionID + `","suites":["` + ledgerSuite + `"],"alwaysRun":["` + ledgerAlwaysRun +
+		`"],"recorded":{"selected":["` + ledgerSuite + `"],"minimised":["` + ledgerSuite + `"]},"changedFiles":["` +
+		ledgerChangedFile + `"],"modes":{"selection":"shadow","minimisation":"shadow"}}`
+	if err := history.Append(json.RawMessage(before)); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	dispatched := dispatchedPlanOf(t)
+	ledger := jsonl.NewPlanLedger(history)
+
+	found, err := ledger.DispatchedPlanFor(context.Background(), dispatched.Locator.GovernedRepository(), dispatched.Head)
+	if err != nil {
+		t.Fatalf("a line recorded before test-level plans does not read: %v", err)
+	}
+	runs, err := ledger.ShadowedRuns(context.Background())
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("the shadow history reads %d runs (%v), want the one run", len(runs), err)
+	}
+
+	want := domain.RecordedSets{IsRecorded: true, Selected: wholePackageOf(t, suiteOf(t)), Minimised: wholePackageOf(t, suiteOf(t))}
+	for _, read := range []domain.RecordedSets{found.Recorded, runs[0].Plan.Recorded} {
+		if !reflect.DeepEqual(read, want) {
+			t.Errorf("the line recorded %+v, want each suite as its whole package %+v", read, want)
+		}
+	}
+}
+
+func suiteOf(t *testing.T) domain.CoverageSuite {
+	t.Helper()
+
+	suite, err := domain.ParseCoverageSuite(ledgerSuite)
+	if err != nil {
+		t.Fatalf("parse suite: %v", err)
+	}
+	return suite
+}
+
 func TestADispatchedLineThatDoesNotParseIsRefusedNeverReturned(t *testing.T) {
 	history := openedLog(t, ledgerPath(t))
 	hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` +

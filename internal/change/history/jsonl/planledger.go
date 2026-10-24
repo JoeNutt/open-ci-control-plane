@@ -3,6 +3,7 @@
 package jsonl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -229,6 +230,20 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
+}
+
+func (line *packageTestsLine) UnmarshalJSON(stated []byte) error {
+	if trimmed := bytes.TrimSpace(stated); len(trimmed) > 0 && trimmed[0] == '"' {
+		line.Names = nil
+		return json.Unmarshal(trimmed, &line.Package)
+	}
+	type objectLine packageTestsLine
+	var held objectLine
+	if err := json.Unmarshal(stated, &held); err != nil {
+		return err
+	}
+	*line = packageTestsLine(held)
+	return nil
 }
 
 func (line packageTestsLine) packageTests() (domain.PackageTests, error) {
