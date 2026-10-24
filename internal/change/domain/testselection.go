@@ -37,7 +37,7 @@ func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet,
 }
 
 func (index coverageIndex) testsTouchedBy(file ChangedFile) (testSet, error) {
-	if !file.lines.isKnown || file.action == FileActionRenamed || file.action == FileActionRemoved {
+	if !file.lines.isKnown || file.action.leavesItsBasePath() {
 		return index.testsReaching(file.base.path)
 	}
 	return index.testsCovering(file.base.path, file.lines.baseLineNumbers())
