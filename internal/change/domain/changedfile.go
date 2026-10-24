@@ -17,7 +17,7 @@ type ChangedFile struct {
 	path   RepositoryPath
 	action FileAction
 	base   basePath
-	lines  ChangedLines
+	lines  changedLines
 }
 
 func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
@@ -40,11 +40,11 @@ func (file ChangedFile) Path() RepositoryPath { return file.path }
 
 func (file ChangedFile) ExistsAtHead() bool { return file.action.ExistsAtHead() }
 
-func linesOf(stated StatedFile) (ChangedLines, error) {
+func linesOf(stated StatedFile) (changedLines, error) {
 	if !stated.IsPatchStated {
-		return UnknownChangedLines(), nil
+		return unknownChangedLines(), nil
 	}
-	return ParseChangedLines(stated.Patch)
+	return parseChangedLines(stated.Patch)
 }
 
 func basePathOf(stated StatedFile, path RepositoryPath) (basePath, error) {

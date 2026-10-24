@@ -56,7 +56,7 @@ func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
 		},
 	} {
 		t.Run(stated.rule, func(t *testing.T) {
-			lines, err := ParseChangedLines(stated.patch)
+			lines, err := parseChangedLines(stated.patch)
 
 			if err != nil {
 				t.Fatalf("parse changed lines: %v", err)
@@ -70,13 +70,13 @@ func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
 }
 
 func TestChangedLinesOfAnUnstatedPatchAreUnknownWhereAParsedPatchIsKnown(t *testing.T) {
-	parsed, err := ParseChangedLines("@@ -1,1 +1,1 @@\n context")
+	parsed, err := parseChangedLines("@@ -1,1 +1,1 @@\n context")
 	if err != nil {
 		t.Fatalf("parse changed lines: %v", err)
 	}
 
-	if UnknownChangedLines().isKnown || !parsed.isKnown {
+	if unknownChangedLines().isKnown || !parsed.isKnown {
 		t.Fatalf("unknown lines read known %v, parsed lines read known %v; want false and true",
-			UnknownChangedLines().isKnown, parsed.isKnown)
+			unknownChangedLines().isKnown, parsed.isKnown)
 	}
 }

@@ -31,29 +31,29 @@ const (
 
 var ErrMalformedHunk = errors.New("the patch holds a malformed hunk")
 
-type ChangedLines struct {
+type changedLines struct {
 	isKnown bool
 	base    []int
 	head    []int
 }
 
-func UnknownChangedLines() ChangedLines { return ChangedLines{} }
+func unknownChangedLines() changedLines { return changedLines{} }
 
-func (lines ChangedLines) mayTouchHead(span lineSpan) bool {
+func (lines changedLines) mayTouchHead(span lineSpan) bool {
 	return !lines.isKnown || slices.ContainsFunc(lines.head, span.holds)
 }
 
-func ParseChangedLines(patch string) (ChangedLines, error) {
+func parseChangedLines(patch string) (changedLines, error) {
 	var walk patchWalk
 	lines := strings.Split(patch, patchLineBreak)
 	for index, line := range lines {
 		if err := walk.step(line); err != nil {
-			return ChangedLines{}, malformedAt(index, err)
+			return changedLines{}, malformedAt(index, err)
 		}
 	}
 	walk.closeBlock()
 	if walk.isHunkOpen() {
-		return ChangedLines{}, malformedAt(len(lines)-1, ErrMalformedHunk)
+		return changedLines{}, malformedAt(len(lines)-1, ErrMalformedHunk)
 	}
 	return walk.changedLines(), nil
 }
@@ -138,8 +138,8 @@ func (walk patchWalk) isInBlock() bool {
 
 func (walk patchWalk) isHunkOpen() bool { return walk.base.remaining > 0 || walk.head.remaining > 0 }
 
-func (walk patchWalk) changedLines() ChangedLines {
-	return ChangedLines{isKnown: true, base: walk.base.changed, head: walk.head.changed}
+func (walk patchWalk) changedLines() changedLines {
+	return changedLines{isKnown: true, base: walk.base.changed, head: walk.head.changed}
 }
 
 type patchSide struct {
