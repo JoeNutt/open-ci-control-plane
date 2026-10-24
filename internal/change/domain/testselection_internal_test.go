@@ -32,6 +32,21 @@ func TestSelectionNamesTheTestsCoveringABaseSideChangedLine(t *testing.T) {
 	}
 }
 
+func TestSelectionOfAChangedLineInAFileTheIndexHasNeverSeenIsTheFullMatrixNeverAnEmptyRow(t *testing.T) {
+	for _, unseen := range []string{"orders/refund.go", "README.md", ".github/workflows/deploy.yaml"} {
+		evidence := evidenceOf(t,
+			StatedFile{File: File{Path: ordersSource, Action: FileActionModified}, Patch: oneLineEditAtFive, IsPatchStated: true},
+			StatedFile{File: File{Path: unseen, Action: FileActionModified}, Patch: oneLineEditAtFive, IsPatchStated: true},
+		)
+
+		selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+		if err != nil || trigger != PlanTriggerUnmappedFile || selected != nil {
+			t.Errorf("%s: selected %+v with %q (%v), want no selection and %q", unseen, selected, trigger, err, PlanTriggerUnmappedFile)
+		}
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 

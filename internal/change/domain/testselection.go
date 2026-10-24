@@ -2,8 +2,13 @@
 
 package domain
 
+import "errors"
+
 func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageTests, PlanTrigger, error) {
 	selected, err := index.testsCoveringChangesTo(evidence.files)
+	if errors.Is(err, errUnindexedFile) {
+		return nil, PlanTriggerUnmappedFile, nil
+	}
 	if err != nil {
 		return nil, "", err
 	}
