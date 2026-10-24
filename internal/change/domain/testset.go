@@ -5,12 +5,21 @@ package domain
 import (
 	"iter"
 	"math/bits"
+	"slices"
 )
 
 const testsPerWord = 64
 
 type testSet struct {
 	words []uint64
+}
+
+func (set testSet) union(other testSet) (testSet, error) {
+	joined := slices.Clone(set.words)
+	for position, word := range other.words {
+		joined[position] |= word
+	}
+	return testSet{words: joined}, nil
 }
 
 func (set testSet) size() int {
