@@ -88,11 +88,11 @@ func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
 }
 
 func (index coverageIndex) testsReaching(path RepositoryPath) (testSet, error) {
-	reaching, isIndexed := index.postings.testsReaching(path)
+	items, isIndexed := index.postings.itemsOf(path)
 	if !isIndexed {
 		return testSet{}, fmt.Errorf("%w: %s", errUnindexedFile, path)
 	}
-	return testSetOf(index.revision, reaching), nil
+	return testSetOf(index.revision, index.postings.testsOn(items)), nil
 }
 
 func (index coverageIndex) numbers(dense int) bool {
