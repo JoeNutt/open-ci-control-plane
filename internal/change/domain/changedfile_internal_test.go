@@ -26,3 +26,16 @@ func TestChangedFileOfARenameCarriesItsPreviousPathAndItsPatchLines(t *testing.T
 		t.Fatalf("lines are %+v, want known base [1] head [1]", changed.lines)
 	}
 }
+
+func TestChangedFileWhosePatchTheForgeOmitsHasUnknownLines(t *testing.T) {
+	stated := StatedFile{File: File{Path: "assets/logo.png", Action: FileActionModified}}
+
+	changed, err := ParseChangedFile(stated)
+
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	if changed.lines.isKnown {
+		t.Fatalf("lines are %+v, want unknown", changed.lines)
+	}
+}
