@@ -22,6 +22,8 @@ jobs:
       PLAN: ${{ inputs.plan }}
       GH_TOKEN: ${{ github.token }}
       CONTROL_PLANE: ${{ vars.CONTROL_PLANE }}
+      GO_IMPORT_PATH: '^[A-Za-z0-9][A-Za-z0-9._~+/-]*$'
+      TOP_LEVEL_TESTS: '^Test[A-Za-z0-9_]*(\|Test[A-Za-z0-9_]*)*$'
     steps:
       - name: Read the plan
         id: plan
@@ -35,15 +37,15 @@ jobs:
           shadow="$(jq -er '.shadow | if type == "boolean" then tostring else error("shadow is not a boolean") end' <<<"$PLAN")"
           packages="$(jq -er '([.tests[] | select(.names | length == 0) | .package] + .alwaysRunSuites) | unique | join(" ")' <<<"$PLAN")"
           for package in $packages; do
-            [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ ]] || { echo "a package is not a Go import path" >&2; exit 1; }
+            [[ "$package" =~ $GO_IMPORT_PATH ]] || { echo "a package is not a Go import path" >&2; exit 1; }
           done
           named="$RUNNER_TEMP/named-tests.txt"
           jq -r --arg whole "$packages" '($whole | split(" ")) as $whole
             | [.tests[] | select(.names | length > 0) | select(.package as $p | $whole | index($p) | not)
               | "\(.package) \(.names | join("|"))"] | .[]' <<<"$PLAN" >"$named"
           while read -r package names; do
-            [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ ]] || { echo "a package is not a Go import path" >&2; exit 1; }
-            [[ "$names" =~ ^Test[A-Za-z0-9_]*(\|Test[A-Za-z0-9_]*)*$ ]] || { echo "a named test is not a top-level test name" >&2; exit 1; }
+            [[ "$package" =~ $GO_IMPORT_PATH ]] || { echo "a package is not a Go import path" >&2; exit 1; }
+            [[ "$names" =~ $TOP_LEVEL_TESTS ]] || { echo "a named test is not a top-level test name" >&2; exit 1; }
           done <"$named"
           {
             echo "head_sha=$head_sha"
@@ -140,7 +142,7 @@ jobs:
             | sort -u \
             | awk '{names[$1] = (names[$1] == "" ? $2 : names[$1] "|" $2)} END {for (p in names) print p, names[p]}' \
             | while read -r package names; do
-                [[ "$package" =~ ^[A-Za-z0-9][A-Za-z0-9._~+/-]*$ && "$names" =~ ^[A-Za-z_][A-Za-z0-9_|]*$ ]] || { echo "a failed test is not a Go identifier" >&2; exit 1; }
+                [[ "$package" =~ $GO_IMPORT_PATH && "$names" =~ $TOP_LEVEL_TESTS ]] || { echo "a failed test is not a top-level test name" >&2; exit 1; }
                 go test -json -count=1 -run "^($names)\$" "$package" >>"$reruns" || true
               done
 
