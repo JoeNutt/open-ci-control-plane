@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -142,6 +143,37 @@ func TestAPlanNamingTestsIsSentByNameAtTheLimitAndAsWholePackagesOneCharacterOve
 			sent.Tests[0].Package != dispatchedSuite || (len(sent.Tests[0].Names) > 0) != bound.isNamed {
 			t.Errorf("%d characters: sent %q, full matrix %v, tests %d; want %s selected, by name %v",
 				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), dispatchedSuite, bound.isNamed)
+		}
+	}
+}
+
+func TestAPlanNamingTestsWhoseWholePackagesFitIsSentWholeAndOneCharacterOverIsTheFullMatrix(t *testing.T) {
+	for _, bound := range []struct {
+		characters int
+		trigger    string
+	}{
+		{domain.MaxPlanCharacters, "none"},
+		{domain.MaxPlanCharacters + 1, "plan_too_large"},
+	} {
+		held := newDispatchForge(t)
+		plan := planSerialisingTo(t, bound.characters)
+		for index, entry := range plan.Tests {
+			plan.Tests[index] = domain.NewPackageTests(entry.Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})
+		}
+
+		if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
+			t.Fatalf("dispatch plan: %v", err)
+		}
+
+		var sent wirePlan
+		if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
+			t.Fatalf("decode the plan: %v", err)
+		}
+		isReplaced := bound.trigger == "plan_too_large"
+		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced ||
+			slices.ContainsFunc(sent.Tests, func(entry wireTests) bool { return len(entry.Names) > 0 }) {
+			t.Errorf("%d characters as whole packages: sent %q, full matrix %v, %d tests %+v; want %q with no names",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), sent.Tests, bound.trigger)
 		}
 	}
 }
