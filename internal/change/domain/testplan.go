@@ -185,7 +185,7 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 		Head:           head,
 		Workflow:       subject.Binding.Workflow(),
 		Suites:         suites,
-		Tests:          testsOfSuites(suites),
+		Tests:          wholePackagesOf(suites),
 		AlwaysRun:      subject.Binding.AlwaysRun(),
 		FullMatrix:     trigger != PlanTriggerNone,
 		Trigger:        trigger,
@@ -194,7 +194,7 @@ func (subject PlanSubject) planned(head CommitSHA, trigger PlanTrigger, suites [
 	}
 }
 
-func testsOfSuites(suites []CoverageSuite) []PackageTests {
+func wholePackagesOf(suites []CoverageSuite) []PackageTests {
 	var tests []PackageTests
 	for _, suite := range suites {
 		tests = append(tests, wholePackageOf(suite.importPath))
