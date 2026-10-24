@@ -21,6 +21,7 @@ func TestTestFunctionsInNameEveryTopLevelTestWithTheLinesItSpans(t *testing.T) {
 	want := []domain.TestFunction{
 		testFunctionOf(t, "TestAdmitsAnOwner", 5, 7),
 		testFunctionOf(t, "TestRefusesAStranger", 21, 24),
+		testFunctionOf(t, "TestÜber", 28, 28),
 	}
 	if !slices.Equal(functions, want) {
 		t.Fatalf("test functions are %+v, want %+v", functions, want)

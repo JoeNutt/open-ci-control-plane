@@ -22,3 +22,7 @@ func TestRefusesAStranger(t *testing.T) {
 	t.Log("stranger")
 	t.Log("refused")
 }
+
+func Testify(t *testing.T) {}
+
+func TestÜber(t *testing.T) {}

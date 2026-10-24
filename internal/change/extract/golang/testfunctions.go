@@ -53,7 +53,7 @@ func (Extractor) TestFunctionsIn(source domain.BoundedSource) ([]domain.TestFunc
 
 func isTopLevelTest(function *ast.FuncDecl) bool {
 	return function.Recv == nil &&
-		strings.HasPrefix(function.Name.Name, domain.TopLevelTestPrefix) &&
+		domain.IsTopLevelTestName(function.Name.Name) &&
 		takesOnlyTestingState(function.Type.Params.List)
 }
 

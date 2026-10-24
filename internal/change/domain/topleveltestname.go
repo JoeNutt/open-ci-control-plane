@@ -20,7 +20,7 @@ var errNotATopLevelTest = errors.New("the name is not a top-level Go test functi
 type TopLevelTestName struct{ name string }
 
 func ParseTopLevelTestName(stated string) (TopLevelTestName, error) {
-	if !isIdentifierInAnyScript(stated) || !isTopLevelTestName(stated) {
+	if !isIdentifierInAnyScript(stated) || !IsTopLevelTestName(stated) {
 		return TopLevelTestName{}, fmt.Errorf("%w: %d bytes", errNotATopLevelTest, len(stated))
 	}
 	return TopLevelTestName{name: stated}, nil
@@ -30,7 +30,7 @@ func (name TopLevelTestName) compare(other TopLevelTestName) int {
 	return strings.Compare(name.name, other.name)
 }
 
-func isTopLevelTestName(name string) bool {
+func IsTopLevelTestName(name string) bool {
 	rest, hasPrefix := strings.CutPrefix(name, TopLevelTestPrefix)
 	if !hasPrefix {
 		return false
