@@ -12,6 +12,7 @@ type ChangeEvidence struct {
 	tests                     []changedTest
 	testFiles                 []RepositoryPath
 	testFilesOfUnknownPackage []RepositoryPath
+	packagesEditedBeyondTests []GoImportPath
 }
 
 type changedTest struct {
@@ -28,19 +29,21 @@ func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Bind
 	}
 	return ChangeEvidence{
 		files: slices.Clone(files), tests: tally.tests, testFiles: tally.testFiles, testFilesOfUnknownPackage: tally.ofUnknownPackage,
+		packagesEditedBeyondTests: tally.editedBeyondTests,
 	}, nil
 }
 
 type testTally struct {
-	roots            []ImportRoot
-	tests            []changedTest
-	testFiles        []RepositoryPath
-	ofUnknownPackage []RepositoryPath
+	roots             []ImportRoot
+	tests             []changedTest
+	testFiles         []RepositoryPath
+	ofUnknownPackage  []RepositoryPath
+	editedBeyondTests []GoImportPath
 }
 
 func (tally *testTally) count(edited EditedTests) error {
 	tally.testFiles = append(tally.testFiles, edited.path)
-	if !edited.isEditingAnyTest() {
+	if !edited.isEditingAnyTest() && !edited.isEditingBeyondTests {
 		return nil
 	}
 	pkg, isNamed, err := testPackageOf(edited.path, tally.roots)
@@ -50,6 +53,9 @@ func (tally *testTally) count(edited EditedTests) error {
 	if !isNamed {
 		tally.ofUnknownPackage = append(tally.ofUnknownPackage, edited.path)
 		return nil
+	}
+	if edited.isEditingBeyondTests {
+		tally.editedBeyondTests = append(tally.editedBeyondTests, pkg)
 	}
 	for _, name := range edited.names {
 		tally.tests = append(tally.tests, changedTest{pkg: pkg, name: name})

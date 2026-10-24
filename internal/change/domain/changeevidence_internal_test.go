@@ -92,6 +92,27 @@ func TestChangeEvidenceNamesEveryTestFileItReadWhetherOrNotItEditsATest(t *testi
 	}
 }
 
+func TestChangeEvidenceNamesThePackageOfATestFileEditedOutsideEveryTest(t *testing.T) {
+	helping := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/fixture_test.go", Action: FileActionModified},
+		Patch: "@@ -9,1 +9,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	edited := EditedTestsIn(helping, []TestFunction{testFunctionFrom(t, "TestRefusesAStranger", 1, 3)})
+
+	evidence, err := ParseChangeEvidence([]ChangedFile{helping}, []EditedTests{edited}, bindingRootedAt(t, "example.com/app"))
+
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	pkg, err := ParseGoImportPath("example.com/app/internal/auth")
+	if err != nil {
+		t.Fatalf("parse go import path: %v", err)
+	}
+	if want := []GoImportPath{pkg}; !reflect.DeepEqual(evidence.packagesEditedBeyondTests, want) {
+		t.Fatalf("packages edited beyond tests are %v, want %v", evidence.packagesEditedBeyondTests, want)
+	}
+}
+
 func bindingRootedAt(t *testing.T, module string) Binding {
 	t.Helper()
 
