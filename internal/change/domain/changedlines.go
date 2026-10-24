@@ -45,12 +45,16 @@ func ParseChangedLines(patch string) (ChangedLines, error) {
 type patchWalk struct {
 	baseLine int
 	headLine int
+	isInHunk bool
 	changed  ChangedLines
 }
 
 func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
 		return walk.enter(line)
+	}
+	if !walk.isInHunk || line == "" {
+		return ErrMalformedHunk
 	}
 	switch line[0] {
 	case removedLineMark:
@@ -59,9 +63,11 @@ func (walk *patchWalk) step(line string) error {
 	case addedLineMark:
 		walk.changed.head = append(walk.changed.head, walk.headLine)
 		walk.headLine++
-	default:
+	case ' ':
 		walk.baseLine++
 		walk.headLine++
+	default:
+		return ErrMalformedHunk
 	}
 	return nil
 }
@@ -72,6 +78,7 @@ func (walk *patchWalk) enter(header string) error {
 		return err
 	}
 	walk.baseLine, walk.headLine = hunk.base.start, hunk.head.start
+	walk.isInHunk = true
 	return nil
 }
 
