@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"errors"
 	"slices"
 	"testing"
 )
@@ -34,6 +35,17 @@ func TestTestSetUnionHoldsTheMembersOfBoth(t *testing.T) {
 	}
 	if !slices.Equal(membersOf(one), []int{0, 1}) {
 		t.Fatalf("the union changed the set it was taken from")
+	}
+}
+
+func TestTestSetUnionIsRefusedAcrossTwoIndexRevisions(t *testing.T) {
+	one := testSet{revision: &indexRevision{testCount: 1}, words: []uint64{1}}
+	other := testSet{revision: &indexRevision{testCount: 1}, words: []uint64{1}}
+
+	joined, err := one.union(other)
+
+	if !errors.Is(err, errMixedRevisions) {
+		t.Fatalf("joined %v (%v), want errMixedRevisions", membersOf(joined), err)
 	}
 }
 

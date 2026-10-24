@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"errors"
 	"iter"
 	"math/bits"
 	"slices"
@@ -10,16 +11,26 @@ import (
 
 const testsPerWord = 64
 
+var errMixedRevisions = errors.New("the test sets come from two revisions of the coverage index")
+
+type indexRevision struct {
+	testCount int
+}
+
 type testSet struct {
-	words []uint64
+	revision *indexRevision
+	words    []uint64
 }
 
 func (set testSet) union(other testSet) (testSet, error) {
+	if set.revision != other.revision {
+		return testSet{}, errMixedRevisions
+	}
 	joined := slices.Clone(set.words)
 	for position, word := range other.words {
 		joined[position] |= word
 	}
-	return testSet{words: joined}, nil
+	return testSet{revision: set.revision, words: joined}, nil
 }
 
 func (set testSet) size() int {
