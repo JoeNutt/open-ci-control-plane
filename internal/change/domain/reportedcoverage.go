@@ -2,10 +2,7 @@
 
 package domain
 
-import (
-	"slices"
-	"strings"
-)
+import "slices"
 
 type ReportedCoverage struct {
 	paths []RepositoryPath
@@ -13,8 +10,12 @@ type ReportedCoverage struct {
 }
 
 func NewReportedCoverage(paths []RepositoryPath, tests []ReportedTest) ReportedCoverage {
-	ordered := slices.SortedFunc(slices.Values(paths), func(one, other RepositoryPath) int {
-		return strings.Compare(one.String(), other.String())
-	})
+	every := slices.Clone(paths)
+	for _, test := range tests {
+		for _, file := range test.files {
+			every = append(every, file.path)
+		}
+	}
+	ordered := slices.SortedFunc(slices.Values(every), RepositoryPath.compare)
 	return ReportedCoverage{paths: slices.Compact(ordered), tests: slices.Clone(tests)}
 }

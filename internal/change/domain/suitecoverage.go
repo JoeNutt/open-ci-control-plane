@@ -16,16 +16,11 @@ type SuiteCoverage struct {
 }
 
 func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCoverage, error) {
-	if !slices.ContainsFunc(reported.paths, func(path RepositoryPath) bool { return !known.Contains(path) }) {
-		coverage := SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests}
-		for file := range coverage.testedFiles() {
-			if !known.Contains(file.path) {
-				return SuiteCoverage{}, errUnknownPath
-			}
-		}
-		return coverage, nil
+	isUnknown := func(path RepositoryPath) bool { return !known.Contains(path) }
+	if slices.ContainsFunc(reported.paths, isUnknown) {
+		return SuiteCoverage{}, errUnknownPath
 	}
-	return SuiteCoverage{}, errUnknownPath
+	return SuiteCoverage{fileEntryCount: len(reported.paths), tests: reported.tests}, nil
 }
 
 func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
