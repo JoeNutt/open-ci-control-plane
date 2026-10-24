@@ -233,9 +233,9 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 }
 
 func (line *packageTestsLine) UnmarshalJSON(stated []byte) error {
-	if trimmed := bytes.TrimSpace(stated); len(trimmed) > 0 && trimmed[0] == '"' {
+	if isStatedAsSuite(stated) {
 		line.Names = nil
-		return json.Unmarshal(trimmed, &line.Package)
+		return json.Unmarshal(stated, &line.Package)
 	}
 	type objectLine packageTestsLine
 	var held objectLine
@@ -244,6 +244,11 @@ func (line *packageTestsLine) UnmarshalJSON(stated []byte) error {
 	}
 	*line = packageTestsLine(held)
 	return nil
+}
+
+func isStatedAsSuite(stated []byte) bool {
+	trimmed := bytes.TrimSpace(stated)
+	return len(trimmed) > 0 && trimmed[0] == '"'
 }
 
 func (line packageTestsLine) packageTests() (domain.PackageTests, error) {
