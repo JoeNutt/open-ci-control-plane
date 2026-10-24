@@ -18,19 +18,11 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
-	var unindexed []changedTest
-	for _, test := range evidence.tests {
-		dense, isIndexed := index.positionOf(CoverageSuite{importPath: test.pkg}, test.name)
-		if !isIndexed {
-			unindexed = append(unindexed, test)
-			continue
-		}
-		selected, err = selected.union(testSetOf(index.revision, []uint32{uint32(dense)}))
-		if err != nil {
-			return nil, PlanTriggerPlanFailed, err
-		}
+	placed := index.placementOf(evidence.tests)
+	if selected, err = selected.union(placed.indexed); err != nil {
+		return nil, PlanTriggerPlanFailed, err
 	}
-	tests, err := index.packageTestsOf(selected, unindexed)
+	tests, err := index.packageTestsOf(selected, placed.unindexed)
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
@@ -52,6 +44,25 @@ func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile, testFiles
 		}
 	}
 	return selected, nil
+}
+
+type placedTests struct {
+	indexed   testSet
+	unindexed []changedTest
+}
+
+func (index coverageIndex) placementOf(changed []changedTest) placedTests {
+	var indexed []uint32
+	var unindexed []changedTest
+	for _, test := range changed {
+		dense, isIndexed := index.positionOf(coveredTest{suite: CoverageSuite{importPath: test.pkg}, name: test.name})
+		if isIndexed {
+			indexed = append(indexed, uint32(dense))
+			continue
+		}
+		unindexed = append(unindexed, test)
+	}
+	return placedTests{indexed: testSetOf(index.revision, indexed), unindexed: unindexed}
 }
 
 func (index coverageIndex) testsTouchedBy(file ChangedFile) (testSet, error) {

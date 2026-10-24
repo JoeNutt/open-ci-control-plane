@@ -54,16 +54,21 @@ func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []suiteTest 
 }
 
 func suiteThenNameOrder(one, other suiteTest) int {
-	return cmp.Or(
-		one.suite.compare(other.suite),
-		one.test.name.compare(other.test.name),
-	)
+	return one.covered().compare(other.covered())
+}
+
+func (each suiteTest) covered() coveredTest {
+	return coveredTest{suite: each.suite, name: each.test.name}
+}
+
+func (test coveredTest) compare(other coveredTest) int {
+	return cmp.Or(test.suite.compare(other.suite), test.name.compare(other.name))
 }
 
 func coveredTestsOf(numbered []suiteTest) []coveredTest {
 	tests := make([]coveredTest, 0, len(numbered))
 	for _, each := range numbered {
-		tests = append(tests, coveredTest{suite: each.suite, name: each.test.name})
+		tests = append(tests, each.covered())
 	}
 	return tests
 }
@@ -131,10 +136,8 @@ func (index coverageIndex) itemsOf(path RepositoryPath) (itemSpan, error) {
 	return items, nil
 }
 
-func (index coverageIndex) positionOf(suite CoverageSuite, name TopLevelTestName) (int, bool) {
-	return slices.BinarySearchFunc(index.tests, coveredTest{suite: suite, name: name}, func(held, sought coveredTest) int {
-		return cmp.Or(held.suite.compare(sought.suite), held.name.compare(sought.name))
-	})
+func (index coverageIndex) positionOf(sought coveredTest) (int, bool) {
+	return slices.BinarySearchFunc(index.tests, sought, coveredTest.compare)
 }
 
 func (index coverageIndex) holdsAnyTest() bool { return len(index.tests) > 0 }
