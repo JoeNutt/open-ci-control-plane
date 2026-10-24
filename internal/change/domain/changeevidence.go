@@ -9,17 +9,17 @@ import (
 
 type ChangeEvidence struct {
 	files []ChangedFile
-	tests []ChangedTest
+	tests []changedTest
 }
 
-type ChangedTest struct {
+type changedTest struct {
 	pkg  GoImportPath
 	name TopLevelTestName
 }
 
 func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Binding) (ChangeEvidence, error) {
 	roots := binding.importRoots()
-	var tests []ChangedTest
+	var tests []changedTest
 	for _, file := range edited {
 		named, err := file.changedTestsUnder(roots)
 		if err != nil {
@@ -30,7 +30,7 @@ func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Bind
 	return ChangeEvidence{files: slices.Clone(files), tests: tests}, nil
 }
 
-func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, error) {
+func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]changedTest, error) {
 	if !edited.isEditingAnyTest() {
 		return nil, nil
 	}
@@ -38,9 +38,9 @@ func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, 
 	if err != nil {
 		return nil, err
 	}
-	tests := make([]ChangedTest, 0, len(edited.names))
+	tests := make([]changedTest, 0, len(edited.names))
 	for _, name := range edited.names {
-		tests = append(tests, ChangedTest{pkg: pkg, name: name})
+		tests = append(tests, changedTest{pkg: pkg, name: name})
 	}
 	return tests, nil
 }

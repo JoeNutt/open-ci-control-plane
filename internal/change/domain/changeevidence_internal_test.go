@@ -39,7 +39,7 @@ func TestChangeEvidenceNamesEachEditedTestWithItsPackage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse go import path: %v", err)
 	}
-	if want := []ChangedTest{{pkg: pkg, name: edited.names[0]}}; !reflect.DeepEqual(evidence.tests, want) {
+	if want := []changedTest{{pkg: pkg, name: edited.names[0]}}; !reflect.DeepEqual(evidence.tests, want) {
 		t.Fatalf("tests are %+v, want %+v", evidence.tests, want)
 	}
 }
