@@ -85,7 +85,7 @@ func (refusingHistory) VerifyReadable(context.Context) error { return domain.Err
 func TestAHistoryStoreRefusalPlansTheFullMatrixNeverSelection(t *testing.T) {
 	dispatched := &dispatchedPlans{}
 	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
-	useCase.Planner.History = refusingHistory{}
+	useCase.Planner = application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: refusingHistory{}}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
 

@@ -16,9 +16,13 @@ type GateChange struct {
 	Publisher  domain.CheckRunPublisher
 	Recorder   domain.DecisionRecorder
 	Bindings   domain.BindingSource
-	Planner    PlanTests
+	Planner    TestPlanner
 	Dispatcher domain.PlanDispatcher
 	Ledger     domain.PlanLedger
+}
+
+type TestPlanner interface {
+	Execute(ctx context.Context, subject domain.PlanSubject) (domain.TestPlan, error)
 }
 
 func (useCase GateChange) Execute(
