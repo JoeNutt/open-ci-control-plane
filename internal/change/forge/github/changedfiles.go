@@ -58,11 +58,10 @@ func statedFileOf(listing changedFile) (domain.StatedFile, error) {
 	patch, isPatchStated := listing.statedPatch()
 	return domain.StatedFile{
 		File: domain.File{
-			Path:       listing.Filename,
-			Action:     action,
-			Additions:  listing.Additions,
-			Deletions:  listing.Deletions,
-			PatchBytes: len(patch),
+			Path:      listing.Filename,
+			Action:    action,
+			Additions: listing.Additions,
+			Deletions: listing.Deletions,
 		},
 		PreviousPath:  listing.PreviousFilename,
 		Patch:         patch,

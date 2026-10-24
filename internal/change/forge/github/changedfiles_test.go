@@ -80,7 +80,7 @@ func TestFilesChangedReportsEveryFileTheForgeLists(t *testing.T) {
 		Deletions:  3,
 		PatchBytes: len("@@ -1,3 +1,12 @@"),
 	}
-	if len(files) != 1 || files[0].File != want {
+	if len(files) != 1 || files[0].DocumentFile() != want {
 		t.Fatalf("files are %+v, want exactly %+v", files, want)
 	}
 }
@@ -100,7 +100,7 @@ func TestFilesChangedCarriesThePatchAndThePreviousPathTheForgeStates(t *testing.
 		t.Fatalf("files changed: %v", err)
 	}
 	renamed := domain.StatedFile{
-		File:         domain.File{Path: "internal/auth/session.go", Action: domain.FileActionRenamed, PatchBytes: len(patch)},
+		File:         domain.File{Path: "internal/auth/session.go", Action: domain.FileActionRenamed},
 		PreviousPath: "internal/auth/token.go", Patch: patch, IsPatchStated: true,
 	}
 	unpatched := domain.StatedFile{File: domain.File{Path: "assets/logo.png", Action: domain.FileActionModified}}
