@@ -36,3 +36,8 @@ func (path RepositoryPath) compare(other RepositoryPath) int {
 }
 
 func (path RepositoryPath) Segments() []string { return strings.Split(path.path, pathSeparator) }
+
+func (path RepositoryPath) directorySegments() []string {
+	segments := path.Segments()
+	return segments[:len(segments)-1]
+}

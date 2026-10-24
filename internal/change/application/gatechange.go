@@ -16,15 +16,19 @@ type GateChange struct {
 	Publisher  domain.CheckRunPublisher
 	Recorder   domain.DecisionRecorder
 	Bindings   domain.BindingSource
-	Planner    PlanTests
+	Planner    TestPlanner
 	Dispatcher domain.PlanDispatcher
 	Ledger     domain.PlanLedger
+}
+
+type TestPlanner interface {
+	Execute(ctx context.Context, subject domain.PlanSubject) (domain.TestPlan, error)
 }
 
 func (useCase GateChange) Execute(
 	ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID,
 ) error {
-	document, err := useCase.Build.Execute(ctx, locator)
+	built, err := useCase.Build.Execute(ctx, locator)
 	var over domain.ChangeOverBound
 	if errors.As(err, &over) {
 		return useCase.refuseOverBound(context.WithoutCancel(ctx), locator, over, id)
@@ -32,6 +36,7 @@ func (useCase GateChange) Execute(
 	if err != nil {
 		return err
 	}
+	document := built.Document
 	head, err := domain.ParseCommitSHA(document.PR.HeadSHA)
 	if err != nil {
 		return err
@@ -45,7 +50,7 @@ func (useCase GateChange) Execute(
 			useCase.publish(posting, locator, head, run))
 		if isStructuralPass(decided, run) {
 			subject := domain.PlanSubject{Document: document, DecisionID: id, Revision: decided.Decision.Revision()}
-			failures = append(failures, useCase.planAndDispatch(posting, locator, subject))
+			failures = append(failures, useCase.planAndDispatch(posting, locator, subject, built))
 		}
 	}
 	return errors.Join(failures...)
@@ -56,14 +61,14 @@ func isStructuralPass(decided domain.FamilyDecision, run domain.CheckRun) bool {
 }
 
 func (useCase GateChange) planAndDispatch(
-	ctx context.Context, locator domain.PullRequestLocator, unbound domain.PlanSubject,
+	ctx context.Context, locator domain.PullRequestLocator, unbound domain.PlanSubject, built BuiltChange,
 ) error {
 	repository := unbound.Document.PR.Repository
 	subject, err := useCase.subjectOf(ctx, unbound)
 	if err != nil {
 		return fmt.Errorf("plan the tests of %s: %w", repository, err)
 	}
-	plan, planErr := useCase.Planner.Execute(ctx, subject)
+	plan, planErr := useCase.planOf(ctx, subject, built)
 	if planErr != nil {
 		planErr = fmt.Errorf("plan the tests of %s: %w", repository, planErr)
 		if plan, err = domain.FailedPlanFor(subject); err != nil {
@@ -71,6 +76,15 @@ func (useCase GateChange) planAndDispatch(
 		}
 	}
 	return errors.Join(planErr, useCase.dispatch(ctx, locator, plan))
+}
+
+func (useCase GateChange) planOf(ctx context.Context, subject domain.PlanSubject, built BuiltChange) (domain.TestPlan, error) {
+	evidence, err := useCase.Build.evidenceUnder(ctx, built, subject.Binding)
+	if err != nil {
+		return domain.TestPlan{}, err
+	}
+	subject.Evidence = evidence
+	return useCase.Planner.Execute(ctx, subject)
 }
 
 func (useCase GateChange) subjectOf(ctx context.Context, subject domain.PlanSubject) (domain.PlanSubject, error) {

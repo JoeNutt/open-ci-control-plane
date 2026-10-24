@@ -34,6 +34,10 @@ func (action FileAction) ExistsAtHead() bool { return action.presence().atHead }
 
 func (action FileAction) ExistsAtBase() bool { return action.presence().atBase }
 
+func (action FileAction) mayStateAPreviousPath() bool {
+	return action == FileActionRenamed || action == FileActionCopied
+}
+
 type presenceAtEnds struct {
 	atBase bool
 	atHead bool

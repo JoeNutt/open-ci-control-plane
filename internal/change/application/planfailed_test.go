@@ -9,6 +9,7 @@ import (
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/application"
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/extract/golang"
 )
 
 func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *testing.T) {
@@ -29,6 +30,61 @@ func TestAPassingChangeWhosePlanCannotBeProducedRunsTheFullMatrixNamingWhy(t *te
 		t.Errorf("dispatched full matrix %t, trigger %q, %d suites; want the full matrix with %q",
 			plans[0].FullMatrix, plans[0].Trigger, len(plans[0].Suites), domain.PlanTriggerPlanFailed)
 	}
+}
+
+func TestAPassingChangeWhoseEvidenceCannotBeReadRunsTheFullMatrixNamingWhy(t *testing.T) {
+	dispatched := &dispatchedPlans{}
+	published := &publishedCheckRuns{}
+	useCase := passingGateChange(t, published, dispatched)
+	useCase.Build = evidenceBuildOver(t, gatedLocator(t), recordedFiles{}, golang.Extractor{}, domain.StatedFile{
+		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified},
+		Patch: "@@ -1,3 +1,3 @@", IsPatchStated: true,
+	})
+
+	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
+
+	if !errors.Is(err, domain.ErrMalformedHunk) {
+		t.Errorf("the evidence's cause was not returned for the log: %v", err)
+	}
+	if _, isPosted := published.PublishedOn(gatedLocator(t), commitSHAOf(t, recordedHeadSHA))[structuralCheckRunName]; !isPosted {
+		t.Errorf("an evidence failure stopped the structural check run")
+	}
+	plans := dispatched.Dispatched()
+	if len(plans) != 1 || !plans[0].FullMatrix || plans[0].Trigger != domain.PlanTriggerPlanFailed {
+		t.Errorf("unreadable evidence dispatched %+v, want the full matrix with %q", plans, domain.PlanTriggerPlanFailed)
+	}
+}
+
+func TestATestFileEditedOutsideAnyTestPlansNormallyUnderABindingWithNoImportRoots(t *testing.T) {
+	locator := gatedLocator(t)
+	stated := domain.StatedFile{
+		File:  domain.File{Path: "internal/auth/owner_test.go", Action: domain.FileActionModified},
+		Patch: "@@ -3,1 +3,1 @@\n-import \"testing\"\n+import \"testing\"", IsPatchStated: true,
+	}
+	dispatched := &dispatchedPlans{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
+	useCase.Bindings = bindingWithNoImportRoots{}
+	useCase.Build = evidenceBuildOver(t, locator,
+		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), golang.Extractor{}, stated)
+
+	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+	if plans := dispatched.Dispatched(); len(plans) != 1 || plans[0].Trigger == domain.PlanTriggerPlanFailed {
+		t.Fatalf("dispatched %+v, want one plan that did not fail", plans)
+	}
+}
+
+type bindingWithNoImportRoots struct{}
+
+func (bindingWithNoImportRoots) BindingOf(_ context.Context, repository domain.GovernedRepository) (domain.Binding, error) {
+	return domain.ParseBinding(domain.BindingStatement{
+		Repository: repository.String(),
+		Workflow:   "open-ci-tests.yml",
+		Policies:   []domain.BoundPolicyStatement{{Use: "clean-architecture"}},
+	})
 }
 
 var errBindingUnreadable = errors.New("the policy binding cannot be read")
@@ -61,7 +117,7 @@ func (refusingHistory) VerifyReadable(context.Context) error { return domain.Err
 func TestAHistoryStoreRefusalPlansTheFullMatrixNeverSelection(t *testing.T) {
 	dispatched := &dispatchedPlans{}
 	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
-	useCase.Planner.History = refusingHistory{}
+	useCase.Planner = application.PlanTests{Maps: newCoverageStore(domain.DeclaredCoverageLimits()), History: refusingHistory{}}
 
 	err := useCase.Execute(context.Background(), gatedLocator(t), decisionIDOf(t, gatedDecisionID))
 

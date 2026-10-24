@@ -58,6 +58,23 @@ func TestAChangeThatDoesNotPassIsNeverDispatched(t *testing.T) {
 	}
 }
 
+func TestAChangeThatDoesNotPassNeverReadsItsChangeEvidence(t *testing.T) {
+	locator := gatedLocator(t)
+	stated := ownerTestModified()
+	contents := &countedFiles{recorded: recordedAt(t, locator, recordedHeadSHA, stated.File.Path, ownerTestAtHead)}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, &dispatchedPlans{})
+	useCase.Gate = gateOver(t, answeringEngine{decided: blockedDecision(t)})
+	useCase.Build = evidenceBuildOver(t, locator, contents, claimsNothing{}, stated)
+
+	if err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID)); err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+
+	if contents.asked != 0 {
+		t.Fatalf("the forge was asked for %d file contents for a change that plans nothing", contents.asked)
+	}
+}
+
 func TestADispatchFailureLeavesThePostedVerdictAndIsReported(t *testing.T) {
 	published := &publishedCheckRuns{}
 	useCase := passingGateChange(t, published, &dispatchedPlans{})

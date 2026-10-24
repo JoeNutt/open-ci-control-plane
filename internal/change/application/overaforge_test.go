@@ -66,10 +66,12 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 		Contents: recordedAtBothEnds(t, locator, "internal/auth/middleware.go",
 			sourceImportingContext, sourceImportingContext),
 		Extractor: golang.Extractor{},
+		Tests:     golang.Extractor{},
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)

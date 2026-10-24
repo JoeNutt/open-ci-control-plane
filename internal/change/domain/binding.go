@@ -56,6 +56,14 @@ func (binding Binding) modes() PlanModes {
 
 func (binding Binding) Policies() []BoundPolicy { return slices.Clone(binding.policies) }
 
+func (binding Binding) importRoots() []ImportRoot {
+	var roots []ImportRoot
+	for _, policy := range binding.policies {
+		roots = append(roots, policy.importRoots...)
+	}
+	return roots
+}
+
 func parseBindingFor(repository GovernedRepository, stated BindingStatement) (Binding, error) {
 	workflow, err := ParseWorkflowFile(stated.Workflow)
 	if err != nil {
