@@ -64,6 +64,17 @@ func TestSelectionOverAnIndexHoldingNoTestIsTheFullMatrixWithNoMap(t *testing.T)
 	}
 }
 
+func TestSelectionOfAnIndexedFileWhoseChangedLinesAreUnknownIsEveryTestReachingIt(t *testing.T) {
+	evidence := evidenceOf(t, StatedFile{File: File{Path: ordersSource, Action: FileActionModified}})
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{wholePackageOf(parsedImportPath(t, ordersPackage))}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 

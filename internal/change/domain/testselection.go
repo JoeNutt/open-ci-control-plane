@@ -26,6 +26,9 @@ func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet,
 	selected := testSetOf(index.revision, nil)
 	for _, file := range files {
 		covering, err := index.testsCovering(file.base.path, file.lines.baseLineNumbers())
+		if !file.lines.isKnown {
+			covering, err = index.testsReaching(file.base.path)
+		}
 		if err != nil {
 			return testSet{}, err
 		}
