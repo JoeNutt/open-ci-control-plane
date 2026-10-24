@@ -57,18 +57,17 @@ var readingByTag = map[string]lineReading{
 }
 
 type recordReading struct {
-	reported           fileUnion
-	currentPath        domain.RepositoryPath
-	isCurrentExercised bool
-	isRecordOpen       bool
-	testSections       boundedCount
-	testNames          map[domain.TopLevelTestName]bool
-	lineRecords        boundedCount
-	limits             domain.CoverageLimits
-	tests              []domain.ReportedTest
-	currentTest        domain.TopLevelTestName
-	currentFiles       []domain.TestedFile
-	currentHits        []uint32
+	reported     reportedPaths
+	currentPath  domain.RepositoryPath
+	isRecordOpen bool
+	testSections boundedCount
+	testNames    map[domain.TopLevelTestName]bool
+	lineRecords  boundedCount
+	limits       domain.CoverageLimits
+	tests        []domain.ReportedTest
+	currentTest  domain.TopLevelTestName
+	currentFiles []domain.TestedFile
+	currentHits  []uint32
 }
 
 type Artifact struct {
@@ -82,14 +81,6 @@ func (artifact Artifact) ReportedTests(limits domain.CoverageLimits) ([]domain.R
 		return nil, err
 	}
 	return reading.tests, nil
-}
-
-func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	reading, err := artifact.completedReading(limits)
-	if err != nil {
-		return nil, err
-	}
-	return reading.reported.reportedFiles(), nil
 }
 
 func (artifact Artifact) completedReading(limits domain.CoverageLimits) (*recordReading, error) {
@@ -114,7 +105,7 @@ func (artifact Artifact) completedReading(limits domain.CoverageLimits) (*record
 
 func readingWithin(limits domain.CoverageLimits) recordReading {
 	return recordReading{
-		reported:     emptyFileUnion(),
+		reported:     reportedPaths{},
 		testSections: boundedCount{breachOf: limits.TestSectionsBreach},
 		testNames:    map[domain.TopLevelTestName]bool{},
 		lineRecords:  boundedCount{breachOf: limits.LineRecordsBreach},
@@ -195,7 +186,6 @@ func (reading *recordReading) openRecord(path string) error {
 		return breach
 	}
 	reading.currentPath = parsed
-	reading.isCurrentExercised = false
 	reading.currentHits = nil
 	reading.isRecordOpen = true
 	return nil
@@ -213,7 +203,6 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if err != nil {
 		return errUnreadableLineData
 	}
-	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
 	if executions == 0 {
 		return nil
 	}
@@ -234,7 +223,7 @@ func sourceLineOf(stated string) (uint32, error) {
 }
 
 func (reading *recordReading) closeRecord(string) error {
-	reading.reported.include(domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	reading.reported[reading.currentPath] = true
 	reading.currentFiles = append(reading.currentFiles, domain.NewTestedFile(reading.currentPath, reading.currentHits))
 	reading.isRecordOpen = false
 	return nil
@@ -285,7 +274,7 @@ func (reading *recordReading) complete() error {
 	if reading.isRecordOpen {
 		return errTruncatedRecord
 	}
-	if reading.reported.entries() == 0 {
+	if len(reading.reported) == 0 {
 		return errNoRecord
 	}
 	reading.closeTest()

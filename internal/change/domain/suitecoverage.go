@@ -4,6 +4,7 @@ package domain
 
 import (
 	"fmt"
+	"iter"
 	"slices"
 )
 
@@ -14,33 +15,40 @@ type SuiteCoverage struct {
 }
 
 func ParseSuiteCoverage(reported []ReportedTest, known KnownPaths) (SuiteCoverage, error) {
-	for _, test := range reported {
-		for _, file := range test.files {
-			if !known.Contains(file.path) {
-				return SuiteCoverage{}, errUnknownPath
-			}
+	coverage := SuiteCoverage{tests: slices.Clone(reported)}
+	for file := range coverage.testedFiles() {
+		if !known.Contains(file.path) {
+			return SuiteCoverage{}, errUnknownPath
 		}
 	}
-	return SuiteCoverage{tests: slices.Clone(reported)}, nil
+	return coverage, nil
 }
 
 func (coverage SuiteCoverage) FileEntryCount() int {
 	paths := map[RepositoryPath]bool{}
-	for _, test := range coverage.tests {
-		for _, file := range test.files {
-			paths[file.path] = true
-		}
+	for file := range coverage.testedFiles() {
+		paths[file.path] = true
 	}
 	return len(paths)
 }
 
 func (coverage SuiteCoverage) Covers(path RepositoryPath) bool {
-	for _, test := range coverage.tests {
-		for _, file := range test.files {
-			if file.path == path && len(file.hitLines) > 0 {
-				return true
-			}
+	for file := range coverage.testedFiles() {
+		if file.path == path && file.isExercised() {
+			return true
 		}
 	}
 	return false
+}
+
+func (coverage SuiteCoverage) testedFiles() iter.Seq[TestedFile] {
+	return func(yield func(TestedFile) bool) {
+		for _, test := range coverage.tests {
+			for _, file := range test.files {
+				if !yield(file) {
+					return
+				}
+			}
+		}
+	}
 }

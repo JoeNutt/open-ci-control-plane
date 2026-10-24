@@ -18,8 +18,7 @@ func TestArtifactsReadAnLCOVBodyAsTheReportItDeclares(t *testing.T) {
 	reported, err := lcov.Artifacts{}.ArtifactOf(int64(len(body)), strings.NewReader(body)).
 		ReportedTests(domain.DeclaredCoverageLimits())
 
-	want := []domain.ReportedTest{domain.NewReportedTest(testName(t, effectTest),
-		[]domain.TestedFile{domain.NewTestedFile(repositoryPath(t, effectPath), []uint32{lineHitNumber})})}
+	want := []domain.ReportedTest{reportedTest(t, effectTest, testedFile(t, effectPath, lineHitNumber))}
 	if err != nil || !reflect.DeepEqual(reported, want) {
 		t.Fatalf("reported %+v (%v), want one test hitting %s", reported, err, effectPath)
 	}
