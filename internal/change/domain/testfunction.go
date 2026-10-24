@@ -17,11 +17,11 @@ type TestFunction struct {
 func ParseTestFunction(name string, firstLine, lastLine int) (TestFunction, error) {
 	parsed, err := ParseTopLevelTestName(name)
 	if err != nil {
-		return TestFunction{}, fmt.Errorf("test function: %w", err)
+		return TestFunction{}, err
 	}
 	lines, err := parseLineSpan(firstLine, lastLine)
 	if err != nil {
-		return TestFunction{}, fmt.Errorf("test function: %w", err)
+		return TestFunction{}, err
 	}
 	return TestFunction{name: parsed, lines: lines}, nil
 }
