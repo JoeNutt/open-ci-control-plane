@@ -43,7 +43,7 @@ type testTally struct {
 
 func (tally *testTally) count(edited EditedTests) error {
 	tally.testFiles = append(tally.testFiles, edited.path)
-	if !edited.isEditingAnyTest() && !edited.isEditingBeyondTests {
+	if !edited.isEditingAnything() {
 		return nil
 	}
 	pkg, isNamed, err := testPackageOf(edited.path, tally.roots)
@@ -72,4 +72,6 @@ func (evidence ChangeEvidence) filesBesideTests() []ChangedFile {
 	return slices.DeleteFunc(slices.Clone(evidence.files), isTestFile)
 }
 
-func (edited EditedTests) isEditingAnyTest() bool { return len(edited.names) > 0 }
+func (edited EditedTests) isEditingAnything() bool {
+	return len(edited.names) > 0 || edited.isEditingBeyondTests
+}
