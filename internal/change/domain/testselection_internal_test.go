@@ -101,19 +101,25 @@ func TestSelectionOfADeletedOrRenamedFileIsEveryTestThatReachedItsBasePath(t *te
 }
 
 func TestSelectionRunsEveryTestTheChangeAddsOrEditsWhateverTheIndexSays(t *testing.T) {
-	testFile := changedFileFrom(t, modifiedAt(ordersTestFile, cancellingLine, refundingLine))
-	edited := EditedTestsIn(testFile, []TestFunction{
+	evidence := evidenceEditing(t, ordersTestFile,
 		testFunctionFrom(t, "TestCancels", cancellingLine, cancellingLine),
 		testFunctionFrom(t, "TestRefunds", refundingLine, refundingLine),
-	})
-	evidence, err := ParseChangeEvidence([]ChangedFile{testFile}, []EditedTests{edited}, bindingRootedAt(t, selectionModule))
-	if err != nil {
-		t.Fatalf("parse change evidence: %v", err)
-	}
+	)
 
 	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
 
 	want := []PackageTests{namedTestsIn(t, ordersPackage, "TestCancels", "TestRefunds")}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
+func TestSelectionRunsByNameTheTestsAddedToAPackageTheIndexHoldsNoTestOf(t *testing.T) {
+	evidence := evidenceEditing(t, "billing/invoice_test.go", testFunctionFrom(t, "TestInvoices", cancellingLine, cancellingLine))
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{namedTestsIn(t, selectionModule+"/billing", "TestInvoices")}
 	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
 		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
 	}
@@ -148,6 +154,22 @@ func evidenceOf(t *testing.T, stated ...StatedFile) ChangeEvidence {
 		files = append(files, changedFileFrom(t, each))
 	}
 	evidence, err := ParseChangeEvidence(files, nil, bindingRootedAt(t, selectionModule))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	return evidence
+}
+
+func evidenceEditing(t *testing.T, path string, functions ...TestFunction) ChangeEvidence {
+	t.Helper()
+
+	lines := make([]int, 0, len(functions))
+	for _, function := range functions {
+		lines = append(lines, function.lines.first)
+	}
+	testFile := changedFileFrom(t, modifiedAt(path, lines...))
+	edited := EditedTestsIn(testFile, functions)
+	evidence, err := ParseChangeEvidence([]ChangedFile{testFile}, []EditedTests{edited}, bindingRootedAt(t, selectionModule))
 	if err != nil {
 		t.Fatalf("parse change evidence: %v", err)
 	}

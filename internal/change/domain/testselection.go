@@ -78,7 +78,8 @@ func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTes
 }
 
 func (index coverageIndex) packageTestsIn(selection packageSelection) (PackageTests, error) {
-	if selection.indexedCount == index.testsOfSuites[selection.suite].testCount() {
+	span, isIndexed := index.testsOfSuites[selection.suite]
+	if isIndexed && selection.indexedCount == span.testCount() {
 		return wholePackageOf(selection.suite.importPath), nil
 	}
 	return namedTestsOf(selection.suite.importPath, selection.names)
