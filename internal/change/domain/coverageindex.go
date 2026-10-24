@@ -29,10 +29,10 @@ type coverageIndex struct {
 }
 
 func indexOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) (coverageIndex, error) {
-	tests, err := denselyNumberedTestsOf(suites, limits)
-	if err != nil {
-		return coverageIndex{}, err
+	if breach := limits.indexedTestsBreach(testsHeldIn(suites)); breach != nil {
+		return coverageIndex{}, breach
 	}
+	tests := denselyNumberedTestsOf(suites)
 	return coverageIndex{
 		revision:         &indexRevision{testCount: len(tests)},
 		tests:            tests,
@@ -41,18 +41,23 @@ func indexOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) (cov
 	}, nil
 }
 
-func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage, limits CoverageLimits) ([]coveredTest, error) {
-	var tests []coveredTest
+func testsHeldIn(suites map[CoverageSuite]SuiteCoverage) int {
+	held := 0
+	for _, coverage := range suites {
+		held += len(coverage.tests)
+	}
+	return held
+}
+
+func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
+	tests := make([]coveredTest, 0, testsHeldIn(suites))
 	for suite, coverage := range suites {
 		for _, test := range coverage.tests {
-			if breach := limits.indexedTestsBreach(len(tests) + 1); breach != nil {
-				return nil, breach
-			}
 			tests = append(tests, coveredTest{suite: suite, name: test.name})
 		}
 	}
 	slices.SortFunc(tests, suiteThenNameOrder)
-	return tests, nil
+	return tests
 }
 
 func suiteThenNameOrder(one, other coveredTest) int {
