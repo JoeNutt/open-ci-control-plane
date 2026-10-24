@@ -13,6 +13,7 @@ const (
 	indexedLCOVSuite   = "github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/lcov"
 	indexedEffectFile  = "internal/change/domain/effect.go"
 	indexedGateFile    = "internal/change/domain/gate.go"
+	unindexedFile      = "internal/change/domain/verdict.go"
 )
 
 func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
@@ -73,7 +74,7 @@ func TestCoverageIndexFindsTheTestsReachingAnyLineOfAFile(t *testing.T) {
 }
 
 func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testing.T) {
-	reaching, err := twoSuiteCoverage(t).index.testsReaching(pathNamed(t, "internal/change/domain/verdict.go"))
+	reaching, err := twoSuiteCoverage(t).index.testsReaching(pathNamed(t, unindexedFile))
 
 	if !errors.Is(err, errUnindexedFile) {
 		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(reaching), err)
@@ -81,7 +82,7 @@ func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testin
 }
 
 func TestCoverageIndexAnswersLinesOfAFileItHasNeverSeenWithAMiss(t *testing.T) {
-	unseen := pathNamed(t, "internal/change/domain/verdict.go")
+	unseen := pathNamed(t, unindexedFile)
 
 	covering, err := twoSuiteCoverage(t).index.testsCovering(unseen, []uint32{1})
 
