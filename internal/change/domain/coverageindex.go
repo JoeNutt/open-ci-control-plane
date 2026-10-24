@@ -12,6 +12,8 @@ import (
 
 var errNoTestAtIndex = errors.New("the coverage index numbers no test at that position")
 
+var errUnindexedSuite = errors.New("the coverage index holds no coverage for the suite")
+
 type coveredTest struct {
 	suite CoverageSuite
 	name  TopLevelTestName
@@ -60,7 +62,11 @@ func (index coverageIndex) testAt(dense int) (coveredTest, error) {
 }
 
 func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
-	return index.testCountBySuite[suite], nil
+	count, isIndexed := index.testCountBySuite[suite]
+	if !isIndexed {
+		return 0, fmt.Errorf("%w: %s", errUnindexedSuite, suite)
+	}
+	return count, nil
 }
 
 func (index coverageIndex) numbers(dense int) bool {

@@ -50,6 +50,16 @@ func TestCoverageIndexCountsTheTestsEachSuiteHolds(t *testing.T) {
 	}
 }
 
+func TestCoverageIndexRefusesToCountASuiteItHoldsNoCoverageFor(t *testing.T) {
+	unindexed := suiteNamed(t, "github.com/JoeNutt/open-ci-control-plane/internal/change/httpapi")
+
+	count, err := twoSuiteCoverage(t).index.testCountOf(unindexed)
+
+	if !errors.Is(err, errUnindexedSuite) {
+		t.Fatalf("counted %d tests (%v), want errUnindexedSuite", count, err)
+	}
+}
+
 func twoSuiteCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
