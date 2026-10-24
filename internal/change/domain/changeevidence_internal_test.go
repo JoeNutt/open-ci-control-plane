@@ -23,6 +23,27 @@ func TestChangeEvidenceCarriesEveryChangedFile(t *testing.T) {
 	}
 }
 
+func TestChangeEvidenceNamesEachEditedTestWithItsPackage(t *testing.T) {
+	changed := changedFileFrom(t, StatedFile{
+		File:  File{Path: "internal/auth/owner_test.go", Action: FileActionModified},
+		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
+	})
+	edited := EditedTestsIn(changed, []TestFunction{testFunctionFrom(t, "TestAdmitsAnOwner", 1, 3)})
+
+	evidence, err := ParseChangeEvidence([]ChangedFile{changed}, []EditedTests{edited}, bindingRootedAt(t, "example.com/app"))
+
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+	pkg, err := ParseGoImportPath("example.com/app/internal/auth")
+	if err != nil {
+		t.Fatalf("parse go import path: %v", err)
+	}
+	if want := []ChangedTest{{pkg: pkg, name: edited.names[0]}}; !reflect.DeepEqual(evidence.tests, want) {
+		t.Fatalf("tests are %+v, want %+v", evidence.tests, want)
+	}
+}
+
 func bindingRootedAt(t *testing.T, module string) Binding {
 	t.Helper()
 
