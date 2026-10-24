@@ -36,6 +36,18 @@ func TestADispatchedPlanKeepsWhatItsPlanRecordedAndAlwaysRuns(t *testing.T) {
 	}
 }
 
+func TestARunWhereAPlannedPackageReportedNothingFails(t *testing.T) {
+	rules := suiteOf(t, "example.com/app/rules")
+	dispatched := domain.DispatchedPlanOf(domain.PullRequestLocator{}, domain.TestPlan{
+		Tests: wholePackagesNamed(t, rules.String(), "example.com/app/payments"),
+	})
+	reported := []domain.TestResult{{Suite: rules, Name: recordedTestName, Outcome: domain.TestOutcomePass}}
+
+	if got := dispatched.ConclusionOf(reported); got != domain.ConclusionFailure {
+		t.Errorf("a run where a planned package reported nothing concluded %q, want %q", got, domain.ConclusionFailure)
+	}
+}
+
 func TestOnlyATestThatFailedTwiceOutsideTheRecordedSelectionEscapedIt(t *testing.T) {
 	selected, outside, alwaysRun := suiteOf(t, "example.com/app/rules"), suiteOf(t, "example.com/app/payments"), suiteOf(t, "example.com/app/domain")
 	alwaysRunPath, err := domain.ParseGoImportPath(alwaysRun.String())

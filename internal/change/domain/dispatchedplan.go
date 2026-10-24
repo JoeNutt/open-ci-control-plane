@@ -15,6 +15,7 @@ type DispatchedPlan struct {
 	Head         CommitSHA
 	DecisionID   DecisionID
 	Suites       []CoverageSuite
+	Tests        []PackageTests
 	AlwaysRun    []GoImportPath
 	Recorded     RecordedSets
 	ChangedFiles []RepositoryPath
@@ -23,7 +24,7 @@ type DispatchedPlan struct {
 
 func DispatchedPlanOf(locator PullRequestLocator, plan TestPlan) DispatchedPlan {
 	return DispatchedPlan{
-		Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites,
+		Locator: locator, Head: plan.Head, DecisionID: plan.DecisionID, Suites: plan.Suites, Tests: plan.Tests,
 		AlwaysRun: plan.AlwaysRun, Recorded: plan.Recorded, ChangedFiles: plan.ChangedFiles, Modes: plan.Modes,
 	}
 }
@@ -49,11 +50,18 @@ func (dispatched DispatchedPlan) ConclusionOf(results []TestResult) Conclusion {
 		return ConclusionFailure
 	}
 	reported := map[CoverageSuite]bool{}
+	reportedPackages := map[GoImportPath]bool{}
 	for _, result := range results {
 		if result.Outcome == TestOutcomeFail {
 			return ConclusionFailure
 		}
 		reported[result.Suite] = true
+		reportedPackages[result.Suite.importPath] = true
+	}
+	for _, entry := range dispatched.Tests {
+		if !reportedPackages[entry.pkg] {
+			return ConclusionFailure
+		}
 	}
 	for _, suite := range dispatched.Suites {
 		if !reported[suite] {
