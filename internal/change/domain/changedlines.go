@@ -200,6 +200,10 @@ func (stated hunkRange) firstLine() int {
 
 func (stated hunkRange) isEmpty() bool { return stated.count == 0 }
 
+func (stated hunkRange) spansLinesBeforeTheFirst() bool {
+	return stated.start == noLineBefore && !stated.isEmpty()
+}
+
 func (stated hunkRange) namesAnAbsentFile() bool {
 	return stated.isEmpty() && stated.start == noLineBefore
 }
@@ -226,8 +230,8 @@ func isHunkSection(section string) bool {
 	return section == "" || strings.HasPrefix(section, hunkSectionOpen)
 }
 
-func parseHunkRange(stated string) (hunkRange, error) {
-	start, count, hasCount := strings.Cut(stated, hunkRangeJoin)
+func parseHunkRange(written string) (stated hunkRange, err error) {
+	start, count, hasCount := strings.Cut(written, hunkRangeJoin)
 	parsedStart, err := parseHunkNumber(start)
 	if err != nil {
 		return hunkRange{}, err
@@ -239,10 +243,11 @@ func parseHunkRange(stated string) (hunkRange, error) {
 	if err != nil {
 		return hunkRange{}, err
 	}
-	if parsedStart == noLineBefore && parsedCount > 0 {
+	stated = hunkRange{start: parsedStart, count: parsedCount}
+	if stated.spansLinesBeforeTheFirst() {
 		return hunkRange{}, ErrMalformedHunk
 	}
-	return hunkRange{start: parsedStart, count: parsedCount}, nil
+	return stated, nil
 }
 
 func parseHunkNumber(stated string) (int, error) {
