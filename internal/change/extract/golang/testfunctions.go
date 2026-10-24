@@ -11,6 +11,8 @@ import (
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 )
 
+const testingStateType = "T"
+
 func (Extractor) TestFunctionsIn(source domain.BoundedSource) ([]domain.TestFunction, error) {
 	files := token.NewFileSet()
 	parsed, err := parser.ParseFile(files, unnamedSource, source.Reader(), parser.SkipObjectResolution)
@@ -20,27 +22,37 @@ func (Extractor) TestFunctionsIn(source domain.BoundedSource) ([]domain.TestFunc
 	var functions []domain.TestFunction
 	for _, declared := range parsed.Decls {
 		function, isFunction := declared.(*ast.FuncDecl)
-		if !isFunction || function.Recv != nil || !strings.HasPrefix(function.Name.Name, "Test") {
+		if !isFunction || !isTopLevelTest(function) {
 			continue
 		}
-		params := function.Type.Params.List
-		if len(params) != 1 || len(params[0].Names) > 1 {
-			continue
-		}
-		star, isPointer := params[0].Type.(*ast.StarExpr)
-		if !isPointer {
-			continue
-		}
-		selector, isSelector := star.X.(*ast.SelectorExpr)
-		if !isSelector || selector.Sel.Name != "T" {
-			continue
-		}
-		parsedFunction, err := domain.ParseTestFunction(function.Name.Name,
-			files.Position(function.Pos()).Line, files.Position(function.End()).Line)
+		tested, err := testFunctionOf(files, function)
 		if err != nil {
 			return nil, err
 		}
-		functions = append(functions, parsedFunction)
+		functions = append(functions, tested)
 	}
 	return functions, nil
+}
+
+func isTopLevelTest(function *ast.FuncDecl) bool {
+	return function.Recv == nil &&
+		strings.HasPrefix(function.Name.Name, domain.TopLevelTestPrefix) &&
+		takesOnlyTestingState(function.Type.Params.List)
+}
+
+func takesOnlyTestingState(parameters []*ast.Field) bool {
+	if len(parameters) != 1 || len(parameters[0].Names) > 1 {
+		return false
+	}
+	pointer, isPointer := parameters[0].Type.(*ast.StarExpr)
+	if !isPointer {
+		return false
+	}
+	selected, isSelector := pointer.X.(*ast.SelectorExpr)
+	return isSelector && selected.Sel.Name == testingStateType
+}
+
+func testFunctionOf(files *token.FileSet, function *ast.FuncDecl) (domain.TestFunction, error) {
+	return domain.ParseTestFunction(function.Name.Name,
+		files.Position(function.Pos()).Line, files.Position(function.End()).Line)
 }

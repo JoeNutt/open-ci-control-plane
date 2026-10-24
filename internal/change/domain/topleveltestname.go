@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-const topLevelTestPrefix = "Test"
+const TopLevelTestPrefix = "Test"
 
 var errNotATopLevelTest = errors.New("the name is not a top-level Go test function")
 
 type TopLevelTestName struct{ name string }
 
 func ParseTopLevelTestName(stated string) (TopLevelTestName, error) {
-	rest, isTest := strings.CutPrefix(stated, topLevelTestPrefix)
+	rest, isTest := strings.CutPrefix(stated, TopLevelTestPrefix)
 	if !isTest || strings.Trim(rest, identifierCharacters) != "" {
 		return TopLevelTestName{}, fmt.Errorf("%w: %q", errNotATopLevelTest, stated)
 	}
