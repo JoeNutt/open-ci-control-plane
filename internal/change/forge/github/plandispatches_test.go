@@ -146,21 +146,26 @@ func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
 	return plan
 }
 
+func wireTestsOf(tests []domain.PackageTests) []wireTests {
+	entries := []wireTests{}
+	for _, entry := range tests {
+		names := []string{}
+		for _, name := range entry.Names() {
+			names = append(names, name.String())
+		}
+		entries = append(entries, wireTests{Package: entry.Package().String(), Names: names})
+	}
+	return entries
+}
+
 func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
 	t.Helper()
 
 	sent := wirePlan{
 		SchemaVersion: 1, DecisionID: plan.DecisionID.String(), Repository: plan.Repository.String(),
-		HeadSHA: plan.Head.String(), Tests: []wireTests{}, AlwaysRunSuites: []string{},
+		HeadSHA: plan.Head.String(), Tests: wireTestsOf(plan.Tests), AlwaysRunSuites: []string{},
 		FullMatrix: plan.FullMatrix, TriggerReason: string(plan.Trigger), BundleRevision: plan.BundleRevision.String(),
 		Mode: wireMode{Selection: plan.Modes.Selection.String(), Minimisation: plan.Modes.Minimisation.String()},
-	}
-	for _, entry := range plan.Tests {
-		names := []string{}
-		for _, name := range entry.Names() {
-			names = append(names, name.String())
-		}
-		sent.Tests = append(sent.Tests, wireTests{Package: entry.Package().String(), Names: names})
 	}
 	for _, suite := range plan.AlwaysRun {
 		sent.AlwaysRunSuites = append(sent.AlwaysRunSuites, suite.String())
