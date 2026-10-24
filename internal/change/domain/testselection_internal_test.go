@@ -15,6 +15,8 @@ const (
 	ordersSource    = "orders/order.go"
 	placingLine     = 1
 	cancellingLine  = 5
+	refundingLine   = 12
+	ordersTestFile  = "orders/order_test.go"
 )
 
 func TestSelectionNamesTheTestsCoveringABaseSideChangedLine(t *testing.T) {
@@ -95,6 +97,25 @@ func TestSelectionOfADeletedOrRenamedFileIsEveryTestThatReachedItsBasePath(t *te
 		if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
 			t.Errorf("%s: selected %+v with %q (%v), want %+v with %q", form, selected, trigger, err, want, PlanTriggerNone)
 		}
+	}
+}
+
+func TestSelectionRunsEveryTestTheChangeAddsOrEditsWhateverTheIndexSays(t *testing.T) {
+	testFile := changedFileFrom(t, modifiedAt(ordersTestFile, cancellingLine, refundingLine))
+	edited := EditedTestsIn(testFile, []TestFunction{
+		testFunctionFrom(t, "TestCancels", cancellingLine, cancellingLine),
+		testFunctionFrom(t, "TestRefunds", refundingLine, refundingLine),
+	})
+	evidence, err := ParseChangeEvidence([]ChangedFile{testFile}, []EditedTests{edited}, bindingRootedAt(t, selectionModule))
+	if err != nil {
+		t.Fatalf("parse change evidence: %v", err)
+	}
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{namedTestsIn(t, ordersPackage, "TestCancels", "TestRefunds")}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
 	}
 }
 

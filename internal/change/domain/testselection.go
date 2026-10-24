@@ -2,29 +2,35 @@
 
 package domain
 
-import "errors"
+import (
+	"errors"
+	"slices"
+)
 
 func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageTests, PlanTrigger, error) {
 	if !index.holdsAnyTest() {
 		return nil, PlanTriggerNoMap, nil
 	}
-	selected, err := index.testsCoveringChangesTo(evidence.files)
+	selected, err := index.testsCoveringChangesTo(evidence.files, evidence.testFiles)
 	if errors.Is(err, errUnindexedFile) {
 		return nil, PlanTriggerUnmappedFile, nil
 	}
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
-	tests, err := index.packageTestsOf(selected)
+	tests, err := index.packageTestsOf(selected, evidence.tests)
 	if err != nil {
 		return nil, PlanTriggerPlanFailed, err
 	}
 	return tests, PlanTriggerNone, nil
 }
 
-func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
+func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile, testFiles []RepositoryPath) (testSet, error) {
 	selected := testSetOf(index.revision, nil)
 	for _, file := range files {
+		if slices.Contains(testFiles, file.path) {
+			continue
+		}
 		covering, err := index.testsTouchedBy(file)
 		if err != nil {
 			return testSet{}, err
@@ -51,7 +57,7 @@ func (lines changedLines) baseLineNumbers() []uint32 {
 	return numbers
 }
 
-func (index coverageIndex) packageTestsOf(selected testSet) ([]PackageTests, error) {
+func (index coverageIndex) packageTestsOf(selected testSet, changed []changedTest) ([]PackageTests, error) {
 	var suites []CoverageSuite
 	namesBySuite := map[CoverageSuite][]TopLevelTestName{}
 	for dense := range selected.members() {
@@ -61,9 +67,20 @@ func (index coverageIndex) packageTestsOf(selected testSet) ([]PackageTests, err
 		}
 		namesBySuite[test.suite] = append(namesBySuite[test.suite], test.name)
 	}
+	indexedCount := map[CoverageSuite]int{}
+	for suite, names := range namesBySuite {
+		indexedCount[suite] = len(names)
+	}
+	for _, test := range changed {
+		suite := CoverageSuite{importPath: test.pkg}
+		if _, isHeld := namesBySuite[suite]; !isHeld {
+			suites = append(suites, suite)
+		}
+		namesBySuite[suite] = append(namesBySuite[suite], test.name)
+	}
 	tests := make([]PackageTests, 0, len(suites))
 	for _, suite := range suites {
-		inSuite, err := index.packageTestsIn(suite, namesBySuite[suite])
+		inSuite, err := index.packageTestsIn(suite, namesBySuite[suite], indexedCount[suite])
 		if err != nil {
 			return nil, err
 		}
@@ -72,8 +89,8 @@ func (index coverageIndex) packageTestsOf(selected testSet) ([]PackageTests, err
 	return tests, nil
 }
 
-func (index coverageIndex) packageTestsIn(suite CoverageSuite, selected []TopLevelTestName) (PackageTests, error) {
-	if len(selected) == index.testsOfSuites[suite].testCount() {
+func (index coverageIndex) packageTestsIn(suite CoverageSuite, selected []TopLevelTestName, indexed int) (PackageTests, error) {
+	if indexed == index.testsOfSuites[suite].testCount() {
 		return wholePackageOf(suite.importPath), nil
 	}
 	return namedTestsOf(suite.importPath, selected)
