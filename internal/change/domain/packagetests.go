@@ -41,6 +41,10 @@ func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
 
 func (tests PackageTests) Package() GoImportPath { return tests.pkg }
 
-func (tests PackageTests) runsPackageOf(suite CoverageSuite) bool {
-	return tests.pkg == suite.importPath
+func (tests PackageTests) runs(result TestResult) bool {
+	return tests.pkg == result.Suite.importPath && (tests.IsWholePackage() || tests.namesTest(result.Name))
+}
+
+func (tests PackageTests) namesTest(name string) bool {
+	return slices.ContainsFunc(tests.names, func(held TopLevelTestName) bool { return held.name == name })
 }

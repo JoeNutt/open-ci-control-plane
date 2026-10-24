@@ -74,9 +74,7 @@ func (dispatched DispatchedPlan) escapesOutside(recorded []PackageTests, results
 }
 
 func (dispatched DispatchedPlan) wouldHaveRun(recorded []PackageTests, result TestResult) bool {
-	return slices.ContainsFunc(recorded, func(entry PackageTests) bool {
-		return entry.runsPackageOf(result.Suite) && (entry.IsWholePackage() || slices.ContainsFunc(entry.names, func(name TopLevelTestName) bool { return name.name == result.Name }))
-	}) ||
+	return slices.ContainsFunc(recorded, func(entry PackageTests) bool { return entry.runs(result) }) ||
 		slices.Contains(dispatched.AlwaysRun, result.Suite.importPath)
 }
 
