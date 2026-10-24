@@ -2,7 +2,10 @@
 
 package domain
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 const (
 	indexedDomainSuite = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -29,6 +32,18 @@ func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
 		test, err := coverage.index.testAt(dense)
 		if err != nil || test != wanted {
 			t.Errorf("test %d is %+v (%v), want %+v", dense, test, err, wanted)
+		}
+	}
+}
+
+func TestCoverageIndexRefusesAPositionOutsideItsTests(t *testing.T) {
+	coverage := coverageHolding(t, map[string][]ReportedTest{
+		indexedDomainSuite: {testRunning(t, "TestGate", fileHitting(t, indexedGateFile, 1))},
+	})
+
+	for _, dense := range []int{-1, len(coverage.index.tests)} {
+		if _, err := coverage.index.testAt(dense); !errors.Is(err, errNoTestAtIndex) {
+			t.Errorf("position %d: want errNoTestAtIndex, got %v", dense, err)
 		}
 	}
 }

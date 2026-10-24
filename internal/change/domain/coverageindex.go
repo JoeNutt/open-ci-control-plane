@@ -43,7 +43,7 @@ func suiteThenNameOrder(one, other coveredTest) int {
 }
 
 func (index coverageIndex) testAt(dense int) (coveredTest, error) {
-	if dense >= len(index.tests) {
+	if dense < 0 || dense >= len(index.tests) {
 		return coveredTest{}, errNoTestAtIndex
 	}
 	return index.tests[dense], nil
