@@ -35,6 +35,11 @@ func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
 			base:  []int{5, 6}, head: []int{6},
 		},
 		{
+			rule:  "a line named by two blocks is named once",
+			patch: "@@ -1,1 +1,3 @@\n+before\n kept\n+after",
+			base:  []int{1, 2}, head: []int{1, 3},
+		},
+		{
 			rule:  "a range whose count is omitted spans one line",
 			patch: "@@ -3 +3 @@\n-old\n+new",
 			base:  []int{3}, head: []int{3},
