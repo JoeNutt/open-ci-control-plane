@@ -35,7 +35,7 @@ type planPayload struct {
 	DecisionID      string           `json:"decisionId"`
 	Repository      string           `json:"repository"`
 	HeadSHA         string           `json:"headSha"`
-	Suites          []string         `json:"suites"`
+	Tests           []testsPayload   `json:"tests"`
 	AlwaysRunSuites []string         `json:"alwaysRunSuites"`
 	FullMatrix      bool             `json:"fullMatrix"`
 	TriggerReason   string           `json:"triggerReason"`
@@ -43,6 +43,11 @@ type planPayload struct {
 	BundleRevision  string           `json:"bundleRevision"`
 	Mode            planModePayload  `json:"mode"`
 	Recorded        *recordedPayload `json:"recorded,omitempty"`
+}
+
+type testsPayload struct {
+	Package string   `json:"package"`
+	Names   []string `json:"names"`
 }
 
 type planModePayload struct {
@@ -98,7 +103,7 @@ func payloadOf(plan domain.TestPlan) planPayload {
 		DecisionID:      plan.DecisionID.String(),
 		Repository:      plan.Repository.String(),
 		HeadSHA:         plan.Head.String(),
-		Suites:          namesOf(plan.Suites),
+		Tests:           testsPayloadOf(plan.Tests),
 		AlwaysRunSuites: namesOf(plan.AlwaysRun),
 		FullMatrix:      plan.FullMatrix,
 		TriggerReason:   string(plan.Trigger),
@@ -114,6 +119,14 @@ func recordedOf(recorded domain.RecordedSets) *recordedPayload {
 		return nil
 	}
 	return &recordedPayload{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
+}
+
+func testsPayloadOf(tests []domain.PackageTests) []testsPayload {
+	entries := make([]testsPayload, 0, len(tests))
+	for _, entry := range tests {
+		entries = append(entries, testsPayload{Package: entry.Package().String(), Names: namesOf(entry.Names())})
+	}
+	return entries
 }
 
 func packageNamesOf(tests []domain.PackageTests) []string {

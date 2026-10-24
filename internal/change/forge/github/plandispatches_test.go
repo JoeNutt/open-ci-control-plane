@@ -33,7 +33,7 @@ type wirePlan struct {
 	DecisionID      string        `json:"decisionId"`
 	Repository      string        `json:"repository"`
 	HeadSHA         string        `json:"headSha"`
-	Suites          []string      `json:"suites"`
+	Tests           []wireTests   `json:"tests"`
 	AlwaysRunSuites []string      `json:"alwaysRunSuites"`
 	FullMatrix      bool          `json:"fullMatrix"`
 	TriggerReason   string        `json:"triggerReason"`
@@ -41,6 +41,11 @@ type wirePlan struct {
 	BundleRevision  string        `json:"bundleRevision"`
 	Mode            wireMode      `json:"mode"`
 	Recorded        *wireRecorded `json:"recorded,omitempty"`
+}
+
+type wireTests struct {
+	Package string   `json:"package"`
+	Names   []string `json:"names"`
 }
 
 type wireRecorded struct {
@@ -78,7 +83,7 @@ func TestDispatchPlanPostsTheC9PlanAsOneInputOnTheDefaultBranch(t *testing.T) {
 	}
 	want := wirePlan{
 		SchemaVersion: 1, DecisionID: decisionText, Repository: "acme/payments", HeadSHA: headSHA,
-		Suites: []string{dispatchedSuite}, AlwaysRunSuites: []string{alwaysRunSuite},
+		Tests: []wireTests{{Package: dispatchedSuite, Names: []string{}}}, AlwaysRunSuites: []string{alwaysRunSuite},
 		TriggerReason: "none", BundleRevision: planRevision,
 	}
 	if !equalWirePlans(plan, want) {
@@ -106,9 +111,9 @@ func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t 
 			t.Fatalf("decode the plan: %v", err)
 		}
 		isReplaced := bound.trigger == "plan_too_large"
-		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Suites) == 0) != isReplaced {
-			t.Errorf("%d characters: sent %q, full matrix %v, %d suites; want %q",
-				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Suites), bound.trigger)
+		if sent.TriggerReason != bound.trigger || sent.FullMatrix != isReplaced || (len(sent.Tests) == 0) != isReplaced {
+			t.Errorf("%d characters: sent %q, full matrix %v, %d tests; want %q",
+				bound.characters, sent.TriggerReason, sent.FullMatrix, len(sent.Tests), bound.trigger)
 		}
 	}
 }
@@ -116,23 +121,23 @@ func TestDispatchPlanSendsAPlanAtTheCharacterLimitAndReplacesOneCharacterOver(t 
 func planSerialisingTo(t *testing.T, characters int) domain.TestPlan {
 	t.Helper()
 
-	const quotesAndComma = 3
+	entryOverhead := len(`{"package":"","names":[]},`)
 	plan := selectedPlan(t)
-	plan.Suites = nil
+	plan.Tests = nil
 	toFill := characters - len(encodedWirePlanOf(t, plan)) + 1
-	count := (toFill + domain.MaxGoImportPathBytes + quotesAndComma - 1) / (domain.MaxGoImportPathBytes + quotesAndComma)
+	count := (toFill + domain.MaxGoImportPathBytes + entryOverhead - 1) / (domain.MaxGoImportPathBytes + entryOverhead)
 	share, extra := toFill/count, toFill%count
 	for index := range count {
-		length := share - quotesAndComma
+		length := share - entryOverhead
 		if index < extra {
 			length++
 		}
 		name := fmt.Sprintf("example.com/payments/s%d/", index)
-		suite, err := domain.ParseCoverageSuite(name + strings.Repeat("a", length-len(name)))
+		pkg, err := domain.ParseGoImportPath(name + strings.Repeat("a", length-len(name)))
 		if err != nil {
-			t.Fatalf("parse suite: %v", err)
+			t.Fatalf("parse package: %v", err)
 		}
-		plan.Suites = append(plan.Suites, suite)
+		plan.Tests = append(plan.Tests, domain.NewPackageTests(pkg, nil))
 	}
 	if got := len(encodedWirePlanOf(t, plan)); got != characters {
 		t.Fatalf("built a plan of %d characters, want %d", got, characters)
@@ -145,12 +150,16 @@ func encodedWirePlanOf(t *testing.T, plan domain.TestPlan) []byte {
 
 	sent := wirePlan{
 		SchemaVersion: 1, DecisionID: plan.DecisionID.String(), Repository: plan.Repository.String(),
-		HeadSHA: plan.Head.String(), Suites: []string{}, AlwaysRunSuites: []string{},
+		HeadSHA: plan.Head.String(), Tests: []wireTests{}, AlwaysRunSuites: []string{},
 		FullMatrix: plan.FullMatrix, TriggerReason: string(plan.Trigger), BundleRevision: plan.BundleRevision.String(),
 		Mode: wireMode{Selection: plan.Modes.Selection.String(), Minimisation: plan.Modes.Minimisation.String()},
 	}
-	for _, suite := range plan.Suites {
-		sent.Suites = append(sent.Suites, suite.String())
+	for _, entry := range plan.Tests {
+		names := []string{}
+		for _, name := range entry.Names() {
+			names = append(names, name.String())
+		}
+		sent.Tests = append(sent.Tests, wireTests{Package: entry.Package().String(), Names: names})
 	}
 	for _, suite := range plan.AlwaysRun {
 		sent.AlwaysRunSuites = append(sent.AlwaysRunSuites, suite.String())
