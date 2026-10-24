@@ -117,6 +117,7 @@ func (walk *patchWalk) enter(header string) error {
 func (walk *patchWalk) closeBlock() {
 	if walk.isInBlock() {
 		walk.base.markUnchangedBlock()
+		walk.head.markUnchangedBlock()
 	}
 	walk.base.isChangedInBlock = false
 	walk.head.isChangedInBlock = false
