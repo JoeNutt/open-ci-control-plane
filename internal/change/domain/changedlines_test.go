@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package domain_test
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
+)
+
+func TestParseChangedLinesRefusesAMalformedHunkHeader(t *testing.T) {
+	for _, header := range []string{
+		"@@ -x,1 +1,1 @@",
+		"@@ -1,1 @@",
+		"@@ -1,1 +1,1",
+		"@@ 1,1 +1,1 @@",
+		"@@ -1,1 -1,1 @@",
+		"@@ -1,y +1,1 @@",
+		"@@ -1, +1,1 @@",
+		"@@ --1,1 +1,1 @@",
+		"@@ -99999999999999999999,1 +1,1 @@",
+		"@@",
+	} {
+		_, err := domain.ParseChangedLines(header + "\n context")
+
+		if !errors.Is(err, domain.ErrMalformedHunk) {
+			t.Errorf("%q: error is %v, want %v", header, err, domain.ErrMalformedHunk)
+		}
+	}
+}

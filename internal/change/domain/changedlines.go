@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,8 @@ const (
 	hunkRangeJoin    = ","
 )
 
+var ErrMalformedHunk = errors.New("the patch holds a malformed hunk")
+
 type ChangedLines struct {
 	base []int
 	head []int
@@ -23,7 +26,9 @@ type ChangedLines struct {
 func ParseChangedLines(patch string) (ChangedLines, error) {
 	var walk patchWalk
 	for _, line := range strings.Split(patch, patchLineBreak) {
-		walk.step(line)
+		if err := walk.step(line); err != nil {
+			return ChangedLines{}, err
+		}
 	}
 	return walk.changed, nil
 }
@@ -34,10 +39,11 @@ type patchWalk struct {
 	changed  ChangedLines
 }
 
-func (walk *patchWalk) step(line string) {
+func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
-		walk.baseLine, walk.headLine = hunkStartsOf(line)
-		return
+		var err error
+		walk.baseLine, walk.headLine, err = hunkStartsOf(line)
+		return err
 	}
 	switch line[0] {
 	case removedLineMark:
@@ -50,15 +56,46 @@ func (walk *patchWalk) step(line string) {
 		walk.baseLine++
 		walk.headLine++
 	}
+	return nil
 }
 
-func hunkStartsOf(header string) (base, head int) {
-	fields := strings.Fields(header)
-	return rangeStartOf(fields[1]), rangeStartOf(fields[2])
+func hunkStartsOf(header string) (base, head int, err error) {
+	rest, ok := strings.CutPrefix(header, "@@ -")
+	if !ok {
+		return 0, 0, ErrMalformedHunk
+	}
+	baseRange, rest, ok := strings.Cut(rest, " +")
+	if !ok {
+		return 0, 0, ErrMalformedHunk
+	}
+	headRange, rest, ok := strings.Cut(rest, " @@")
+	if !ok {
+		return 0, 0, ErrMalformedHunk
+	}
+	if rest != "" && !strings.HasPrefix(rest, " ") {
+		return 0, 0, ErrMalformedHunk
+	}
+	base, err = rangeStartOf(baseRange)
+	if err != nil {
+		return 0, 0, err
+	}
+	head, err = rangeStartOf(headRange)
+	if err != nil {
+		return 0, 0, err
+	}
+	return base, head, nil
 }
 
-func rangeStartOf(stated string) int {
-	start, _, _ := strings.Cut(stated[1:], hunkRangeJoin)
-	line, _ := strconv.Atoi(start)
-	return line
+func rangeStartOf(stated string) (int, error) {
+	start, count, hasCount := strings.Cut(stated, hunkRangeJoin)
+	line, err := strconv.ParseUint(start, 10, 31)
+	if err != nil {
+		return 0, ErrMalformedHunk
+	}
+	if hasCount {
+		if _, err := strconv.ParseUint(count, 10, 31); err != nil {
+			return 0, ErrMalformedHunk
+		}
+	}
+	return int(line), nil
 }
