@@ -21,3 +21,9 @@ func TestAnEntryWithNoNamesRunsItsWholePackageAndOneWithNamesRunsThoseNames(t *t
 		t.Errorf("no names made %+v and one name made %+v, want the whole %s and a named %s", whole, named, pkg, pkg)
 	}
 }
+
+func TestATopLevelTestNameReadsAsTheNameItWasParsedFrom(t *testing.T) {
+	if got := mustParseTestName(t, effectTest).String(); got != effectTest {
+		t.Errorf("the name reads %q, want %q", got, effectTest)
+	}
+}

@@ -22,6 +22,8 @@ func ParseTopLevelTestName(stated string) (TopLevelTestName, error) {
 	return TopLevelTestName{name: stated}, nil
 }
 
+func (name TopLevelTestName) String() string { return name.name }
+
 func (name TopLevelTestName) compare(other TopLevelTestName) int {
 	return strings.Compare(name.name, other.name)
 }
