@@ -293,17 +293,9 @@ func modedPlanOf(t *testing.T, selection, minimisation string) domain.TestPlan {
 func TestSelectionOffPlansTheFullMatrixAndRecordsNothing(t *testing.T) {
 	plan := modedPlanOf(t, "off", "off")
 
-	if !plan.FullMatrix || len(plan.Suites) != 0 || len(plan.Recorded.Selected) != 0 {
-		t.Errorf("selection off planned full matrix %v, suites %v, recorded %v: want the full matrix and nothing recorded",
-			plan.FullMatrix, suiteNamesOf(plan.Suites), suiteNamesOf(plan.Recorded.Selected))
-	}
-}
-
-func TestAPlanShapedToTheFullMatrixNamesNoTests(t *testing.T) {
-	plan := modedPlanOf(t, "off", "off")
-
-	if len(plan.Tests) != 0 {
-		t.Errorf("a full-matrix plan names tests %+v, want none", plan.Tests)
+	if !plan.FullMatrix || len(plan.Suites)+len(plan.Tests) != 0 || len(plan.Recorded.Selected) != 0 {
+		t.Errorf("selection off planned full matrix %v, suites %v, tests %+v, recorded %v: want the full matrix and nothing recorded",
+			plan.FullMatrix, suiteNamesOf(plan.Suites), plan.Tests, suiteNamesOf(plan.Recorded.Selected))
 	}
 }
 
