@@ -15,13 +15,7 @@ const (
 )
 
 func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
-	coverage := coverageHolding(t, map[string][]ReportedTest{
-		indexedDomainSuite: {testRunning(t, "TestGate", fileHitting(t, indexedGateFile, 1))},
-		indexedLCOVSuite: {
-			testRunning(t, "TestReading", fileHitting(t, indexedEffectFile, 1)),
-			testRunning(t, "TestBounds", fileHitting(t, indexedEffectFile, 2)),
-		},
-	})
+	coverage := twoSuiteCoverage(t)
 	want := []coveredTest{
 		{suite: suiteNamed(t, indexedLCOVSuite), name: testNamed(t, "TestBounds")},
 		{suite: suiteNamed(t, indexedLCOVSuite), name: testNamed(t, "TestReading")},
@@ -37,9 +31,7 @@ func TestCoverageIndexNumbersEveryTestDenselyBySuiteThenName(t *testing.T) {
 }
 
 func TestCoverageIndexRefusesAPositionOutsideItsTests(t *testing.T) {
-	coverage := coverageHolding(t, map[string][]ReportedTest{
-		indexedDomainSuite: {testRunning(t, "TestGate", fileHitting(t, indexedGateFile, 1))},
-	})
+	coverage := twoSuiteCoverage(t)
 
 	for _, dense := range []int{-1, len(coverage.index.tests)} {
 		if _, err := coverage.index.testAt(dense); !errors.Is(err, errNoTestAtIndex) {

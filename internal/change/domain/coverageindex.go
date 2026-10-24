@@ -18,11 +18,20 @@ type coveredTest struct {
 }
 
 type coverageIndex struct {
-	tests []coveredTest
+	tests            []coveredTest
+	testCountBySuite map[CoverageSuite]int
 }
 
 func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
-	return coverageIndex{tests: denselyNumberedTestsOf(suites)}
+	return coverageIndex{tests: denselyNumberedTestsOf(suites), testCountBySuite: testCountBySuiteOf(suites)}
+}
+
+func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuite]int {
+	counts := make(map[CoverageSuite]int, len(suites))
+	for suite, coverage := range suites {
+		counts[suite] = len(coverage.tests)
+	}
+	return counts
 }
 
 func denselyNumberedTestsOf(suites map[CoverageSuite]SuiteCoverage) []coveredTest {
@@ -51,13 +60,7 @@ func (index coverageIndex) testAt(dense int) (coveredTest, error) {
 }
 
 func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
-	count := 0
-	for _, test := range index.tests {
-		if test.suite == suite {
-			count++
-		}
-	}
-	return count, nil
+	return index.testCountBySuite[suite], nil
 }
 
 func (index coverageIndex) numbers(dense int) bool {
