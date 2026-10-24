@@ -4,6 +4,7 @@ package lcov_test
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -242,4 +243,37 @@ func repositoryPath(t *testing.T, path string) domain.RepositoryPath {
 		t.Fatalf("parse repository path %q: %v", path, err)
 	}
 	return parsed
+}
+
+func TestReportedTestsKeepEachSectionsFilesAndTheLinesItHit(t *testing.T) {
+	artifact := testSection(effectTest, record(effectPath, "DA:7,1", "DA:8,0"), record(gatePath, "DA:3,0")) +
+		testSection(gateTest, record(gatePath, "DA:9,1", "DA:3,2"))
+
+	reported, err := artifactOf(artifact).ReportedTests(domain.DeclaredCoverageLimits())
+
+	if err != nil {
+		t.Fatalf("parse two test sections: %v", err)
+	}
+	want := []domain.ReportedTest{
+		domain.NewReportedTest(testName(t, effectTest), []domain.TestedFile{
+			domain.NewTestedFile(repositoryPath(t, effectPath), []uint32{7}),
+			domain.NewTestedFile(repositoryPath(t, gatePath), nil),
+		}),
+		domain.NewReportedTest(testName(t, gateTest), []domain.TestedFile{
+			domain.NewTestedFile(repositoryPath(t, gatePath), []uint32{3, 9}),
+		}),
+	}
+	if !reflect.DeepEqual(reported, want) {
+		t.Fatalf("reported %+v, want %+v", reported, want)
+	}
+}
+
+func testName(t *testing.T, stated string) domain.TopLevelTestName {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName(stated)
+	if err != nil {
+		t.Fatalf("parse test name %q: %v", stated, err)
+	}
+	return name
 }

@@ -62,6 +62,10 @@ type recordReading struct {
 	testNames          map[domain.TopLevelTestName]bool
 	lineRecords        boundedCount
 	limits             domain.CoverageLimits
+	tests              []domain.ReportedTest
+	currentTest        domain.TopLevelTestName
+	currentFiles       []domain.TestedFile
+	currentHits        []uint32
 }
 
 type Artifact struct {
@@ -69,7 +73,27 @@ type Artifact struct {
 	Body          io.Reader
 }
 
+func (artifact Artifact) ReportedTests(limits domain.CoverageLimits) ([]domain.ReportedTest, error) {
+	reading, err := artifact.read(limits)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := reading.completed(); err != nil {
+		return nil, err
+	}
+	reading.closeTest()
+	return reading.tests, nil
+}
+
 func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+	reading, err := artifact.read(limits)
+	if err != nil {
+		return nil, err
+	}
+	return reading.completed()
+}
+
+func (artifact Artifact) read(limits domain.CoverageLimits) (*recordReading, error) {
 	if breach := limits.CompressedBytesBreach(artifact.DeclaredBytes); breach != nil {
 		return nil, breach
 	}
@@ -83,7 +107,7 @@ func (artifact Artifact) ReportedFiles(limits domain.CoverageLimits) ([]domain.R
 	if err := reading.takeAll(bufio.NewScanner(decompressed)); err != nil {
 		return nil, err
 	}
-	return reading.completed()
+	return &reading, nil
 }
 
 func readingWithin(limits domain.CoverageLimits) recordReading {
@@ -152,6 +176,11 @@ func (reading *recordReading) openTestSection(name string) error {
 		return errTestNamedTwice
 	}
 	reading.testNames[parsed] = true
+	if reading.testSections.counted > 1 {
+		reading.closeTest()
+	}
+	reading.currentTest = parsed
+	reading.currentFiles = nil
 	return nil
 }
 
@@ -168,6 +197,7 @@ func (reading *recordReading) openRecord(path string) error {
 	}
 	reading.currentPath = parsed
 	reading.isCurrentExercised = false
+	reading.currentHits = nil
 	reading.isRecordOpen = true
 	return nil
 }
@@ -185,11 +215,19 @@ func (reading *recordReading) countExecutions(lineData string) error {
 		return errUnreadableLineData
 	}
 	reading.isCurrentExercised = reading.isCurrentExercised || executions > 0
+	if executions > 0 {
+		line, err := strconv.ParseUint(fields[0], decimal, 32)
+		if err != nil {
+			return errUnreadableLineData
+		}
+		reading.currentHits = append(reading.currentHits, uint32(line))
+	}
 	return nil
 }
 
 func (reading *recordReading) closeRecord(string) error {
 	reading.reported.include(domain.NewReportedFile(reading.currentPath, reading.isCurrentExercised))
+	reading.currentFiles = append(reading.currentFiles, domain.NewTestedFile(reading.currentPath, reading.currentHits))
 	reading.isRecordOpen = false
 	return nil
 }
@@ -224,6 +262,10 @@ func (bounded *boundedCount) countOneMore() error {
 }
 
 func (bounded boundedCount) hasCounted() bool { return bounded.counted > 0 }
+
+func (reading *recordReading) closeTest() {
+	reading.tests = append(reading.tests, domain.NewReportedTest(reading.currentTest, reading.currentFiles))
+}
 
 func carryingNothing(*recordReading, string) error { return nil }
 
