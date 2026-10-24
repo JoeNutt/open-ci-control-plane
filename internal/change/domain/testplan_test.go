@@ -41,13 +41,15 @@ func TestASelectedPlanRunsEachSelectedSuiteAsAWholePackage(t *testing.T) {
 		coverage: coverageByFiles(t, map[string]string{ordersSuite: ordersFile, paymentsSuite: paymentsFile}),
 	})
 
-	if len(plan.Tests) != 2 || !plan.Tests[0].IsWholePackage() || !plan.Tests[1].IsWholePackage() {
-		t.Errorf("tests are %+v, want the two selected suites as whole packages", plan.Tests)
+	if slices.ContainsFunc(plan.Tests, isNamed) {
+		t.Errorf("tests are %+v, want every selected suite as a whole package", plan.Tests)
 	}
 	if got := packagesOf(plan.Tests); !slices.Equal(got, []string{ordersSuite, paymentsSuite}) {
 		t.Errorf("tests run packages %v, want %v", got, []string{ordersSuite, paymentsSuite})
 	}
 }
+
+func isNamed(entry domain.PackageTests) bool { return !entry.IsWholePackage() }
 
 func packagesOf(tests []domain.PackageTests) []string {
 	packages := make([]string, 0, len(tests))
