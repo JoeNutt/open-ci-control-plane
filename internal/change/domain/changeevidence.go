@@ -21,25 +21,25 @@ type changedTest struct {
 
 func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Binding) (ChangeEvidence, error) {
 	tally := testTally{roots: binding.importRoots()}
-	var testFiles []RepositoryPath
 	for _, file := range edited {
-		testFiles = append(testFiles, file.path)
 		if err := tally.count(file); err != nil {
 			return ChangeEvidence{}, fmt.Errorf("%s: %w", file.path, err)
 		}
 	}
 	return ChangeEvidence{
-		files: slices.Clone(files), tests: tally.tests, testFiles: testFiles, testFilesOfUnknownPackage: tally.ofUnknownPackage,
+		files: slices.Clone(files), tests: tally.tests, testFiles: tally.testFiles, testFilesOfUnknownPackage: tally.ofUnknownPackage,
 	}, nil
 }
 
 type testTally struct {
 	roots            []ImportRoot
 	tests            []changedTest
+	testFiles        []RepositoryPath
 	ofUnknownPackage []RepositoryPath
 }
 
 func (tally *testTally) count(edited EditedTests) error {
+	tally.testFiles = append(tally.testFiles, edited.path)
 	if !edited.isEditingAnyTest() {
 		return nil
 	}
