@@ -5,6 +5,7 @@ package domain
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +43,17 @@ func TestSelectionOfAChangedLineInAFileTheIndexHasNeverSeenIsTheFullMatrixNeverA
 	}
 }
 
+func TestSelectionRunsAPackageWholeWhenEveryTestTheIndexHoldsForItIsSelected(t *testing.T) {
+	evidence := evidenceOf(t, modifiedAt(ordersSource, placingLine, cancellingLine))
+
+	selected, trigger, err := ordersCoverage(t).coverageIndex().testsSelectedFor(evidence)
+
+	want := []PackageTests{wholePackageOf(parsedImportPath(t, ordersPackage))}
+	if err != nil || trigger != PlanTriggerNone || !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected %+v with %q (%v), want %+v with %q", selected, trigger, err, want, PlanTriggerNone)
+	}
+}
+
 func ordersCoverage(t *testing.T) RepositoryCoverage {
 	t.Helper()
 
@@ -53,8 +65,12 @@ func ordersCoverage(t *testing.T) RepositoryCoverage {
 	})
 }
 
-func modifiedAt(path string, line int) StatedFile {
-	return StatedFile{File: File{Path: path, Action: FileActionModified}, Patch: oneLineEditAt(line), IsPatchStated: true}
+func modifiedAt(path string, lines ...int) StatedFile {
+	hunks := make([]string, 0, len(lines))
+	for _, line := range lines {
+		hunks = append(hunks, oneLineEditAt(line))
+	}
+	return StatedFile{File: File{Path: path, Action: FileActionModified}, Patch: strings.Join(hunks, "\n"), IsPatchStated: true}
 }
 
 func oneLineEditAt(line int) string { return fmt.Sprintf("@@ -%d,1 +%d,1 @@\n-old\n+new", line, line) }

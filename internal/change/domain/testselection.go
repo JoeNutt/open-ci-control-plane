@@ -53,6 +53,11 @@ func (index coverageIndex) packageTestsOf(selected testSet) ([]PackageTests, err
 	}
 	tests := make([]PackageTests, 0, len(suites))
 	for _, suite := range suites {
+		span := index.testsOfSuites[suite]
+		if len(namesBySuite[suite]) == span.end-span.first {
+			tests = append(tests, wholePackageOf(suite.importPath))
+			continue
+		}
 		named, err := namedTestsOf(suite.importPath, namesBySuite[suite])
 		if err != nil {
 			return nil, err
