@@ -66,16 +66,18 @@ func (dispatched DispatchedPlan) shadowedSets() []shadowedSet {
 func (dispatched DispatchedPlan) escapesOutside(recorded []PackageTests, results []TestResult) []TestResult {
 	var escaped []TestResult
 	for _, result := range results {
-		if result.failedTwice() && !dispatched.wouldHaveRun(recorded, result.Suite) {
+		if result.failedTwice() && !dispatched.wouldHaveRun(recorded, result) {
 			escaped = append(escaped, result)
 		}
 	}
 	return escaped
 }
 
-func (dispatched DispatchedPlan) wouldHaveRun(recorded []PackageTests, suite CoverageSuite) bool {
-	return slices.ContainsFunc(recorded, func(entry PackageTests) bool { return entry.runsPackageOf(suite) }) ||
-		slices.Contains(dispatched.AlwaysRun, suite.importPath)
+func (dispatched DispatchedPlan) wouldHaveRun(recorded []PackageTests, result TestResult) bool {
+	return slices.ContainsFunc(recorded, func(entry PackageTests) bool {
+		return entry.runsPackageOf(result.Suite) && (entry.IsWholePackage() || slices.ContainsFunc(entry.names, func(name TopLevelTestName) bool { return name.name == result.Name }))
+	}) ||
+		slices.Contains(dispatched.AlwaysRun, result.Suite.importPath)
 }
 
 func (result TestResult) failedTwice() bool {
