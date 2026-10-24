@@ -28,15 +28,6 @@ func ParseSuiteCoverage(reported ReportedCoverage, known KnownPaths) (SuiteCover
 
 func (coverage SuiteCoverage) FileEntryCount() int { return coverage.fileEntryCount }
 
-func (coverage SuiteCoverage) Covers(path RepositoryPath) bool {
-	for file := range coverage.testedFiles() {
-		if file.path == path && file.isExercised() {
-			return true
-		}
-	}
-	return false
-}
-
 func (coverage SuiteCoverage) indexSizeOf() indexSize {
 	size := indexSize{tests: len(coverage.tests)}
 	for file := range coverage.testedFiles() {

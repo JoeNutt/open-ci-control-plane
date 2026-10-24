@@ -111,17 +111,17 @@ func (ledger *PlanLedger) append(line ledgerLine) error {
 }
 
 type ledgerLine struct {
-	Kind         lineKind           `json:"kind"`
-	Repository   string             `json:"repository"`
-	PullRequest  int                `json:"pullRequest,omitempty"`
-	Head         string             `json:"head"`
-	DecisionID   string             `json:"decisionId,omitempty"`
-	Suites       []string           `json:"suites,omitempty"`
-	Tests        []packageTestsLine `json:"tests,omitempty"`
-	AlwaysRun    []string           `json:"alwaysRun,omitempty"`
-	Recorded     *recordedLine      `json:"recorded,omitempty"`
-	ChangedFiles []string           `json:"changedFiles,omitempty"`
-	Modes        *modesLine         `json:"modes,omitempty"`
+	Kind                       lineKind           `json:"kind"`
+	Repository                 string             `json:"repository"`
+	PullRequest                int                `json:"pullRequest,omitempty"`
+	Head                       string             `json:"head"`
+	DecisionID                 string             `json:"decisionId,omitempty"`
+	SuitesBeforeTestLevelPlans []string           `json:"suites,omitempty"`
+	Tests                      []packageTestsLine `json:"tests,omitempty"`
+	AlwaysRun                  []string           `json:"alwaysRun,omitempty"`
+	Recorded                   *recordedLine      `json:"recorded,omitempty"`
+	ChangedFiles               []string           `json:"changedFiles,omitempty"`
+	Modes                      *modesLine         `json:"modes,omitempty"`
 }
 
 type modesLine struct {
@@ -221,7 +221,7 @@ func (line ledgerLine) parsedPlan(head domain.CommitSHA) (domain.DispatchedPlan,
 
 func (line ledgerLine) plannedTests() []packageTestsLine {
 	planned := slices.Clone(line.Tests)
-	for _, suite := range line.Suites {
+	for _, suite := range line.SuitesBeforeTestLevelPlans {
 		planned = append(planned, packageTestsLine{Package: suite})
 	}
 	return planned

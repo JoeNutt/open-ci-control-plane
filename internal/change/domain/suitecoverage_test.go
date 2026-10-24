@@ -17,17 +17,6 @@ func TestParseSuiteCoverageCountsEveryReportedFile(t *testing.T) {
 	}
 }
 
-func TestParseSuiteCoverageCoversOnlyExercisedFiles(t *testing.T) {
-	suite := twoFileSuiteOf(t)
-
-	if !suite.coverage.Covers(suite.exercised) {
-		t.Errorf("an exercised file is not covered")
-	}
-	if suite.coverage.Covers(suite.unexercised) {
-		t.Errorf("a file the suite never ran is covered")
-	}
-}
-
 func TestParseSuiteCoverageRefusesAPathTheRepositoryDoesNotHold(t *testing.T) {
 	held := mustParseRepositoryPath(t, heldFile)
 	absent := mustParseRepositoryPath(t, absentFile)

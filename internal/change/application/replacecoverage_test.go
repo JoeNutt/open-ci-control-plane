@@ -36,8 +36,8 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serve the replaced map: %v", err)
 	}
-	if !served.Covers(path) {
-		t.Fatalf("the served map does not cover %s", path)
+	if served.FileEntryCount() != reportedFileCount {
+		t.Fatalf("the served map holds %d files, want the %d %s reported", served.FileEntryCount(), reportedFileCount, path)
 	}
 }
 
@@ -142,8 +142,8 @@ func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *tes
 		t.Fatalf("want ErrTooManyFileEntries, got %v", err)
 	}
 	served, err := maps.SuiteCoverageOf(t.Context(), repository, suite)
-	if err != nil || !served.Covers(path) {
-		t.Fatalf("the previous map stopped serving: covers %s is false, err %v", path, err)
+	if err != nil || served.FileEntryCount() != reportedFileCount {
+		t.Fatalf("the previous map stopped serving %s: %d files, err %v", path, served.FileEntryCount(), err)
 	}
 }
 
@@ -162,8 +162,8 @@ func TestReplaceCoverageKeepsServingTheMapATruncatedLCOVArtifactWouldReplace(t *
 		t.Fatalf("want ErrMalformedArtifact, got %v", err)
 	}
 	served, err := maps.SuiteCoverageOf(t.Context(), parsedRepository(t), parsedSuite(t))
-	if err != nil || !served.Covers(path) {
-		t.Fatalf("the previous map stopped serving: covers %s is false, err %v", path, err)
+	if err != nil || served.FileEntryCount() != reportedFileCount {
+		t.Fatalf("the previous map stopped serving %s: %d files, err %v", path, served.FileEntryCount(), err)
 	}
 }
 
@@ -290,6 +290,8 @@ func (artifact artifactReporting) ReportedCoverage(domain.CoverageLimits) (domai
 	*artifact.reads++
 	return artifact.reported, nil
 }
+
+const reportedFileCount = 1
 
 func reportOf(t *testing.T, path domain.RepositoryPath) artifactReporting {
 	t.Helper()

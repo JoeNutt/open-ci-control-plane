@@ -4,6 +4,7 @@ package memory_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/coverage/memory"
@@ -28,8 +29,8 @@ func TestCoverageMapsServeTheMapASuiteWasReplacedWith(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serve the suite's map: %v", err)
 	}
-	if !served.Covers(parsedPath(t, effectFile)) {
-		t.Fatalf("served a map that does not cover %s", effectFile)
+	if !reflect.DeepEqual(served, coverageOf(t, effectFile)) {
+		t.Fatalf("served a map other than the one %s was replaced with", suite)
 	}
 }
 
