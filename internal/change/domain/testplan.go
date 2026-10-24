@@ -225,22 +225,18 @@ func (plan TestPlan) asUnselected() TestPlan {
 }
 
 func (plan TestPlan) AsWholePackages() TestPlan {
-	var tests []PackageTests
-	for _, entry := range plan.Tests {
-		tests = append(tests, wholePackageOf(entry.pkg))
-	}
-	plan.Tests = tests
-	var selected []PackageTests
-	for _, entry := range plan.Recorded.Selected {
-		selected = append(selected, wholePackageOf(entry.pkg))
-	}
-	plan.Recorded.Selected = selected
-	var minimised []PackageTests
-	for _, entry := range plan.Recorded.Minimised {
-		minimised = append(minimised, wholePackageOf(entry.pkg))
-	}
-	plan.Recorded.Minimised = minimised
+	plan.Tests = wholePackagesIn(plan.Tests)
+	plan.Recorded.Selected = wholePackagesIn(plan.Recorded.Selected)
+	plan.Recorded.Minimised = wholePackagesIn(plan.Recorded.Minimised)
 	return plan
+}
+
+func wholePackagesIn(tests []PackageTests) []PackageTests {
+	var whole []PackageTests
+	for _, entry := range tests {
+		whole = append(whole, wholePackageOf(entry.pkg))
+	}
+	return whole
 }
 
 func (plan TestPlan) AsTooLarge() TestPlan {
