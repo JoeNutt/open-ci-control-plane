@@ -194,6 +194,36 @@ func TestReportedTestsRefusesMoreLineRecordsThanTheBound(t *testing.T) {
 	assertBreachOf(t, domain.ErrTooManyLineRecords, err)
 }
 
+func TestReportedTestsHoldTestFilePairsUpToTheLineRecordBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfTestFilePairs(t, limits.MaxLineRecords).ReportedCoverage(limits)
+
+	if err != nil {
+		t.Fatalf("want one hit record per test and file accepted up to the bound, got %v", err)
+	}
+}
+
+func TestReportedTestsRefuseOneTestFilePairPastTheLineRecordBound(t *testing.T) {
+	limits := domain.DeclaredCoverageLimits()
+
+	_, err := artifactOfTestFilePairs(t, limits.MaxLineRecords+1).ReportedCoverage(limits)
+
+	assertBreachOf(t, domain.ErrTooManyLineRecords, err)
+}
+
+func TestReportedTestsRetainNoRecordThatHitNoLine(t *testing.T) {
+	unexercised := slices.Repeat([]string{record(effectPath, lineMissed)}, 3)
+	artifact := testSection(effectTest, unexercised...) + testSection(gateTest, unexercised...)
+
+	reported, err := reportedTestsIn(artifact)
+
+	want := reportedCoverage(t, []string{effectPath}, reportedTest(t, effectTest), reportedTest(t, gateTest))
+	if err != nil || !reflect.DeepEqual(reported, want) {
+		t.Fatalf("reported %+v (%v), want both tests holding no file", reported, err)
+	}
+}
+
 func TestReportedTestsRefusesATestNameLongerThanALineBeforeReadingIt(t *testing.T) {
 	overlong := effectTest + strings.Repeat("A", bufio.MaxScanTokenSize)
 
@@ -242,6 +272,22 @@ func artifactOfLineRecords(count int) lcov.Artifact {
 	return artifactOf(testSection(effectTest, record(effectPath, slices.Repeat([]string{lineHit}, count)...)))
 }
 
+func artifactOfTestFilePairs(t *testing.T, count int) lcov.Artifact {
+	t.Helper()
+
+	limits := domain.DeclaredCoverageLimits()
+	filesPerTest := (count + limits.MaxTestSections - 1) / limits.MaxTestSections
+	var sections strings.Builder
+	for index := range count {
+		if index%filesPerTest == 0 {
+			sections.WriteString(lines("TN:" + generatedTest(index/filesPerTest)))
+		}
+		sections.WriteString(record(generatedPath(index%filesPerTest), lineHit))
+	}
+	compressed := gzipped(t, strings.NewReader(sections.String()))
+	return lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
+}
+
 func generatedTest(index int) string {
 	return fmt.Sprintf("TestGenerated%d", index)
 }
@@ -254,7 +300,10 @@ func gzipped(t *testing.T, plain io.Reader) *bytes.Buffer {
 	t.Helper()
 
 	var compressed bytes.Buffer
-	writer := gzip.NewWriter(&compressed)
+	writer, err := gzip.NewWriterLevel(&compressed, gzip.BestSpeed)
+	if err != nil {
+		t.Fatalf("open a compressor: %v", err)
+	}
 	if _, err := io.Copy(writer, plain); err != nil {
 		t.Fatalf("compress: %v", err)
 	}
