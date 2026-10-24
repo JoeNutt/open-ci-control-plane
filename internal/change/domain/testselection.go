@@ -25,10 +25,7 @@ func (index coverageIndex) testsSelectedFor(evidence ChangeEvidence) ([]PackageT
 func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet, error) {
 	selected := testSetOf(index.revision, nil)
 	for _, file := range files {
-		covering, err := index.testsCovering(file.base.path, file.lines.baseLineNumbers())
-		if !file.lines.isKnown {
-			covering, err = index.testsReaching(file.base.path)
-		}
+		covering, err := index.testsTouchedBy(file)
 		if err != nil {
 			return testSet{}, err
 		}
@@ -37,6 +34,13 @@ func (index coverageIndex) testsCoveringChangesTo(files []ChangedFile) (testSet,
 		}
 	}
 	return selected, nil
+}
+
+func (index coverageIndex) testsTouchedBy(file ChangedFile) (testSet, error) {
+	if !file.lines.isKnown {
+		return index.testsReaching(file.base.path)
+	}
+	return index.testsCovering(file.base.path, file.lines.baseLineNumbers())
 }
 
 func (lines changedLines) baseLineNumbers() []uint32 {
