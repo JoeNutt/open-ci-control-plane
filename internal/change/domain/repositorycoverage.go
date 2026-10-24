@@ -13,6 +13,7 @@ var ErrNoCoverageMap = errors.New("no coverage map is held for the suite")
 
 type RepositoryCoverage struct {
 	suites map[CoverageSuite]SuiteCoverage
+	index  coverageIndex
 }
 
 func (repositoryCoverage RepositoryCoverage) Replacing(
@@ -24,7 +25,7 @@ func (repositoryCoverage RepositoryCoverage) Replacing(
 	suites := make(map[CoverageSuite]SuiteCoverage, len(repositoryCoverage.suites)+1)
 	maps.Copy(suites, repositoryCoverage.suites)
 	suites[suite] = coverage
-	return RepositoryCoverage{suites: suites}, nil
+	return RepositoryCoverage{suites: suites, index: indexOf(suites)}, nil
 }
 
 func (repositoryCoverage RepositoryCoverage) suiteCountWith(suite CoverageSuite) int {
