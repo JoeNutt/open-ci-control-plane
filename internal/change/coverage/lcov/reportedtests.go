@@ -226,7 +226,9 @@ func sourceLineOf(stated string) (uint32, error) {
 
 func (reading *recordReading) closeRecord(string) error {
 	reading.reported[reading.currentPath] = true
-	reading.currentFiles = append(reading.currentFiles, domain.NewTestedFile(reading.currentPath, reading.currentHits))
+	if len(reading.currentHits) > 0 {
+		reading.currentFiles = append(reading.currentFiles, domain.NewTestedFile(reading.currentPath, reading.currentHits))
+	}
 	reading.isRecordOpen = false
 	return nil
 }
