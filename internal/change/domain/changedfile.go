@@ -2,7 +2,12 @@
 
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrRenameWithoutPreviousPath = errors.New("the forge states a rename with no previous path")
 
 type ChangedFile struct {
 	path         RepositoryPath
@@ -14,6 +19,9 @@ func ParseChangedFile(stated StatedFile) (ChangedFile, error) {
 	path, err := ParseRepositoryPath(stated.File.Path)
 	if err != nil {
 		return ChangedFile{}, fmt.Errorf("%q: %w", stated.File.Path, err)
+	}
+	if stated.File.Action == FileActionRenamed && stated.PreviousPath == "" {
+		return ChangedFile{}, fmt.Errorf("%s: %w", path, ErrRenameWithoutPreviousPath)
 	}
 	previous, _ := ParseRepositoryPath(stated.PreviousPath)
 	lines, err := ParseChangedLines(stated.Patch)
