@@ -56,8 +56,8 @@ type planModePayload struct {
 }
 
 type recordedPayload struct {
-	Selected  []string `json:"selected"`
-	Minimised []string `json:"minimised"`
+	Selected  []packageTestsPayload `json:"selected"`
+	Minimised []packageTestsPayload `json:"minimised"`
 }
 
 type dispatchInputs struct {
@@ -118,7 +118,7 @@ func recordedOf(recorded domain.RecordedSets) *recordedPayload {
 	if !recorded.IsRecorded {
 		return nil
 	}
-	return &recordedPayload{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
+	return &recordedPayload{Selected: packageTestsPayloadsOf(recorded.Selected), Minimised: packageTestsPayloadsOf(recorded.Minimised)}
 }
 
 func packageTestsPayloadsOf(tests []domain.PackageTests) []packageTestsPayload {
@@ -127,14 +127,6 @@ func packageTestsPayloadsOf(tests []domain.PackageTests) []packageTestsPayload {
 		entries = append(entries, packageTestsPayload{Package: entry.Package().String(), Names: namesOf(entry.Names())})
 	}
 	return entries
-}
-
-func packageNamesOf(tests []domain.PackageTests) []string {
-	names := make([]string, 0, len(tests))
-	for _, entry := range tests {
-		names = append(names, entry.Package().String())
-	}
-	return names
 }
 
 func namesOf[Named fmt.Stringer](suites []Named) []string {

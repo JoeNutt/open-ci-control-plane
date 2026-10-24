@@ -10,7 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"slices"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +23,7 @@ import (
 const (
 	dispatchedWorkflow = "open-ci-tests.yml"
 	dispatchedSuite    = "example.com/payments/internal/orders"
+	dispatchedTest     = "TestRefund"
 	alwaysRunSuite     = "example.com/payments/internal/domain"
 	planRevision       = "c0ffee0000000000000000000000000000c0ffee"
 	dispatchPath       = "/repos/acme/payments/actions/workflows/" + dispatchedWorkflow + "/dispatches"
@@ -49,8 +50,8 @@ type wireTests struct {
 }
 
 type wireRecorded struct {
-	Selected  []string `json:"selected"`
-	Minimised []string `json:"minimised"`
+	Selected  []wireTests `json:"selected"`
+	Minimised []wireTests `json:"minimised"`
 }
 
 type wireMode struct {
@@ -318,8 +319,9 @@ func selectedPlan(t *testing.T) domain.TestPlan {
 func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
 	held := newDispatchForge(t)
 	plan := selectedPlan(t)
-	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: plan.Tests, Minimised: plan.Tests}
-	plan.Suites, plan.FullMatrix = nil, true
+	named := []domain.PackageTests{domain.NewPackageTests(plan.Tests[0].Package(), []domain.TopLevelTestName{testNamed(t, dispatchedTest)})}
+	plan.Recorded = domain.RecordedSets{IsRecorded: true, Selected: named, Minimised: plan.Tests}
+	plan.Suites, plan.Tests, plan.FullMatrix = nil, nil, true
 	plan.Modes = domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow}
 
 	if err := dispatchesAt(t, held.server).DispatchPlan(context.Background(), plan); err != nil {
@@ -330,8 +332,22 @@ func TestAShadowPlanIsDispatchedWithItsModesAndRecordedSets(t *testing.T) {
 	if err := json.Unmarshal([]byte(held.onlyDispatch().Inputs.Plan), &sent); err != nil {
 		t.Fatalf("decode the plan: %v", err)
 	}
+	want := wireRecorded{
+		Selected:  []wireTests{{Package: dispatchedSuite, Names: []string{dispatchedTest}}},
+		Minimised: []wireTests{{Package: dispatchedSuite, Names: []string{}}},
+	}
 	if !sent.Shadow || sent.Mode.Selection != "shadow" || sent.Mode.Minimisation != "shadow" || sent.Recorded == nil ||
-		!slices.Equal(sent.Recorded.Selected, []string{dispatchedSuite}) || !slices.Equal(sent.Recorded.Minimised, []string{dispatchedSuite}) {
+		!reflect.DeepEqual(*sent.Recorded, want) {
 		t.Errorf("dispatched %+v, want shadow with both modes and both recorded sets", sent)
 	}
+}
+
+func testNamed(t *testing.T, stated string) domain.TopLevelTestName {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName(stated)
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return name
 }
