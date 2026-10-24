@@ -80,6 +80,16 @@ func TestCoverageIndexAnswersAFileItHasNeverSeenWithAMissNotAnEmptySet(t *testin
 	}
 }
 
+func TestCoverageIndexAnswersLinesOfAFileItHasNeverSeenWithAMiss(t *testing.T) {
+	unseen := pathNamed(t, "internal/change/domain/verdict.go")
+
+	covering, err := twoSuiteCoverage(t).index.testsCovering(unseen, []uint32{1})
+
+	if !errors.Is(err, errUnindexedFile) {
+		t.Fatalf("answered %v (%v), want errUnindexedFile", membersOf(covering), err)
+	}
+}
+
 func TestCoverageIndexFindsTheTestsCoveringGivenLinesOfAFile(t *testing.T) {
 	coverage := twoSuiteCoverage(t)
 	effect := pathNamed(t, indexedEffectFile)
