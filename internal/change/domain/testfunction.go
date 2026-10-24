@@ -14,18 +14,26 @@ type TestFunction struct {
 	lines lineSpan
 }
 
-type lineSpan struct {
-	first int
-	last  int
-}
-
 func ParseTestFunction(name string, firstLine, lastLine int) (TestFunction, error) {
 	parsed, err := ParseTopLevelTestName(name)
 	if err != nil {
 		return TestFunction{}, fmt.Errorf("test function: %w", err)
 	}
-	if firstLine < 1 || lastLine < firstLine {
-		return TestFunction{}, fmt.Errorf("%w: lines %d to %d", ErrMalformedLineSpan, firstLine, lastLine)
+	lines, err := parseLineSpan(firstLine, lastLine)
+	if err != nil {
+		return TestFunction{}, fmt.Errorf("test function %s: %w", name, err)
 	}
-	return TestFunction{name: parsed, lines: lineSpan{first: firstLine, last: lastLine}}, nil
+	return TestFunction{name: parsed, lines: lines}, nil
+}
+
+type lineSpan struct {
+	first int
+	last  int
+}
+
+func parseLineSpan(first, last int) (lineSpan, error) {
+	if first < firstLineNumber || last < first {
+		return lineSpan{}, fmt.Errorf("%w: lines %d to %d", ErrMalformedLineSpan, first, last)
+	}
+	return lineSpan{first: first, last: last}, nil
 }
