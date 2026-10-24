@@ -21,10 +21,10 @@ type coveredTest struct {
 }
 
 type coverageIndex struct {
-	revision         *indexRevision
-	tests            []coveredTest
-	testCountBySuite map[CoverageSuite]int
-	postings         coveragePostings
+	revision      *indexRevision
+	tests         []coveredTest
+	testsOfSuites map[CoverageSuite]testSpan
+	postings      coveragePostings
 }
 
 type suiteTest struct {
@@ -35,10 +35,10 @@ type suiteTest struct {
 func indexOf(suites map[CoverageSuite]SuiteCoverage) coverageIndex {
 	numbered := denselyNumberedTestsOf(suites)
 	return coverageIndex{
-		revision:         &indexRevision{testCount: len(numbered)},
-		tests:            coveredTestsOf(numbered),
-		testCountBySuite: testCountBySuiteOf(suites),
-		postings:         postingsOf(edgesOf(numbered)),
+		revision:      &indexRevision{testCount: len(numbered)},
+		tests:         coveredTestsOf(numbered),
+		testsOfSuites: testSpansOf(numbered),
+		postings:      postingsOf(edgesOf(numbered)),
 	}
 }
 
@@ -68,12 +68,22 @@ func coveredTestsOf(numbered []suiteTest) []coveredTest {
 	return tests
 }
 
-func testCountBySuiteOf(suites map[CoverageSuite]SuiteCoverage) map[CoverageSuite]int {
-	counts := make(map[CoverageSuite]int, len(suites))
-	for suite, coverage := range suites {
-		counts[suite] = len(coverage.tests)
+type testSpan struct {
+	first int
+	end   int
+}
+
+func testSpansOf(numbered []suiteTest) map[CoverageSuite]testSpan {
+	spans := map[CoverageSuite]testSpan{}
+	for dense, each := range numbered {
+		span, isHeld := spans[each.suite]
+		if !isHeld {
+			span.first = dense
+		}
+		span.end = dense + 1
+		spans[each.suite] = span
 	}
-	return counts
+	return spans
 }
 
 func (index coverageIndex) testAt(dense int) (coveredTest, error) {
@@ -83,23 +93,14 @@ func (index coverageIndex) testAt(dense int) (coveredTest, error) {
 	return index.tests[dense], nil
 }
 
-func (index coverageIndex) testCountOf(suite CoverageSuite) (int, error) {
-	count, isIndexed := index.testCountBySuite[suite]
-	if !isIndexed {
-		return 0, fmt.Errorf("%w: %s", errUnindexedSuite, suite)
-	}
-	return count, nil
-}
-
 func (index coverageIndex) testsOfSuite(suite CoverageSuite) (testSet, error) {
-	if _, err := index.testCountOf(suite); err != nil {
-		return testSet{}, err
+	span, isIndexed := index.testsOfSuites[suite]
+	if !isIndexed {
+		return testSet{}, fmt.Errorf("%w: %s", errUnindexedSuite, suite)
 	}
-	var members []uint32
-	for dense, test := range index.tests {
-		if test.suite == suite {
-			members = append(members, uint32(dense))
-		}
+	members := make([]uint32, 0, span.end-span.first)
+	for dense := span.first; dense < span.end; dense++ {
+		members = append(members, uint32(dense))
 	}
 	return testSetOf(index.revision, members), nil
 }
