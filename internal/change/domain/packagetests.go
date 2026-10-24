@@ -32,9 +32,9 @@ func namedTestsOf(pkg GoImportPath, names []TopLevelTestName) (PackageTests, err
 }
 
 func distinctInOrder(names []TopLevelTestName) []TopLevelTestName {
-	held := slices.Clone(names)
-	slices.SortFunc(held, TopLevelTestName.compare)
-	return slices.Compact(held)
+	ordered := slices.Clone(names)
+	slices.SortFunc(ordered, TopLevelTestName.compare)
+	return slices.Compact(ordered)
 }
 
 func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
