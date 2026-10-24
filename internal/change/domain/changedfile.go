@@ -41,11 +41,11 @@ func linesOf(stated StatedFile) (ChangedLines, error) {
 }
 
 func previousPathOf(stated StatedFile) (RepositoryPath, error) {
-	if stated.File.Action == FileActionRenamed && stated.PreviousPath == unstatedPreviousPath {
+	if stated.PreviousPath != unstatedPreviousPath {
+		return ParseRepositoryPath(stated.PreviousPath)
+	}
+	if stated.File.Action == FileActionRenamed {
 		return RepositoryPath{}, ErrRenameWithoutPreviousPath
 	}
-	if stated.PreviousPath == unstatedPreviousPath {
-		return RepositoryPath{}, nil
-	}
-	return ParseRepositoryPath(stated.PreviousPath)
+	return RepositoryPath{}, nil
 }
