@@ -55,6 +55,38 @@ func TestAPassingChangeWhoseEvidenceCannotBeReadRunsTheFullMatrixNamingWhy(t *te
 	}
 }
 
+func TestATestFileEditedOutsideAnyTestPlansNormallyUnderABindingWithNoImportRoots(t *testing.T) {
+	locator := gatedLocator(t)
+	stated := domain.StatedFile{
+		File:  domain.File{Path: "internal/auth/owner_test.go", Action: domain.FileActionModified},
+		Patch: "@@ -3,1 +3,1 @@\n-import \"testing\"\n+import \"testing\"", IsPatchStated: true,
+	}
+	dispatched := &dispatchedPlans{}
+	useCase := passingGateChange(t, &publishedCheckRuns{}, dispatched)
+	useCase.Bindings = bindingWithNoImportRoots{}
+	useCase.Build = evidenceBuildOver(t, locator,
+		recordedAtBothEnds(t, locator, stated.File.Path, ownerTestAtBase, ownerTestAtHead), golang.Extractor{}, stated)
+
+	err := useCase.Execute(context.Background(), locator, decisionIDOf(t, gatedDecisionID))
+
+	if err != nil {
+		t.Fatalf("gate change: %v", err)
+	}
+	if plans := dispatched.Dispatched(); len(plans) != 1 || plans[0].Trigger == domain.PlanTriggerPlanFailed {
+		t.Fatalf("dispatched %+v, want one plan that did not fail", plans)
+	}
+}
+
+type bindingWithNoImportRoots struct{}
+
+func (bindingWithNoImportRoots) BindingOf(_ context.Context, repository domain.GovernedRepository) (domain.Binding, error) {
+	return domain.ParseBinding(domain.BindingStatement{
+		Repository: repository.String(),
+		Workflow:   "open-ci-tests.yml",
+		Policies:   []domain.BoundPolicyStatement{{Use: "clean-architecture"}},
+	})
+}
+
 var errBindingUnreadable = errors.New("the policy binding cannot be read")
 
 type unreadableBinding struct{}

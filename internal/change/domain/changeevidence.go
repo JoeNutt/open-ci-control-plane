@@ -31,6 +31,9 @@ func ParseChangeEvidence(files []ChangedFile, edited []EditedTests, binding Bind
 }
 
 func (edited EditedTests) changedTestsUnder(roots []ImportRoot) ([]ChangedTest, error) {
+	if len(edited.names) == 0 {
+		return nil, nil
+	}
 	pkg, err := testPackageOf(edited.path, roots)
 	if err != nil {
 		return nil, err
