@@ -44,6 +44,34 @@ func changeSourceOver(t *testing.T, locator domain.PullRequestLocator, files ...
 	}
 }
 
+func TestBuildDocumentParsesEachChangedFileBesideTheDocument(t *testing.T) {
+	locator := locatorOf(t, "acme/payments", 412)
+	source := changeSourceOver(t, locator)
+	stated := domain.StatedFile{
+		File:  domain.File{Path: "infra/iam.tf", Action: domain.FileActionModified, PatchBytes: 24},
+		Patch: "@@ -1,1 +1,1 @@\n-old\n+new", IsPatchStated: true,
+	}
+	recorded := source.Changes[locator]
+	recorded.Stated = []domain.StatedFile{stated}
+	source.Changes[locator] = recorded
+	useCase := application.BuildDocument{
+		Source: source, Bases: recordedBases(t), Extractor: golang.Extractor{}, Limits: domain.DeclaredLimits(),
+	}
+
+	built, err := useCase.Execute(context.Background(), locator)
+
+	if err != nil {
+		t.Fatalf("build document: %v", err)
+	}
+	changed, err := domain.ParseChangedFile(stated)
+	if err != nil {
+		t.Fatalf("parse changed file: %v", err)
+	}
+	if !reflect.DeepEqual(built.Files, []domain.ChangedFile{changed}) {
+		t.Fatalf("changed files are %+v, want %+v", built.Files, changed)
+	}
+}
+
 func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 	locator := locatorOf(t, "acme/payments", 412)
 	source := changeSourceOver(t, locator,
@@ -62,7 +90,8 @@ func TestBuildDocumentCarriesWhatTheForgeReports(t *testing.T) {
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -88,7 +117,8 @@ func TestBuildDocumentPublishesTheImportsAChangedGoFileDeclaresAtHead(t *testing
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -115,7 +145,8 @@ func TestBuildDocumentPublishesTheEdgeAModifiedGoFileGainsBetweenBaseAndHead(t *
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -166,7 +197,8 @@ func TestBuildDocumentReadsNoFileTheExtractorDoesNotClaim(t *testing.T) {
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -187,7 +219,8 @@ func TestBuildDocumentReadsAnAddedGoFileAtHeadOnlyAndAddsItsEdges(t *testing.T) 
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -210,7 +243,8 @@ func TestBuildDocumentReadsARemovedGoFileAtBaseOnlyAndRemovesItsEdges(t *testing
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)
@@ -258,7 +292,8 @@ func TestBuildDocumentRefusesTheWholeDocumentWhenAGoFileDoesNotParse(t *testing.
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if !errors.Is(err, golang.ErrUnparsableSource) {
 		t.Fatalf("error is %v, want %v", err, golang.ErrUnparsableSource)
@@ -318,7 +353,8 @@ func TestBuildDocumentAdmitsAGoFileImportingAPathWithAPlusAndPublishesItsEdges(t
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)

@@ -69,7 +69,8 @@ func TestBuildDocumentReadsTheForgeOverItsAPI(t *testing.T) {
 		Limits:    domain.DeclaredLimits(),
 	}
 
-	document, err := useCase.Execute(context.Background(), locator)
+	built, err := useCase.Execute(context.Background(), locator)
+	document := built.Document
 
 	if err != nil {
 		t.Fatalf("build document: %v", err)

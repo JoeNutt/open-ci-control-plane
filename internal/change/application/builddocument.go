@@ -18,37 +18,51 @@ type BuildDocument struct {
 	Rules     domain.ClassificationRules
 }
 
+type BuiltChange struct {
+	Document        domain.Document
+	Files           []domain.ChangedFile
+	EvidenceFailure error
+}
+
 func (useCase BuildDocument) Execute(
 	ctx context.Context, locator domain.PullRequestLocator,
-) (domain.Document, error) {
+) (BuiltChange, error) {
 	reported, err := useCase.Source.PullRequestAt(ctx, locator)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("read pull request %s: %w", locator, err)
+		return BuiltChange{}, fmt.Errorf("read pull request %s: %w", locator, err)
 	}
 	listed, err := useCase.Source.FilesChanged(ctx, locator)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("read changed files of %s: %w", locator, err)
+		return BuiltChange{}, fmt.Errorf("read changed files of %s: %w", locator, err)
 	}
 	files := documentFilesOf(listed)
 	bounded, err := domain.ParseBoundedFiles(files, useCase.Limits)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound %s: %w", locator, overBoundAt(reported.Tips, err))
+		return BuiltChange{}, fmt.Errorf("bound %s: %w", locator, overBoundAt(reported.Tips, err))
 	}
 	stated := statedChange{locator: locator, tips: reported.Tips}
 	imported, err := useCase.importedFilesOf(ctx, stated, useCase.claimedOf(files))
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
+		return BuiltChange{}, fmt.Errorf("extract the imports of %s: %w", locator, err)
 	}
 	facts, err := domain.ParseStructuralFacts(imported, useCase.Limits)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
+		return BuiltChange{}, fmt.Errorf("bound the structural facts of %s: %w", locator, err)
 	}
 	change := domain.Change{Files: bounded, Structure: facts}
 	document, err := useCase.boundedDocumentOf(reported, change)
 	if err != nil {
-		return domain.Document{}, fmt.Errorf("bound the document of %s: %w", locator, err)
+		return BuiltChange{}, fmt.Errorf("bound the document of %s: %w", locator, err)
 	}
-	return document, nil
+	var changed []domain.ChangedFile
+	for _, statedFile := range listed {
+		parsed, err := domain.ParseChangedFile(statedFile)
+		if err != nil {
+			return BuiltChange{Document: document, EvidenceFailure: err}, nil
+		}
+		changed = append(changed, parsed)
+	}
+	return BuiltChange{Document: document, Files: changed}, nil
 }
 
 func documentFilesOf(listed []domain.StatedFile) []domain.File {

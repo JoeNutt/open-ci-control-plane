@@ -24,7 +24,7 @@ type GateChange struct {
 func (useCase GateChange) Execute(
 	ctx context.Context, locator domain.PullRequestLocator, id domain.DecisionID,
 ) error {
-	document, err := useCase.Build.Execute(ctx, locator)
+	built, err := useCase.Build.Execute(ctx, locator)
 	var over domain.ChangeOverBound
 	if errors.As(err, &over) {
 		return useCase.refuseOverBound(context.WithoutCancel(ctx), locator, over, id)
@@ -32,6 +32,7 @@ func (useCase GateChange) Execute(
 	if err != nil {
 		return err
 	}
+	document := built.Document
 	head, err := domain.ParseCommitSHA(document.PR.HeadSHA)
 	if err != nil {
 		return err

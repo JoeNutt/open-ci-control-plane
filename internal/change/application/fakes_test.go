@@ -16,6 +16,7 @@ type recordedChange struct {
 	PullRequest domain.PullRequest
 	Tips        domain.BranchTips
 	Files       []domain.File
+	Stated      []domain.StatedFile
 }
 
 type recordedChanges struct {
@@ -39,11 +40,11 @@ func (source recordedChanges) FilesChanged(
 	if err != nil {
 		return nil, err
 	}
-	stated := make([]domain.StatedFile, 0, len(change.Files))
+	stated := make([]domain.StatedFile, 0, len(change.Files)+len(change.Stated))
 	for _, file := range change.Files {
 		stated = append(stated, domain.StatedFile{File: file})
 	}
-	return stated, nil
+	return append(stated, change.Stated...), nil
 }
 
 func (source recordedChanges) changeAt(locator domain.PullRequestLocator) (recordedChange, error) {
