@@ -19,11 +19,11 @@ const (
 	tagSeparator       = ":"
 	lineDataSeparator  = ","
 	endOfRecord        = "end_of_record"
-	lineNumberSlot     = 0
+	sourceLineSlot     = 0
 	executionCountSlot = 1
-	lineNumberBits     = 32
+	sourceLineBits     = 32
 	firstSourceLine    = 1
-	firstLineNumber    = 1
+	firstArtifactLine  = 1
 	decimal            = 10
 	countBits          = 64
 	gzipMagic          = "\x1f\x8b"
@@ -130,9 +130,9 @@ func plainBodyOf(body io.Reader) (io.Reader, error) {
 }
 
 func (reading *recordReading) takeAll(lines *bufio.Scanner) error {
-	for lineNumber := firstLineNumber; lines.Scan(); lineNumber++ {
+	for artifactLine := firstArtifactLine; lines.Scan(); artifactLine++ {
 		if err := reading.take(lines.Text()); err != nil {
-			return fmt.Errorf("line %d: %w", lineNumber, err)
+			return fmt.Errorf("line %d: %w", artifactLine, err)
 		}
 	}
 	return readFailureOf(lines.Err())
@@ -199,7 +199,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 	if len(fields) <= executionCountSlot {
 		return errUnreadableLineData
 	}
-	line, err := sourceLineOf(fields[lineNumberSlot])
+	line, err := sourceLineOf(fields[sourceLineSlot])
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func (reading *recordReading) countExecutions(lineData string) error {
 }
 
 func sourceLineOf(stated string) (uint32, error) {
-	line, err := strconv.ParseUint(stated, decimal, lineNumberBits)
+	line, err := strconv.ParseUint(stated, decimal, sourceLineBits)
 	if err != nil || line < firstSourceLine {
 		return 0, errUnreadableLineData
 	}
