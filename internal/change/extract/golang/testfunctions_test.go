@@ -3,7 +3,9 @@
 package golang_test
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
@@ -22,6 +24,20 @@ func TestTestFunctionsInNameEveryTopLevelTestWithTheLinesItSpans(t *testing.T) {
 	}
 	if !slices.Equal(functions, want) {
 		t.Fatalf("test functions are %+v, want %+v", functions, want)
+	}
+}
+
+func TestTestFunctionsInRefusesASourceWhoseBodyDoesNotParseWithoutQuotingIt(t *testing.T) {
+	const quotedFromTheSource = "hunter2ApiKey"
+	source := []byte("package fixture\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) { " + quotedFromTheSource + " := }\n")
+
+	functions, err := golang.Extractor{}.TestFunctionsIn(boundedFrom(t, source))
+
+	if !errors.Is(err, golang.ErrUnparsableSource) || functions != nil {
+		t.Fatalf("functions are %v and error is %v, want none and %v", functions, err, golang.ErrUnparsableSource)
+	}
+	if strings.Contains(err.Error(), quotedFromTheSource) {
+		t.Fatalf("the error quotes the source: %v", err)
 	}
 }
 
