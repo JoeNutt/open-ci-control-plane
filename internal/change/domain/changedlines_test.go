@@ -51,6 +51,13 @@ func TestParseChangedFileRefusesAPatchWithARangeThatStartsAtZeroYetSpansLines(t 
 	})
 }
 
+func TestParseChangedFileRefusesAPatchWithAHunkThatStartsBeforeThePreviousOneEnded(t *testing.T) {
+	refusesEveryPatchAsMalformed(t, []string{
+		"@@ -5,2 +5,2 @@\n one\n two\n@@ -6,1 +9,1 @@\n three",
+		"@@ -5,2 +5,2 @@\n one\n two\n@@ -9,1 +6,1 @@\n three",
+	})
+}
+
 func refusesEveryPatchAsMalformed(t *testing.T, patches []string) {
 	t.Helper()
 

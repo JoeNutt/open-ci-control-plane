@@ -117,6 +117,9 @@ func (walk *patchWalk) enter(header string) error {
 	if err != nil {
 		return err
 	}
+	if walk.hasHunk && (hunk.base.firstLine() < walk.base.line || hunk.head.firstLine() < walk.head.line) {
+		return ErrMalformedHunk
+	}
 	walk.base.open(hunk.base)
 	walk.head.open(hunk.head)
 	walk.hasHunk = true
