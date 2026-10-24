@@ -62,14 +62,19 @@ func TestTestSetHoldsMembersEitherSideOfAWordBoundary(t *testing.T) {
 	} {
 		set := testSetOf(&indexRevision{testCount: asked.testCount}, asked.members)
 
-		var want []int
-		for _, member := range asked.members {
-			want = append(want, int(member))
-		}
+		want := positionsOf(asked.members)
 		if len(set.words) != asked.words || set.size() != len(want) || !slices.Equal(membersOf(set), want) {
 			t.Errorf("%d tests holding %v: %d words, size %d, members %v", asked.testCount, asked.members, len(set.words), set.size(), membersOf(set))
 		}
 	}
+}
+
+func positionsOf(members []uint32) []int {
+	var positions []int
+	for _, member := range members {
+		positions = append(positions, int(member))
+	}
+	return positions
 }
 
 func membersOf(set testSet) []int { return slices.Collect(set.members()) }
