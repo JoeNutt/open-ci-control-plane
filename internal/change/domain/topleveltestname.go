@@ -10,28 +10,39 @@ import (
 	"unicode/utf8"
 )
 
-const TopLevelTestPrefix = "Test"
+const (
+	TopLevelTestPrefix = "Test"
+	identifierJoiner   = '_'
+)
 
 var errNotATopLevelTest = errors.New("the name is not a top-level Go test function")
 
 type TopLevelTestName struct{ name string }
 
 func ParseTopLevelTestName(stated string) (TopLevelTestName, error) {
-	rest, isTest := strings.CutPrefix(stated, TopLevelTestPrefix)
-	if !isTest || strings.IndexFunc(stated, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
-	}) >= 0 {
+	if !isIdentifierInAnyScript(stated) || !isTopLevelTestName(stated) {
 		return TopLevelTestName{}, fmt.Errorf("%w: %q", errNotATopLevelTest, stated)
-	}
-	if rest != "" {
-		next, _ := utf8.DecodeRuneInString(rest)
-		if unicode.IsLower(next) {
-			return TopLevelTestName{}, fmt.Errorf("%w: %q", errNotATopLevelTest, stated)
-		}
 	}
 	return TopLevelTestName{name: stated}, nil
 }
 
 func (name TopLevelTestName) compare(other TopLevelTestName) int {
 	return strings.Compare(name.name, other.name)
+}
+
+func isTopLevelTestName(name string) bool {
+	rest, hasPrefix := strings.CutPrefix(name, TopLevelTestPrefix)
+	if !hasPrefix {
+		return false
+	}
+	next, _ := utf8.DecodeRuneInString(rest)
+	return rest == "" || !unicode.IsLower(next)
+}
+
+func isIdentifierInAnyScript(name string) bool {
+	return strings.IndexFunc(name, isOutsideIdentifiers) < 0
+}
+
+func isOutsideIdentifiers(character rune) bool {
+	return !unicode.IsLetter(character) && !unicode.IsDigit(character) && character != identifierJoiner
 }
