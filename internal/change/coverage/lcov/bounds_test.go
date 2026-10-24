@@ -275,16 +275,16 @@ func artifactOfLineRecords(count int) lcov.Artifact {
 func artifactOfTestFilePairs(t *testing.T, count int) lcov.Artifact {
 	t.Helper()
 
-	limits := domain.DeclaredCoverageLimits()
-	filesPerTest := (count + limits.MaxTestSections - 1) / limits.MaxTestSections
-	var sections strings.Builder
-	for index := range count {
-		if index%filesPerTest == 0 {
-			sections.WriteString(lines("TN:" + generatedTest(index/filesPerTest)))
+	sections := domain.DeclaredCoverageLimits().MaxTestSections
+	filesPerTest := (count + sections - 1) / sections
+	var plain strings.Builder
+	for pair := range count {
+		if pair%filesPerTest == 0 {
+			plain.WriteString(lines("TN:" + generatedTest(pair/filesPerTest)))
 		}
-		sections.WriteString(record(generatedPath(index%filesPerTest), lineHit))
+		plain.WriteString(record(generatedPath(pair%filesPerTest), lineHit))
 	}
-	compressed := gzipped(t, strings.NewReader(sections.String()))
+	compressed := gzipped(t, strings.NewReader(plain.String()))
 	return lcov.Artifact{DeclaredBytes: int64(compressed.Len()), Body: compressed}
 }
 
