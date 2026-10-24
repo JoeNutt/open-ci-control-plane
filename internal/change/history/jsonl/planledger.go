@@ -127,8 +127,13 @@ type modesLine struct {
 }
 
 type recordedLine struct {
-	Selected  []string `json:"selected"`
-	Minimised []string `json:"minimised"`
+	Selected  []packageTestsLine `json:"selected"`
+	Minimised []packageTestsLine `json:"minimised"`
+}
+
+type packageTestsLine struct {
+	Package string   `json:"package"`
+	Names   []string `json:"names"`
 }
 
 func dispatchedLineOf(dispatched domain.DispatchedPlan) ledgerLine {
@@ -150,7 +155,7 @@ func recordedLineOf(recorded domain.RecordedSets) *recordedLine {
 	if !recorded.IsRecorded {
 		return nil
 	}
-	return &recordedLine{Selected: packageNamesOf(recorded.Selected), Minimised: packageNamesOf(recorded.Minimised)}
+	return &recordedLine{Selected: packageTestsLinesOf(recorded.Selected), Minimised: packageTestsLinesOf(recorded.Minimised)}
 }
 
 func modesLineOf(modes domain.PlanModes) *modesLine {
@@ -215,31 +220,35 @@ func (line *recordedLine) recordedSets() (domain.RecordedSets, error) {
 	if line == nil {
 		return domain.RecordedSets{}, nil
 	}
-	selected, err := parsedAll(line.Selected, wholePackageNamed)
+	selected, err := parsedAll(line.Selected, packageTestsLine.packageTests)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
-	minimised, err := parsedAll(line.Minimised, wholePackageNamed)
+	minimised, err := parsedAll(line.Minimised, packageTestsLine.packageTests)
 	if err != nil {
 		return domain.RecordedSets{}, err
 	}
 	return domain.RecordedSets{IsRecorded: true, Selected: selected, Minimised: minimised}, nil
 }
 
-func wholePackageNamed(stated string) (domain.PackageTests, error) {
-	pkg, err := domain.ParseGoImportPath(stated)
+func (line packageTestsLine) packageTests() (domain.PackageTests, error) {
+	pkg, err := domain.ParseGoImportPath(line.Package)
 	if err != nil {
 		return domain.PackageTests{}, err
 	}
-	return domain.NewPackageTests(pkg, nil), nil
+	names, err := parsedAll(line.Names, domain.ParseTopLevelTestName)
+	if err != nil {
+		return domain.PackageTests{}, err
+	}
+	return domain.NewPackageTests(pkg, names), nil
 }
 
-func packageNamesOf(tests []domain.PackageTests) []string {
-	names := make([]string, 0, len(tests))
+func packageTestsLinesOf(tests []domain.PackageTests) []packageTestsLine {
+	lines := make([]packageTestsLine, 0, len(tests))
 	for _, entry := range tests {
-		names = append(names, entry.Package().String())
+		lines = append(lines, packageTestsLine{Package: entry.Package().String(), Names: namesOf(entry.Names())})
 	}
-	return names
+	return lines
 }
 
 func (line *modesLine) planModes() (domain.PlanModes, error) {
@@ -257,7 +266,7 @@ func (line *modesLine) planModes() (domain.PlanModes, error) {
 	return domain.PlanModes{Selection: selection, Minimisation: minimisation}, nil
 }
 
-func parsedAll[Parsed any](stated []string, parse func(string) (Parsed, error)) ([]Parsed, error) {
+func parsedAll[Stated, Parsed any](stated []Stated, parse func(Stated) (Parsed, error)) ([]Parsed, error) {
 	parsed := make([]Parsed, 0, len(stated))
 	for _, value := range stated {
 		one, err := parse(value)

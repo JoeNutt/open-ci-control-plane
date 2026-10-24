@@ -24,6 +24,7 @@ const (
 	ledgerSuite       = "github.com/JoeNutt/open-ci-control-plane/internal/change/rules"
 	ledgerAlwaysRun   = "github.com/JoeNutt/open-ci-control-plane/internal/change/domain"
 	ledgerChangedFile = "internal/change/rules/rules.go"
+	ledgerTest        = "TestRulesClassify"
 )
 
 func TestADispatchedPlanSurvivesARestart(t *testing.T) {
@@ -74,6 +75,16 @@ func wholePackageOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTe
 	return []domain.PackageTests{domain.NewPackageTests(pkg, nil)}
 }
 
+func namedEntryOf(t *testing.T, suite domain.CoverageSuite) []domain.PackageTests {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName(ledgerTest)
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return []domain.PackageTests{domain.NewPackageTests(wholePackageOf(t, suite)[0].Package(), []domain.TopLevelTestName{name})}
+}
+
 func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 	t.Helper()
 
@@ -104,7 +115,7 @@ func dispatchedPlanOf(t *testing.T) domain.DispatchedPlan {
 	return domain.DispatchedPlan{
 		Locator: locator, Head: head, DecisionID: id, Suites: []domain.CoverageSuite{suite},
 		AlwaysRun:    []domain.GoImportPath{alwaysRun},
-		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: wholePackageOf(t, suite), Minimised: wholePackageOf(t, suite)},
+		Recorded:     domain.RecordedSets{IsRecorded: true, Selected: namedEntryOf(t, suite), Minimised: wholePackageOf(t, suite)},
 		ChangedFiles: []domain.RepositoryPath{changed},
 		Modes:        domain.PlanModes{Selection: domain.TestModeShadow, Minimisation: domain.TestModeShadow},
 	}
