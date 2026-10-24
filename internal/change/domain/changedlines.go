@@ -146,10 +146,12 @@ type patchSide struct {
 	remaining        int
 	changed          []int
 	isChangedInBlock bool
+	isFileAbsent     bool
 }
 
 func (side *patchSide) open(stated hunkRange) {
 	side.line, side.remaining = stated.firstLine(), stated.count
+	side.isFileAbsent = stated.isEmpty() && stated.start == 0
 }
 
 func (side *patchSide) take(presence sidePresence) error {
@@ -169,7 +171,7 @@ func (side *patchSide) take(presence sidePresence) error {
 }
 
 func (side *patchSide) markNeighboursOfUnchangedBlock() {
-	if side.isChangedInBlock {
+	if side.isChangedInBlock || side.isFileAbsent {
 		return
 	}
 	if side.line > firstLineNumber {

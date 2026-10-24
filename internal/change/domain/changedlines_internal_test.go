@@ -35,6 +35,21 @@ func TestChangedLinesNameWhatAPatchChangesOnEachSide(t *testing.T) {
 			base:  []int{5, 6}, head: []int{6},
 		},
 		{
+			rule:  "a range whose count is omitted spans one line",
+			patch: "@@ -3 +3 @@\n-old\n+new",
+			base:  []int{3}, head: []int{3},
+		},
+		{
+			rule:  "an empty range at the start of an added file names no base line",
+			patch: "@@ -0,0 +1,2 @@\n+one\n+two",
+			base:  nil, head: []int{1, 2},
+		},
+		{
+			rule:  "an empty range at the start of a deleted file names no head line",
+			patch: "@@ -1,2 +0,0 @@\n-one\n-two",
+			base:  []int{1, 2}, head: nil,
+		},
+		{
 			rule:  "the mark of a missing final line break changes neither side",
 			patch: "@@ -1,1 +1,1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file",
 			base:  []int{1}, head: []int{1},
