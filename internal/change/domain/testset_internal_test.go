@@ -50,6 +50,28 @@ func TestTestSetUnionIsRefusedAcrossTwoIndexRevisions(t *testing.T) {
 	}
 }
 
+func TestTestSetHoldsMembersEitherSideOfAWordBoundary(t *testing.T) {
+	for _, asked := range []struct {
+		testCount int
+		members   []uint32
+		words     int
+	}{
+		{testCount: 0, members: nil, words: 0},
+		{testCount: testsPerWord, members: []uint32{testsPerWord - 1}, words: 1},
+		{testCount: testsPerWord + 1, members: []uint32{testsPerWord - 1, testsPerWord}, words: 2},
+	} {
+		set := testSetOf(&indexRevision{testCount: asked.testCount}, asked.members)
+
+		var want []int
+		for _, member := range asked.members {
+			want = append(want, int(member))
+		}
+		if len(set.words) != asked.words || set.size() != len(want) || !slices.Equal(membersOf(set), want) {
+			t.Errorf("%d tests holding %v: %d words, size %d, members %v", asked.testCount, asked.members, len(set.words), set.size(), membersOf(set))
+		}
+	}
+}
+
 func membersOf(set testSet) []int { return slices.Collect(set.members()) }
 
 func threeWordSet() testSet {
