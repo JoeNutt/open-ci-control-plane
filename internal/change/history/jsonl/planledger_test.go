@@ -228,6 +228,31 @@ func TestALineRecordedBeforeTestLevelPlansReadsEachRecordedSuiteAsItsWholePackag
 	}
 }
 
+func TestARecordedEntryThatDoesNotParseInEitherShapeIsRefused(t *testing.T) {
+	for form, entry := range map[string]string{
+		"a suite that is no import path":      `"not an import path"`,
+		"a name that is no top-level test":    `{"package":"` + ledgerSuite + `","names":["ExampleRules"]}`,
+		"neither a suite nor a package entry": `7`,
+	} {
+		t.Run(form, func(t *testing.T) {
+			history := openedLog(t, ledgerPath(t))
+			hostile := `{"kind":"dispatched","repository":"` + ledgerRepository + `","pullRequest":7,"head":"` + ledgerHeadSHA +
+				`","decisionId":"` + ledgerDecisionID + `","recorded":{"selected":[` + entry + `],"minimised":[]}}`
+			if err := history.Append(json.RawMessage(hostile)); err != nil {
+				t.Fatalf("append: %v", err)
+			}
+			dispatched := dispatchedPlanOf(t)
+
+			found, err := jsonl.NewPlanLedger(history).DispatchedPlanFor(
+				context.Background(), dispatched.Locator.GovernedRepository(), dispatched.Head)
+
+			if err == nil {
+				t.Errorf("the ledger read %+v from a hostile entry, want a refusal", found.Recorded)
+			}
+		})
+	}
+}
+
 func suiteOf(t *testing.T) domain.CoverageSuite {
 	t.Helper()
 
