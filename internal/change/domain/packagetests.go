@@ -41,6 +41,8 @@ func (tests PackageTests) IsWholePackage() bool { return len(tests.names) == 0 }
 
 func (tests PackageTests) Package() GoImportPath { return tests.pkg }
 
+func (tests PackageTests) Names() []TopLevelTestName { return slices.Clone(tests.names) }
+
 func (tests PackageTests) runs(result TestResult) bool {
 	return tests.pkg == result.Suite.importPath && (tests.IsWholePackage() || tests.namesTest(result.Name))
 }
