@@ -2,7 +2,10 @@
 
 package domain
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestTestPackageIsTheImportPathTheDeepestRootGivesTheFilesDirectory(t *testing.T) {
 	roots := []ImportRoot{
@@ -31,6 +34,20 @@ func TestTestPackageIsTheImportPathTheDeepestRootGivesTheFilesDirectory(t *testi
 				t.Fatalf("test package of %s is %s, want %s", path, tested, want)
 			}
 		})
+	}
+}
+
+func TestTestPackageIsRefusedForAFileNoImportRootHolds(t *testing.T) {
+	roots := []ImportRoot{importRootFrom(t, ImportRootStatement{Prefix: "example.com/tools", Path: "tools"})}
+	file, err := ParseRepositoryPath("internal/auth/owner_test.go")
+	if err != nil {
+		t.Fatalf("parse repository path: %v", err)
+	}
+
+	_, err = testPackageOf(file, roots)
+
+	if !errors.Is(err, errNoImportRootHoldsTheTest) {
+		t.Fatalf("error is %v, want %v", err, errNoImportRootHoldsTheTest)
 	}
 }
 
