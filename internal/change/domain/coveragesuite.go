@@ -30,3 +30,7 @@ func ParseCoverageSuite(stated string) (CoverageSuite, error) {
 }
 
 func (suite CoverageSuite) String() string { return suite.importPath.String() }
+
+func (suite CoverageSuite) compare(other CoverageSuite) int {
+	return strings.Compare(suite.String(), other.String())
+}

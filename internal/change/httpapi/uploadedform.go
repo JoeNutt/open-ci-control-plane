@@ -43,12 +43,12 @@ func uploadedFormOf(asked *http.Request, artifacts CoverageArtifacts) (uploadedF
 	return uploadedForm{parts: parts, declared: asked.ContentLength, artifacts: artifacts}, nil
 }
 
-func (form uploadedForm) ReportedFiles(limits domain.CoverageLimits) ([]domain.ReportedFile, error) {
+func (form uploadedForm) ReportedCoverage(limits domain.CoverageLimits) (domain.ReportedCoverage, error) {
 	artifact, err := form.lcovArtifact()
 	if err != nil {
-		return nil, err
+		return domain.ReportedCoverage{}, err
 	}
-	return form.artifacts.ArtifactOf(form.declared, artifact).ReportedFiles(limits)
+	return form.artifacts.ArtifactOf(form.declared, artifact).ReportedCoverage(limits)
 }
 
 func (form uploadedForm) lcovArtifact() (*multipart.Part, error) {

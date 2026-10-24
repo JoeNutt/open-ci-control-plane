@@ -184,10 +184,15 @@ paths:
                     per-test coverage: one TN:<TestName> section per top-level test, each holding
                     SF: and DA: records. Every SF record sits inside a section, and every section
                     names a different top-level test: Test followed by ASCII letters, digits or
-                    underscores, on a line of at most 64 KiB. Its SF paths are repository-relative. The suite's map is the
-                    union of its tests: one entry per file, exercised when any test exercised it.
+                    underscores, on a line of at most 64 KiB. Its SF paths are repository-relative. The suite's map
+                    keeps, for each test, the files it ran and the DA lines it executed; a file entry
+                    is counted once however many tests ran it. Every accepted upload rebuilds the
+                    repository's coverage index whole from all of its suites.
                     Limits (NFR-5): 256 MiB decompressed, 200,000 file entries, 5,000 suites per
                     repository. Limits (NFR-13): 10,000 TN sections, 2,000,000 DA records.
+                    Limits (NFR-14): the rebuilt index holds at most 10,000 tests and 5,000,000
+                    block-test edges; an upload that would exceed either is refused and the previous
+                    index keeps serving.
       responses:
         '201':
           description: Coverage map accepted and now serving plans.
@@ -212,7 +217,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '413':
-          description: An NFR-5 or NFR-13 bound was exceeded, or the length is undeclared. The body names the bound; nothing stored.
+          description: An NFR-5, NFR-13 or NFR-14 bound was exceeded, or the length is undeclared. The body names the bound; nothing stored.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

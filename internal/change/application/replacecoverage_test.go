@@ -28,7 +28,7 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{repository})
-	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
+	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, path))); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 
@@ -43,8 +43,9 @@ func TestReplaceCoverageStoresTheSuitesMap(t *testing.T) {
 
 func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
 	covered, untouched := parsedPath(t), parsedPathOf(t, untouchedFile)
-	report := artifactReporting{reads: new(int), reported: []domain.ReportedFile{
-		domain.NewReportedFile(covered, true), domain.NewReportedFile(untouched, false)}}
+	paths := []domain.RepositoryPath{covered, untouched}
+	tested := domain.NewReportedTest(reportedTestName(t), []domain.TestedFile{domain.NewTestedFile(covered, []uint32{1})})
+	report := artifactReporting{reads: new(int), reported: domain.NewReportedCoverage(paths, []domain.ReportedTest{tested})}
 	useCase := replaceCoverage(t, newCoverageStore(domain.DeclaredCoverageLimits()), repositoryHolding{covered, untouched}, tokensNaming{parsedRepository(t)})
 
 	replaced, err := useCase.Execute(t.Context(), uploadOf(t, report))
@@ -52,9 +53,9 @@ func TestReplaceCoverageAnswersWithTheSuiteAndItsFileEntryCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
-	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != len(report.reported) {
+	if replaced.Suite != parsedSuite(t) || replaced.FileEntryCount != len(paths) {
 		t.Fatalf("answered %s with %d file entries, want %s with %d",
-			replaced.Suite, replaced.FileEntryCount, uploadedSuite, len(report.reported))
+			replaced.Suite, replaced.FileEntryCount, uploadedSuite, len(paths))
 	}
 }
 
@@ -63,7 +64,7 @@ func TestReplaceCoverageRefusesAPathTheRepositoryDoesNotHoldAndStoresNothing(t *
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := replaceCoverage(t, maps, repositoryHolding{}, tokensNaming{repository})
-	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
+	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, path)))
 
 	if !errors.Is(err, domain.ErrPathOutsideRepository) {
 		t.Fatalf("want ErrPathOutsideRepository, got %v", err)
@@ -77,7 +78,7 @@ func TestReplaceCoverageFailsWhenTheRepositorysPathsCannotBeRead(t *testing.T) {
 	unreadable := errors.New("the forge is unreachable")
 
 	useCase := replaceCoverage(t, maps, unreadablePaths{unreadable}, tokensNaming{repository})
-	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(parsedPath(t))))
+	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, parsedPath(t))))
 
 	if !errors.Is(err, unreadable) {
 		t.Fatalf("want the read failure, got %v", err)
@@ -90,7 +91,7 @@ func TestReplaceCoverageRefusesATokenFromAnotherRepositoryAndStoresNothing(t *te
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 
 	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{parsedStranger(t)})
-	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
+	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, path)))
 
 	if !errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want ErrForeignRepository, got %v", err)
@@ -104,7 +105,7 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 	unverified := errors.New("token is absent, expired or not verifiable")
 
 	useCase := replaceCoverage(t, maps, repositoryHolding{path}, unverifiedTokens{unverified})
-	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path)))
+	_, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, path)))
 
 	if !errors.Is(err, unverified) || errors.Is(err, application.ErrForeignRepository) {
 		t.Fatalf("want only the verifier's refusal, got %v", err)
@@ -114,7 +115,7 @@ func TestReplaceCoverageFailsWithTheVerifiersRefusalAndStoresNothing(t *testing.
 
 func TestReplaceCoverageNeverReadsTheArtifactOfARefusedUploader(t *testing.T) {
 	path := parsedPath(t)
-	artifact := reportOf(path)
+	artifact := reportOf(t, path)
 
 	useCase := replaceCoverage(t, newCoverageStore(domain.DeclaredCoverageLimits()), repositoryHolding{path}, tokensNaming{parsedStranger(t)})
 	_, err := useCase.Execute(t.Context(), uploadOf(t, artifact))
@@ -131,7 +132,7 @@ func TestReplaceCoverageRefusesAnUnreadableArtifactAndKeepsThePreviousMap(t *tes
 	maps := newCoverageStore(domain.DeclaredCoverageLimits())
 	repository, suite, path := parsedRepository(t), parsedSuite(t), parsedPath(t)
 	useCase := replaceCoverage(t, maps, repositoryHolding{path}, tokensNaming{repository})
-	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
+	if _, err := useCase.Execute(t.Context(), uploadOf(t, reportOf(t, path))); err != nil {
 		t.Fatalf("accept the first map: %v", err)
 	}
 
@@ -175,7 +176,7 @@ func TestReplaceCoverageRefusesAnUploadOverTheRateWithoutReadingIt(t *testing.T)
 	path := parsedPath(t)
 	rate := rateFor(t, domain.DeclaredCoverageLimits(), func() time.Time { return windowOpens })
 	admitAll(t, rate, parsedRepository(t), domain.DeclaredCoverageLimits().MaxUploadsPerMinute)
-	artifact := reportOf(path)
+	artifact := reportOf(t, path)
 	useCase := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedRepository(t)}, Rate: rate}
 
@@ -197,22 +198,22 @@ func TestReplaceCoverageNeverSpendsTheAllowanceOnARefusedUploader(t *testing.T) 
 	strangers := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedStranger(t)}, Rate: rate}
 	for range domain.DeclaredCoverageLimits().MaxUploadsPerMinute {
-		if _, err := strangers.Execute(t.Context(), uploadOf(t, reportOf(path))); !errors.Is(err, application.ErrForeignRepository) {
+		if _, err := strangers.Execute(t.Context(), uploadOf(t, reportOf(t, path))); !errors.Is(err, application.ErrForeignRepository) {
 			t.Fatalf("want ErrForeignRepository, got %v", err)
 		}
 	}
 	governed := application.ReplaceCoverage{
 		Maps: maps, Paths: repositoryHolding{path}, Callers: tokensNaming{parsedRepository(t)}, Rate: rate}
 
-	if _, err := governed.Execute(t.Context(), uploadOf(t, reportOf(path))); err != nil {
+	if _, err := governed.Execute(t.Context(), uploadOf(t, reportOf(t, path))); err != nil {
 		t.Fatalf("refused uploaders spent the repository's allowance: %v", err)
 	}
 }
 
 type unreadableArtifact struct{}
 
-func (unreadableArtifact) ReportedFiles(domain.CoverageLimits) ([]domain.ReportedFile, error) {
-	return nil, domain.ErrTooManyFileEntries
+func (unreadableArtifact) ReportedCoverage(domain.CoverageLimits) (domain.ReportedCoverage, error) {
+	return domain.ReportedCoverage{}, domain.ErrTooManyFileEntries
 }
 
 type unverifiedTokens struct{ refusal error }
@@ -281,17 +282,30 @@ func (held repositoryHolding) KnownPathsOf(context.Context, domain.GovernedRepos
 }
 
 type artifactReporting struct {
-	reported []domain.ReportedFile
+	reported domain.ReportedCoverage
 	reads    *int
 }
 
-func (artifact artifactReporting) ReportedFiles(domain.CoverageLimits) ([]domain.ReportedFile, error) {
+func (artifact artifactReporting) ReportedCoverage(domain.CoverageLimits) (domain.ReportedCoverage, error) {
 	*artifact.reads++
 	return artifact.reported, nil
 }
 
-func reportOf(path domain.RepositoryPath) artifactReporting {
-	return artifactReporting{reported: []domain.ReportedFile{domain.NewReportedFile(path, true)}, reads: new(int)}
+func reportOf(t *testing.T, path domain.RepositoryPath) artifactReporting {
+	t.Helper()
+
+	tested := domain.NewReportedTest(reportedTestName(t), []domain.TestedFile{domain.NewTestedFile(path, []uint32{1})})
+	return artifactReporting{reported: domain.NewReportedCoverage([]domain.RepositoryPath{path}, []domain.ReportedTest{tested}), reads: new(int)}
+}
+
+func reportedTestName(t *testing.T) domain.TopLevelTestName {
+	t.Helper()
+
+	name, err := domain.ParseTopLevelTestName("TestEffect")
+	if err != nil {
+		t.Fatalf("parse test name: %v", err)
+	}
+	return name
 }
 
 func parsedRepository(t *testing.T) domain.GovernedRepository {

@@ -15,6 +15,8 @@ const (
 	suitesLabel            = "suites per repository"
 	testSectionsLabel      = "TN sections"
 	lineRecordsLabel       = "DA records"
+	indexedTestsLabel      = "indexed tests"
+	indexEdgesLabel        = "block-test edges"
 )
 
 var ErrCoverageBoundExceeded = errors.New("coverage artifact exceeds a bound")
@@ -31,6 +33,10 @@ var ErrTooManyTestSections = boundNamed(testSectionsLabel)
 
 var ErrTooManyLineRecords = boundNamed(lineRecordsLabel)
 
+var ErrTooManyIndexedTests = boundNamed(indexedTestsLabel)
+
+var ErrTooManyIndexEdges = boundNamed(indexEdgesLabel)
+
 type CoverageLimits struct {
 	MaxCompressedBytes     int64
 	MaxDecompressedBytes   int64
@@ -39,6 +45,8 @@ type CoverageLimits struct {
 	MaxLineRecords         int
 	MaxSuitesPerRepository int
 	MaxUploadsPerMinute    int
+	MaxIndexedTests        int
+	MaxIndexEdges          int
 }
 
 type coverageBound struct {
@@ -60,10 +68,15 @@ var (
 		func(limits CoverageLimits) int64 { return int64(limits.MaxTestSections) }}
 	lineRecordsBound = coverageBound{ErrTooManyLineRecords, lineRecordsLabel,
 		func(limits CoverageLimits) int64 { return int64(limits.MaxLineRecords) }}
+	indexedTestsBound = coverageBound{ErrTooManyIndexedTests, indexedTestsLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxIndexedTests) }}
+	indexEdgesBound = coverageBound{ErrTooManyIndexEdges, indexEdgesLabel,
+		func(limits CoverageLimits) int64 { return int64(limits.MaxIndexEdges) }}
 )
 
 var coverageBounds = []coverageBound{
 	compressedBytesBound, decompressedBytesBound, fileEntriesBound, suitesBound, testSectionsBound, lineRecordsBound,
+	indexedTestsBound, indexEdgesBound,
 }
 
 func DeclaredCoverageLimits() CoverageLimits {
@@ -75,6 +88,8 @@ func DeclaredCoverageLimits() CoverageLimits {
 		MaxLineRecords:         2_000_000,
 		MaxSuitesPerRepository: 5_000,
 		MaxUploadsPerMinute:    60,
+		MaxIndexedTests:        10_000,
+		MaxIndexEdges:          5_000_000,
 	}
 }
 
@@ -88,6 +103,14 @@ func (limits CoverageLimits) TestSectionsBreach(testSections int) error {
 
 func (limits CoverageLimits) LineRecordsBreach(lineRecords int) error {
 	return lineRecordsBound.breachIn(limits, int64(lineRecords))
+}
+
+func (limits CoverageLimits) indexedTestsBreach(indexedTests int) error {
+	return indexedTestsBound.breachIn(limits, int64(indexedTests))
+}
+
+func (limits CoverageLimits) indexEdgesBreach(indexEdges int) error {
+	return indexEdgesBound.breachIn(limits, int64(indexEdges))
 }
 
 func (limits CoverageLimits) SuitesBreach(suites int) error {

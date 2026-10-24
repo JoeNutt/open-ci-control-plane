@@ -4,6 +4,7 @@ package lcov_test
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,17 +16,18 @@ func TestArtifactsReadAnLCOVBodyAsTheReportItDeclares(t *testing.T) {
 	body := testSection(effectTest, record(effectPath, lineHit))
 
 	reported, err := lcov.Artifacts{}.ArtifactOf(int64(len(body)), strings.NewReader(body)).
-		ReportedFiles(domain.DeclaredCoverageLimits())
+		ReportedCoverage(domain.DeclaredCoverageLimits())
 
-	if err != nil || len(reported) != 1 || reported[0].Path() != repositoryPath(t, effectPath) {
-		t.Fatalf("reported %+v (%v), want one entry for %s", reported, err, effectPath)
+	want := reportedCoverage(t, []string{effectPath}, reportedTest(t, effectTest, testedFile(t, effectPath, lineHitNumber)))
+	if err != nil || !reflect.DeepEqual(reported, want) {
+		t.Fatalf("reported %+v (%v), want one test hitting %s", reported, err, effectPath)
 	}
 }
 
 func TestArtifactsRefuseABodyDeclaredOverTheCompressedBoundUnread(t *testing.T) {
 	limits := domain.DeclaredCoverageLimits()
 
-	_, err := lcov.Artifacts{}.ArtifactOf(limits.MaxCompressedBytes+1, unreadBody{t}).ReportedFiles(limits)
+	_, err := lcov.Artifacts{}.ArtifactOf(limits.MaxCompressedBytes+1, unreadBody{t}).ReportedCoverage(limits)
 
 	if !errors.Is(err, domain.ErrCompressedArtifactTooLarge) {
 		t.Fatalf("error is %v, want %v", err, domain.ErrCompressedArtifactTooLarge)

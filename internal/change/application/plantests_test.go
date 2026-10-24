@@ -67,7 +67,7 @@ func plannerOverAnUpload(t *testing.T) application.PlanTests {
 
 	maps := newCoverageStore(domain.DeclaredCoverageLimits())
 	upload := replaceCoverage(t, maps, repositoryHolding{parsedPath(t)}, tokensNaming{parsedRepository(t)})
-	if _, err := upload.Execute(t.Context(), uploadOf(t, reportOf(parsedPath(t)))); err != nil {
+	if _, err := upload.Execute(t.Context(), uploadOf(t, reportOf(t, parsedPath(t)))); err != nil {
 		t.Fatalf("replace the suite's coverage: %v", err)
 	}
 	return application.PlanTests{

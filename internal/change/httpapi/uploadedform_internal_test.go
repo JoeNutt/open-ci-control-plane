@@ -26,7 +26,7 @@ func TestAnUploadedFormHandsItsArtifactAndDeclaredLengthToTheArtifactParser(t *t
 	if refused != nil {
 		t.Fatalf("refused %#v", refused)
 	}
-	if _, err := form.ReportedFiles(domain.DeclaredCoverageLimits()); err != nil {
+	if _, err := form.ReportedCoverage(domain.DeclaredCoverageLimits()); err != nil {
 		t.Fatalf("report: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestAFormMissingItsFormatOrArtifactPartIsRefusedNamingThePart(t *testing.T)
 				t.Fatalf("refused %#v", refused)
 			}
 
-			_, err := parsed.ReportedFiles(domain.DeclaredCoverageLimits())
+			_, err := parsed.ReportedCoverage(domain.DeclaredCoverageLimits())
 
 			if !errors.Is(err, stated.missing) {
 				t.Errorf("error is %v, want %v", err, stated.missing)
@@ -82,7 +82,7 @@ func TestAFormStatingAnyFormatButLCOVIsRefusedWithoutItsArtifactRead(t *testing.
 				t.Fatalf("refused %#v", refused)
 			}
 
-			_, err := parsed.ReportedFiles(domain.DeclaredCoverageLimits())
+			_, err := parsed.ReportedCoverage(domain.DeclaredCoverageLimits())
 
 			if !errors.Is(err, errUnknownFormat) || parser.artifact != "" {
 				t.Errorf("error is %v and the parser read %d bytes, want %v and nothing read", err, len(parser.artifact), errUnknownFormat)
@@ -129,8 +129,8 @@ type recordedReport struct {
 	body      io.Reader
 }
 
-func (report recordedReport) ReportedFiles(domain.CoverageLimits) ([]domain.ReportedFile, error) {
+func (report recordedReport) ReportedCoverage(domain.CoverageLimits) (domain.ReportedCoverage, error) {
 	content, err := io.ReadAll(report.body)
 	report.recording.artifact = string(content)
-	return nil, err
+	return domain.ReportedCoverage{}, err
 }
