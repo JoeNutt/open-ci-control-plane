@@ -4,16 +4,25 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 const (
-	hunkHeaderPrefix = "@@"
-	patchLineBreak   = "\n"
-	removedLineMark  = '-'
-	addedLineMark    = '+'
-	hunkRangeJoin    = ","
+	hunkHeaderPrefix     = "@@"
+	hunkBaseRangeOpen    = hunkHeaderPrefix + " -"
+	hunkHeadRangeOpen    = " +"
+	hunkHeaderClose      = " " + hunkHeaderPrefix
+	hunkSectionOpen      = " "
+	hunkRangeJoin        = ","
+	hunkNumberBase       = 10
+	hunkNumberBits       = 31
+	patchLineBreak       = "\n"
+	removedLineMark      = '-'
+	addedLineMark        = '+'
+	firstPatchLineNumber = 1
+	unstatedHunkCount    = 1
 )
 
 var ErrMalformedHunk = errors.New("the patch holds a malformed hunk")
@@ -25,9 +34,9 @@ type ChangedLines struct {
 
 func ParseChangedLines(patch string) (ChangedLines, error) {
 	var walk patchWalk
-	for _, line := range strings.Split(patch, patchLineBreak) {
+	for index, line := range strings.Split(patch, patchLineBreak) {
 		if err := walk.step(line); err != nil {
-			return ChangedLines{}, err
+			return ChangedLines{}, fmt.Errorf("%w: patch line %d", err, index+firstPatchLineNumber)
 		}
 	}
 	return walk.changed, nil
@@ -41,9 +50,7 @@ type patchWalk struct {
 
 func (walk *patchWalk) step(line string) error {
 	if strings.HasPrefix(line, hunkHeaderPrefix) {
-		var err error
-		walk.baseLine, walk.headLine, err = hunkStartsOf(line)
-		return err
+		return walk.enter(line)
 	}
 	switch line[0] {
 	case removedLineMark:
@@ -59,43 +66,67 @@ func (walk *patchWalk) step(line string) error {
 	return nil
 }
 
-func hunkStartsOf(header string) (base, head int, err error) {
-	rest, ok := strings.CutPrefix(header, "@@ -")
-	if !ok {
-		return 0, 0, ErrMalformedHunk
-	}
-	baseRange, rest, ok := strings.Cut(rest, " +")
-	if !ok {
-		return 0, 0, ErrMalformedHunk
-	}
-	headRange, rest, ok := strings.Cut(rest, " @@")
-	if !ok {
-		return 0, 0, ErrMalformedHunk
-	}
-	if rest != "" && !strings.HasPrefix(rest, " ") {
-		return 0, 0, ErrMalformedHunk
-	}
-	base, err = rangeStartOf(baseRange)
+func (walk *patchWalk) enter(header string) error {
+	hunk, err := parseHunkHeader(header)
 	if err != nil {
-		return 0, 0, err
+		return err
 	}
-	head, err = rangeStartOf(headRange)
-	if err != nil {
-		return 0, 0, err
-	}
-	return base, head, nil
+	walk.baseLine, walk.headLine = hunk.base.start, hunk.head.start
+	return nil
 }
 
-func rangeStartOf(stated string) (int, error) {
+type hunkHeader struct {
+	base hunkRange
+	head hunkRange
+}
+
+type hunkRange struct {
+	start int
+	count int
+}
+
+func parseHunkHeader(header string) (hunkHeader, error) {
+	afterOpen, isOpened := strings.CutPrefix(header, hunkBaseRangeOpen)
+	baseRange, afterBase, isBaseClosed := strings.Cut(afterOpen, hunkHeadRangeOpen)
+	headRange, section, isHeaderClosed := strings.Cut(afterBase, hunkHeaderClose)
+	if !isOpened || !isBaseClosed || !isHeaderClosed || !isHunkSection(section) {
+		return hunkHeader{}, ErrMalformedHunk
+	}
+	base, err := parseHunkRange(baseRange)
+	if err != nil {
+		return hunkHeader{}, err
+	}
+	head, err := parseHunkRange(headRange)
+	if err != nil {
+		return hunkHeader{}, err
+	}
+	return hunkHeader{base: base, head: head}, nil
+}
+
+func isHunkSection(section string) bool {
+	return section == "" || strings.HasPrefix(section, hunkSectionOpen)
+}
+
+func parseHunkRange(stated string) (hunkRange, error) {
 	start, count, hasCount := strings.Cut(stated, hunkRangeJoin)
-	line, err := strconv.ParseUint(start, 10, 31)
+	parsedStart, err := parseHunkNumber(start)
+	if err != nil {
+		return hunkRange{}, err
+	}
+	if !hasCount {
+		return hunkRange{start: parsedStart, count: unstatedHunkCount}, nil
+	}
+	parsedCount, err := parseHunkNumber(count)
+	if err != nil {
+		return hunkRange{}, err
+	}
+	return hunkRange{start: parsedStart, count: parsedCount}, nil
+}
+
+func parseHunkNumber(stated string) (int, error) {
+	number, err := strconv.ParseUint(stated, hunkNumberBase, hunkNumberBits)
 	if err != nil {
 		return 0, ErrMalformedHunk
 	}
-	if hasCount {
-		if _, err := strconv.ParseUint(count, 10, 31); err != nil {
-			return 0, ErrMalformedHunk
-		}
-	}
-	return int(line), nil
+	return int(number), nil
 }
