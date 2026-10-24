@@ -28,3 +28,24 @@ func TestExtractorClaimsOnlyGoSourceFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractorReadsTestsOnlyFromTestFilesTheGoToolBuilds(t *testing.T) {
+	declared := map[string]bool{
+		"internal/change/domain/document_test.go":           true,
+		"document_test.go":                                  true,
+		"internal/change/domain/document.go":                false,
+		"internal/change/domain/document_test.go.orig":      false,
+		"internal/change/extract/golang/testdata/x_test.go": false,
+		"internal/_scratch/x_test.go":                       false,
+		"internal/.hidden/x_test.go":                        false,
+		"internal/change/domain/_x_test.go":                 false,
+	}
+
+	for path, want := range declared {
+		t.Run(path, func(t *testing.T) {
+			if (golang.Extractor{}).DeclaresTests(path) != want {
+				t.Fatalf("declares tests %s is %v, want %v", path, !want, want)
+			}
+		})
+	}
+}

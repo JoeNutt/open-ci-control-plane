@@ -13,6 +13,18 @@ import (
 
 const testingStateType = "T"
 
+func (Extractor) DeclaresTests(path string) bool {
+	if !strings.HasSuffix(path, "_test.go") {
+		return false
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "testdata" || strings.HasPrefix(segment, "_") || strings.HasPrefix(segment, ".") {
+			return false
+		}
+	}
+	return true
+}
+
 func (Extractor) TestFunctionsIn(source domain.BoundedSource) ([]domain.TestFunction, error) {
 	files := token.NewFileSet()
 	parsed, err := parser.ParseFile(files, unnamedSource, source.Reader(), parser.SkipObjectResolution)
